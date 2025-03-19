@@ -1,0 +1,54 @@
+{
+  "name": "@stratix/cache",
+  "version": "1.0.0",
+  "description": "一个灵活、高性能的缓存管理库，支持多种缓存策略和存储后端",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "clean": "rimraf dist",
+    "lint": "eslint src --ext .ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "cache",
+    "memory-cache",
+    "redis-cache",
+    "lru",
+    "fifo",
+    "lfu",
+    "typescript",
+    "stratix"
+  ],
+  "author": "Stratix Team",
+  "license": "MIT",
+  "dependencies": {
+    "lru-cache": "^10.0.1"
+  },
+  "devDependencies": {},
+  "peerDependencies": {
+    "ioredis": "^5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "ioredis": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

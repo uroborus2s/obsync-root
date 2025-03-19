@@ -1,0 +1,22 @@
+{
+  "name": "@obsync/data-distributor",
+  "version": "1.0.0",
+  "description": "Environment configuration management system",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "clean": "rimraf dist",
+    "build": "pnpm run clean && tsc"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "types": "./dist/types/index.d.ts"
+    }
+  },
+  "dependencies": {
+    "uuid": "^11.1.0"
+  }
+}

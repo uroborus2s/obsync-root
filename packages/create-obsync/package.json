@@ -1,0 +1,24 @@
+{
+  "name": "@obsync/create",
+  "version": "1.0.0",
+  "description": "CLI tool for obsync project management",
+  "main": "index.js",
+  "bin": {
+    "obs": "./bin/obs.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "cli",
+    "obsync"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "yargs": "^17.7.2",
+    "inquirer": "^9.2.10",
+    "zx": "^7.2.3",
+    "ora": "^7.0.1"
+  }
+}

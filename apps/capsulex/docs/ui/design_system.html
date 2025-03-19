@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CapsuleX - 设计系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+        
+        body {
+            background-color: white;
+            color: #1e293b;
+            line-height: 1.6;
+            padding: 40px;
+        }
+        
+        h1 {
+            font-size: 28px;
+            color: #0066ff;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #e2e8f0;
+            font-weight: 600;
+        }
+        
+        h2 {
+            font-size: 22px;
+            color: #1e293b;
+            margin: 32px 0 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e2e8f0;
+            font-weight: 600;
+        }
+        
+        h3 {
+            font-size: 18px;
+            color: #0066ff;
+            margin: 24px 0 12px;
+            font-weight: 600;
+        }
+        
+        p {
+            margin-bottom: 16px;
+            font-size: 16px;
+            color: #334155;
+        }
+        
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 16px;
+            margin-top: 20px;
+        }
+        
+        .color-item {
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+        }
+        
+        .color-preview {
+            height: 100px;
+        }
+        
+        .color-info {
+            padding: 12px;
+            background-color: white;
+        }
+        
+        .color-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .color-hex {
+            font-family: "JetBrains Mono", monospace;
+            color: #64748b;
+            font-size: 14px;
+        }
+        
+        .font-display {
+            margin-top: 20px;
+        }
+        
+        .font-row {
+            display: flex;
+            margin-bottom: 16px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        .font-name {
+            width: 150px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+        
+        .font-sample {
+            flex: 1;
+        }
+        
+        .icons-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 16px;
+            margin-top: 20px;
+        }
+        
+        .icon-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            background-color: #f8fafc;
+        }
+        
+        .icon-display {
+            font-size: 24px;
+            color: #0066ff;
+            margin-bottom: 8px;
+        }
+        
+        .icon-name {
+            font-size: 12px;
+            color: #64748b;
+            text-align: center;
+        }
+        
+        .layout-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 24px;
+            margin-top: 20px;
+        }
+        
+        .layout-item {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .layout-preview {
+            height: 300px;
+            background-color: #f8fafc;
+            padding: 16px;
+            position: relative;
+        }
+        
+        .layout-header {
+            background-color: white;
+            height: 60px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+        }
+        
+        .layout-sidebar {
+            position: absolute;
+            top: 60px;
+            left: 16px;
+            bottom: 16px;
+            width: 240px;
+            background-color: white;
+            border-right: 1px solid #e2e8f0;
+            padding: 16px;
+        }
+        
+        .layout-content {
+            position: absolute;
+            top: 60px;
+            left: 256px;
+            right: 16px;
+            bottom: 16px;
+            background-color: white;
+            padding: 16px;
+            overflow: auto;
+        }
+        
+        .layout-info {
+            padding: 16px;
+            background-color: white;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .layout-title {
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 8px;
+        }
+        
+        .layout-description {
+            color: #64748b;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>CapsuleX 设计系统</h1>
+    
+    <p>CapsuleX 设计系统定义了平台的设计基础，确保整体设计的一致性和专业性。设计风格采用现代简约的企业级产品设计，注重专业性和可用性，整体干净、高效，减少视觉干扰，突出关键信息和操作。</p>
+    
+    <h2>1. 色彩系统</h2>
+    
+    <h3>主色调</h3>
+    <div class="color-grid">
+        <div class="color-item">
+            <div class="color-preview" style="background-color: #0066FF;"></div>
+            <div class="color-info">
+                <div class="color-name">主要品牌色</div>
+                <div class="color-hex">#0066FF</div>
+            </div>
+        </div>
+        <div class="color-item">
+            <div class="color-preview" style="background-color: #14B8A6;"></div>
+            <div class="color-info">
+                <div class="color-name">辅助品牌色</div>
+                <div class="color-hex">#14B8A6</div>
+            </div>
+        </div>
+    </div>
+    
+    <h3>功能色彩</h3>
+    <div class="color-grid">
+        <div class="color-item">
+            <div class="color-preview" style="background-color: #10B981;"></div>
+            <div class="color-info">
+                <div class="color-name">成功</div>
+                <div class="color-hex">#10B981</div>
+            </div>
+        </div>
+        <div class="color-item">
+            <div class="color-preview" style="background-color: #F59E0B;"></div>
+            <div class="color-info">
+                <div class="color-name">警告</div>
+                <div class="color-hex">#F59E0B</div>
+            </div>
+        </div>
+        <div class="color-item">
+            <div class="color-preview" style="background-color: #EF4444;"></div>
+            <div class="color-info">
+                <div class="color-name">错误</div>
+                <div class="color-hex">#EF4444</div>
+            </div>
+        </div>
+        <div class="color-item">
+            <div class="color-preview" style="background-color: #3B82F6;"></div>
+            <div class="color-info">
+                <div class="color-name">信息</div>
+                <div class="color-hex">#3B82F6</div>
+            </div>
+        </div>
+    </div>
+    
+    <h3>中性色彩</h3>
+    <div class="color-grid">
+        <div class="color-item">
+            <div class="color-preview" style="background-color: #F8FAFC;"></div>
+            <div class="color-info">
+                <div class="color-name">背景色</div>
+                <div class="color-hex">#F8FAFC</div>
+            </div>
+        </div>
+        <div class="color-item">
+            <div class="color-preview" style="background-color: #FFFFFF;"></div>
+            <div class="color-info">
+                <div class="color-name">卡片背景</div>
+                <div class="color-hex">#FFFFFF</div>
+            </div>
+        </div>
+        <div class="color-item">
+            <div class="color-preview" style="background-color: #E2E8F0;"></div>
+            <div class="color-info">
+                <div class="color-name">边框色</div>
+                <div class="color-hex">#E2E8F0</div>
+            </div>
+        </div>
+        <div class="color-item">
+            <div class="color-preview" style="background-color: #1E293B;"></div>
+            <div class="color-info">
+                <div class="color-name">文本主色</div>
+                <div class="color-hex">#1E293B</div>
+            </div>
+        </div>
+        <div class="color-item">
+            <div class="color-preview" style="background-color: #64748B;"></div>
+            <div class="color-info">
+                <div class="color-name">文本次要色</div>
+                <div class="color-hex">#64748B</div>
+            </div>
+        </div>
+    </div>
+    
+    <h2>2. 排版系统</h2>
+    
+    <h3>字体选择</h3>
+    <div class="font-display">
+        <div class="font-row">
+            <div class="font-name">中文字体</div>
+            <div class="font-sample" style="font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;">苹方（PingFang SC）/ 微软雅黑（Microsoft YaHei）</div>
+        </div>
+        <div class="font-row">
+            <div class="font-name">英文字体</div>
+            <div class="font-sample" style="font-family: 'Inter', 'SF Pro', system-ui, sans-serif;">Inter / SF Pro / 系统无衬线字体 (The quick brown fox jumps over the lazy dog)</div>
+        </div>
+        <div class="font-row">
+            <div class="font-name">代码字体</div>
+            <div class="font-sample" style="font-family: 'JetBrains Mono', 'Source Code Pro', monospace;">JetBrains Mono / Source Code Pro (const example = "code";)</div>
+        </div>
+    </div>
+    
+    <h3>字号体系</h3>
+    <div class="font-display">
+        <div class="font-row">
+            <div class="font-name">大标题</div>
+            <div class="font-sample" style="font-size: 24px; font-weight: 600;">24px, 字重600</div>
+        </div>
+        <div class="font-row">
+            <div class="font-name">中标题</div>
+            <div class="font-sample" style="font-size: 20px; font-weight: 600;">20px, 字重600</div>
+        </div>
+        <div class="font-row">
+            <div class="font-name">小标题</div>
+            <div class="font-sample" style="font-size: 16px; font-weight: 600;">16px, 字重600</div>
+        </div>
+        <div class="font-row">
+            <div class="font-name">正文</div>
+            <div class="font-sample" style="font-size: 14px; font-weight: 400;">14px, 字重400</div>
+        </div>
+        <div class="font-row">
+            <div class="font-name">小文本</div>
+            <div class="font-sample" style="font-size: 12px; font-weight: 400;">12px, 字重400</div>
+        </div>
+        <div class="font-row">
+            <div class="font-name">代码</div>
+            <div class="font-sample" style="font-size: 13px; font-weight: 400; font-family: 'JetBrains Mono', monospace;">13px, 等宽字体</div>
+        </div>
+    </div>
+    
+    <h2>3. 图标系统</h2>
+    
+    <p>CapsuleX使用线性图标风格，简洁明了，保持24x24px网格对齐。状态图标配合颜色表达状态，导航图标简化设计，避免过多细节。</p>
+    
+    <div class="icons-grid">
+        <div class="icon-item">
+            <div class="icon-display">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="8" y1="12" x2="16" y2="12"></line><line x1="12" y1="8" x2="12" y2="16"></line></svg>
+            </div>
+            <div class="icon-name">添加</div>
+        </div>
+        <div class="icon-item">
+            <div class="icon-display">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </div>
+            <div class="icon-name">删除</div>
+        </div>
+        <div class="icon-item">
+            <div class="icon-display">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+            </div>
+            <div class="icon-name">编辑</div>
+        </div>
+        <div class="icon-item">
+            <div class="icon-display">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            </div>
+            <div class="icon-name">历史</div>
+        </div>
+        <div class="icon-item">
+            <div class="icon-display">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            </div>
+            <div class="icon-name">下载</div>
+        </div>
+        <div class="icon-item">
+            <div class="icon-display">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+            </div>
+            <div class="icon-name">信息</div>
+        </div>
+        <div class="icon-item">
+            <div class="icon-display">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            </div>
+            <div class="icon-name">警告</div>
+        </div>
+        <div class="icon-item">
+            <div class="icon-display">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+            <div class="icon-name">成功</div>
+        </div>
+    </div>
+    
+    <h2>4. 布局系统</h2>
+    
+    <div class="layout-grid">
+        <div class="layout-item">
+            <div class="layout-preview">
+                <div class="layout-header">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0066FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                    <span style="color: #0066ff; font-weight: 600; margin-left: 8px;">CapsuleX</span>
+                    <div style="flex: 1;"></div>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 20px;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                    <div style="width: 32px; height: 32px; border-radius: 16px; background-color: #0066ff; margin-left: 20px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600;">U</div>
+                </div>
+                <div class="layout-sidebar">
+                    <div style="padding: 12px 16px; margin-bottom: 8px; border-radius: 6px; background-color: rgba(0, 102, 255, 0.1); color: #0066ff;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 8px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                        仪表盘
+                    </div>
+                    <div style="padding: 12px 16px; margin-bottom: 8px; border-radius: 6px; color: #64748b;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 8px;"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+                        数据库运维
+                    </div>
+                    <div style="padding: 12px 16px; margin-bottom: 8px; border-radius: 6px; color: #64748b;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 8px;"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                        API测试
+                    </div>
+                    <div style="padding: 12px 16px; margin-bottom: 8px; border-radius: 6px; color: #64748b;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 8px;"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
+                        Docker管理
+                    </div>
+                    <div style="padding: 12px 16px; margin-bottom: 8px; border-radius: 6px; color: #64748b;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 8px;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                        监控与告警
+                    </div>
+                    <div style="padding: 12px 16px; margin-bottom: 8px; border-radius: 6px; color: #64748b;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: middle; margin-right: 8px;"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                        系统管理
+                    </div>
+                </div>
+                <div class="layout-content">
+                    <div style="font-size: 20px; font-weight: 600; color: #1e293b; margin-bottom: 16px;">仪表盘</div>
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;">
+                        <div style="background-color: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 16px;">
+                            <div style="font-size: 12px; color: #0369a1; margin-bottom: 8px;">数据库连接数</div>
+                            <div style="font-size: 24px; font-weight: 600; color: #0c4a6e;">27</div>
+                        </div>
+                        <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px;">
+                            <div style="font-size: 12px; color: #15803d; margin-bottom: 8px;">活跃容器</div>
+                            <div style="font-size: 24px; font-weight: 600; color: #14532d;">18</div>
+                        </div>
+                        <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 16px;">
+                            <div style="font-size: 12px; color: #b45309; margin-bottom: 8px;">API请求 (今日)</div>
+                            <div style="font-size: 24px; font-weight: 600; color: #92400e;">1,458</div>
+                        </div>
+                        <div style="background-color: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 16px;">
+                            <div style="font-size: 12px; color: #be123c; margin-bottom: 8px;">活跃告警</div>
+                            <div style="font-size: 24px; font-weight: 600; color: #9f1239;">5</div>
+                        </div>
+                    </div>
+                    <div style="height: 200px; background-color: #f1f5f9; border-radius: 8px; margin-bottom: 16px; display: flex; align-items: center; justify-content: center;">
+                        <span style="color: #64748b;">系统资源使用趋势图表</span>
+                    </div>
+                    <div style="height: 200px; background-color: #f1f5f9; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                        <span style="color: #64748b;">最近活动日志</span>
+                    </div>
+                </div>
+            </div>
+            <div class="layout-info">
+                <div class="layout-title">标准布局</div>
+                <div class="layout-description">左侧固定导航 + 顶部状态栏的布局结构，适合数据密集型展示，提供清晰的导航层级</div>
+            </div>
+        </div>
+    </div>
+    
+    <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 14px;">CapsuleX 设计系统文档 © 2024</div>
+</body>
+</html> 

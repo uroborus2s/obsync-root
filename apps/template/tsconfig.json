@@ -1,0 +1,17 @@
+{
+  "extends": "@tsconfig/recommended/tsconfig.json",
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "NodeNext",
+    "outDir": "dist",
+    "rootDir": ".",
+    "moduleResolution": "NodeNext",
+    "sourceMap": false,
+    "composite": false,
+    "declaration": false,
+    "baseUrl": ".",
+    "types": ["node"]
+  },
+  "exclude": ["node_modules/", "dist/"],
+  "include": ["src/**/*", "stratix.config.ts"]
+}

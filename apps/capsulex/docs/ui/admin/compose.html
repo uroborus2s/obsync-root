@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CapsuleX - Docker Compose 管理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+        
+        body {
+            background-color: #f8fafc;
+            color: #1e293b;
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+        }
+        
+        .sidebar {
+            width: 240px;
+            background-color: white;
+            border-right: 1px solid #e2e8f0;
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+        
+        .sidebar-logo {
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .sidebar-logo svg {
+            width: 32px;
+            height: 32px;
+            margin-right: 12px;
+        }
+        
+        .sidebar-logo-text {
+            font-size: 18px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+        
+        .sidebar-menu {
+            padding: 16px 0;
+            flex: 1;
+        }
+        
+        .menu-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: #64748b;
+            padding: 0 20px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .menu-item {
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            color: #64748b;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        
+        .menu-item:hover {
+            background-color: #f1f5f9;
+            color: #0f172a;
+        }
+        
+        .menu-item.active {
+            background-color: #eff6ff;
+            color: #0066ff;
+            border-right: 2px solid #0066ff;
+        }
+        
+        .menu-item svg {
+            width: 18px;
+            height: 18px;
+            margin-right: 12px;
+        }
+        
+        .menu-text {
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .content {
+            margin-left: 240px;
+            padding: 20px;
+            flex: 1;
+        }
+        
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        
+        .page-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+        
+        .user-menu {
+            display: flex;
+            align-items: center;
+        }
+        
+        .notifications {
+            width: 40px;
+            height: 40px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            margin-right: 12px;
+            position: relative;
+        }
+        
+        .notifications:hover {
+            background-color: #f1f5f9;
+        }
+        
+        .notification-badge {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 16px;
+            height: 16px;
+            border-radius: 8px;
+            background-color: #ef4444;
+            color: white;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 20px;
+            background-color: #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            overflow: hidden;
+        }
+        
+        .action-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .search-container {
+            display: flex;
+            align-items: center;
+            background-color: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            padding: 0 12px;
+            width: 320px;
+        }
+        
+        .search-input {
+            border: none;
+            height: 36px;
+            flex: 1;
+            font-size: 14px;
+        }
+        
+        .search-input:focus {
+            outline: none;
+        }
+        
+        .search-icon {
+            color: #94a3b8;
+            margin-right: 8px;
+        }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 500;
+            border-radius: 4px;
+            padding: 0 16px;
+            height: 36px;
+            font-size: 14px;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        
+        .btn-primary {
+            background-color: #0066ff;
+            color: white;
+            border: none;
+        }
+        
+        .btn-primary:hover {
+            background-color: #0050cc;
+        }
+        
+        .btn-secondary {
+            background-color: white;
+            color: #0066ff;
+            border: 1px solid #0066ff;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #f0f7ff;
+        }
+        
+        .btn-text {
+            background-color: transparent;
+            color: #0066ff;
+            border: none;
+            padding: 0 8px;
+        }
+        
+        .btn-text:hover {
+            background-color: #f0f7ff;
+        }
+        
+        .filter-bar {
+            display: flex;
+            margin-bottom: 16px;
+            background-color: white;
+            border-radius: 4px;
+            padding: 8px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        
+        .filter-item {
+            padding: 8px 16px;
+            font-size: 14px;
+            color: #64748b;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .filter-item:hover {
+            background-color: #f1f5f9;
+            color: #0f172a;
+        }
+        
+        .filter-item.active {
+            background-color: #eff6ff;
+            color: #0066ff;
+            font-weight: 500;
+        }
+        
+        .table-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+        
+        .compose-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .compose-table th {
+            text-align: left;
+            padding: 12px 16px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            background-color: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .compose-table td {
+            padding: 16px;
+            font-size: 14px;
+            border-bottom: 1px solid #e2e8f0;
+            color: #334155;
+        }
+        
+        .compose-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .compose-table tr:hover {
+            background-color: #f8fafc;
+        }
+        
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 8px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-running {
+            background-color: #dcfce7;
+            color: #10b981;
+        }
+        
+        .status-partial {
+            background-color: #fef3c7;
+            color: #d97706;
+        }
+        
+        .status-stopped {
+            background-color: #fee2e2;
+            color: #ef4444;
+        }
+        
+        .compose-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+        }
+        
+        .modal-content {
+            background-color: white;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+        
+        .modal-close {
+            cursor: pointer;
+            color: #64748b;
+        }
+        
+        .modal-body {
+            padding: 24px;
+        }
+        
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+        
+        .token-field {
+            display: flex;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .token-input {
+            flex: 1;
+            height: 40px;
+            padding: 0 12px;
+            font-size: 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px 0 0 4px;
+        }
+        
+        .token-input:focus {
+            outline: none;
+            border-color: #0066ff;
+        }
+        
+        .token-btn {
+            height: 40px;
+            border-radius: 0 4px 4px 0;
+            padding: 0 12px;
+            background-color: #0066ff;
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .token-btn:hover {
+            background-color: #0050cc;
+        }
+    </style>
+    <script>
+        // 动态Token计算脚本
+        function calculateToken() {
+            // 获取当前时间戳
+            const timestamp = Math.floor(Date.now() / 1000);
+            // 创建一个基于时间的简单token（实际项目中应使用更安全的方法）
+            const baseToken = timestamp.toString(16);
+            // 添加一些随机性
+            const randomPart = Math.random().toString(36).substring(2, 8);
+            // 组合token
+            const token = `${baseToken}-${randomPart}`;
+            
+            // 更新token输入框
+            document.getElementById('token-input').value = token;
+        }
+        
+        // 模拟启动Compose
+        function startCompose(id) {
+            alert(`正在启动Compose (ID: ${id})`);
+        }
+        
+        // 模拟停止Compose
+        function stopCompose(id) {
+            alert(`正在停止Compose (ID: ${id})`);
+        }
+        
+        // 打开数据库连接模态窗口
+        function openDatabaseModal(composeId) {
+            openModal('db-connection-modal');
+        }
+        
+        // 打开模态窗口
+        function openModal(modalId) {
+            document.getElementById(modalId).style.display = 'flex';
+        }
+        
+        // 关闭模态窗口
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+        
+        // 页面跳转函数
+        function navigateTo(page) {
+            window.location.href = page;
+        }
+        
+        // 保存当前数据库连接
+        function saveCurrentConnection() {
+            const host = document.getElementById('db-host').value;
+            const port = document.getElementById('db-port').value;
+            const user = document.getElementById('db-user').value;
+            const dbName = document.getElementById('db-name').value;
+            
+            if (!host || !port) {
+                alert('请至少填写主机地址和端口');
+                return;
+            }
+            
+            const connectionName = prompt('请输入连接名称:');
+            if (!connectionName) return;
+            
+            // 在实际应用中，这里会将连接信息保存到后端
+            // 这里仅做界面演示，添加一个新的连接项
+            const connectionList = document.querySelector('.connection-list');
+            const newConnection = document.createElement('div');
+            newConnection.className = 'connection-item';
+            newConnection.style = 'padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 4px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;';
+            
+            newConnection.innerHTML = `
+                <div class="connection-info">
+                    <div style="font-weight: 500;">${connectionName}</div>
+                    <div style="font-size: 12px; color: #64748b;">${host}:${port}</div>
+                </div>
+                <button class="btn btn-text" style="color: #0066ff; background: none; border: none; cursor: pointer;" onclick="loadConnection('${connectionName.toLowerCase().replace(/\s+/g, '-')}')">使用</button>
+            `;
+            
+            connectionList.appendChild(newConnection);
+            alert('连接已保存');
+        }
+        
+        // 加载已保存的连接
+        function loadConnection(connectionId) {
+            // 在实际应用中，这里会从后端加载连接信息
+            // 这里仅作为演示
+            switch(connectionId) {
+                case 'mysql-main':
+                    document.getElementById('db-host').value = 'localhost';
+                    document.getElementById('db-port').value = '3306';
+                    document.getElementById('db-user').value = 'root';
+                    document.getElementById('db-name').value = 'main_db';
+                    break;
+                case 'redis-cache':
+                    document.getElementById('db-host').value = 'redis.example.com';
+                    document.getElementById('db-port').value = '6379';
+                    document.getElementById('db-user').value = 'redis_user';
+                    document.getElementById('db-name').value = '';
+                    break;
+                default:
+                    // 对于新添加的连接，这里可以通过API获取详细信息
+                    alert(`已选择连接: ${connectionId}`);
+            }
+        }
+        
+        // 数据库连接相关函数
+        function openDatabaseModal(composeId) {
+            // 可以根据composeId加载特定的连接配置
+            openModal('db-connection-modal');
+        }
+        
+        // 保存连接到本地存储
+        let savedConnections = JSON.parse(localStorage.getItem('savedConnections')) || [];
+        
+        // 提示用户输入连接名称
+        function promptSaveConnection() {
+            closeModal('db-connection-modal');
+            openModal('save-connection-modal');
+        }
+        
+        // 保存当前连接
+        function saveCurrentConnection() {
+            const connectionName = document.getElementById('connection-name').value;
+            if (!connectionName) {
+                alert('请输入连接名称');
+                return;
+            }
+            
+            const connection = {
+                id: Date.now(),
+                name: connectionName,
+                host: document.getElementById('db-host').value,
+                port: document.getElementById('db-port').value,
+                database: document.getElementById('db-name').value,
+                user: document.getElementById('db-user').value,
+                password: document.getElementById('db-password').value
+            };
+            
+            savedConnections.push(connection);
+            localStorage.setItem('savedConnections', JSON.stringify(savedConnections));
+            
+            closeModal('save-connection-modal');
+            openModal('db-connection-modal');
+            
+            // 更新连接列表
+            updateConnectionList();
+        }
+        
+        // 更新连接列表
+        function updateConnectionList() {
+            const connectionsList = document.getElementById('saved-connections-list');
+            connectionsList.innerHTML = '';
+            
+            if (savedConnections.length === 0) {
+                connectionsList.innerHTML = '<div style="padding: 8px; color: #64748b; font-size: 14px;">没有保存的连接</div>';
+                return;
+            }
+            
+            savedConnections.forEach(conn => {
+                const connectionItem = document.createElement('div');
+                connectionItem.className = 'connection-item';
+                connectionItem.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid #e2e8f0; font-size: 14px;';
+                
+                const connectionInfo = document.createElement('div');
+                connectionInfo.innerHTML = `<strong>${conn.name}</strong> - ${conn.user}@${conn.host}:${conn.port}/${conn.database}`;
+                
+                const connectionActions = document.createElement('div');
+                connectionActions.style.cssText = 'display: flex; gap: 8px;';
+                
+                const loadButton = document.createElement('button');
+                loadButton.className = 'btn btn-text';
+                loadButton.style.cssText = 'padding: 4px 8px; font-size: 12px;';
+                loadButton.textContent = '加载';
+                loadButton.onclick = () => loadConnection(conn.id);
+                
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'btn btn-text';
+                deleteButton.style.cssText = 'padding: 4px 8px; font-size: 12px; color: #ef4444;';
+                deleteButton.textContent = '删除';
+                deleteButton.onclick = () => deleteConnection(conn.id);
+                
+                connectionActions.appendChild(loadButton);
+                connectionActions.appendChild(deleteButton);
+                
+                connectionItem.appendChild(connectionInfo);
+                connectionItem.appendChild(connectionActions);
+                
+                connectionsList.appendChild(connectionItem);
+            });
+        }
+        
+        // 加载特定的连接
+        function loadConnection(connectionId) {
+            const connection = savedConnections.find(conn => conn.id === connectionId);
+            if (connection) {
+                document.getElementById('db-host').value = connection.host;
+                document.getElementById('db-port').value = connection.port;
+                document.getElementById('db-name').value = connection.database;
+                document.getElementById('db-user').value = connection.user;
+                document.getElementById('db-password').value = connection.password;
+            }
+        }
+        
+        // 删除特定的连接
+        function deleteConnection(connectionId) {
+            savedConnections = savedConnections.filter(conn => conn.id !== connectionId);
+            localStorage.setItem('savedConnections', JSON.stringify(savedConnections));
+            updateConnectionList();
+        }
+        
+        // 测试数据库连接
+        function testConnection() {
+            const host = document.getElementById('db-host').value;
+            const port = document.getElementById('db-port').value;
+            const database = document.getElementById('db-name').value;
+            const user = document.getElementById('db-user').value;
+            
+            // 在实际应用中，这里应该发送API请求测试连接
+            // 这里我们只是模拟
+            setTimeout(() => {
+                alert(`成功连接到 ${user}@${host}:${port}/${database}`);
+            }, 500);
+        }
+        
+        // 连接到数据库
+        function connectToDatabase() {
+            const host = document.getElementById('db-host').value;
+            const port = document.getElementById('db-port').value;
+            const database = document.getElementById('db-name').value;
+            const user = document.getElementById('db-user').value;
+            
+            // 在实际应用中，这里应该发送API请求建立连接
+            // 这里我们只是模拟
+            setTimeout(() => {
+                closeModal('db-connection-modal');
+                alert(`已连接到 ${user}@${host}:${port}/${database}`);
+                
+                // 更新UI，显示连接状态
+                const connectionStatusElement = document.querySelector('.db-connection-status');
+                if (connectionStatusElement) {
+                    connectionStatusElement.innerHTML = `<span style="color: #10b981;">● 已连接</span> - ${user}@${host}:${port}/${database}`;
+                }
+            }, 500);
+        }
+        
+        // 页面加载时更新连接列表
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化连接列表
+            updateConnectionList();
+            
+            // 计算初始token
+            calculateToken();
+        });
+    </script>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-logo">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#0066FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 17L12 22L22 17" stroke="#0066FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 12L12 17L22 12" stroke="#0066FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div class="sidebar-logo-text">CapsuleX</div>
+        </div>
+        <div class="sidebar-menu">
+            <div class="menu-label">概览</div>
+            <div class="menu-item" onclick="navigateTo('dashboard.html')">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                <div class="menu-text">仪表盘</div>
+            </div>
+            
+            <div class="menu-label">Docker</div>
+            <div class="menu-item" onclick="navigateTo('containers.html')">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+                <div class="menu-text">容器管理</div>
+            </div>
+            <div class="menu-item" onclick="navigateTo('images.html')">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                </svg>
+                <div class="menu-text">镜像管理</div>
+            </div>
+            <div class="menu-item active">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                </svg>
+                <div class="menu-text">Docker Compose</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="content">
+        <div class="top-bar">
+            <h1 class="page-title">Docker Compose 管理</h1>
+            <div class="user-menu">
+                <div class="notifications">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                    <div class="notification-badge">3</div>
+                </div>
+                <div class="user-avatar">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+        
+        <div class="action-bar">
+            <div class="search-container">
+                <div class="search-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </div>
+                <input type="text" class="search-input" placeholder="搜索 Compose 项目..." aria-label="搜索 Compose 项目">
+            </div>
+            <div>
+                <button class="btn btn-primary" onclick="navigateTo('compose_create.html')">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="mr-2">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    创建 Compose
+                </button>
+            </div>
+        </div>
+        
+        <div class="filter-bar">
+            <div class="filter-item active">全部</div>
+            <div class="filter-item">运行中</div>
+            <div class="filter-item">部分运行</div>
+            <div class="filter-item">已停止</div>
+        </div>
+        
+        <div class="token-field">
+            <input type="text" id="token-input" class="token-input" placeholder="动态认证令牌" readonly aria-label="动态认证令牌">
+            <button class="token-btn" onclick="calculateToken()">生成令牌</button>
+        </div>
+        
+        <div class="table-container">
+            <table class="compose-table">
+                <thead>
+                    <tr>
+                        <th>项目名称</th>
+                        <th>文件路径</th>
+                        <th>服务数量</th>
+                        <th>状态</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>web-platform</td>
+                        <td>/docker/web-platform</td>
+                        <td>3</td>
+                        <td><span class="status-indicator status-running">运行中</span></td>
+                        <td>2023-03-15 10:30</td>
+                        <td>
+                            <div class="compose-actions">
+                                <button class="btn btn-text" onclick="navigateTo('compose_detail.html?id=1')">查看详情</button>
+                                <button class="btn btn-text" onclick="stopCompose(1)">停止</button>
+                                <button class="btn btn-text" onclick="openDatabaseModal(1)">数据库连接</button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>database-cluster</td>
+                        <td>/docker/database</td>
+                        <td>4</td>
+                        <td><span class="status-indicator status-partial">部分运行</span></td>
+                        <td>2023-03-12 14:20</td>
+                        <td>
+                            <div class="compose-actions">
+                                <button class="btn btn-text" onclick="navigateTo('compose_detail.html?id=2')">查看详情</button>
+                                <button class="btn btn-text" onclick="startCompose(2)">全部启动</button>
+                                <button class="btn btn-text" onclick="openDatabaseModal(2)">数据库连接</button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>monitoring-stack</td>
+                        <td>/docker/monitoring</td>
+                        <td>5</td>
+                        <td><span class="status-indicator status-stopped">已停止</span></td>
+                        <td>2023-03-10 09:15</td>
+                        <td>
+                            <div class="compose-actions">
+                                <button class="btn btn-text" onclick="navigateTo('compose_detail.html?id=3')">查看详情</button>
+                                <button class="btn btn-text" onclick="startCompose(3)">启动</button>
+                                <button class="btn btn-text" onclick="navigateTo('container_create.html')">添加容器</button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>api-services</td>
+                        <td>/docker/api</td>
+                        <td>2</td>
+                        <td><span class="status-indicator status-running">运行中</span></td>
+                        <td>2023-03-08 11:45</td>
+                        <td>
+                            <div class="compose-actions">
+                                <button class="btn btn-text" onclick="navigateTo('compose_detail.html?id=4')">查看详情</button>
+                                <button class="btn btn-text" onclick="stopCompose(4)">停止</button>
+                                <button class="btn btn-text" onclick="navigateTo('container_create.html')">添加容器</button>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- 数据库连接模态窗口 -->
+    <div id="db-connection-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3 class="modal-title">数据库连接</h3>
+                <div class="modal-close" onclick="closeModal('db-connection-modal')">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="saved-connections" style="margin-bottom: 16px;">
+                    <h4 style="font-size: 14px; font-weight: 500; margin-bottom: 8px;">保存的连接</h4>
+                    <div id="saved-connections-list" style="max-height: 120px; overflow-y: auto;">
+                        <!-- 保存的连接将会在这里动态显示 -->
+                    </div>
+                </div>
+                
+                <div class="connection-form">
+                    <form>
+                        <div class="grid-cols-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            <div class="form-group" style="margin-bottom: 16px;">
+                                <label for="db-host" style="display: block; margin-bottom: 8px; font-size: 14px; font-weight: 500; color: #334155;">主机</label>
+                                <input type="text" id="db-host" class="form-input" style="width: 100%; height: 40px; padding: 0 12px; font-size: 14px; border: 1px solid #cbd5e1; border-radius: 4px;" placeholder="localhost" value="localhost" aria-label="数据库主机">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 16px;">
+                                <label for="db-port" style="display: block; margin-bottom: 8px; font-size: 14px; font-weight: 500; color: #334155;">端口</label>
+                                <input type="text" id="db-port" class="form-input" style="width: 100%; height: 40px; padding: 0 12px; font-size: 14px; border: 1px solid #cbd5e1; border-radius: 4px;" placeholder="3306" value="3306" aria-label="数据库端口">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 16px;">
+                            <label for="db-name" style="display: block; margin-bottom: 8px; font-size: 14px; font-weight: 500; color: #334155;">数据库名称</label>
+                            <input type="text" id="db-name" class="form-input" style="width: 100%; height: 40px; padding: 0 12px; font-size: 14px; border: 1px solid #cbd5e1; border-radius: 4px;" placeholder="mysql" value="mysql" aria-label="数据库名称">
+                        </div>
+                        
+                        <div class="grid-cols-2" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            <div class="form-group" style="margin-bottom: 16px;">
+                                <label for="db-user" style="display: block; margin-bottom: 8px; font-size: 14px; font-weight: 500; color: #334155;">用户名</label>
+                                <input type="text" id="db-user" class="form-input" style="width: 100%; height: 40px; padding: 0 12px; font-size: 14px; border: 1px solid #cbd5e1; border-radius: 4px;" placeholder="root" value="root" aria-label="数据库用户名">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 16px;">
+                                <label for="db-password" style="display: block; margin-bottom: 8px; font-size: 14px; font-weight: 500; color: #334155;">密码</label>
+                                <input type="password" id="db-password" class="form-input" style="width: 100%; height: 40px; padding: 0 12px; font-size: 14px; border: 1px solid #cbd5e1; border-radius: 4px;" placeholder="密码" value="" aria-label="数据库密码">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: space-between; padding: 16px 24px; border-top: 1px solid #e2e8f0;">
+                <div>
+                    <button class="btn btn-secondary" onclick="promptSaveConnection()" style="height: 40px; padding: 0 16px; border-radius: 4px; font-size: 14px; font-weight: 500;">
+                        保存连接
+                    </button>
+                </div>
+                <div style="display: flex; gap: 12px;">
+                    <button class="btn btn-secondary" onclick="closeModal('db-connection-modal')" style="height: 40px; padding: 0 16px; border-radius: 4px; font-size: 14px; font-weight: 500;">
+                        取消
+                    </button>
+                    <button class="btn btn-primary" onclick="testConnection()" style="height: 40px; padding: 0 16px; border-radius: 4px; font-size: 14px; font-weight: 500;">
+                        测试连接
+                    </button>
+                    <button class="btn btn-primary" onclick="connectToDatabase()" style="height: 40px; padding: 0 16px; border-radius: 4px; font-size: 14px; font-weight: 500;">
+                        连接
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 保存连接名称模态窗口 -->
+    <div id="save-connection-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3 class="modal-title">保存连接</h3>
+                <div class="modal-close" onclick="closeModal('save-connection-modal')">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label for="connection-name" style="display: block; margin-bottom: 8px; font-size: 14px; font-weight: 500; color: #334155;">连接名称</label>
+                    <input type="text" id="connection-name" class="form-input" style="width: 100%; height: 40px; padding: 0 12px; font-size: 14px; border: 1px solid #cbd5e1; border-radius: 4px;" placeholder="例如：本地MySQL" aria-label="连接名称">
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 12px; padding: 16px 24px; border-top: 1px solid #e2e8f0;">
+                <button class="btn btn-secondary" onclick="closeModal('save-connection-modal')" style="height: 40px; padding: 0 16px; border-radius: 4px; font-size: 14px; font-weight: 500;">
+                    取消
+                </button>
+                <button class="btn btn-primary" onclick="saveCurrentConnection()" style="height: 40px; padding: 0 16px; border-radius: 4px; font-size: 14px; font-weight: 500;">
+                    保存
+                </button>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

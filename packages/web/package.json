@@ -1,0 +1,31 @@
+{
+  "name": "@stratix/web",
+  "version": "1.0.0",
+  "description": "轻量级基于Koa的HTTP服务框架",
+  "type": "module",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/types/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rimraf dist",
+    "build:esm": "tsc -p tsconfig.es6.json",
+    "build:cjs": "tsc -p tsconfig.node.json",
+    "build": "pnpm run clean && pnpm run build:esm && pnpm run build:cjs",
+    "dev": "tsc -p tsconfig.es6.json --watch"
+  },
+  "exports": {
+    "development": "./src/index.ts",
+    "import": "./dist/esm/index.js",
+    "require": "./dist/cjs/index.js",
+    "types": "./dist/types/index.d.ts"
+  },
+  "dependencies": {
+    "fastify": "^5.2.1"
+  },
+  "peerDependenciesMeta": {}
+}

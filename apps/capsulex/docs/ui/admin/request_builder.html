@@ -1,0 +1,1456 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CapsuleX - 请求构建器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.34.0/min/vs/loader.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+        
+        body {
+            background-color: #f8fafc;
+            color: #1e293b;
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+        }
+        
+        .sidebar {
+            width: 240px;
+            background-color: white;
+            border-right: 1px solid #e2e8f0;
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+        
+        .sidebar-logo {
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .sidebar-logo svg {
+            width: 32px;
+            height: 32px;
+            margin-right: 12px;
+        }
+        
+        .sidebar-logo-text {
+            font-size: 18px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+        
+        .sidebar-menu {
+            padding: 16px 0;
+            flex: 1;
+        }
+        
+        .menu-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: #64748b;
+            padding: 0 20px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .menu-item {
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            color: #64748b;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        
+        .menu-item:hover {
+            background-color: #f1f5f9;
+            color: #0f172a;
+        }
+        
+        .menu-item.active {
+            background-color: #eff6ff;
+            color: #0066ff;
+            border-right: 2px solid #0066ff;
+        }
+        
+        .menu-item svg {
+            width: 18px;
+            height: 18px;
+            margin-right: 12px;
+        }
+        
+        .menu-text {
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .content {
+            flex: 1;
+            margin-left: 240px;
+            padding: 20px;
+            max-width: 1600px;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        
+        .page-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: white;
+            color: #64748b;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover {
+            border-color: #cbd5e1;
+            color: #0f172a;
+        }
+        
+        .btn-primary {
+            background-color: #0066ff;
+            color: white;
+            border-color: #0066ff;
+        }
+        
+        .btn-primary:hover {
+            background-color: #0057da;
+            color: white;
+            border-color: #0057da;
+        }
+        
+        .btn-success {
+            background-color: #10b981;
+            color: white;
+            border-color: #10b981;
+        }
+        
+        .btn-success:hover {
+            background-color: #0ea271;
+            color: white;
+            border-color: #0ea271;
+        }
+        
+        .btn svg {
+            width: 16px;
+            height: 16px;
+            margin-right: 8px;
+        }
+        
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+        
+        .request-url-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .method-select {
+            width: 120px;
+            padding: 8px 10px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            background-color: white;
+        }
+        
+        .url-input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #e2e8f0;
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 12px 20px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-bottom: 2px solid transparent;
+        }
+        
+        .tab:hover {
+            color: #0f172a;
+        }
+        
+        .tab.active {
+            color: #0066ff;
+            border-bottom-color: #0066ff;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .param-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        
+        .param-table th {
+            text-align: left;
+            padding: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #64748b;
+            background-color: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .param-table td {
+            padding: 10px;
+            font-size: 14px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .param-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .param-checkbox {
+            width: 16px;
+            height: 16px;
+            accent-color: #0066ff;
+        }
+        
+        .param-add-btn {
+            display: flex;
+            align-items: center;
+            color: #0066ff;
+            font-size: 14px;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+        
+        .param-add-btn svg {
+            width: 16px;
+            height: 16px;
+            margin-right: 6px;
+        }
+        
+        .editor-container {
+            height: 300px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        
+        .response-container {
+            margin-top: 20px;
+        }
+        
+        .response-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+        
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .status-success {
+            background-color: #f0fdf4;
+            color: #10b981;
+            border: 1px solid #d1fae5;
+        }
+        
+        .status-error {
+            background-color: #fff1f2;
+            color: #ef4444;
+            border: 1px solid #fee2e2;
+        }
+        
+        .response-meta {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 12px;
+            font-size: 13px;
+            color: #64748b;
+        }
+        
+        .response-tabs {
+            display: flex;
+            border-bottom: 1px solid #e2e8f0;
+            margin-bottom: 12px;
+        }
+        
+        .response-tab {
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-bottom: 2px solid transparent;
+        }
+        
+        .response-tab:hover {
+            color: #0f172a;
+        }
+        
+        .response-tab.active {
+            color: #0066ff;
+            border-bottom-color: #0066ff;
+        }
+        
+        .format-select {
+            padding: 4px 8px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            font-size: 12px;
+            background-color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-logo">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M11.9999 2L4 6V12C4 17.5 7.8 22.7 12 23C16.2 22.7 20 17.5 20 12V6L11.9999 2Z" fill="#0066FF" fill-opacity="0.3" stroke="#0066FF" stroke-width="2" stroke-linejoin="round"/>
+                <path d="M12 16V10" stroke="#0066FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12 8V8.01" stroke="#0066FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div class="sidebar-logo-text">CapsuleX</div>
+        </div>
+        <div class="sidebar-menu">
+            <div class="menu-label">主导航</div>
+            <div class="menu-item">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="14" width="7" height="7"></rect>
+                    <rect x="3" y="14" width="7" height="7"></rect>
+                </svg>
+                <div class="menu-text">仪表盘</div>
+            </div>
+            <div class="menu-label">数据库管理</div>
+            <div class="menu-item">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                </svg>
+                <div class="menu-text">数据库连接</div>
+            </div>
+            <div class="menu-item">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                </svg>
+                <div class="menu-text">数据库查询</div>
+            </div>
+            <div class="menu-item">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+                </svg>
+                <div class="menu-text">数据库监控</div>
+            </div>
+            <div class="menu-label">API测试</div>
+            <div class="menu-item">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+                </svg>
+                <div class="menu-text">API集合</div>
+            </div>
+            <div class="menu-item active">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"></polygon>
+                    <line x1="12" y1="22" x2="12" y2="15.5"></line>
+                    <polyline points="22 8.5 12 15.5 2 8.5"></polyline>
+                </svg>
+                <div class="menu-text">请求构建器</div>
+            </div>
+            <div class="menu-label">Docker</div>
+            <div class="menu-item">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                </svg>
+                <div class="menu-text">容器管理</div>
+            </div>
+            <div class="menu-item">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="16.5" y1="9.4" x2="7.5" y2="4.21"></line>
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                </svg>
+                <div class="menu-text">镜像管理</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="header">
+            <h1 class="page-title">请求构建器</h1>
+            <div class="header-actions">
+                <button class="btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                        <polyline points="7 3 7 8 15 8"></polyline>
+                    </svg>
+                    保存请求
+                </button>
+                <button class="btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="16 18 22 12 16 6"></polyline>
+                        <polyline points="8 6 2 12 8 18"></polyline>
+                    </svg>
+                    转换为代码
+                </button>
+            </div>
+        </div>
+
+        <div class="request-url-bar">
+            <select class="method-select" aria-label="请求方法">
+                <option value="GET" selected>GET</option>
+                <option value="POST">POST</option>
+                <option value="PUT">PUT</option>
+                <option value="DELETE">DELETE</option>
+                <option value="PATCH">PATCH</option>
+                <option value="HEAD">HEAD</option>
+                <option value="OPTIONS">OPTIONS</option>
+            </select>
+            <input type="text" class="url-input" placeholder="输入请求URL" value="https://api.example.com/v1/users" aria-label="请求URL">
+            <button class="btn btn-success">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="13 17 18 12 13 7"></polyline>
+                    <polyline points="6 17 11 12 6 7"></polyline>
+                </svg>
+                发送
+            </button>
+        </div>
+
+        <div class="card">
+            <div class="tabs">
+                <div class="tab active" data-tab="params">查询参数</div>
+                <div class="tab" data-tab="headers">请求头</div>
+                <div class="tab" data-tab="body">请求体</div>
+                <div class="tab" data-tab="auth">认证</div>
+            </div>
+            
+            <div class="tab-content active" id="params-tab">
+                <table class="param-table">
+                    <thead>
+                        <tr>
+                            <th width="40"></th>
+                            <th>参数名</th>
+                            <th>参数值</th>
+                            <th width="40"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <input type="checkbox" class="param-checkbox" checked aria-label="启用参数">
+                            </td>
+                            <td>
+                                <input type="text" class="param-input" value="limit" aria-label="参数名">
+                            </td>
+                            <td>
+                                <input type="text" class="param-input" value="10" aria-label="参数值">
+                            </td>
+                            <td>
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-gray-400 cursor-pointer">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <input type="checkbox" class="param-checkbox" checked aria-label="启用参数">
+                            </td>
+                            <td>
+                                <input type="text" class="param-input" value="page" aria-label="参数名">
+                            </td>
+                            <td>
+                                <input type="text" class="param-input" value="1" aria-label="参数值">
+                            </td>
+                            <td>
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-gray-400 cursor-pointer">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <input type="checkbox" class="param-checkbox" checked aria-label="启用参数">
+                            </td>
+                            <td>
+                                <input type="text" class="param-input" value="sort" aria-label="参数名">
+                            </td>
+                            <td>
+                                <input type="text" class="param-input" value="created_at:desc" aria-label="参数值">
+                            </td>
+                            <td>
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-gray-400 cursor-pointer">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="param-add-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="16"></line>
+                        <line x1="8" y1="12" x2="16" y2="12"></line>
+                    </svg>
+                    添加新参数
+                </div>
+            </div>
+            
+            <div class="tab-content" id="headers-tab">
+                <table class="param-table">
+                    <thead>
+                        <tr>
+                            <th width="40"></th>
+                            <th>名称</th>
+                            <th>值</th>
+                            <th width="40"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <input type="checkbox" class="param-checkbox" checked aria-label="启用请求头">
+                            </td>
+                            <td>
+                                <input type="text" class="param-input" value="Content-Type" aria-label="请求头名称">
+                            </td>
+                            <td>
+                                <input type="text" class="param-input" value="application/json" aria-label="请求头值">
+                            </td>
+                            <td>
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-gray-400 cursor-pointer">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <input type="checkbox" class="param-checkbox" checked aria-label="启用请求头">
+                            </td>
+                            <td>
+                                <input type="text" class="param-input" value="Accept" aria-label="请求头名称">
+                            </td>
+                            <td>
+                                <input type="text" class="param-input" value="application/json" aria-label="请求头值">
+                            </td>
+                            <td>
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-gray-400 cursor-pointer">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="param-add-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="16"></line>
+                        <line x1="8" y1="12" x2="16" y2="12"></line>
+                    </svg>
+                    添加新请求头
+                </div>
+            </div>
+            
+            <div class="tab-content" id="body-tab">
+                <div class="mb-4">
+                    <select class="method-select" aria-label="请求体格式">
+                        <option value="json" selected>JSON</option>
+                        <option value="form">表单数据</option>
+                        <option value="raw">原始数据</option>
+                        <option value="binary">二进制</option>
+                    </select>
+                </div>
+                <div class="editor-container" id="body-editor"></div>
+            </div>
+            
+            <div class="tab-content" id="auth-tab">
+                <div class="mb-4">
+                    <select class="method-select" id="auth-type-select" aria-label="认证类型">
+                        <option value="none">无认证</option>
+                        <option value="basic">Basic Auth</option>
+                        <option value="bearer">Bearer Token</option>
+                        <option value="dynamic-token" selected>动态Token</option>
+                        <option value="apikey">API Key</option>
+                        <option value="oauth2">OAuth 2.0</option>
+                    </select>
+                </div>
+                
+                <!-- 基础认证 -->
+                <div id="basic-auth-panel" class="auth-panel" style="display: none;">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-sm font-medium text-gray-700 mb-1 block">用户名</label>
+                            <input type="text" class="param-input" value="admin" aria-label="用户名">
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-700 mb-1 block">密码</label>
+                            <input type="password" class="param-input" value="password" aria-label="密码">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Bearer Token -->
+                <div id="bearer-auth-panel" class="auth-panel" style="display: none;">
+                    <div>
+                        <label class="text-sm font-medium text-gray-700 mb-1 block">Token</label>
+                        <input type="text" class="param-input" value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." aria-label="Bearer Token">
+                    </div>
+                </div>
+                
+                <!-- 动态Token认证 -->
+                <div id="dynamic-token-panel" class="auth-panel">
+                    <div class="mb-4">
+                        <label class="text-sm font-medium text-gray-700 mb-1 block">选择计算模板</label>
+                        <select class="method-select" id="token-template-select" aria-label="Token计算模板">
+                            <option value="custom">自定义</option>
+                            <option value="jwt" selected>JWT签名</option>
+                            <option value="hmac">HMAC签名</option>
+                            <option value="timestamp">时间戳签名</option>
+                            <option value="oauth">OAuth签名</option>
+                            <option value="md5">MD5校验</option>
+                            <option value="sha256">SHA-256校验</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="text-sm font-medium text-gray-700">Token计算脚本</label>
+                            <div>
+                                <button class="text-xs text-blue-600 hover:text-blue-800 mr-2" id="format-token-btn">格式化</button>
+                                <button class="text-xs text-blue-600 hover:text-blue-800" id="test-token-btn">测试计算</button>
+                            </div>
+                        </div>
+                        <div class="editor-container h-48" id="token-script-editor"></div>
+                        <div class="text-xs text-gray-500 mt-1">使用JavaScript编写token计算逻辑，可使用req, timestamp等变量</div>
+                    </div>
+                    
+                    <div class="bg-gray-50 p-3 rounded-md mb-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-medium text-gray-700">Token预览</span>
+                            <span class="text-xs text-gray-500" id="token-updated-time">更新于 1分钟前</span>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-md p-2 text-sm font-mono overflow-x-auto whitespace-nowrap" id="token-preview">
+                            eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkNhcHN1bGVYIEFQSSIsImlhdCI6MTY1MTg5MzI0MCwiZXhwIjoxNjUxODk2ODQwfQ.Z3gx4jyhQgNUjTkQCp1g9tDMYRfPIjRzC20x6xsZJHM
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-50 p-3 rounded-md">
+                        <h3 class="text-sm font-medium text-gray-700 mb-2">可用变量</h3>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                                <code class="bg-gray-100 px-1 py-0.5 rounded">req.url</code> - 请求URL
+                            </div>
+                            <div>
+                                <code class="bg-gray-100 px-1 py-0.5 rounded">req.method</code> - 请求方法
+                            </div>
+                            <div>
+                                <code class="bg-gray-100 px-1 py-0.5 rounded">req.body</code> - 请求体对象
+                            </div>
+                            <div>
+                                <code class="bg-gray-100 px-1 py-0.5 rounded">req.params</code> - 查询参数对象
+                            </div>
+                            <div>
+                                <code class="bg-gray-100 px-1 py-0.5 rounded">timestamp</code> - 当前时间戳
+                            </div>
+                            <div>
+                                <code class="bg-gray-100 px-1 py-0.5 rounded">config.secret</code> - API密钥
+                            </div>
+                            <div>
+                                <code class="bg-gray-100 px-1 py-0.5 rounded">CryptoJS</code> - 加密库
+                            </div>
+                            <div>
+                                <code class="bg-gray-100 px-1 py-0.5 rounded">randomBytes(n)</code> - 生成随机字节
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-50 p-3 rounded-md mt-4">
+                        <h3 class="text-sm font-medium text-gray-700 mb-2">加密函数</h3>
+                        <div class="grid grid-cols-1 gap-2 text-xs">
+                            <div>
+                                <code class="bg-gray-100 px-1 py-0.5 rounded">md5(str)</code> - 计算MD5哈希
+                            </div>
+                            <div>
+                                <code class="bg-gray-100 px-1 py-0.5 rounded">sha1(str)</code> - 计算SHA-1哈希
+                            </div>
+                            <div>
+                                <code class="bg-gray-100 px-1 py-0.5 rounded">sha256(str)</code> - 计算SHA-256哈希
+                            </div>
+                            <div>
+                                <code class="bg-gray-100 px-1 py-0.5 rounded">hmacSha1(str, key)</code> - 计算HMAC-SHA1
+                            </div>
+                            <div>
+                                <code class="bg-gray-100 px-1 py-0.5 rounded">hmacSha256(str, key)</code> - 计算HMAC-SHA256
+                            </div>
+                            <div>
+                                <code class="bg-gray-100 px-1 py-0.5 rounded">base64Encode(str)</code> - Base64编码
+                            </div>
+                            <div>
+                                <code class="bg-gray-100 px-1 py-0.5 rounded">base64Decode(str)</code> - Base64解码
+                            </div>
+                            <div>
+                                <code class="bg-gray-100 px-1 py-0.5 rounded">urlEncode(str)</code> - URL编码
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- API Key认证 -->
+                <div id="apikey-auth-panel" class="auth-panel" style="display: none;">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-sm font-medium text-gray-700 mb-1 block">Key名称</label>
+                            <input type="text" class="param-input" value="X-API-Key" aria-label="API Key名称">
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-700 mb-1 block">Key值</label>
+                            <input type="text" class="param-input" value="abcdef123456" aria-label="API Key值">
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <label class="text-sm font-medium text-gray-700 mb-1 block">添加位置</label>
+                        <select class="method-select" aria-label="API Key添加位置">
+                            <option value="header" selected>Header</option>
+                            <option value="query">Query Params</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- OAuth 2.0认证 -->
+                <div id="oauth2-auth-panel" class="auth-panel" style="display: none;">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-sm font-medium text-gray-700 mb-1 block">Client ID</label>
+                            <input type="text" class="param-input" value="client_id_here" aria-label="Client ID">
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-700 mb-1 block">Client Secret</label>
+                            <input type="password" class="param-input" value="client_secret_here" aria-label="Client Secret">
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <label class="text-sm font-medium text-gray-700 mb-1 block">访问令牌URL</label>
+                        <input type="text" class="param-input" value="https://auth.example.com/oauth/token" aria-label="访问令牌URL">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card response-container">
+            <div class="card-header">
+                <div class="card-title">响应结果</div>
+            </div>
+            <div class="response-status">
+                <span class="status-badge status-success">200 OK</span>
+                <span>请求成功</span>
+            </div>
+            <div class="response-meta">
+                <div>耗时: 256 ms</div>
+                <div>大小: 1.24 KB</div>
+            </div>
+            <div class="response-tabs">
+                <div class="response-tab active" data-tab="response-body">响应体</div>
+                <div class="response-tab" data-tab="response-headers">响应头</div>
+            </div>
+            <div class="flex justify-end mb-2">
+                <select class="format-select" aria-label="格式化选项">
+                    <option value="json" selected>JSON</option>
+                    <option value="raw">原始</option>
+                </select>
+            </div>
+            <div class="editor-container" id="response-editor"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // 标签页切换
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    // 移除所有标签页的激活状态
+                    tabs.forEach(t => t.classList.remove('active'));
+                    // 激活当前点击的标签页
+                    tab.classList.add('active');
+                    
+                    // 隐藏所有内容
+                    const contents = document.querySelectorAll('.tab-content');
+                    contents.forEach(content => content.classList.remove('active'));
+                    
+                    // 显示对应的内容
+                    const tabId = tab.getAttribute('data-tab') + '-tab';
+                    document.getElementById(tabId).classList.add('active');
+                });
+            });
+            
+            // 响应标签页切换
+            const responseTabs = document.querySelectorAll('.response-tab');
+            responseTabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    responseTabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                });
+            });
+            
+            // 添加新参数行
+            const addParamBtns = document.querySelectorAll('.param-add-btn');
+            addParamBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const table = btn.previousElementSibling;
+                    const newRow = document.createElement('tr');
+                    newRow.innerHTML = `
+                        <td>
+                            <input type="checkbox" class="param-checkbox" checked aria-label="启用参数">
+                        </td>
+                        <td>
+                            <input type="text" class="param-input" placeholder="参数名" aria-label="参数名">
+                        </td>
+                        <td>
+                            <input type="text" class="param-input" placeholder="参数值" aria-label="参数值">
+                        </td>
+                        <td>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-gray-400 cursor-pointer">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </td>
+                    `;
+                    table.querySelector('tbody').appendChild(newRow);
+                });
+            });
+            
+            // 初始化Monaco编辑器
+            require.config({ paths: { 'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@0.34.0/min/vs' }});
+            require(['vs/editor/editor.main'], function() {
+                // 请求体编辑器
+                const bodyEditor = monaco.editor.create(document.getElementById('body-editor'), {
+                    value: `{\n  "name": "张三",\n  "email": "zhangsan@example.com",\n  "age": 28,\n  "role": "admin"\n}`,
+                    language: 'json',
+                    theme: 'vs',
+                    automaticLayout: true,
+                    minimap: { enabled: false }
+                });
+                
+                // 响应编辑器
+                const responseEditor = monaco.editor.create(document.getElementById('response-editor'), {
+                    value: `{\n  "id": 12345,\n  "name": "张三",\n  "email": "zhangsan@example.com",\n  "age": 28,\n  "role": "admin",\n  "created_at": "2023-03-18T10:30:45Z",\n  "updated_at": "2023-03-18T10:30:45Z",\n  "status": "active",\n  "permissions": ["read", "write", "delete"]\n}`,
+                    language: 'json',
+                    theme: 'vs',
+                    readOnly: true,
+                    automaticLayout: true,
+                    minimap: { enabled: false }
+                });
+                
+                // Token计算脚本编辑器
+                const tokenScriptEditor = monaco.editor.create(document.getElementById('token-script-editor'), {
+                    value: `// JWT签名生成示例
+// 引入加密库 (实际应用中已预先加载)
+// const CryptoJS = require('crypto-js');
+
+const header = {
+  "alg": "HS256",
+  "typ": "JWT"
+};
+
+const payload = {
+  "sub": "1234567890",
+  "name": "CapsuleX API",
+  "iat": Math.floor(timestamp / 1000),
+  "exp": Math.floor(timestamp / 1000) + 3600
+};
+
+// Base64Url编码函数
+function base64UrlEncode(str) {
+  return base64Encode(str)
+    .replace(/\\+/g, '-')
+    .replace(/\\//g, '_')
+    .replace(/=/g, '');
+}
+
+// 编码header和payload
+const encodedHeader = base64UrlEncode(JSON.stringify(header));
+const encodedPayload = base64UrlEncode(JSON.stringify(payload));
+
+// 创建签名部分 (使用HMAC SHA-256)
+const secret = config.secret || 'your-jwt-secret';
+const dataToSign = encodedHeader + "." + encodedPayload;
+const signature = hmacSha256(dataToSign, secret);
+const encodedSignature = base64UrlEncode(signature);
+
+// 返回完整的JWT
+return \`\${encodedHeader}.\${encodedPayload}.\${encodedSignature}\`;`,
+                    language: 'javascript',
+                    theme: 'vs',
+                    automaticLayout: true,
+                    minimap: { enabled: false }
+                });
+            });
+            
+            // 添加认证类型切换逻辑
+            const authTypeSelect = document.getElementById('auth-type-select');
+            const authPanels = document.querySelectorAll('.auth-panel');
+            
+            authTypeSelect.addEventListener('change', () => {
+                const selectedType = authTypeSelect.value;
+                
+                // 隐藏所有认证面板
+                authPanels.forEach(panel => {
+                    panel.style.display = 'none';
+                });
+                
+                // 显示选中的认证面板
+                const selectedPanel = document.getElementById(`${selectedType}-auth-panel`);
+                if (selectedPanel) {
+                    selectedPanel.style.display = 'block';
+                }
+            });
+            
+            // 添加Token计算模板切换功能
+            const tokenTemplateSelect = document.getElementById('token-template-select');
+            const tokenScriptPresets = {
+                jwt: `// JWT签名生成示例
+// 引入加密库 (实际应用中已预先加载)
+// const CryptoJS = require('crypto-js');
+
+const header = {
+  "alg": "HS256",
+  "typ": "JWT"
+};
+
+const payload = {
+  "sub": "1234567890",
+  "name": "CapsuleX API",
+  "iat": Math.floor(timestamp / 1000),
+  "exp": Math.floor(timestamp / 1000) + 3600
+};
+
+// Base64Url编码函数
+function base64UrlEncode(str) {
+  return base64Encode(str)
+    .replace(/\\+/g, '-')
+    .replace(/\\//g, '_')
+    .replace(/=/g, '');
+}
+
+// 编码header和payload
+const encodedHeader = base64UrlEncode(JSON.stringify(header));
+const encodedPayload = base64UrlEncode(JSON.stringify(payload));
+
+// 创建签名部分 (使用HMAC SHA-256)
+const secret = config.secret || 'your-jwt-secret';
+const dataToSign = encodedHeader + "." + encodedPayload;
+const signature = hmacSha256(dataToSign, secret);
+const encodedSignature = base64UrlEncode(signature);
+
+// 返回完整的JWT
+return \`\${encodedHeader}.\${encodedPayload}.\${encodedSignature}\`;`,
+                
+                hmac: `// HMAC签名生成示例
+
+// 获取请求信息
+const method = req.method;
+const path = new URL(req.url).pathname;
+const currentTimestamp = Math.floor(timestamp / 1000);
+
+// 构建签名字符串
+const stringToSign = \`\${method}\\n\${path}\\n\${currentTimestamp}\`;
+
+// 使用密钥计算HMAC-SHA256签名
+const secret = config.secret || 'your-api-secret-key';
+const signature = hmacSha256(stringToSign, secret);
+const encodedSignature = base64Encode(signature);
+
+// 返回完整的认证头
+return \`\${config.accessKey}:\${encodedSignature}:\${currentTimestamp}\`;`,
+                
+                timestamp: `// 时间戳签名示例
+
+const appId = config.appId || 'your-app-id';
+const currentTimestamp = Math.floor(timestamp / 1000);
+const nonce = randomBytes(8).toString('hex');
+
+// 按字典序排列参数
+const params = {
+  appid: appId,
+  timestamp: currentTimestamp,
+  nonce: nonce
+};
+
+// 拼接参数
+let paramString = '';
+Object.keys(params).sort().forEach(key => {
+  paramString += key + '=' + params[key] + '&';
+});
+paramString = paramString.slice(0, -1); // 去掉最后的&
+
+// 计算签名
+const secret = config.secret || 'your-secret-key';
+const signature = sha256(paramString + secret);
+
+// 返回完整的参数字符串
+return \`appid=\${appId}&timestamp=\${currentTimestamp}&nonce=\${nonce}&signature=\${signature}\`;`,
+                
+                oauth: `// OAuth 1.0a签名示例
+
+const consumerKey = config.consumerKey || 'your-consumer-key';
+const consumerSecret = config.consumerSecret || 'your-consumer-secret';
+const currentTimestamp = Math.floor(timestamp / 1000);
+const nonce = randomBytes(16).toString('hex');
+
+// OAuth参数
+const oauthParams = {
+  oauth_consumer_key: consumerKey,
+  oauth_nonce: nonce,
+  oauth_signature_method: 'HMAC-SHA1',
+  oauth_timestamp: currentTimestamp,
+  oauth_version: '1.0'
+};
+
+// 如果有token和secret (已认证)
+if (config.tokenKey && config.tokenSecret) {
+  oauthParams.oauth_token = config.tokenKey;
+}
+
+// 构建基础字符串
+const method = req.method;
+const url = req.url;
+const baseUrl = url.split('?')[0];
+
+// 合并所有参数 (OAuth参数和URL查询参数)
+const allParams = {...oauthParams, ...req.params};
+
+// 按字典序排列并拼接参数
+let paramString = '';
+Object.keys(allParams).sort().forEach(key => {
+  paramString += '&' + key + '=' + urlEncode(allParams[key].toString());
+});
+paramString = paramString.substring(1); // 去掉开头的&
+
+// 构建签名基础字符串
+const signatureBaseString = method.toUpperCase() + '&' + 
+                           urlEncode(baseUrl) + '&' + 
+                           urlEncode(paramString);
+
+// 计算签名
+let signingKey = urlEncode(consumerSecret) + '&';
+if (config.tokenSecret) {
+  signingKey += urlEncode(config.tokenSecret);
+}
+
+const signature = hmacSha1(signatureBaseString, signingKey);
+const encodedSignature = base64Encode(signature);
+
+// 构建OAuth头部
+oauthParams.oauth_signature = encodedSignature;
+
+let headerValue = 'OAuth ';
+Object.keys(oauthParams).forEach(key => {
+  headerValue += key + '="' + urlEncode(oauthParams[key]) + '", ';
+});
+headerValue = headerValue.slice(0, -2); // 去掉最后的逗号和空格
+
+return headerValue;`,
+
+                md5: `// MD5校验示例
+
+// 获取请求参数
+const bodyStr = JSON.stringify(req.body);
+const currentTimestamp = Math.floor(timestamp / 1000);
+
+// 组合字符串进行MD5加密
+const secretKey = config.secret || 'your-secret-key';
+const stringToHash = bodyStr + secretKey + currentTimestamp;
+
+// 计算MD5哈希
+const md5Hash = md5(stringToHash);
+
+// 返回包含时间戳的哈希结果
+return \`\${md5Hash}:\${currentTimestamp}\`;`,
+
+                sha256: `// SHA-256校验示例
+
+// 获取请求参数
+const params = req.params;
+const bodyStr = JSON.stringify(req.body);
+const currentTimestamp = Math.floor(timestamp / 1000);
+
+// 按字典序排列参数
+let paramString = '';
+Object.keys(params).sort().forEach(key => {
+  paramString += key + '=' + params[key] + '&';
+});
+paramString = paramString.slice(0, -1); // 去掉最后的&
+
+// 组合字符串进行SHA-256加密
+const secretKey = config.secret || 'your-secret-key';
+const stringToHash = req.method + paramString + bodyStr + secretKey + currentTimestamp;
+
+// 计算SHA-256哈希
+const sha256Hash = sha256(stringToHash);
+
+// 返回包含时间戳的哈希结果
+return \`\${sha256Hash}:\${currentTimestamp}\`;`,
+                
+                custom: `// 自定义Token生成逻辑
+// 可以访问以下变量:
+// - req: 包含请求信息的对象
+// - timestamp: 当前时间戳
+// - config: 配置对象，包含API密钥等
+// - CryptoJS: 加密库
+// - randomBytes: 生成随机字节的函数
+
+// 加密函数:
+// - md5(str): 计算MD5哈希
+// - sha1(str): 计算SHA-1哈希
+// - sha256(str): 计算SHA-256哈希
+// - hmacSha1(str, key): 计算HMAC-SHA1
+// - hmacSha256(str, key): 计算HMAC-SHA256
+// - base64Encode(str): Base64编码
+// - base64Decode(str): Base64解码
+// - urlEncode(str): URL编码
+
+// 编写自定义逻辑并返回认证Token
+const currentTimestamp = Math.floor(timestamp / 1000);
+const nonce = randomBytes(4).toString('hex');
+const signature = md5(req.url + nonce + currentTimestamp + config.secret);
+
+return \`token=\${signature},timestamp=\${currentTimestamp},nonce=\${nonce}\`;`
+            };
+            
+            // 添加格式化按钮功能
+            const formatTokenBtn = document.getElementById('format-token-btn');
+            formatTokenBtn.addEventListener('click', () => {
+                if (window.monaco) {
+                    const model = monaco.editor.getModels().find(model => 
+                        model.uri.path.endsWith('token-script-editor'));
+                    if (model) {
+                        // 获取当前内容
+                        const currentContent = model.getValue();
+                        
+                        try {
+                            // 尝试格式化JavaScript代码
+                            // 这里使用简单的方法，实际上可以使用更专业的JS格式化库
+                            const formattedCode = window.monaco.editor.getModels()[0].getFormattedText({
+                                insertSpaces: true,
+                                tabSize: 2
+                            });
+                            model.setValue(formattedCode);
+                        } catch (error) {
+                            console.error('格式化失败:', error);
+                        }
+                    }
+                }
+            });
+            
+            // 添加加密工具函数
+            window.md5 = function(str) {
+                // 模拟MD5计算
+                return "c3499c2729730a7f807efb8676a92dcb";
+            };
+            
+            window.sha1 = function(str) {
+                // 模拟SHA1计算
+                return "7c4a8d09ca3762af61e59520943dc26494f8941b";
+            };
+            
+            window.sha256 = function(str) {
+                // 模拟SHA256计算
+                return "8bb0cf6eb9b17d0f7d22b456f121257dc1254e1f01665370476383ea776df414";
+            };
+            
+            window.hmacSha1 = function(str, key) {
+                // 模拟HMAC-SHA1计算
+                return "f42bb0eeb018ebbd4597ae7213711ec60760843f";
+            };
+            
+            window.hmacSha256 = function(str, key) {
+                // 模拟HMAC-SHA256计算
+                return "b613679a0814d9ec772f95d778c35fc5ff1697c493715653c6c712144292c5ad";
+            };
+            
+            window.base64Encode = function(str) {
+                // 模拟Base64编码
+                return btoa(str);
+            };
+            
+            window.base64Decode = function(str) {
+                // 模拟Base64解码
+                return atob(str);
+            };
+            
+            window.urlEncode = function(str) {
+                // URL编码
+                return encodeURIComponent(str);
+            };
+            
+            window.randomBytes = function(size) {
+                // 生成指定长度的随机字节
+                const bytes = new Uint8Array(size);
+                window.crypto.getRandomValues(bytes);
+                
+                // 转换为十六进制字符串
+                return Array.from(bytes)
+                    .map(b => b.toString(16).padStart(2, '0'))
+                    .join('');
+            };
+            
+            // 更新测试计算Token按钮功能，添加更复杂的执行环境
+            const testTokenBtn = document.getElementById('test-token-btn');
+            const tokenPreview = document.getElementById('token-preview');
+            const tokenUpdatedTime = document.getElementById('token-updated-time');
+            
+            testTokenBtn.addEventListener('click', () => {
+                try {
+                    // 获取当前编辑器内容
+                    let script = '';
+                    if (window.monaco) {
+                        const model = monaco.editor.getModels().find(model => 
+                            model.uri.path.endsWith('token-script-editor'));
+                        if (model) {
+                            script = model.getValue();
+                        }
+                    }
+                    
+                    // 模拟执行环境
+                    const req = {
+                        url: document.querySelector('.url-input').value,
+                        method: document.querySelector('.method-select').value,
+                        params: {},
+                        body: {}
+                    };
+                    
+                    // 添加查询参数
+                    const paramsTable = document.querySelector('#params-tab table tbody');
+                    if (paramsTable) {
+                        const rows = paramsTable.querySelectorAll('tr');
+                        rows.forEach(row => {
+                            const checkbox = row.querySelector('input[type="checkbox"]');
+                            if (checkbox && checkbox.checked) {
+                                const keyInput = row.querySelectorAll('input[type="text"]')[0];
+                                const valueInput = row.querySelectorAll('input[type="text"]')[1];
+                                if (keyInput && valueInput && keyInput.value) {
+                                    req.params[keyInput.value] = valueInput.value;
+                                }
+                            }
+                        });
+                    }
+                    
+                    // 获取请求体 (如果有)
+                    try {
+                        if (window.monaco) {
+                            const bodyEditor = monaco.editor.getModels().find(model => 
+                                model.uri.path.endsWith('body-editor'));
+                            if (bodyEditor) {
+                                const bodyContent = bodyEditor.getValue();
+                                if (bodyContent && bodyContent.trim()) {
+                                    req.body = JSON.parse(bodyContent);
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('解析请求体失败:', e);
+                    }
+                    
+                    const timestamp = Date.now();
+                    const config = { 
+                        secret: "your_secret_key_here",
+                        accessKey: "your_access_key",
+                        appId: "your_app_id",
+                        consumerKey: "your_consumer_key",
+                        consumerSecret: "your_consumer_secret"
+                    };
+                    
+                    // 添加加密库 (模拟)
+                    const CryptoJS = {
+                        MD5: function(str) { return md5(str); },
+                        SHA1: function(str) { return sha1(str); },
+                        SHA256: function(str) { return sha256(str); },
+                        HmacSHA1: function(str, key) { return hmacSha1(str, key); },
+                        HmacSHA256: function(str, key) { return hmacSha256(str, key); },
+                        enc: {
+                            Base64: {
+                                stringify: function(str) { return base64Encode(str); },
+                                parse: function(str) { return base64Decode(str); }
+                            }
+                        }
+                    };
+                    
+                    // 创建函数并执行
+                    const tokenFunc = new Function('req', 'timestamp', 'config', 'CryptoJS', 'randomBytes', 'md5', 'sha1', 'sha256', 'hmacSha1', 'hmacSha256', 'base64Encode', 'base64Decode', 'urlEncode', script);
+                    const token = tokenFunc(req, timestamp, config, CryptoJS, randomBytes, md5, sha1, sha256, hmacSha1, hmacSha256, base64Encode, base64Decode, urlEncode);
+                    
+                    // 更新预览
+                    tokenPreview.textContent = token;
+                    tokenPreview.style.color = '';
+                    tokenUpdatedTime.textContent = '刚刚更新';
+                } catch (error) {
+                    tokenPreview.textContent = `错误: ${error.message}`;
+                    tokenPreview.style.color = 'red';
+                }
+            });
+            
+            // 添加模板切换事件监听器（首次加载）
+            tokenTemplateSelect.addEventListener('change', () => {
+                const selectedTemplate = tokenTemplateSelect.value;
+                const scriptTemplate = tokenScriptPresets[selectedTemplate] || tokenScriptPresets.custom;
+                
+                // 更新编辑器内容
+                if (window.monaco) {
+                    const model = monaco.editor.getModels().find(model => 
+                        model.uri.path.endsWith('token-script-editor'));
+                    if (model) {
+                        model.setValue(scriptTemplate);
+                    }
+                }
+            });
+            
+            // 加载外部加密库 (在实际应用中)
+            const loadCryptoJS = () => {
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js';
+                script.async = true;
+                document.body.appendChild(script);
+            };
+            
+            // 初始化加载
+            // loadCryptoJS();
+            
+            // 初始化Monaco编辑器加载完成后进行配置
+            require(['vs/editor/editor.main'], function() {
+                // ... existing code ...
+                
+                // 设置Token编辑器语言为JavaScript并添加智能提示
+                const tokenEditorModel = monaco.editor.getModels().find(model => 
+                    model.uri.path.endsWith('token-script-editor'));
+                
+                if (tokenEditorModel) {
+                    tokenEditorModel.updateOptions({
+                        tabSize: 2,
+                        insertSpaces: true
+                    });
+                    
+                    // 添加自定义完成提示
+                    monaco.languages.registerCompletionItemProvider('javascript', {
+                        provideCompletionItems: function(model, position) {
+                            const suggestions = [
+                                {
+                                    label: 'req',
+                                    kind: monaco.languages.CompletionItemKind.Variable,
+                                    insertText: 'req',
+                                    detail: '请求对象',
+                                    documentation: '包含当前请求的信息'
+                                },
+                                {
+                                    label: 'req.url',
+                                    kind: monaco.languages.CompletionItemKind.Property,
+                                    insertText: 'req.url',
+                                    detail: '请求URL',
+                                    documentation: '当前请求的完整URL'
+                                },
+                                {
+                                    label: 'req.method',
+                                    kind: monaco.languages.CompletionItemKind.Property,
+                                    insertText: 'req.method',
+                                    detail: '请求方法',
+                                    documentation: '当前请求的HTTP方法 (GET, POST, etc.)'
+                                },
+                                // 更多自定义提示...
+                            ];
+                            
+                            return { suggestions: suggestions };
+                        }
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html> 

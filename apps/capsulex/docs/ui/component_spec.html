@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CapsuleX - 组件规范</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+        
+        body {
+            background-color: white;
+            color: #1e293b;
+            line-height: 1.6;
+            padding: 40px;
+        }
+        
+        h1 {
+            font-size: 28px;
+            color: #0066ff;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #e2e8f0;
+            font-weight: 600;
+        }
+        
+        h2 {
+            font-size: 22px;
+            color: #1e293b;
+            margin: 32px 0 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e2e8f0;
+            font-weight: 600;
+        }
+        
+        h3 {
+            font-size: 18px;
+            color: #0066ff;
+            margin: 24px 0 12px;
+            font-weight: 600;
+        }
+        
+        p {
+            margin-bottom: 16px;
+            font-size: 16px;
+            color: #334155;
+        }
+        
+        .component-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 32px;
+            margin-top: 24px;
+        }
+        
+        .component-item {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .component-header {
+            background-color: #f8fafc;
+            padding: 16px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .component-title {
+            font-weight: 600;
+            font-size: 18px;
+            color: #0f172a;
+            margin-bottom: 8px;
+        }
+        
+        .component-description {
+            color: #64748b;
+            font-size: 14px;
+        }
+        
+        .component-display {
+            padding: 24px;
+            background-color: white;
+        }
+        
+        .component-states {
+            padding: 24px;
+            background-color: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .states-title {
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 16px;
+        }
+        
+        .state-row {
+            display: flex;
+            gap: 24px;
+            margin-bottom: 16px;
+        }
+        
+        .state-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .state-label {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #64748b;
+        }
+        
+        /* 按钮样式 */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 500;
+            border-radius: 4px;
+            padding: 0 16px;
+            height: 36px;
+            font-size: 14px;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        
+        .btn:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.2);
+        }
+        
+        .btn-icon {
+            width: 36px;
+            padding: 0;
+            border-radius: 4px;
+        }
+        
+        .btn-primary {
+            background-color: #0066ff;
+            color: white;
+            border: none;
+        }
+        
+        .btn-primary:hover {
+            background-color: #0050cc;
+        }
+        
+        .btn-primary:active {
+            background-color: #003b99;
+        }
+        
+        .btn-primary:disabled {
+            background-color: #a3c5fd;
+            cursor: not-allowed;
+        }
+        
+        .btn-secondary {
+            background-color: white;
+            color: #0066ff;
+            border: 1px solid #0066ff;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #f0f7ff;
+        }
+        
+        .btn-secondary:active {
+            background-color: #dcebff;
+        }
+        
+        .btn-secondary:disabled {
+            color: #a3c5fd;
+            border-color: #a3c5fd;
+            cursor: not-allowed;
+        }
+        
+        .btn-danger {
+            background-color: #ef4444;
+            color: white;
+            border: none;
+        }
+        
+        .btn-danger:hover {
+            background-color: #dc2626;
+        }
+        
+        .btn-danger:active {
+            background-color: #b91c1c;
+        }
+        
+        .btn-danger:disabled {
+            background-color: #fca5a5;
+            cursor: not-allowed;
+        }
+        
+        .btn-text {
+            background-color: transparent;
+            color: #0066ff;
+            border: none;
+        }
+        
+        .btn-text:hover {
+            background-color: #f0f7ff;
+        }
+        
+        .btn-text:active {
+            background-color: #dcebff;
+        }
+        
+        .btn-text:disabled {
+            color: #a3c5fd;
+            cursor: not-allowed;
+        }
+        
+        /* 输入框样式 */
+        .input {
+            height: 36px;
+            border-radius: 4px;
+            border: 1px solid #cbd5e1;
+            padding: 0 12px;
+            font-size: 14px;
+            width: 240px;
+            transition: all 0.2s;
+        }
+        
+        .input:focus {
+            outline: none;
+            border-color: #0066ff;
+            box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.1);
+        }
+        
+        .input:disabled {
+            background-color: #f1f5f9;
+            color: #94a3b8;
+            cursor: not-allowed;
+        }
+        
+        /* 下拉菜单样式 */
+        .select {
+            height: 36px;
+            border-radius: 4px;
+            border: 1px solid #cbd5e1;
+            padding: 0 12px;
+            font-size: 14px;
+            width: 240px;
+            background-color: white;
+            cursor: pointer;
+        }
+        
+        .select:focus {
+            outline: none;
+            border-color: #0066ff;
+            box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.1);
+        }
+        
+        .select:disabled {
+            background-color: #f1f5f9;
+            color: #94a3b8;
+            cursor: not-allowed;
+        }
+        
+        /* 复选框样式 */
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        .checkbox {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            border: 1px solid #cbd5e1;
+            margin-right: 8px;
+            position: relative;
+            transition: all 0.2s;
+        }
+        
+        .checkbox.checked {
+            background-color: #0066ff;
+            border-color: #0066ff;
+        }
+        
+        .checkbox.checked::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 5px;
+            width: 4px;
+            height: 8px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+        
+        .checkbox-label {
+            font-size: 14px;
+            color: #334155;
+        }
+        
+        /* 开关样式 */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 20px;
+        }
+        
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #cbd5e1;
+            transition: .4s;
+            border-radius: 20px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background-color: #0066ff;
+        }
+        
+        input:focus + .slider {
+            box-shadow: 0 0 1px #0066ff;
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+        
+        /* 卡片样式 */
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            padding: 16px;
+        }
+        
+        .card-header {
+            margin-bottom: 12px;
+        }
+        
+        .card-title {
+            font-weight: 600;
+            font-size: 16px;
+            color: #0f172a;
+        }
+        
+        .card-content {
+            color: #334155;
+            font-size: 14px;
+        }
+        
+        /* 标签样式 */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            height: 20px;
+            padding: 0 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .badge-info {
+            background-color: #e0f2fe;
+            color: #0369a1;
+        }
+        
+        .badge-success {
+            background-color: #dcfce7;
+            color: #15803d;
+        }
+        
+        .badge-warning {
+            background-color: #fef3c7;
+            color: #b45309;
+        }
+        
+        .badge-danger {
+            background-color: #fee2e2;
+            color: #b91c1c;
+        }
+        
+        /* 表格样式 */
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .table th {
+            text-align: left;
+            padding: 12px 16px;
+            font-weight: 600;
+            color: #0f172a;
+            background-color: #f1f5f9;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            color: #334155;
+        }
+        
+        .table tbody tr:hover {
+            background-color: #f8fafc;
+        }
+    </style>
+</head>
+<body>
+    <h1>CapsuleX 组件规范</h1>
+    
+    <p>CapsuleX 组件规范定义了平台中各类UI组件的设计标准和交互规则，确保整体设计的一致性。以下是主要UI组件的设计规范和状态展示。</p>
+    
+    <div class="component-grid">
+        <div class="component-item">
+            <div class="component-header">
+                <div class="component-title">按钮 (Button)</div>
+                <div class="component-description">按钮用于触发操作，提供清晰的交互入口。系统中包含主要按钮、次要按钮、危险按钮和文本按钮四种类型。</div>
+            </div>
+            <div class="component-display">
+                <div style="display: flex; gap: 16px;">
+                    <button class="btn btn-primary">主要按钮</button>
+                    <button class="btn btn-secondary">次要按钮</button>
+                    <button class="btn btn-danger">危险按钮</button>
+                    <button class="btn btn-text">文本按钮</button>
+                </div>
+            </div>
+            <div class="component-states">
+                <div class="states-title">状态变化</div>
+                
+                <h3>默认按钮状态</h3>
+                <div class="state-row">
+                    <div class="state-item">
+                        <button class="btn btn-primary">主要按钮</button>
+                        <div class="state-label">默认</div>
+                    </div>
+                    <div class="state-item">
+                        <button class="btn btn-primary" style="background-color: #0050cc;">主要按钮</button>
+                        <div class="state-label">悬停</div>
+                    </div>
+                    <div class="state-item">
+                        <button class="btn btn-primary" style="background-color: #003b99;">主要按钮</button>
+                        <div class="state-label">按下</div>
+                    </div>
+                    <div class="state-item">
+                        <button class="btn btn-primary" disabled>主要按钮</button>
+                        <div class="state-label">禁用</div>
+                    </div>
+                </div>
+                
+                <h3>图标按钮</h3>
+                <div class="state-row">
+                    <div class="state-item">
+                        <button class="btn btn-primary btn-icon" aria-label="添加">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="8" y1="12" x2="16" y2="12"></line><line x1="12" y1="8" x2="12" y2="16"></line></svg>
+                        </button>
+                        <div class="state-label">主要</div>
+                    </div>
+                    <div class="state-item">
+                        <button class="btn btn-secondary btn-icon" aria-label="删除">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        </button>
+                        <div class="state-label">次要</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="component-item">
+            <div class="component-header">
+                <div class="component-title">输入框 (Input)</div>
+                <div class="component-description">输入框用于获取用户的文本输入，提供明确的输入区域和反馈。</div>
+            </div>
+            <div class="component-display">
+                <input type="text" class="input" placeholder="请输入内容" aria-label="输入框示例">
+            </div>
+            <div class="component-states">
+                <div class="states-title">状态变化</div>
+                
+                <div class="state-row">
+                    <div class="state-item" style="align-items: flex-start;">
+                        <input type="text" class="input" placeholder="默认状态" aria-label="默认状态">
+                        <div class="state-label">默认</div>
+                    </div>
+                    <div class="state-item" style="align-items: flex-start;">
+                        <input type="text" class="input" style="border-color: #0066ff; box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.1);" placeholder="聚焦状态" aria-label="聚焦状态">
+                        <div class="state-label">聚焦</div>
+                    </div>
+                    <div class="state-item" style="align-items: flex-start;">
+                        <input type="text" class="input" disabled placeholder="禁用状态" aria-label="禁用状态">
+                        <div class="state-label">禁用</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="component-item">
+            <div class="component-header">
+                <div class="component-title">下拉菜单 (Select)</div>
+                <div class="component-description">下拉菜单用于在有限的空间中提供多个选项供用户选择。</div>
+            </div>
+            <div class="component-display">
+                <select class="select" aria-label="下拉菜单示例">
+                    <option>选择一个选项</option>
+                    <option>选项1</option>
+                    <option>选项2</option>
+                    <option>选项3</option>
+                </select>
+            </div>
+            <div class="component-states">
+                <div class="states-title">状态变化</div>
+                
+                <div class="state-row" style="flex-direction: column; width: 100%;">
+                    <div class="state-item" style="width: 100%; margin-bottom: 16px;">
+                        <select class="select" aria-label="默认选择器">
+                            <option>选项1</option>
+                            <option>选项2</option>
+                            <option>选项3</option>
+                        </select>
+                        <div class="state-label">默认</div>
+                    </div>
+                    <div class="state-item" style="width: 100%;">
+                        <select class="select" disabled aria-label="禁用选择器">
+                            <option>选项1</option>
+                            <option>选项2</option>
+                            <option>选项3</option>
+                        </select>
+                        <div class="state-label">禁用</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="component-item">
+            <div class="component-header">
+                <div class="component-title">复选框 (Checkbox)</div>
+                <div class="component-description">复选框用于多选场景，允许用户从一组选项中选择多个。</div>
+            </div>
+            <div class="component-display">
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <div class="checkbox-container">
+                        <div class="checkbox"></div>
+                        <span class="checkbox-label">未选中状态</span>
+                    </div>
+                    <div class="checkbox-container">
+                        <div class="checkbox checked"></div>
+                        <span class="checkbox-label">选中状态</span>
+                    </div>
+                </div>
+            </div>
+            <div class="component-states">
+                <div class="states-title">状态变化</div>
+                
+                <div class="state-row">
+                    <div class="state-item">
+                        <div class="checkbox-container">
+                            <div class="checkbox"></div>
+                            <span class="checkbox-label">未选中</span>
+                        </div>
+                    </div>
+                    <div class="state-item">
+                        <div class="checkbox-container">
+                            <div class="checkbox checked"></div>
+                            <span class="checkbox-label">选中</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="component-item">
+            <div class="component-header">
+                <div class="component-title">开关 (Switch)</div>
+                <div class="component-description">开关用于表示两种状态之间的切换，通常用于启用/禁用设置。</div>
+            </div>
+            <div class="component-display">
+                <label class="switch">
+                    <input type="checkbox" aria-label="开关示例">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="component-states">
+                <div class="states-title">状态变化</div>
+                
+                <div class="state-row">
+                    <div class="state-item">
+                        <label class="switch">
+                            <input type="checkbox" aria-label="关闭状态">
+                            <span class="slider"></span>
+                        </label>
+                        <div class="state-label">关闭</div>
+                    </div>
+                    <div class="state-item">
+                        <label class="switch">
+                            <input type="checkbox" checked aria-label="开启状态">
+                            <span class="slider"></span>
+                        </label>
+                        <div class="state-label">开启</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="component-item">
+            <div class="component-header">
+                <div class="component-title">卡片 (Card)</div>
+                <div class="component-description">卡片用于组织和展示相关内容，提供清晰的内容边界。</div>
+            </div>
+            <div class="component-display">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">卡片标题</div>
+                    </div>
+                    <div class="card-content">
+                        这是卡片的内容区域，用于展示相关信息。卡片可以包含各种元素，如文本、图片、按钮等。
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="component-item">
+            <div class="component-header">
+                <div class="component-title">标签 (Badge)</div>
+                <div class="component-description">标签用于展示状态、分类或计数信息，以简洁的形式呈现辅助信息。</div>
+            </div>
+            <div class="component-display">
+                <div style="display: flex; gap: 16px;">
+                    <span class="badge badge-info">信息</span>
+                    <span class="badge badge-success">成功</span>
+                    <span class="badge badge-warning">警告</span>
+                    <span class="badge badge-danger">错误</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="component-item">
+            <div class="component-header">
+                <div class="component-title">表格 (Table)</div>
+                <div class="component-description">表格用于展示结构化数据，支持排序、筛选等操作。</div>
+            </div>
+            <div class="component-display">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>名称</th>
+                            <th>状态</th>
+                            <th>创建时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>001</td>
+                            <td>MySQL主数据库</td>
+                            <td><span class="badge badge-success">运行中</span></td>
+                            <td>2024-05-01 10:30</td>
+                            <td>
+                                <button class="btn btn-text btn-icon" aria-label="编辑">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                </button>
+                                <button class="btn btn-text btn-icon" aria-label="删除">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                </button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>002</td>
+                            <td>Redis缓存服务</td>
+                            <td><span class="badge badge-warning">警告</span></td>
+                            <td>2024-05-02 14:15</td>
+                            <td>
+                                <button class="btn btn-text btn-icon" aria-label="编辑">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                </button>
+                                <button class="btn btn-text btn-icon" aria-label="删除">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                </button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>003</td>
+                            <td>Elasticsearch服务</td>
+                            <td><span class="badge badge-danger">错误</span></td>
+                            <td>2024-05-03 09:45</td>
+                            <td>
+                                <button class="btn btn-text btn-icon" aria-label="编辑">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                </button>
+                                <button class="btn btn-text btn-icon" aria-label="删除">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 14px;">CapsuleX 组件规范文档 © 2024</div>
+</body>
+</html> 

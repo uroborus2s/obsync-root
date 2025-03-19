@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CapsuleX - 容器详情</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+        
+        body {
+            background-color: #f8fafc;
+            color: #1e293b;
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+        }
+        
+        .sidebar {
+            width: 240px;
+            background-color: white;
+            border-right: 1px solid #e2e8f0;
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+        
+        .sidebar-logo {
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .sidebar-logo svg {
+            width: 32px;
+            height: 32px;
+            margin-right: 12px;
+        }
+        
+        .sidebar-logo-text {
+            font-size: 18px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+        
+        .sidebar-menu {
+            padding: 16px 0;
+            flex: 1;
+        }
+        
+        .menu-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: #64748b;
+            padding: 0 20px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .menu-item {
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            color: #64748b;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        
+        .menu-item:hover {
+            background-color: #f1f5f9;
+            color: #0f172a;
+        }
+        
+        .menu-item.active {
+            background-color: #eff6ff;
+            color: #0066ff;
+            border-right: 2px solid #0066ff;
+        }
+        
+        .menu-item svg {
+            width: 18px;
+            height: 18px;
+            margin-right: 12px;
+        }
+        
+        .menu-text {
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .content {
+            margin-left: 240px;
+            padding: 20px;
+            flex: 1;
+        }
+        
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        
+        .page-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+        
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+            color: #64748b;
+        }
+        
+        .breadcrumb-item {
+            display: flex;
+            align-items: center;
+        }
+        
+        .breadcrumb-item a {
+            color: #0066ff;
+            text-decoration: none;
+        }
+        
+        .breadcrumb-separator {
+            margin: 0 8px;
+            color: #94a3b8;
+        }
+        
+        .user-menu {
+            display: flex;
+            align-items: center;
+        }
+        
+        .notifications {
+            width: 40px;
+            height: 40px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            margin-right: 12px;
+            position: relative;
+        }
+        
+        .notifications:hover {
+            background-color: #f1f5f9;
+        }
+        
+        .notification-badge {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 16px;
+            height: 16px;
+            border-radius: 8px;
+            background-color: #ef4444;
+            color: white;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 20px;
+            background-color: #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            overflow: hidden;
+        }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 500;
+            border-radius: 4px;
+            padding: 0 16px;
+            height: 36px;
+            font-size: 14px;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        
+        .btn-primary {
+            background-color: #0066ff;
+            color: white;
+            border: none;
+        }
+        
+        .btn-primary:hover {
+            background-color: #0050cc;
+        }
+        
+        .btn-secondary {
+            background-color: white;
+            color: #0066ff;
+            border: 1px solid #0066ff;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #f0f7ff;
+        }
+        
+        .btn-danger {
+            background-color: #ef4444;
+            color: white;
+            border: none;
+        }
+        
+        .btn-danger:hover {
+            background-color: #dc2626;
+        }
+        
+        .btn-text {
+            background-color: transparent;
+            color: #0066ff;
+            border: none;
+            padding: 0 8px;
+        }
+        
+        .btn-text:hover {
+            background-color: #f0f7ff;
+        }
+        
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 8px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-running {
+            background-color: #dcfce7;
+            color: #10b981;
+        }
+        
+        .container-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .container-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #e2e8f0;
+            margin-bottom: 24px;
+        }
+        
+        .tab {
+            padding: 12px 16px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-bottom: 2px solid transparent;
+        }
+        
+        .tab:hover {
+            color: #0f172a;
+        }
+        
+        .tab.active {
+            color: #0066ff;
+            border-bottom-color: #0066ff;
+        }
+        
+        .container-info {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+        
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .info-label {
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 4px;
+        }
+        
+        .info-value {
+            font-size: 14px;
+            color: #0f172a;
+            font-weight: 500;
+        }
+        
+        .resource-section {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+        
+        .resource-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 16px;
+        }
+        
+        .resource-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        
+        .resource-card {
+            background-color: #f8fafc;
+            border-radius: 4px;
+            padding: 16px;
+        }
+        
+        .resource-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .resource-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: #0f172a;
+        }
+        
+        .resource-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #0066ff;
+        }
+        
+        .resource-bar {
+            height: 6px;
+            background-color: #e2e8f0;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        
+        .resource-progress {
+            height: 100%;
+            background-color: #0066ff;
+        }
+        
+        .log-section, .shell-section {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+        
+        .log-header, .shell-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .log-title, .shell-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+        
+        .log-controls, .shell-controls {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .log-window, .shell-window {
+            background-color: #1e293b;
+            color: #e2e8f0;
+            font-family: "JetBrains Mono", monospace;
+            font-size: 12px;
+            padding: 12px;
+            border-radius: 4px;
+            height: 400px;
+            overflow-y: auto;
+        }
+        
+        .log-line {
+            margin-bottom: 4px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        
+        .timestamp {
+            color: #94a3b8;
+            margin-right: 8px;
+        }
+        
+        .shell-input {
+            display: flex;
+            background-color: #1e293b;
+            padding: 8px 12px;
+            border-radius: 0 0 4px 4px;
+            border-top: 1px solid #334155;
+            margin-top: -8px;
+        }
+        
+        .shell-prompt {
+            color: #10b981;
+            margin-right: 8px;
+            font-family: "JetBrains Mono", monospace;
+            font-size: 12px;
+        }
+        
+        .shell-command {
+            background-color: transparent;
+            border: none;
+            color: #e2e8f0;
+            font-family: "JetBrains Mono", monospace;
+            font-size: 12px;
+            flex: 1;
+        }
+        
+        .shell-command:focus {
+            outline: none;
+        }
+    </style>
+    <script>
+        // 页面跳转函数
+        function navigateTo(page) {
+            window.location.href = page;
+        }
+        
+        // 容器操作函数
+        function startContainer() {
+            alert('正在启动容器...');
+        }
+        
+        function stopContainer() {
+            if(confirm('确定要停止容器吗？')) {
+                alert('正在停止容器...');
+            }
+        }
+        
+        function restartContainer() {
+            alert('正在重启容器...');
+        }
+        
+        // 下载容器日志
+        function downloadLogs() {
+            alert('正在下载容器日志...');
+        }
+        
+        // 执行Shell命令
+        function executeCommand() {
+            const commandInput = document.querySelector('.shell-command');
+            const command = commandInput.value.trim();
+            
+            if (!command) return;
+            
+            const shellWindow = document.querySelector('.shell-window');
+            const logLine = document.createElement('div');
+            logLine.className = 'log-line';
+            logLine.textContent = `root@a72d7c893e1a:/etc/nginx# ${command}`;
+            
+            shellWindow.appendChild(logLine);
+            
+            // 模拟命令执行响应
+            if (command === 'ls') {
+                const response = document.createElement('div');
+                response.className = 'log-line';
+                response.textContent = 'conf.d  fastcgi_params  mime.types  nginx.conf  sites-available  sites-enabled';
+                shellWindow.appendChild(response);
+            } else if (command === 'cat nginx.conf') {
+                const lines = [
+                    'user  nginx;',
+                    'worker_processes  auto;',
+                    '',
+                    'error_log  /var/log/nginx/error.log notice;',
+                    'pid        /var/run/nginx.pid;',
+                    '',
+                    'events {',
+                    '    worker_connections  1024;',
+                    '}',
+                    '',
+                    'http {',
+                    '    include       /etc/nginx/mime.types;',
+                    '    default_type  application/octet-stream;',
+                    '',
+                    '    log_format  main  \'$remote_addr - $remote_user [$time_local] "$request" \'',
+                    '                      \'$status $body_bytes_sent "$http_referer" \'',
+                    '                      \'"$http_user_agent" "$http_x_forwarded_for"\';',
+                    '',
+                    '    access_log  /var/log/nginx/access.log  main;',
+                    '',
+                    '    sendfile        on;',
+                    '    #tcp_nopush     on;',
+                    '',
+                    '    keepalive_timeout  65;',
+                    '',
+                    '    #gzip  on;',
+                    '',
+                    '    include /etc/nginx/conf.d/*.conf;',
+                    '}'
+                ];
+                
+                lines.forEach(line => {
+                    const response = document.createElement('div');
+                    response.className = 'log-line';
+                    response.textContent = line;
+                    shellWindow.appendChild(response);
+                });
+            } else {
+                const response = document.createElement('div');
+                response.className = 'log-line';
+                response.textContent = `Command not found: ${command}`;
+                shellWindow.appendChild(response);
+            }
+            
+            // 清空输入并滚动到底部
+            commandInput.value = '';
+            shellWindow.scrollTop = shellWindow.scrollHeight;
+        }
+        
+        // 初始化页面
+        document.addEventListener('DOMContentLoaded', function() {
+            // 为Shell命令输入框添加回车键监听
+            const commandInput = document.querySelector('.shell-command');
+            if (commandInput) {
+                commandInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        executeCommand();
+                    }
+                });
+            }
+            
+            // 初始化标签页切换
+            const tabs = document.querySelectorAll('.tab');
+            if (tabs.length > 0) {
+                tabs.forEach(tab => {
+                    tab.addEventListener('click', function() {
+                        // 实际应用中这里应该切换不同的内容面板
+                        tabs.forEach(t => t.classList.remove('active'));
+                        this.classList.add('active');
+                    });
+                });
+            }
+        });
+    </script>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-logo">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#0066FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 17L12 22L22 17" stroke="#0066FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 12L12 17L22 12" stroke="#0066FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div class="sidebar-logo-text">CapsuleX</div>
+        </div>
+        <div class="sidebar-menu">
+            <div class="menu-label">概览</div>
+            <div class="menu-item" onclick="navigateTo('dashboard.html')">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                <div class="menu-text">仪表盘</div>
+            </div>
+            
+            <div class="menu-label">Docker</div>
+            <div class="menu-item active" onclick="navigateTo('containers.html')">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+                <div class="menu-text">容器管理</div>
+            </div>
+            <div class="menu-item" onclick="navigateTo('images.html')">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                </svg>
+                <div class="menu-text">镜像管理</div>
+            </div>
+            <div class="menu-item" onclick="navigateTo('compose.html')">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                </svg>
+                <div class="menu-text">Docker Compose</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="content">
+        <div class="top-bar">
+            <div>
+                <div class="breadcrumb">
+                    <div class="breadcrumb-item"><a href="containers.html">容器管理</a></div>
+                    <div class="breadcrumb-separator">/</div>
+                    <div class="breadcrumb-item">web-server</div>
+                </div>
+                <h1 class="page-title">web-server</h1>
+            </div>
+            <div class="user-menu">
+                <div class="notifications">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                    <div class="notification-badge">3</div>
+                </div>
+                <div class="user-avatar">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+        
+        <div class="container-header">
+            <div>
+                <div class="status-indicator status-running">运行中</div>
+            </div>
+            <div class="container-actions">
+                <button class="btn btn-secondary" onclick="restartContainer()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="mr-2">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    重启
+                </button>
+                <button class="btn btn-danger" onclick="stopContainer()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="mr-2">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    停止
+                </button>
+            </div>
+        </div>
+        
+        <div class="tabs">
+            <div class="tab active">概览</div>
+            <div class="tab">日志</div>
+            <div class="tab">Shell</div>
+            <div class="tab">统计信息</div>
+            <div class="tab">网络</div>
+            <div class="tab">卷</div>
+        </div>
+        
+        <div class="container-info">
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">容器ID</div>
+                    <div class="info-value">a72d7c893e1a5...</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">镜像</div>
+                    <div class="info-value">nginx:latest</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">创建时间</div>
+                    <div class="info-value">2023-03-15 10:30:45</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">状态</div>
+                    <div class="info-value">运行中 (已运行 2天8小时)</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">端口映射</div>
+                    <div class="info-value">80/tcp -> 0.0.0.0:8080</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">命令</div>
+                    <div class="info-value">nginx -g 'daemon off;'</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="resource-section">
+            <h2 class="resource-title">资源使用</h2>
+            <div class="resource-grid">
+                <div class="resource-card">
+                    <div class="resource-header">
+                        <div class="resource-name">CPU</div>
+                        <div class="resource-value">0.5%</div>
+                    </div>
+                    <div class="resource-bar">
+                        <div class="resource-progress" style="width: 0.5%;"></div>
+                    </div>
+                </div>
+                <div class="resource-card">
+                    <div class="resource-header">
+                        <div class="resource-name">内存</div>
+                        <div class="resource-value">128MB / 2GB</div>
+                    </div>
+                    <div class="resource-bar">
+                        <div class="resource-progress" style="width: 6.25%;"></div>
+                    </div>
+                </div>
+                <div class="resource-card">
+                    <div class="resource-header">
+                        <div class="resource-name">网络 (RX/TX)</div>
+                        <div class="resource-value">2.4MB / 8.6MB</div>
+                    </div>
+                </div>
+                <div class="resource-card">
+                    <div class="resource-header">
+                        <div class="resource-name">磁盘 (读/写)</div>
+                        <div class="resource-value">1.2MB / 4.5MB</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="log-section">
+            <div class="log-header">
+                <h2 class="log-title">容器日志</h2>
+                <div class="log-controls">
+                    <button class="btn btn-secondary" onclick="downloadLogs()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="mr-2">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        下载日志
+                    </button>
+                </div>
+            </div>
+            <div class="log-window">
+                <div class="log-line"><span class="timestamp">2023-03-17 08:02:15</span>172.17.0.1 - - [17/Mar/2023:08:02:15 +0000] "GET / HTTP/1.1" 200 615 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36"</div>
+                <div class="log-line"><span class="timestamp">2023-03-17 08:02:16</span>172.17.0.1 - - [17/Mar/2023:08:02:16 +0000] "GET /favicon.ico HTTP/1.1" 404 556 "http://localhost:8080/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36"</div>
+                <div class="log-line"><span class="timestamp">2023-03-17 08:04:32</span>172.17.0.1 - - [17/Mar/2023:08:04:32 +0000] "GET / HTTP/1.1" 200 615 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36"</div>
+                <div class="log-line"><span class="timestamp">2023-03-17 08:05:45</span>172.17.0.1 - - [17/Mar/2023:08:05:45 +0000] "GET /api/health HTTP/1.1" 404 556 "-" "curl/7.64.1"</div>
+                <div class="log-line"><span class="timestamp">2023-03-17 08:15:01</span>2023/03/17 08:15:01 [notice] 1#1: signal process started</div>
+                <div class="log-line"><span class="timestamp">2023-03-17 08:32:22</span>172.17.0.1 - - [17/Mar/2023:08:32:22 +0000] "GET / HTTP/1.1" 200 615 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36"</div>
+                <div class="log-line"><span class="timestamp">2023-03-17 09:01:18</span>172.17.0.1 - - [17/Mar/2023:09:01:18 +0000] "GET / HTTP/1.1" 200 615 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36"</div>
+                <div class="log-line"><span class="timestamp">2023-03-17 09:14:37</span>172.17.0.1 - - [17/Mar/2023:09:14:37 +0000] "GET /styles.css HTTP/1.1" 404 556 "http://localhost:8080/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36"</div>
+                <div class="log-line"><span class="timestamp">2023-03-17 09:30:00</span>2023/03/17 09:30:00 [info] 1#1: *10 client closed connection while waiting for request, client: 172.17.0.1, server: localhost</div>
+                <div class="log-line"><span class="timestamp">2023-03-17 10:05:22</span>172.17.0.1 - - [17/Mar/2023:10:05:22 +0000] "GET / HTTP/1.1" 200 615 "-" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36"</div>
+            </div>
+        </div>
+        
+        <div class="shell-section">
+            <div class="shell-header">
+                <h2 class="shell-title">容器Shell</h2>
+                <div class="shell-controls">
+                    <button class="btn btn-secondary">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="mr-2">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                        </svg>
+                        全屏
+                    </button>
+                </div>
+            </div>
+            <div class="shell-window">
+                <div class="log-line">root@a72d7c893e1a:~# ls -la</div>
+                <div class="log-line">total 56</div>
+                <div class="log-line">drwxr-xr-x 1 root root 4096 Mar 17 07:30 .</div>
+                <div class="log-line">drwxr-xr-x 1 root root 4096 Mar 17 07:30 ..</div>
+                <div class="log-line">-rw------- 1 root root  567 Mar 17 08:15 .bash_history</div>
+                <div class="log-line">-rw-r--r-- 1 root root  571 Apr 10  2021 .bashrc</div>
+                <div class="log-line">-rw-r--r-- 1 root root  161 Jul  9  2019 .profile</div>
+                <div class="log-line">drwxr-xr-x 1 root root 4096 Mar 15 10:30 etc</div>
+                <div class="log-line">drwxr-xr-x 1 root root 4096 Mar 15 10:30 var</div>
+                <div class="log-line"></div>
+                <div class="log-line">root@a72d7c893e1a:~# cd /etc/nginx/</div>
+                <div class="log-line">root@a72d7c893e1a:/etc/nginx# ls -la</div>
+                <div class="log-line">total 36</div>
+                <div class="log-line">drwxr-xr-x 1 root root 4096 Mar 15 10:30 .</div>
+                <div class="log-line">drwxr-xr-x 1 root root 4096 Mar 15 10:30 ..</div>
+                <div class="log-line">drwxr-xr-x 1 root root 4096 Mar 15 10:30 conf.d</div>
+                <div class="log-line">-rw-r--r-- 1 root root 1007 Feb  1  2022 fastcgi_params</div>
+                <div class="log-line">-rw-r--r-- 1 root root 5349 Feb  1  2022 mime.types</div>
+                <div class="log-line">-rw-r--r-- 1 root root 1490 Feb  1  2022 nginx.conf</div>
+            </div>
+            <div class="shell-input">
+                <div class="shell-prompt">root@a72d7c893e1a:/etc/nginx#</div>
+                <input type="text" class="shell-command" placeholder="输入命令...">
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

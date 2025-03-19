@@ -1,0 +1,28 @@
+{
+  "name": "stratix",
+  "version": "1.0.0",
+  "description": "A functional programming based Node.js application framework",
+  "main": "dist/index.js",
+  "type": "module",
+  "bin": {
+    "stratix": "./dist/cli.js"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "clean": "rimraf dist",
+    "build": "pnpm run clean && tsc",
+    "dev": "tsc --watch"
+  },
+  "exports": {
+    "import": "./dist/index.js",
+    "require": "./dist/index.cjs",
+    "types": "./dist/types/index.d.ts"
+  },
+  "dependencies": {
+    "awilix": "^12.0.5",
+    "zod": "^3.22.4",
+    "@stratix/logger": "workspace:*"
+  }
+}

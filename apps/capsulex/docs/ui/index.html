@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CapsuleX - Web运维管理平台 UI设计文档</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+        
+        body {
+            background-color: #f8fafc;
+            color: #1e293b;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
+            padding: 32px;
+        }
+        
+        h1 {
+            font-size: 32px;
+            color: #0066ff;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #e2e8f0;
+            font-weight: 600;
+        }
+        
+        h2 {
+            font-size: 28px;
+            color: #1e293b;
+            margin: 36px 0 18px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #e2e8f0;
+            font-weight: 600;
+        }
+        
+        h3 {
+            font-size: 22px;
+            color: #0066ff;
+            margin: 28px 0 16px;
+            font-weight: 600;
+        }
+        
+        p {
+            margin-bottom: 16px;
+            font-size: 16px;
+            color: #334155;
+        }
+        
+        ul, ol {
+            margin-bottom: 16px;
+            padding-left: 24px;
+            color: #334155;
+        }
+        
+        li {
+            margin-bottom: 10px;
+        }
+        
+        .navigation {
+            margin: 24px 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        
+        .nav-link {
+            display: inline-block;
+            padding: 10px 16px;
+            background-color: #0066ff;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        
+        .nav-link:hover {
+            background-color: #0050cc;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+        
+        .highlight {
+            font-weight: 600;
+            color: #0066ff;
+        }
+        
+        .design-frames {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        
+        .design-frame {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .design-frame-title {
+            background-color: #f1f5f9;
+            color: #0f172a;
+            padding: 10px 16px;
+            font-size: 16px;
+            font-weight: 600;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .design-frame iframe {
+            width: 100%;
+            border: none;
+            height: 600px;
+        }
+        
+        /* 后台管理系统样式 */
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .iframe-container {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
+            margin: 24px 0;
+        }
+        
+        .iframe-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
+        .page-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .page-item {
+            padding: 8px 16px;
+            background-color: #f1f5f9;
+            color: #64748b;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .page-item:hover {
+            background-color: #e2e8f0;
+            color: #1e293b;
+        }
+        
+        .page-item.active {
+            background-color: #0066ff;
+            color: white;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 2px 6px;
+            background-color: #f59e0b;
+            color: white;
+            border-radius: 9999px;
+            font-size: 12px;
+            margin-left: 6px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-10 mb-10">
+        <h1>CapsuleX - Web运维管理平台 UI设计文档</h1>
+        
+        <p>本文档展示了CapsuleX Web运维管理平台的UI设计，包括设计系统、组件规范、后台管理系统界面设计和响应式设计。</p>
+        
+        <div class="navigation">
+            <a href="#design-system" class="nav-link">设计系统</a>
+            <a href="#component-spec" class="nav-link">组件规范</a>
+            <a href="#admin-system" class="nav-link">后台管理系统</a>
+            <a href="#responsive-design" class="nav-link">响应式设计</a>
+        </div>
+        
+        <h2 id="design-system">1. 设计系统</h2>
+        <p>设计系统定义了CapsuleX平台的设计基础，包括色彩系统、字体规范、图标系统和布局系统。</p>
+        <div class="design-frames">
+            <div class="design-frame">
+                <div class="design-frame-title">设计系统总览</div>
+                <iframe src="design_system.html"></iframe>
+            </div>
+        </div>
+        
+        <h2 id="component-spec">2. 组件规范</h2>
+        <p>组件规范定义了系统中各类UI组件的设计标准和交互规则，确保整体设计一致性。</p>
+        <div class="design-frames">
+            <div class="design-frame">
+                <div class="design-frame-title">组件规范总览</div>
+                <iframe src="component_spec.html"></iframe>
+            </div>
+        </div>
+        
+        <h2 id="admin-system">3. 后台管理系统</h2>
+        <p>后台管理系统基于Next.js、Tailwind CSS和Shadcn UI构建，为运维人员提供各种功能模块。</p>
+        
+        <div id="admin-content" class="tab-content active">
+            <div class="page-list" id="admin-pages">
+                <div class="page-item active" data-src="admin/dashboard.html">仪表盘</div>
+                <div class="page-item" data-src="admin/login.html">登录页面</div>
+                <div class="page-item" data-src="admin/database_connections.html">数据库连接</div>
+                <div class="page-item" data-src="admin/database_query.html">数据库查询</div>
+                <div class="page-item" data-src="admin/database_monitoring.html">数据库监控</div>
+                <div class="page-item" data-src="admin/api_collections.html">API集合</div>
+                <div class="page-item" data-src="admin/request_builder.html">请求构建器</div>
+                <div class="page-item" data-src="admin/containers.html">容器管理</div>
+                <div class="page-item" data-src="admin/images.html">镜像管理</div>
+                <div class="page-item" data-src="admin/compose.html">Docker Compose</div>
+                <div class="page-item" data-src="admin/monitoring.html">监控面板</div>
+                <div class="page-item" data-src="admin/alerts.html">告警中心</div>
+                <div class="page-item" data-src="admin/user_management.html">用户管理</div>
+                <div class="page-item" data-src="admin/settings.html">系统设置</div>
+            </div>
+
+            <div class="iframe-container">
+                <iframe src="admin/dashboard.html" id="admin-frame" frameborder="0"></iframe>
+            </div>
+        </div>
+        
+        <h2 id="responsive-design">4. 响应式设计</h2>
+        <p>响应式设计确保CapsuleX平台在不同设备上都能提供良好的用户体验。</p>
+        <div class="design-frames">
+            <div class="design-frame">
+                <div class="design-frame-title">桌面端</div>
+                <iframe src="responsive/desktop.html"></iframe>
+            </div>
+            <div class="design-frame">
+                <div class="design-frame-title">平板端</div>
+                <iframe src="responsive/tablet.html"></iframe>
+            </div>
+            <div class="design-frame">
+                <div class="design-frame-title">移动端</div>
+                <iframe src="responsive/mobile.html"></iframe>
+            </div>
+        </div>
+            
+        <div class="mt-10 pt-6 border-t border-gray-200">
+            <p class="text-gray-600 text-sm">版权所有 © 2024 CapsuleX Web运维管理平台</p>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const adminPages = document.querySelectorAll('#admin-pages .page-item');
+            const adminFrame = document.getElementById('admin-frame');
+            
+            adminPages.forEach(page => {
+                page.addEventListener('click', () => {
+                    // 移除所有激活状态
+                    adminPages.forEach(p => p.classList.remove('active'));
+                    
+                    // 添加激活状态
+                    page.classList.add('active');
+                    
+                    // 更新iframe src
+                    const src = page.getAttribute('data-src');
+                    adminFrame.src = src;
+                });
+            });
+        });
+    </script>
+</body>
+</html> 
