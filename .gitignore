@@ -50,11 +50,13 @@ nbdist/
 # Visual Studio Code
 .history/
 .vscode/
+.vscode
 *.code-workspace
 .vshistory/
 
 # IntelliJ
 .idea/
+.idea
 .fleet/
 # mpeltonen/sbt-idea plugins
 .idea_modules/
