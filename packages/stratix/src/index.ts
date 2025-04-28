@@ -1,30 +1,38 @@
-import { StratixApp } from './app.js';
-import { run, runFromConfig } from './runner.js';
-import { AppOptions } from './types/app.js';
-
 /**
- * 创建应用实例
+ * Stratix框架主入口文件
  */
-export function createApp(options: AppOptions = {}): StratixApp {
-  return new StratixApp(options);
-}
 
-// 静态方法
-const Stratix = {
-  createApp,
-  run,
-  runFromConfig
-};
+// 导出应用工厂函数
+export { createApp, createAppFromConfig } from './app/factory.js';
 
-export default Stratix;
+// 导出应用接口和类型
+export {
+  AppOptions,
+  StratixApp,
+  StratixAppImplOptions
+} from './app/interface.js';
 
-// 导出类型
-export * from './types/config.js';
-export * from './types/index.js';
+// 导出插件接口和类型
+export {
+  PluginFactory,
+  PluginInstance,
+  PluginRegisterFn,
+  StratixPlugin
+} from './plugin/types.js';
 
-// 导出核心类
-export { StratixApp } from './app.js';
-export { DIContainer } from './di/index.js';
-export { ErrorManager } from './errors/index.js';
-export { HooksManager } from './hooks/index.js';
-export { PluginManager } from './plugin-manager.js';
+// 导出配置接口和类型
+export { ConfigAPI, ConfigLoaderOptions } from './config/types.js';
+
+// 导出钩子接口和类型
+export { HookManager } from './hook/types.js';
+
+export { HookHandler, HookName } from './types/hook.js';
+
+// 导出日志接口和类型
+export { LogLevel, LoggerInstance, LoggerOptions } from './types/logger.js';
+
+// 导出公共类型
+export { EnvOptions, JSONSchema } from './types/common.js';
+
+// 导出错误类
+export * from './types/errors.js';

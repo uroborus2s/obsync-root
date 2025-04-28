@@ -1,0 +1,40 @@
+{
+  "name": "@stratix/auth",
+  "version": "0.1.0",
+  "description": "Stratix框架中用于处理用户认证和授权的核心插件",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "clean": "rimraf dist",
+    "build": "pnpm run clean && tsc",
+    "dev": "tsc --watch",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix"
+  },
+  "keywords": [
+    "logger",
+    "logging",
+    "typescript",
+    "structured-logging",
+    "pino"
+  ],
+  "author": "Stratix Team",
+  "license": "MIT",
+  "dependencies": {
+    "@stratix/utils": "workspace:*"
+  },
+  "peerDependencies": {
+    "typescript": ">=4.5.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

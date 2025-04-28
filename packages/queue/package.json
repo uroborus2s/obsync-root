@@ -2,33 +2,36 @@
   "name": "@stratix/queue",
   "version": "0.1.0",
   "description": "高性能、灵活的结构化消息栈",
+  "type": "module",
   "main": "dist/index.js",
-  "module": "dist/index.mjs",
+  "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
     "dist",
     "README.md"
   ],
   "scripts": {
-    "build": "rimraf dist && tsup src/index.ts --format cjs,esm --dts",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "clean": "rimraf dist",
+    "build": "pnpm run clean && tsc",
+    "dev": "tsc --watch",
     "lint": "eslint src",
-    "lint:fix": "eslint src --fix",
-    "prepublishOnly": "npm run build"
+    "lint:fix": "eslint src --fix"
   },
   "keywords": [
-    "logger",
-    "logging",
-    "typescript",
-    "structured-logging",
-    "pino"
+    "queue",
+    "bullmq",
+    "tasks",
+    "jobs",
+    "messages",
+    "redis",
+    "typescript"
   ],
   "author": "Stratix Team",
   "license": "MIT",
   "dependencies": {
+    "@stratix/utils": "workspace:*",
+    "bullmq": "^5.51.0"
   },
-  "devDependencies": {},
   "peerDependencies": {
     "typescript": ">=4.5.0"
   },

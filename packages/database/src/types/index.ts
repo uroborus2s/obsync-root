@@ -1,268 +1,242 @@
 /**
- * 数据库插件的类型定义
+ * @stratix/database 类型定义索引
+ */
+
+export * from './connection.js';
+export * from './database.js';
+export * from './model.js';
+export * from './query.js';
+
+/**
+ * @stratix/database 类型定义
  */
 
 import { Knex } from 'knex';
-
-// 重新导出Knex类型
-export type { Knex };
+import { BaseModel } from '../models/base-model.js';
 
 /**
- * 数据库配置选项
+ * 模型构造函数类型
  */
-export interface DatabaseConfig extends Knex.Config {
+export interface ModelStatic<T = any> {
   /**
-   * 是否启用调试模式
+   * 数据库连接实例
    */
-  debug?: boolean;
-
-  /**
-   * 多数据库连接配置
-   */
-  connections?: Record<string, Knex.Config>;
+  getConnection(name?: string): DatabaseConnection;
 
   /**
-   * 模型配置
+   * 获取Knex实例
    */
-  models?: {
-    /**
-     * 模型文件目录
-     */
-    directory?: string;
+  getKnex(connectionName?: string): Knex;
 
-    /**
-     * 基础模型类名
-     */
-    baseClass?: string;
+  /**
+   * 模型名称
+   */
+  modelName: string;
 
-    /**
-     * 是否自动注册目录下所有模型
-     */
-    autoRegister?: boolean;
+  /**
+   * 表名
+   */
+  tableName: string;
+
+  /**
+   * 主键
+   */
+  primaryKey: string;
+
+  /**
+   * 是否启用时间戳
+   */
+  timestamps: boolean;
+
+  /**
+   * 创建时间列名
+   */
+  createdAtColumn: string;
+
+  /**
+   * 更新时间列名
+   */
+  updatedAtColumn: string;
+
+  /**
+   * 是否启用软删除
+   */
+  softDeletes: boolean;
+
+  /**
+   * 删除时间列名
+   */
+  deletedAtColumn: string;
+
+  /**
+   * 字段定义
+   */
+  fields: Record<string, FieldDefinition>;
+
+  /**
+   * 关系定义
+   */
+  relations: Record<string, RelationDefinition>;
+
+  /**
+   * 查询作用域
+   */
+  scopes?: Record<string, ScopeCallback>;
+
+  /**
+   * 全局查询作用域
+   */
+  globalScopes?: ScopeCallback[];
+
+  /**
+   * 表结构定义
+   */
+  schema?: {
+    columns?: Record<string, any>;
+    indexes?: Array<any>;
   };
 
   /**
-   * 迁移配置
+   * 创建新实例
    */
-  migrations?: {
-    /**
-     * 迁移文件目录
-     */
-    directory?: string;
-
-    /**
-     * 迁移表名
-     */
-    tableName?: string;
-
-    /**
-     * 是否自动从模型生成迁移
-     */
-    autoGenerate?: boolean;
-  };
+  new (attributes?: Record<string, any>): T;
 
   /**
-   * 种子配置
+   * 创建模型实例
    */
-  seeds?: {
-    /**
-     * 种子文件目录
-     */
-    directory?: string;
+  create(attributes: Record<string, any>): Promise<T>;
 
-    /**
-     * 不同环境使用的种子目录
-     */
-    environment?: Record<string, string[]>;
-  };
+  /**
+   * 更新记录
+   */
+  update(id: any, attributes: Record<string, any>): Promise<T>;
+
+  /**
+   * 查找记录
+   */
+  find(id: any): Promise<T | null>;
+
+  /**
+   * 查找记录，不存在则抛出异常
+   */
+  findOrFail(id: any): Promise<T>;
+
+  /**
+   * 获取所有记录
+   */
+  all(): Promise<T[]>;
+
+  /**
+   * 查询构建器
+   */
+  query(): any;
 }
 
 /**
- * 字段类型定义
+ * 数据库连接
  */
-export type FieldType =
-  | 'increments'
-  | 'integer'
-  | 'bigInteger'
-  | 'tinyInteger'
-  | 'string'
-  | 'text'
-  | 'decimal'
-  | 'float'
-  | 'boolean'
-  | 'date'
-  | 'datetime'
-  | 'time'
-  | 'timestamp'
-  | 'binary'
-  | 'enum'
-  | 'json'
-  | 'jsonb'
-  | 'uuid';
+export interface DatabaseConnection {
+  /**
+   * 连接名称
+   */
+  name: string;
+
+  /**
+   * 获取Knex实例
+   */
+  getKnex(): Knex;
+}
 
 /**
- * 基础字段选项
+ * 字段定义
  */
-export interface BaseFieldOptions {
+export interface FieldDefinition {
   /**
    * 字段类型
    */
-  type: FieldType;
+  type: string;
 
   /**
-   * 是否可为null
+   * 是否主键
+   */
+  primaryKey?: boolean;
+
+  /**
+   * 是否可为空
    */
   nullable?: boolean;
 
   /**
    * 默认值
    */
-  default?: any | (() => any);
+  defaultValue?: any;
 
   /**
-   * 字段注释
+   * 列名（如果与属性名不同）
    */
-  comment?: string;
+  column?: string;
 
   /**
-   * 是否创建索引
-   */
-  index?: boolean;
-
-  /**
-   * 是否创建唯一索引
+   * 是否唯一
    */
   unique?: boolean;
 
   /**
-   * 是否为主键
+   * 索引名称
    */
-  primary?: boolean;
-}
-
-/**
- * 字符串字段选项
- */
-export interface StringFieldOptions extends BaseFieldOptions {
-  type: 'string' | 'text';
+  index?: string | boolean;
 
   /**
-   * 字符串长度 (仅用于string类型)
+   * 是否自增
    */
-  length?: number;
+  autoIncrement?: boolean;
 
   /**
-   * 字符集
-   */
-  charset?: string;
-
-  /**
-   * 排序规则
-   */
-  collate?: string;
-}
-
-/**
- * 数值字段选项
- */
-export interface NumberFieldOptions extends BaseFieldOptions {
-  type: 'integer' | 'bigInteger' | 'tinyInteger' | 'decimal' | 'float';
-
-  /**
-   * 是否为无符号（非负）数值
+   * 是否无符号
    */
   unsigned?: boolean;
 
   /**
-   * 精度（总位数）
+   * 最大长度
+   */
+  length?: number;
+
+  /**
+   * 精度（用于decimal类型）
    */
   precision?: number;
 
   /**
-   * 小数位数
+   * 小数位数（用于decimal类型）
    */
   scale?: number;
 }
 
 /**
- * 枚举字段选项
+ * 关系定义
  */
-export interface EnumFieldOptions extends BaseFieldOptions {
-  type: 'enum';
-
-  /**
-   * 枚举可选值列表
-   */
-  values: string[];
-}
-
-/**
- * 日期时间字段选项
- */
-export interface DatetimeFieldOptions extends BaseFieldOptions {
-  type: 'date' | 'datetime' | 'time' | 'timestamp';
-
-  /**
-   * 时间精度（秒的小数位）
-   */
-  precision?: number;
-
-  /**
-   * 是否使用时区（仅用于timestamp）
-   */
-  useTz?: boolean;
-}
-
-/**
- * 外键引用选项
- */
-export interface ReferenceOptions {
-  /**
-   * 引用的表和字段，如 'users.id'
-   */
-  references?: string;
-
-  /**
-   * 删除时动作，如 'CASCADE', 'SET NULL', 'RESTRICT'
-   */
-  onDelete?: string;
-
-  /**
-   * 更新时动作，如 'CASCADE'
-   */
-  onUpdate?: string;
-}
-
-/**
- * 字段定义，合并所有可能的字段选项
- */
-export type FieldDefinition = BaseFieldOptions &
-  Partial<
-    StringFieldOptions &
-      NumberFieldOptions &
-      EnumFieldOptions &
-      DatetimeFieldOptions &
-      ReferenceOptions
-  >;
-
-/**
- * 关系类型
- */
-export type RelationType = 'hasOne' | 'hasMany' | 'belongsTo' | 'belongsToMany';
-
-/**
- * 基础关系定义
- */
-export interface BaseRelation {
+export interface RelationDefinition {
   /**
    * 关系类型
    */
-  type: RelationType;
+  type:
+    | 'hasOne'
+    | 'hasMany'
+    | 'belongsTo'
+    | 'belongsToMany'
+    | 'morphOne'
+    | 'morphMany'
+    | 'morphTo';
 
   /**
-   * 关联的模型名称
+   * 关联模型
    */
-  model: string;
+  model: string | ModelStatic;
+
+  /**
+   * 外键
+   */
+  foreignKey?: string;
 
   /**
    * 本地键
@@ -270,145 +244,140 @@ export interface BaseRelation {
   localKey?: string;
 
   /**
-   * 外键
+   * 中间表（用于belongsToMany关系）
    */
-  foreignKey?: string;
-}
-
-/**
- * 一对一关系定义
- */
-export interface HasOneRelation extends BaseRelation {
-  type: 'hasOne';
-}
-
-/**
- * 一对多关系定义
- */
-export interface HasManyRelation extends BaseRelation {
-  type: 'hasMany';
-}
-
-/**
- * 属于关系定义
- */
-export interface BelongsToRelation extends BaseRelation {
-  type: 'belongsTo';
-}
-
-/**
- * 多对多关系定义
- */
-export interface BelongsToManyRelation extends BaseRelation {
-  type: 'belongsToMany';
+  pivot?: string;
 
   /**
-   * 中间表名称
+   * 中间表外键（用于belongsToMany关系）
    */
-  through: string;
+  pivotForeignKey?: string;
 
   /**
-   * 另一个键名
+   * 中间表关联键（用于belongsToMany关系）
    */
-  otherKey: string;
+  pivotRelatedKey?: string;
 
   /**
-   * 中间表上的额外字段
+   * 多态关系类型字段（用于多态关系）
    */
-  pivotFields?: string[];
+  morphType?: string;
+
+  /**
+   * 多态关系ID字段（用于多态关系）
+   */
+  morphId?: string;
+
+  /**
+   * 外键删除行为
+   */
+  onDelete?: string;
+
+  /**
+   * 外键更新行为
+   */
+  onUpdate?: string;
 }
 
 /**
- * 关系定义，合并所有可能的关系类型
- */
-export type RelationDefinition =
-  | HasOneRelation
-  | HasManyRelation
-  | BelongsToRelation
-  | BelongsToManyRelation;
-
-/**
- * 模型查询选项
+ * 查询选项
  */
 export interface QueryOptions {
   /**
+   * 数据库连接名称
+   */
+  connection?: string;
+
+  /**
+   * 是否包含已软删除的记录
+   */
+  withTrashed?: boolean;
+
+  /**
+   * 仅获取已软删除的记录
+   */
+  onlyTrashed?: boolean;
+
+  /**
+   * 要加载的关系
+   */
+  with?: Array<{
+    name: string;
+    callback?: Function;
+  }>;
+
+  /**
+   * 要应用的作用域
+   */
+  scopes?: Array<string | ScopeCallback>;
+
+  /**
    * 事务对象
    */
-  transaction?: Knex.Transaction;
-
-  /**
-   * 是否强制删除（软删除情况下）
-   */
-  force?: boolean;
-
-  /**
-   * 其他选项
-   */
-  [key: string]: any;
+  trx?: Knex.Transaction;
 }
 
 /**
- * 分页结果
+ * 作用域回调
  */
-export interface PaginationResult<T> {
+export type ScopeCallback = (query: Knex.QueryBuilder) => void;
+
+/**
+ * 生命周期钩子类型
+ */
+export type HookCallback = (model: BaseModel) => Promise<void> | void;
+
+/**
+ * 生命周期钩子定义
+ */
+export interface Hooks {
   /**
-   * 数据结果
+   * 创建前钩子
    */
-  data: T[];
+  beforeCreate?: HookCallback[];
 
   /**
-   * 总记录数
+   * 创建后钩子
    */
-  total: number;
+  afterCreate?: HookCallback[];
 
   /**
-   * 当前页
+   * 更新前钩子
    */
-  currentPage: number;
+  beforeUpdate?: HookCallback[];
 
   /**
-   * 每页记录数
+   * 更新后钩子
    */
-  perPage: number;
+  afterUpdate?: HookCallback[];
 
   /**
-   * 总页数
+   * 保存前钩子（创建或更新）
    */
-  lastPage: number;
+  beforeSave?: HookCallback[];
 
   /**
-   * 是否有上一页
+   * 保存后钩子（创建或更新）
    */
-  hasMorePages: boolean;
+  afterSave?: HookCallback[];
 
   /**
-   * 第一条记录的索引
+   * 删除前钩子
    */
-  from: number | null;
+  beforeDelete?: HookCallback[];
 
   /**
-   * 最后一条记录的索引
+   * 删除后钩子
    */
-  to: number | null;
+  afterDelete?: HookCallback[];
+
+  /**
+   * 恢复前钩子（软删除）
+   */
+  beforeRestore?: HookCallback[];
+
+  /**
+   * 恢复后钩子（软删除）
+   */
+  afterRestore?: HookCallback[];
 }
-
-/**
- * 钩子类型
- */
-export type HookType =
-  | 'beforeCreate'
-  | 'afterCreate'
-  | 'beforeUpdate'
-  | 'afterUpdate'
-  | 'beforeSave'
-  | 'afterSave'
-  | 'beforeDelete'
-  | 'afterDelete';
-
-/**
- * 钩子函数类型
- */
-export type HookFunction = (
-  model: any,
-  options?: QueryOptions
-) => Promise<void> | void;

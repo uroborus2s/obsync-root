@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>同步任务详情</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+        body {
+            background-color: rgba(0, 0, 0, 0.45);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .modal {
+            width: 720px;
+            background-color: white;
+            border-radius: 4px;
+            box-shadow: 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 9px 28px 8px rgba(0, 0, 0, 0.05);
+        }
+        .modal-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-title {
+            font-size: 16px;
+            font-weight: 500;
+            color: #1f2329;
+        }
+        .modal-close {
+            font-size: 18px;
+            color: #bfbfbf;
+            cursor: pointer;
+        }
+        .modal-body {
+            padding: 24px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .modal-footer {
+            padding: 12px 24px;
+            border-top: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+        .btn {
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        .btn-primary {
+            background-color: #1890ff;
+            color: white;
+            border: none;
+        }
+        .btn-primary:hover {
+            background-color: #40a9ff;
+        }
+        .btn-default {
+            background-color: white;
+            color: #1f2329;
+            border: 1px solid #d9d9d9;
+        }
+        .btn-default:hover {
+            border-color: #1890ff;
+            color: #1890ff;
+        }
+        .info-group {
+            margin-bottom: 24px;
+        }
+        .info-group h3 {
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 16px;
+            color: #1f2329;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+        .info-item {
+            margin-bottom: 12px;
+        }
+        .info-label {
+            font-size: 14px;
+            color: #646a73;
+            margin-bottom: 4px;
+        }
+        .info-value {
+            font-size: 14px;
+            color: #1f2329;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        .badge-success {
+            background-color: #f6ffed;
+            border: 1px solid #b7eb8f;
+            color: #52c41a;
+        }
+        .badge-warning {
+            background-color: #fffbe6;
+            border: 1px solid #ffe58f;
+            color: #faad14;
+        }
+        .badge-error {
+            background-color: #fff2f0;
+            border: 1px solid #ffccc7;
+            color: #ff4d4f;
+        }
+        .badge-processing {
+            background-color: #e6f7ff;
+            border: 1px solid #91d5ff;
+            color: #1890ff;
+        }
+        .timeline {
+            margin-top: 16px;
+        }
+        .timeline-item {
+            position: relative;
+            padding-left: 20px;
+            padding-bottom: 20px;
+        }
+        .timeline-item::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 6px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #1890ff;
+        }
+        .timeline-item::after {
+            content: "";
+            position: absolute;
+            left: 3px;
+            top: 14px;
+            width: 2px;
+            height: calc(100% - 14px);
+            background-color: #e8e8e8;
+        }
+        .timeline-item:last-child::after {
+            display: none;
+        }
+        .timeline-title {
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        .timeline-content {
+            color: #646a73;
+            font-size: 14px;
+        }
+        .timeline-time {
+            font-size: 12px;
+            color: #bfbfbf;
+            margin-top: 4px;
+        }
+        .log-container {
+            background-color: #fafafa;
+            padding: 12px;
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            color: #1f2329;
+        }
+        .log-line {
+            margin-bottom: 4px;
+        }
+        .log-info {
+            color: #1890ff;
+        }
+        .log-warning {
+            color: #faad14;
+        }
+        .log-error {
+            color: #ff4d4f;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #f0f0f0;
+            margin-bottom: 16px;
+        }
+        .tab {
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-bottom: 2px solid transparent;
+        }
+        .tab.active {
+            color: #1890ff;
+            border-bottom: 2px solid #1890ff;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+        }
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+        }
+        th {
+            background-color: #fafafa;
+            font-weight: 500;
+            color: #1f2329;
+        }
+    </style>
+</head>
+<body>
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-title">同步任务详情</div>
+            <div class="modal-close">×</div>
+        </div>
+        <div class="modal-body">
+            <div class="tabs">
+                <div class="tab active" data-tab="overview">概览</div>
+                <div class="tab" data-tab="logs">日志</div>
+                <div class="tab" data-tab="stats">统计数据</div>
+            </div>
+            
+            <!-- 概览标签页内容 -->
+            <div class="tab-content active" id="overview">
+                <div class="info-group">
+                    <h3>基本信息</h3>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label">任务ID</div>
+                            <div class="info-value">SYNC202405260801</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">同步类型</div>
+                            <div class="info-value">审批流同步</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">数据源</div>
+                            <div class="info-value">教务系统</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">目标应用</div>
+                            <div class="info-value">WPS审批</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">发起人</div>
+                            <div class="info-value">系统自动</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">状态</div>
+                            <div class="info-value"><span class="badge badge-error">失败</span></div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">开始时间</div>
+                            <div class="info-value">2024-05-26 08:01:05</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">结束时间</div>
+                            <div class="info-value">2024-05-26 08:04:15</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="info-group">
+                    <h3>任务进度</h3>
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-title">任务启动</div>
+                            <div class="timeline-content">系统自动触发审批流同步任务</div>
+                            <div class="timeline-time">2024-05-26 08:01:05</div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-title">数据获取</div>
+                            <div class="timeline-content">成功从教务系统获取审批流数据，共34条记录</div>
+                            <div class="timeline-time">2024-05-26 08:01:45</div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-title">数据转换</div>
+                            <div class="timeline-content">将课表数据转换为WPS审批流格式，共34条记录</div>
+                            <div class="timeline-time">2024-05-26 08:02:30</div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-title">数据推送</div>
+                            <div class="timeline-content">向WPS审批系统推送数据时发生错误，API请求超时</div>
+                            <div class="timeline-time">2024-05-26 08:03:45</div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-title">任务结束</div>
+                            <div class="timeline-content">同步任务失败，已生成错误报告ID: ERR202405260801001</div>
+                            <div class="timeline-time">2024-05-26 08:04:15</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="info-group">
+                    <h3>错误信息</h3>
+                    <div class="info-item">
+                        <div class="info-label">错误ID</div>
+                        <div class="info-value">ERR202405260801001</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">错误类型</div>
+                        <div class="info-value">API调用失败</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">错误详情</div>
+                        <div class="info-value">向WPS审批系统推送数据时请求超时，可能是网络问题或WPS服务器负载过高</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">解决建议</div>
+                        <div class="info-value">1. 检查网络连接状况<br>2. 确认WPS审批系统API可用性<br>3. 检查API访问限制或配额<br>4. 尝试重新运行同步任务</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 日志标签页内容 -->
+            <div class="tab-content" id="logs">
+                <div class="log-container">
+                    <div class="log-line log-info">[2024-05-26 08:01:05] [INFO] 开始执行审批流同步任务 SYNC202405260801</div>
+                    <div class="log-line log-info">[2024-05-26 08:01:10] [INFO] 正在连接教务系统数据源...</div>
+                    <div class="log-line log-info">[2024-05-26 08:01:20] [INFO] 连接成功，开始查询审批流数据</div>
+                    <div class="log-line log-info">[2024-05-26 08:01:45] [INFO] 数据查询完成，获取到34条审批流数据</div>
+                    <div class="log-line log-info">[2024-05-26 08:01:50] [INFO] 开始数据转换处理</div>
+                    <div class="log-line log-info">[2024-05-26 08:02:30] [INFO] 数据转换完成，开始推送到WPS审批系统</div>
+                    <div class="log-line log-info">[2024-05-26 08:02:35] [INFO] 尝试连接WPS审批系统API</div>
+                    <div class="log-line log-warning">[2024-05-26 08:03:05] [WARN] API请求超时，正在重试(1/3)</div>
+                    <div class="log-line log-warning">[2024-05-26 08:03:25] [WARN] API请求超时，正在重试(2/3)</div>
+                    <div class="log-line log-warning">[2024-05-26 08:03:45] [WARN] API请求超时，正在重试(3/3)</div>
+                    <div class="log-line log-error">[2024-05-26 08:04:05] [ERROR] 所有重试均已失败，API请求超时</div>
+                    <div class="log-line log-error">[2024-05-26 08:04:10] [ERROR] 生成错误报告ID: ERR202405260801001</div>
+                    <div class="log-line log-info">[2024-05-26 08:04:15] [INFO] 同步任务结束，状态：失败</div>
+                </div>
+            </div>
+            
+            <!-- 统计数据标签页内容 -->
+            <div class="tab-content" id="stats">
+                <div class="info-group">
+                    <h3>同步数据统计</h3>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label">总数据记录数</div>
+                            <div class="info-value">34</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">成功转换记录数</div>
+                            <div class="info-value">34</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">失败转换记录数</div>
+                            <div class="info-value">0</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">成功推送记录数</div>
+                            <div class="info-value">0</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">失败推送记录数</div>
+                            <div class="info-value">34</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">数据处理耗时</div>
+                            <div class="info-value">45秒</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">API调用次数</div>
+                            <div class="info-value">3次</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">总耗时</div>
+                            <div class="info-value">190秒</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="info-group">
+                    <h3>审批流记录明细</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>序号</th>
+                                <th>审批类型</th>
+                                <th>对应课程</th>
+                                <th>状态</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>1</td>
+                                <td>请假审批</td>
+                                <td>高等数学(A)</td>
+                                <td><span class="badge badge-error">失败</span></td>
+                            </tr>
+                            <tr>
+                                <td>2</td>
+                                <td>请假审批</td>
+                                <td>大学英语(4)</td>
+                                <td><span class="badge badge-error">失败</span></td>
+                            </tr>
+                            <tr>
+                                <td>3</td>
+                                <td>调课审批</td>
+                                <td>数据结构</td>
+                                <td><span class="badge badge-error">失败</span></td>
+                            </tr>
+                            <tr>
+                                <td>4</td>
+                                <td>调课审批</td>
+                                <td>面向对象程序设计</td>
+                                <td><span class="badge badge-error">失败</span></td>
+                            </tr>
+                            <tr>
+                                <td>5</td>
+                                <td>请假审批</td>
+                                <td>计算机网络</td>
+                                <td><span class="badge badge-error">失败</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div style="text-align: center; margin-top: 10px; color: #646a73;">显示前5条数据，共34条</div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary">重试同步</button>
+            <button class="btn btn-default">关闭</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 标签页切换
+            const tabs = document.querySelectorAll('.tab');
+            const tabContents = document.querySelectorAll('.tab-content');
+            
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabId = this.getAttribute('data-tab');
+                    
+                    // 移除所有标签的激活状态
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tabContents.forEach(c => c.classList.remove('active'));
+                    
+                    // 激活当前标签
+                    this.classList.add('active');
+                    document.getElementById(tabId).classList.add('active');
+                });
+            });
+            
+            // 关闭模态窗口
+            document.querySelector('.modal-close').addEventListener('click', function() {
+                // 在实际应用中，这里应该隐藏模态窗口或返回上一页
+                alert('关闭模态窗口');
+            });
+            
+            // 关闭按钮
+            document.querySelector('.modal-footer .btn-default').addEventListener('click', function() {
+                // 在实际应用中，这里应该隐藏模态窗口或返回上一页
+                alert('关闭模态窗口');
+            });
+            
+            // 重试按钮
+            document.querySelector('.modal-footer .btn-primary').addEventListener('click', function() {
+                alert('开始重试同步任务');
+            });
+        });
+    </script>
+</body>
+</html> 

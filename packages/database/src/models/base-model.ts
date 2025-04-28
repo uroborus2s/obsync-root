@@ -1,87 +1,34 @@
 /**
+ * @stratix/database 基础模型类
+ */
+
+import { Knex } from 'knex';
+import { DatabaseCacheService } from '../cache/index.js';
+import { buildQuery } from '../query/builder.js';
+import { DatabaseManager, ModelHooks, QueryOptions } from '../types/index.js';
+
+/**
  * 基础模型类
- * 提供ORM功能和数据操作方法
- */
-
-import { DatabaseManager } from '../lib/database-manager.js';
-import { ModelRegistry } from '../lib/model-registry.js';
-import { QueryBuilder } from '../lib/query-builder.js';
-import { QueryOptions } from '../types/index.js';
-
-/**
- * 模型钩子接口
- */
-export interface ModelHooks {
-  [key: string]: ((...args: any[]) => any) | undefined;
-  beforeSave?: (
-    model: BaseModel,
-    options?: QueryOptions
-  ) => Promise<void> | void;
-  afterSave?: (
-    model: BaseModel,
-    options?: QueryOptions
-  ) => Promise<void> | void;
-  beforeCreate?: (
-    model: BaseModel,
-    options?: QueryOptions
-  ) => Promise<void> | void;
-  afterCreate?: (
-    model: BaseModel,
-    options?: QueryOptions
-  ) => Promise<void> | void;
-  beforeUpdate?: (
-    model: BaseModel,
-    options?: QueryOptions
-  ) => Promise<void> | void;
-  afterUpdate?: (
-    model: BaseModel,
-    options?: QueryOptions
-  ) => Promise<void> | void;
-  beforeDelete?: (
-    model: BaseModel,
-    options?: QueryOptions
-  ) => Promise<void> | void;
-  afterDelete?: (
-    model: BaseModel,
-    options?: QueryOptions
-  ) => Promise<void> | void;
-  beforeRestore?: (
-    model: BaseModel,
-    options?: QueryOptions
-  ) => Promise<void> | void;
-  afterRestore?: (
-    model: BaseModel,
-    options?: QueryOptions
-  ) => Promise<void> | void;
-  // 源跟踪钩子
-  beforeSync?: (
-    sourceData: any,
-    source: string,
-    model: BaseModel | null
-  ) => Promise<any> | any;
-  afterSync?: (
-    model: BaseModel,
-    sourceData: any,
-    source: string
-  ) => Promise<void> | void;
-  onSyncError?: (
-    error: Error,
-    sourceData: any,
-    source: string
-  ) => Promise<void> | void;
-}
-
-/**
- * 基础模型类，所有模型都应继承此类
+ * 所有模型类的基类，提供核心ORM功能
  */
 export class BaseModel {
   /**
-   * 表名
+   * 数据库管理器
+   */
+  private static databaseManager: DatabaseManager;
+
+  /**
+   * 缓存服务
+   */
+  private static cacheService: DatabaseCacheService;
+
+  /**
+   * 表名（必须由子类设置）
    */
   static tableName: string;
 
   /**
-   * 主键名
+   * 主键名称
    */
   static primaryKey: string = 'id';
 
@@ -96,9 +43,9 @@ export class BaseModel {
   static relations: Record<string, any> = {};
 
   /**
-   * 模型钩子
+   * 钩子定义
    */
-  static hooks?: ModelHooks;
+  static hooks: ModelHooks = {};
 
   /**
    * 是否使用时间戳
@@ -121,7 +68,7 @@ export class BaseModel {
   static softDeletes: boolean = false;
 
   /**
-   * 软删除时间字段名
+   * 删除时间字段名
    */
   static deletedAtColumn: string = 'deleted_at';
 
@@ -136,141 +83,107 @@ export class BaseModel {
   static connection: string = 'default';
 
   /**
-   * 模型属性
+   * 原始属性
    */
-  protected _attributes: Record<string, any> = {};
+  private attributes: Record<string, any> = {};
 
   /**
-   * 原始属性（用于跟踪变更）
+   * 原始属性（用于脏检查）
    */
-  protected _original: Record<string, any> = {};
+  private originalAttributes: Record<string, any> = {};
 
   /**
    * 已加载的关系
    */
-  protected _relations: Record<string, any> = {};
+  private relations: Record<string, any> = {};
 
   /**
    * 是否为新记录
    */
-  protected _isNew: boolean = true;
-
-  /**
-   * 是否已被删除
-   */
-  protected _isDeleted: boolean = false;
-
-  /**
-   * 数据库管理器实例
-   */
-  private static _dbManager: DatabaseManager;
-
-  /**
-   * 构造函数
-   * @param attributes 初始属性
-   */
-  constructor(attributes: Record<string, any> = {}) {
-    this._attributes = { ...attributes };
-    this._original = { ...attributes };
-    this._relations = {};
-    this._isNew = !attributes[this.constructor.prototype.primaryKey];
-
-    // 设置代理以拦截属性访问
-    return new Proxy(this, {
-      get: (target, prop: string) => {
-        // 检查是否为关系属性
-        if (
-          prop in (this.constructor as typeof BaseModel).relations &&
-          prop in target._relations
-        ) {
-          return target._relations[prop];
-        }
-
-        // 检查是否为普通属性
-        if (prop in target._attributes) {
-          return target._attributes[prop];
-        }
-
-        return target[prop as keyof typeof target];
-      },
-
-      set: (target, prop: string, value: any) => {
-        // 只拦截模型属性的设置
-        if (
-          prop in target._attributes ||
-          prop in (this.constructor as typeof BaseModel).fields
-        ) {
-          target._attributes[prop] = value;
-          return true;
-        }
-
-        // 其他属性正常设置
-        (target as any)[prop] = value;
-        return true;
-      }
-    });
-  }
+  private isNewRecord: boolean = true;
 
   /**
    * 设置数据库管理器
-   * @param manager 数据库管理器实例
+   * @param manager 数据库管理器
    */
-  public static setDatabaseManager(manager: DatabaseManager): void {
-    this._dbManager = manager;
+  static setDatabaseManager(manager: DatabaseManager): void {
+    this.databaseManager = manager;
   }
 
   /**
    * 获取数据库管理器
-   * @returns 数据库管理器实例
    */
-  public static getDatabaseManager(): DatabaseManager {
-    if (!this._dbManager) {
-      throw new Error(
-        'Database manager not set. Call BaseModel.setDatabaseManager() first.'
-      );
+  static getDatabaseManager(): DatabaseManager {
+    if (!this.databaseManager) {
+      throw new Error('数据库管理器未设置');
     }
-    return this._dbManager;
+    return this.databaseManager;
   }
 
   /**
    * 获取数据库连接
-   * @param connectionName 连接名称，如果未提供则使用默认连接
-   * @returns 数据库连接
+   * @param connectionName 连接名称
    */
-  public static getConnection(connectionName?: string): any {
+  static getConnection(connectionName?: string): any {
     const manager = this.getDatabaseManager();
-    return manager.connection(connectionName || this.connection);
+    return manager.getConnection(connectionName || this.connection);
+  }
+
+  /**
+   * 获取Knex查询构建器
+   */
+  static getKnex(connectionName?: string): Knex {
+    return this.getConnection(connectionName).getKnex();
+  }
+
+  /**
+   * 设置缓存服务
+   * @param service 缓存服务
+   */
+  static setCacheService(service: DatabaseCacheService): void {
+    this.cacheService = service;
+  }
+
+  /**
+   * 获取缓存服务
+   */
+  static getCacheService(): DatabaseCacheService | undefined {
+    return this.cacheService;
   }
 
   /**
    * 创建查询构建器
    * @param options 查询选项
-   * @returns 查询构建器实例
    */
-  public static query(options: QueryOptions = {}): QueryBuilder {
-    const db = this.getConnection();
-    return new QueryBuilder(this, db, options.transaction);
+  static query(options?: any): any {
+    // 如果未指定是否使用缓存，则尝试从模型配置获取默认设置
+    if (options?.useCache === undefined && this.cacheService) {
+      options = {
+        ...options,
+        useCache: true
+      };
+    }
+
+    return buildQuery(this as any, options);
   }
 
   /**
-   * 查找记录（通过主键）
-   * @param id 主键值
+   * 根据ID查找记录
+   * @param id ID值
    * @param options 查询选项
-   * @returns 模型实例或null
    */
-  public static async find(id: any, options: QueryOptions = {}): Promise<any> {
+  static async find(id: any, options?: QueryOptions): Promise<any> {
     return this.query(options).where(this.primaryKey, id).first();
   }
 
   /**
-   * 查找记录（通过条件）
+   * 根据条件查找记录
    * @param conditions 查询条件
    * @param options 查询选项
-   * @returns 模型实例或null
    */
-  public static async findBy(
+  static async findBy(
     conditions: Record<string, any>,
-    options: QueryOptions = {}
+    options?: QueryOptions
   ): Promise<any> {
     const query = this.query(options);
 
@@ -284,47 +197,61 @@ export class BaseModel {
   /**
    * 获取所有记录
    * @param options 查询选项
-   * @returns 模型实例数组
    */
-  public static async all(options: QueryOptions = {}): Promise<any[]> {
+  static async all(options?: QueryOptions): Promise<any[]> {
     return this.query(options).get();
   }
 
   /**
    * 创建新记录
-   * @param data 记录数据
+   * @param data 数据对象
    * @param options 查询选项
-   * @returns 创建的模型实例
    */
-  public static async create(
+  static async create(
     data: Record<string, any>,
-    options: QueryOptions = {}
+    options?: QueryOptions
   ): Promise<any> {
-    const model = new this(data);
-    await model.save(options);
-    return model;
+    const instance = new this(data);
+    await instance.save(options);
+    return instance;
+  }
+
+  /**
+   * 创建多条记录
+   * @param dataArray 数据对象数组
+   * @param options 查询选项
+   */
+  static async createMany(
+    dataArray: Record<string, any>[],
+    options?: QueryOptions
+  ): Promise<any[]> {
+    const results = [];
+
+    for (const data of dataArray) {
+      results.push(await this.create(data, options));
+    }
+
+    return results;
   }
 
   /**
    * 更新或创建记录
    * @param conditions 查询条件
-   * @param values 更新或创建的值
+   * @param values 更新或创建的数据
    * @param options 查询选项
-   * @returns 更新或创建的模型实例
    */
-  public static async updateOrCreate(
+  static async updateOrCreate(
     conditions: Record<string, any>,
     values: Record<string, any>,
-    options: QueryOptions = {}
+    options?: QueryOptions
   ): Promise<any> {
-    // 查找记录
-    const model = await this.findBy(conditions, options);
+    const instance = await this.findBy(conditions, options);
 
-    if (model) {
-      // 更新现有记录
-      Object.assign(model, values);
-      await model.save(options);
-      return model;
+    if (instance) {
+      // 更新已存在的记录
+      instance.fill(values);
+      await instance.save(options);
+      return instance;
     } else {
       // 创建新记录
       return this.create({ ...conditions, ...values }, options);
@@ -332,73 +259,40 @@ export class BaseModel {
   }
 
   /**
-   * 批量创建记录
-   * @param dataArray 记录数据数组
-   * @param options 查询选项
-   * @returns 创建的模型实例数组
-   */
-  public static async createMany(
-    dataArray: Record<string, any>[],
-    options: QueryOptions = {}
-  ): Promise<any[]> {
-    const models: any[] = [];
-
-    // 使用事务确保原子性
-    await this.getConnection().transaction(async (trx: any) => {
-      const transactionOptions = { ...options, transaction: trx };
-
-      for (const data of dataArray) {
-        const model = await this.create(data, transactionOptions);
-        models.push(model);
-      }
-    });
-
-    return models;
-  }
-
-  /**
-   * 添加查询条件
-   * @param column 字段名
-   * @param operator 操作符或值
+   * 开始条件查询
+   * @param column 列名
+   * @param operator 操作符
    * @param value 值
-   * @returns 查询构建器实例
    */
-  public static where(
-    column: string,
-    operator: any,
-    value?: any
-  ): QueryBuilder {
-    const query = this.query();
-    return query.where(column, operator, value);
+  static where(column: string, operator: any, value?: any): any {
+    return this.query().where(column, operator, value);
   }
 
   /**
-   * 预加载关系
+   * 开始关系查询
    * @param relation 关系名称
-   * @param callback 自定义查询回调
-   * @returns 查询构建器实例
+   * @param callback 回调函数
    */
-  public static with(relation: string, callback?: Function): QueryBuilder {
-    const query = this.query();
-    return query.with(relation, callback);
+  static with(relation: string, callback?: Function): any {
+    return this.query().with(relation, callback);
   }
 
   /**
-   * 获取主键值
-   * @returns 主键值
+   * 创建模型实例
+   * @param attributes 属性
    */
-  public getPrimaryKeyValue(): any {
-    const primaryKey = (this.constructor as typeof BaseModel).primaryKey;
-    return this._attributes[primaryKey];
+  constructor(attributes: Record<string, any> = {}) {
+    this.fill(attributes);
+    this.isNewRecord = true;
+    this.syncOriginal();
   }
 
   /**
    * 获取属性值
    * @param key 属性名
-   * @returns 属性值
    */
-  public getAttribute(key: string): any {
-    return this._attributes[key];
+  getAttribute(key: string): any {
+    return this.attributes[key];
   }
 
   /**
@@ -406,23 +300,22 @@ export class BaseModel {
    * @param key 属性名
    * @param value 属性值
    */
-  public setAttribute(key: string, value: any): void {
-    this._attributes[key] = value;
+  setAttribute(key: string, value: any): void {
+    this.attributes[key] = value;
   }
 
   /**
    * 获取所有属性
-   * @returns 属性对象
    */
-  public getAttributes(): Record<string, any> {
-    return { ...this._attributes };
+  getAttributes(): Record<string, any> {
+    return { ...this.attributes };
   }
 
   /**
-   * 填充属性
+   * 批量设置属性
    * @param attributes 属性对象
    */
-  public fill(attributes: Record<string, any>): this {
+  fill(attributes: Record<string, any>): this {
     for (const [key, value] of Object.entries(attributes)) {
       this.setAttribute(key, value);
     }
@@ -430,17 +323,23 @@ export class BaseModel {
   }
 
   /**
-   * 检查属性是否已更改
-   * @param attribute 属性名，如果未提供则检查所有属性
-   * @returns 是否已更改
+   * 同步原始属性（用于脏检查）
    */
-  public isDirty(attribute?: string): boolean {
+  syncOriginal(): void {
+    this.originalAttributes = { ...this.attributes };
+  }
+
+  /**
+   * 检查属性是否已修改
+   * @param attribute 属性名，不指定则检查所有属性
+   */
+  isDirty(attribute?: string): boolean {
     if (attribute) {
-      return this._attributes[attribute] !== this._original[attribute];
+      return this.attributes[attribute] !== this.originalAttributes[attribute];
     }
 
-    for (const key in this._attributes) {
-      if (this._attributes[key] !== this._original[key]) {
+    for (const key in this.attributes) {
+      if (this.attributes[key] !== this.originalAttributes[key]) {
         return true;
       }
     }
@@ -449,15 +348,14 @@ export class BaseModel {
   }
 
   /**
-   * 获取已更改的属性
-   * @returns 已更改的属性对象
+   * 获取已修改的属性
    */
-  public getDirty(): Record<string, any> {
+  getDirty(): Record<string, any> {
     const dirty: Record<string, any> = {};
 
-    for (const key in this._attributes) {
-      if (this._attributes[key] !== this._original[key]) {
-        dirty[key] = this._attributes[key];
+    for (const key in this.attributes) {
+      if (this.attributes[key] !== this.originalAttributes[key]) {
+        dirty[key] = this.attributes[key];
       }
     }
 
@@ -465,318 +363,368 @@ export class BaseModel {
   }
 
   /**
-   * 保存模型
+   * 保存实例
    * @param options 查询选项
-   * @returns 是否保存成功
    */
-  public async save(options: QueryOptions = {}): Promise<boolean> {
-    const constructor = this.constructor as typeof BaseModel;
-    const isNew = this._isNew;
-
-    // 应用钩子
-    if (isNew) {
-      await this._callHook('beforeCreate', options);
-    } else {
-      await this._callHook('beforeUpdate', options);
-    }
-
-    await this._callHook('beforeSave', options);
-
-    // 设置时间戳
-    if (constructor.timestamps) {
-      const now = new Date();
-
-      if (isNew) {
-        this.setAttribute(constructor.createdAtColumn, now);
-      }
-
-      this.setAttribute(constructor.updatedAtColumn, now);
-    }
-
-    // 获取数据库连接
-    const db = constructor.getConnection();
-    const transaction = options.transaction;
+  async save(options?: QueryOptions): Promise<boolean> {
+    const modelClass = this.constructor as typeof BaseModel;
+    const hooks = modelClass.hooks;
 
     try {
-      if (isNew) {
-        // 插入新记录
-        const query = constructor.query(options);
-        const result = await query.insert(this._attributes);
+      // 执行保存前钩子
+      if (hooks.beforeSave) {
+        await hooks.beforeSave(this);
+      }
 
-        // 设置主键值（如果是自增主键）
-        if (Array.isArray(result) && result.length > 0) {
-          this.setAttribute(constructor.primaryKey, result[0]);
-        } else if (typeof result === 'number') {
-          this.setAttribute(constructor.primaryKey, result);
+      if (this.isNewRecord) {
+        // 执行创建前钩子
+        if (hooks.beforeCreate) {
+          await hooks.beforeCreate(this);
         }
 
-        this._isNew = false;
+        // 设置创建时间和更新时间
+        if (modelClass.timestamps) {
+          const now = new Date();
+          this.setAttribute(modelClass.createdAtColumn, now);
+          this.setAttribute(modelClass.updatedAtColumn, now);
+        }
+
+        // 执行插入操作
+        const [id] = await modelClass
+          .query(options)
+          .insert(this.attributes)
+          .returning(modelClass.primaryKey);
+
+        // 设置主键值
+        this.setAttribute(modelClass.primaryKey, id);
+        this.isNewRecord = false;
+
+        // 执行创建后钩子
+        if (hooks.afterCreate) {
+          await hooks.afterCreate(this);
+        }
       } else {
-        // 更新现有记录
-        const primaryKey = constructor.primaryKey;
-        const primaryKeyValue = this.getPrimaryKeyValue();
-
-        if (!primaryKeyValue) {
-          throw new Error('Cannot update model without primary key value.');
-        }
-
-        // 只更新已更改的字段
+        // 只更新已修改的属性
         const dirty = this.getDirty();
 
-        if (Object.keys(dirty).length > 0) {
-          const query = constructor.query(options);
-          await query.where(primaryKey, primaryKeyValue).update(dirty);
+        // 如果没有修改则不执行更新
+        if (Object.keys(dirty).length === 0) {
+          return true;
+        }
+
+        // 执行更新前钩子
+        if (hooks.beforeUpdate) {
+          await hooks.beforeUpdate(this);
+        }
+
+        // 设置更新时间
+        if (modelClass.timestamps) {
+          dirty[modelClass.updatedAtColumn] = new Date();
+          this.setAttribute(
+            modelClass.updatedAtColumn,
+            dirty[modelClass.updatedAtColumn]
+          );
+        }
+
+        // 执行更新操作
+        await modelClass
+          .query(options)
+          .where(
+            modelClass.primaryKey,
+            this.getAttribute(modelClass.primaryKey)
+          )
+          .update(dirty);
+
+        // 清除缓存
+        const cacheService = modelClass.getCacheService();
+        if (cacheService) {
+          const modelName = modelClass.tableName;
+          const primaryKey = this.getAttribute(modelClass.primaryKey);
+          await cacheService.delete(`${modelName}:${primaryKey}`, 'model');
+        }
+
+        // 执行更新后钩子
+        if (hooks.afterUpdate) {
+          await hooks.afterUpdate(this);
         }
       }
 
-      // 更新原始属性
-      this._original = { ...this._attributes };
+      // 同步原始属性
+      this.syncOriginal();
 
-      // 应用钩子
-      if (isNew) {
-        await this._callHook('afterCreate', options);
-      } else {
-        await this._callHook('afterUpdate', options);
+      // 执行保存后钩子
+      if (hooks.afterSave) {
+        await hooks.afterSave(this);
       }
-
-      await this._callHook('afterSave', options);
 
       return true;
     } catch (error) {
-      // 如果不是在外部事务中，则抛出错误
-      if (!transaction) {
-        throw error;
-      }
-
-      return false;
+      console.error('保存模型实例失败:', error);
+      throw error;
     }
   }
 
   /**
-   * 删除模型
+   * 删除记录
    * @param options 查询选项
-   * @returns 是否删除成功
    */
-  public async delete(options: QueryOptions = {}): Promise<boolean> {
-    if (this._isDeleted) {
-      return false;
+  async delete(options?: QueryOptions): Promise<boolean> {
+    const modelClass = this.constructor as typeof BaseModel;
+    const hooks = modelClass.hooks;
+    const primaryKey = this.getAttribute(modelClass.primaryKey);
+
+    if (!primaryKey) {
+      throw new Error('无法删除未保存的模型实例');
     }
-
-    const constructor = this.constructor as typeof BaseModel;
-    const primaryKey = constructor.primaryKey;
-    const primaryKeyValue = this.getPrimaryKeyValue();
-
-    if (!primaryKeyValue) {
-      throw new Error('Cannot delete model without primary key value.');
-    }
-
-    // 应用钩子
-    await this._callHook('beforeDelete', options);
 
     try {
-      const query = constructor.query(options);
+      // 执行删除前钩子
+      if (hooks.beforeDelete) {
+        await hooks.beforeDelete(this);
+      }
 
-      if (constructor.softDeletes && !options.force) {
+      if (modelClass.softDeletes) {
         // 软删除
-        await query.where(primaryKey, primaryKeyValue).delete();
+        const now = new Date();
+        await modelClass
+          .query(options)
+          .where(modelClass.primaryKey, primaryKey)
+          .update({ [modelClass.deletedAtColumn]: now });
+
+        this.setAttribute(modelClass.deletedAtColumn, now);
       } else {
-        // 物理删除
-        await query.where(primaryKey, primaryKeyValue).forceDelete();
+        // 硬删除
+        await modelClass
+          .query(options)
+          .where(modelClass.primaryKey, primaryKey)
+          .delete();
       }
 
-      this._isDeleted = true;
+      // 清除缓存
+      const cacheService = modelClass.getCacheService();
+      if (cacheService) {
+        const modelName = modelClass.tableName;
+        await cacheService.delete(`${modelName}:${primaryKey}`, 'model');
+      }
 
-      // 应用钩子
-      await this._callHook('afterDelete', options);
+      // 执行删除后钩子
+      if (hooks.afterDelete) {
+        await hooks.afterDelete(this);
+      }
 
       return true;
     } catch (error) {
-      if (!options.transaction) {
-        throw error;
-      }
-
-      return false;
+      console.error('删除模型实例失败:', error);
+      throw error;
     }
   }
 
   /**
-   * 强制删除模型（即使启用了软删除）
+   * 强制删除（忽略软删除）
    * @param options 查询选项
-   * @returns 是否删除成功
    */
-  public async forceDelete(options: QueryOptions = {}): Promise<boolean> {
-    return this.delete({ ...options, force: true });
-  }
+  async forceDelete(options?: QueryOptions): Promise<boolean> {
+    const modelClass = this.constructor as typeof BaseModel;
+    const hooks = modelClass.hooks;
+    const primaryKey = this.getAttribute(modelClass.primaryKey);
 
-  /**
-   * 恢复软删除的模型
-   * @param options 查询选项
-   * @returns 是否恢复成功
-   */
-  public async restore(options: QueryOptions = {}): Promise<boolean> {
-    const constructor = this.constructor as typeof BaseModel;
-
-    if (!constructor.softDeletes) {
-      throw new Error('Model does not use soft deletes.');
-    }
-
-    const primaryKey = constructor.primaryKey;
-    const primaryKeyValue = this.getPrimaryKeyValue();
-
-    if (!primaryKeyValue) {
-      throw new Error('Cannot restore model without primary key value.');
+    if (!primaryKey) {
+      throw new Error('无法删除未保存的模型实例');
     }
 
     try {
-      const query = constructor.query(options);
-      await query.where(primaryKey, primaryKeyValue).restore();
+      // 执行删除前钩子
+      if (hooks.beforeDelete) {
+        await hooks.beforeDelete(this);
+      }
 
-      this._isDeleted = false;
-      this.setAttribute(constructor.deletedAtColumn, null);
-      this._original[constructor.deletedAtColumn] = null;
+      // 硬删除
+      await modelClass
+        .query(options)
+        .where(modelClass.primaryKey, primaryKey)
+        .delete();
+
+      // 执行删除后钩子
+      if (hooks.afterDelete) {
+        await hooks.afterDelete(this);
+      }
 
       return true;
     } catch (error) {
-      if (!options.transaction) {
-        throw error;
-      }
-
-      return false;
+      console.error('强制删除模型实例失败:', error);
+      throw error;
     }
   }
 
   /**
-   * 刷新模型
+   * 恢复软删除的记录
    * @param options 查询选项
-   * @returns 是否刷新成功
    */
-  public async refresh(options: QueryOptions = {}): Promise<boolean> {
-    const constructor = this.constructor as typeof BaseModel;
-    const primaryKey = constructor.primaryKey;
-    const primaryKeyValue = this.getPrimaryKeyValue();
+  async restore(options?: QueryOptions): Promise<boolean> {
+    const modelClass = this.constructor as typeof BaseModel;
 
-    if (!primaryKeyValue) {
-      return false;
+    if (!modelClass.softDeletes) {
+      throw new Error('模型未启用软删除');
     }
 
-    const model = await constructor.find(primaryKeyValue, options);
+    const hooks = modelClass.hooks;
+    const primaryKey = this.getAttribute(modelClass.primaryKey);
 
-    if (!model) {
-      return false;
+    if (!primaryKey) {
+      throw new Error('无法恢复未保存的模型实例');
     }
 
-    this._attributes = { ...model._attributes };
-    this._original = { ...model._attributes };
-    this._relations = { ...model._relations };
-
-    return true;
-  }
-
-  /**
-   * 获取关联查询
-   * @param relation 关系名称
-   * @returns 关联查询构建器
-   */
-  public related(relation: string): any {
-    const constructor = this.constructor as typeof BaseModel;
-    const relationDef = constructor.relations[relation];
-
-    if (!relationDef) {
-      throw new Error(
-        `Relation [${relation}] not defined on model [${constructor.name}].`
-      );
-    }
-
-    const relatedModel = ModelRegistry.getModel(relationDef.model);
-    const db = constructor.getConnection();
-
-    // 创建关联查询
-    const query = new QueryBuilder(relatedModel, db);
-
-    // 根据关系类型设置约束
-    switch (relationDef.type) {
-      case 'hasOne':
-      case 'hasMany':
-        const foreignKey =
-          relationDef.foreignKey || `${constructor.tableName.slice(0, -1)}_id`;
-        const localKey = relationDef.localKey || constructor.primaryKey;
-        query.where(foreignKey, this.getAttribute(localKey));
-        break;
-
-      case 'belongsTo':
-        const belongsForeignKey =
-          relationDef.foreignKey || `${relationDef.model.toLowerCase()}_id`;
-        const belongsLocalKey = relationDef.localKey || 'id';
-        query.where(belongsLocalKey, this.getAttribute(belongsForeignKey));
-        break;
-
-      case 'belongsToMany':
-        // 多对多关系需要特殊处理
-        throw new Error(
-          'belongsToMany relation not implemented in related() method.'
-        );
-
-      default:
-        throw new Error(`Unknown relation type [${relationDef.type}].`);
-    }
-
-    return query;
-  }
-
-  /**
-   * 转换为JSON
-   * @returns JSON对象
-   */
-  public toJSON(): Record<string, any> {
-    const constructor = this.constructor as typeof BaseModel;
-    const hidden = constructor.hidden || [];
-    const result: Record<string, any> = {};
-
-    // 添加属性
-    for (const [key, value] of Object.entries(this._attributes)) {
-      if (!hidden.includes(key)) {
-        result[key] = value;
+    try {
+      // 执行恢复前钩子
+      if (hooks.beforeRestore) {
+        await hooks.beforeRestore(this);
       }
+
+      // 恢复
+      await modelClass
+        .query(options)
+        .where(modelClass.primaryKey, primaryKey)
+        .update({ [modelClass.deletedAtColumn]: null });
+
+      this.setAttribute(modelClass.deletedAtColumn, null);
+
+      // 执行恢复后钩子
+      if (hooks.afterRestore) {
+        await hooks.afterRestore(this);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('恢复模型实例失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 刷新实例（从数据库重新加载）
+   * @param options 查询选项
+   */
+  async refresh(options?: QueryOptions): Promise<boolean> {
+    const modelClass = this.constructor as typeof BaseModel;
+    const primaryKey = this.getAttribute(modelClass.primaryKey);
+
+    if (!primaryKey) {
+      throw new Error('无法刷新未保存的模型实例');
+    }
+
+    try {
+      const fresh = await modelClass.find(primaryKey, options);
+
+      if (!fresh) {
+        throw new Error('记录不存在或已被删除');
+      }
+
+      this.attributes = fresh.getAttributes();
+      this.syncOriginal();
+
+      return true;
+    } catch (error) {
+      console.error('刷新模型实例失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 加载关系
+   * @param relationName 关系名称
+   */
+  async load(relationName: string): Promise<void> {
+    const modelClass = this.constructor as typeof BaseModel;
+    const primaryKey = this.getAttribute(modelClass.primaryKey);
+
+    if (!primaryKey) {
+      throw new Error('无法加载未保存的模型实例的关系');
+    }
+
+    try {
+      const instance = await modelClass
+        .query()
+        .with(relationName)
+        .where(modelClass.primaryKey, primaryKey)
+        .first();
+
+      if (instance && instance.related(relationName)) {
+        this.relations[relationName] = instance.related(relationName);
+      }
+    } catch (error) {
+      console.error(`加载关系 ${relationName} 失败:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 获取已加载的关系
+   * @param relationName 关系名称
+   */
+  related(relationName: string): any {
+    return this.relations[relationName];
+  }
+
+  /**
+   * 转换为JSON对象
+   */
+  toJSON(): Record<string, any> {
+    const modelClass = this.constructor as typeof BaseModel;
+    const json = { ...this.attributes };
+
+    // 排除隐藏字段
+    for (const field of modelClass.hidden) {
+      delete json[field];
     }
 
     // 添加关系
-    for (const [key, value] of Object.entries(this._relations)) {
-      if (!hidden.includes(key)) {
-        if (Array.isArray(value)) {
-          result[key] = value.map((item) =>
-            item.toJSON ? item.toJSON() : item
-          );
-        } else if (value && typeof value === 'object' && value.toJSON) {
-          result[key] = value.toJSON();
-        } else {
-          result[key] = value;
-        }
+    for (const [key, value] of Object.entries(this.relations)) {
+      if (Array.isArray(value)) {
+        json[key] = value.map((item) => (item.toJSON ? item.toJSON() : item));
+      } else if (value && typeof value === 'object') {
+        json[key] = value.toJSON ? value.toJSON() : value;
+      } else {
+        json[key] = value;
       }
     }
 
-    return result;
+    return json;
   }
 
   /**
-   * 调用模型钩子
-   * @param hook 钩子名称
-   * @param options 查询选项
+   * 处理属性访问（getter）
    */
-  private async _callHook(
-    hook: string,
-    options: QueryOptions = {}
-  ): Promise<void> {
-    const constructor = this.constructor as typeof BaseModel;
-
-    // 检查原型上的钩子方法
-    const prototypeHook = (constructor.prototype as any)[hook];
-    if (prototypeHook) {
-      await prototypeHook.call(this, options);
+  get(target: any, prop: string): any {
+    // 首先检查是否是类的方法或属性
+    if (prop in target) {
+      return target[prop];
     }
 
-    // 静态钩子
-    if (constructor.hooks && constructor.hooks[hook]) {
-      await constructor.hooks[hook].call(this, this, options);
+    // 然后检查是否是模型的属性
+    if (prop in this.attributes) {
+      return this.attributes[prop];
     }
+
+    // 最后检查是否是已加载的关系
+    if (prop in this.relations) {
+      return this.relations[prop];
+    }
+
+    return undefined;
+  }
+
+  /**
+   * 处理属性赋值（setter）
+   */
+  set(target: any, prop: string, value: any): boolean {
+    // 如果是类的属性，直接设置
+    if (prop in target) {
+      target[prop] = value;
+      return true;
+    }
+
+    // 否则设置为模型的属性
+    this.attributes[prop] = value;
+    return true;
   }
 }

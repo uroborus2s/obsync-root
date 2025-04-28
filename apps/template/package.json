@@ -13,7 +13,6 @@
   "dependencies": {
     "stratix": "workspace:*",
     "@stratix/database": "workspace:*",
-    "@stratix/logger": "workspace:*",
     "@stratix/utils": "workspace:*",
     "@obsync/data-collector": "workspace:*"
   },

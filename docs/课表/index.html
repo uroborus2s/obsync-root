@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>课表同步系统 - UI设计文档</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+        
+        body {
+            background-color: #f8fafc;
+            color: #0f172a;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
+            padding: 32px;
+        }
+        
+        h1 {
+            font-size: 32px;
+            color: #0066ff;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #e2e8f0;
+            font-weight: 600;
+        }
+        
+        h2 {
+            font-size: 28px;
+            color: #1e293b;
+            margin: 36px 0 18px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #e2e8f0;
+            font-weight: 600;
+        }
+        
+        h3 {
+            font-size: 22px;
+            color: #0066ff;
+            margin: 28px 0 16px;
+            font-weight: 600;
+        }
+        
+        p {
+            margin-bottom: 16px;
+            font-size: 16px;
+            color: #334155;
+        }
+        
+        ul, ol {
+            margin-bottom: 16px;
+            padding-left: 24px;
+            color: #334155;
+        }
+        
+        li {
+            margin-bottom: 10px;
+        }
+        
+        .navigation {
+            margin: 24px 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        
+        .nav-link {
+            display: inline-block;
+            padding: 10px 16px;
+            background-color: #0066ff;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        
+        .nav-link:hover {
+            background-color: #0050cc;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+        
+        .highlight {
+            font-weight: 600;
+            color: #0066ff;
+        }
+        
+        .design-frames {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        
+        .design-frame {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .design-frame-title {
+            background-color: #f1f5f9;
+            color: #0f172a;
+            padding: 10px 16px;
+            font-size: 16px;
+            font-weight: 600;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .design-frame iframe {
+            width: 100%;
+            border: none;
+            height: 600px;
+        }
+        
+        .iframe-container {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
+            margin: 24px 0;
+        }
+        
+        .iframe-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-10 mb-10">
+        <h1>课表同步系统 - UI设计文档</h1>
+        
+        <p>本文档展示了课表同步系统的界面设计，包括同步管理页面和详情模态窗口。该系统基于产品需求文档设计，旨在将教育机构课表数据智能转换为WPS协作应用中的各类应用数据。</p>
+        
+        <div class="navigation">
+            <a href="#sync-management" class="nav-link">同步管理页面</a>
+            <a href="#sync-detail" class="nav-link">同步详情模态窗口</a>
+            <a href="#design-system" class="nav-link">设计系统</a>
+        </div>
+        
+        <h2 id="sync-management">1. 同步管理页面</h2>
+        <p>同步管理页面是课表同步系统的核心功能页面，提供了同步策略配置、数据转换规则设置、同步状态监控和错误处理等功能。管理员可以在此页面管理所有与课表同步相关的配置和操作。</p>
+        <div class="iframe-container">
+            <iframe src="sync_management.html" frameborder="0"></iframe>
+        </div>
+        
+        <h3>主要功能模块</h3>
+        <ul>
+            <li><strong>同步策略配置</strong>：设置同步频率（手动、每日、每小时、实时）、同步方式（全量/增量）、失败重试次数和同步时间段。</li>
+            <li><strong>数据转换规则</strong>：配置课表数据到日历、打卡和审批流的转换规则，包括格式模板、提醒设置和可见性控制。</li>
+            <li><strong>同步状态监控</strong>：实时展示同步任务的执行状态，包括任务ID、同步类型、数据源、目标应用、开始/结束时间和状态。</li>
+            <li><strong>错误处理</strong>：显示同步过程中发生的错误，提供错误详情查看和重试功能。</li>
+        </ul>
+        
+        <h2 id="sync-detail">2. 同步详情模态窗口</h2>
+        <p>同步详情模态窗口提供了单个同步任务的详细信息，包括基本信息、任务进度、错误信息、详细日志和统计数据。管理员可以通过此窗口深入了解同步任务的执行情况和问题原因。</p>
+        <div class="iframe-container">
+            <iframe src="sync_detail_modal.html" frameborder="0"></iframe>
+        </div>
+        
+        <h3>详情模态窗口功能</h3>
+        <ul>
+            <li><strong>基本信息</strong>：展示任务ID、同步类型、数据源、目标应用、发起人、状态和时间等基本信息。</li>
+            <li><strong>任务进度</strong>：以时间线的形式展示任务执行的各个阶段和状态。</li>
+            <li><strong>错误信息</strong>：当任务失败时，提供详细的错误信息和解决建议。</li>
+            <li><strong>详细日志</strong>：展示任务执行过程中的详细日志，包括信息、警告和错误级别的日志。</li>
+            <li><strong>统计数据</strong>：提供任务执行的数据统计，如总记录数、成功/失败数量、耗时等。</li>
+        </ul>
+        
+        <h2 id="design-system">3. 设计系统</h2>
+        <p>课表同步系统采用现代化的UI设计风格，遵循以下设计原则：</p>
+        
+        <h3>色彩系统</h3>
+        <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px;">
+            <div style="width: 100px; text-align: center;">
+                <div style="height: 60px; background-color: #1890ff; border-radius: 4px;"></div>
+                <div style="margin-top: 8px;">主色 #1890ff</div>
+            </div>
+            <div style="width: 100px; text-align: center;">
+                <div style="height: 60px; background-color: #f0f2f5; border-radius: 4px;"></div>
+                <div style="margin-top: 8px;">背景色 #f0f2f5</div>
+            </div>
+            <div style="width: 100px; text-align: center;">
+                <div style="height: 60px; background-color: #ffffff; border-radius: 4px; border: 1px solid #e8e8e8;"></div>
+                <div style="margin-top: 8px;">白色 #ffffff</div>
+            </div>
+            <div style="width: 100px; text-align: center;">
+                <div style="height: 60px; background-color: #1f2329; border-radius: 4px;"></div>
+                <div style="margin-top: 8px;">文本色 #1f2329</div>
+            </div>
+            <div style="width: 100px; text-align: center;">
+                <div style="height: 60px; background-color: #52c41a; border-radius: 4px;"></div>
+                <div style="margin-top: 8px;">成功色 #52c41a</div>
+            </div>
+            <div style="width: 100px; text-align: center;">
+                <div style="height: 60px; background-color: #faad14; border-radius: 4px;"></div>
+                <div style="margin-top: 8px;">警告色 #faad14</div>
+            </div>
+            <div style="width: 100px; text-align: center;">
+                <div style="height: 60px; background-color: #ff4d4f; border-radius: 4px;"></div>
+                <div style="margin-top: 8px;">错误色 #ff4d4f</div>
+            </div>
+        </div>
+        
+        <h3>排版系统</h3>
+        <div style="margin-top: 16px;">
+            <div style="font-size: 32px; font-weight: 600; margin-bottom: 8px;">标题一 (32px)</div>
+            <div style="font-size: 28px; font-weight: 600; margin-bottom: 8px;">标题二 (28px)</div>
+            <div style="font-size: 22px; font-weight: 600; margin-bottom: 8px;">标题三 (22px)</div>
+            <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">标题四 (16px)</div>
+            <div style="font-size: 16px; margin-bottom: 8px;">正文 (16px)</div>
+            <div style="font-size: 14px; margin-bottom: 8px;">次要文本 (14px)</div>
+            <div style="font-size: 12px; color: #646a73;">辅助文本 (12px)</div>
+        </div>
+        
+        <h3>组件库</h3>
+        <div style="margin-top: 16px;">
+            <div style="margin-bottom: 16px;">
+                <h4 style="margin-bottom: 8px; font-weight: 500;">按钮</h4>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <button style="padding: 8px 16px; background-color: #1890ff; color: white; border: none; border-radius: 4px;">主要按钮</button>
+                    <button style="padding: 8px 16px; background-color: white; color: #1f2329; border: 1px solid #d9d9d9; border-radius: 4px;">次要按钮</button>
+                    <button style="padding: 8px 16px; background-color: #ff4d4f; color: white; border: none; border-radius: 4px;">危险按钮</button>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 16px;">
+                <h4 style="margin-bottom: 8px; font-weight: 500;">徽章</h4>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <span style="display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; background-color: #f6ffed; border: 1px solid #b7eb8f; color: #52c41a;">成功</span>
+                    <span style="display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; background-color: #fffbe6; border: 1px solid #ffe58f; color: #faad14;">警告</span>
+                    <span style="display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; background-color: #fff2f0; border: 1px solid #ffccc7; color: #ff4d4f;">错误</span>
+                    <span style="display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; background-color: #e6f7ff; border: 1px solid #91d5ff; color: #1890ff;">处理中</span>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 16px;">
+                <h4 style="margin-bottom: 8px; font-weight: 500;">表单元素</h4>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <input type="text" placeholder="输入框" style="padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 4px;">
+                    <select style="padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 4px;">
+                        <option>下拉选择框</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <h3>设计规范</h3>
+        <ul>
+            <li><strong>一致性原则</strong>：所有页面采用统一的设计语言，确保用户体验的一致性。</li>
+            <li><strong>简洁明了</strong>：界面设计简洁明了，突出核心功能，减少视觉干扰。</li>
+            <li><strong>信息层次</strong>：清晰的信息层次，通过颜色、大小和间距等区分重要性。</li>
+            <li><strong>响应式设计</strong>：采用响应式设计，确保在不同屏幕尺寸下都有良好的展示效果。</li>
+            <li><strong>状态明确</strong>：通过醒目的视觉元素明确表示各种状态（成功、警告、错误等）。</li>
+        </ul>
+            
+        <div class="mt-10 pt-6 border-t border-gray-200">
+            <p class="text-gray-600 text-sm">版权所有 © 2024 课表同步系统</p>
+        </div>
+    </div>
+</body>
+</html> 

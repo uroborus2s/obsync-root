@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>课表同步 - 同步管理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+        body {
+            background-color: #f0f2f5;
+            color: #1f2329;
+        }
+        .sidebar {
+            width: 220px;
+            background-color: #001529;
+            color: rgba(255, 255, 255, 0.65);
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+        }
+        .main-content {
+            margin-left: 220px;
+            padding: 24px;
+            min-height: 100vh;
+        }
+        .logo {
+            height: 64px;
+            display: flex;
+            align-items: center;
+            padding-left: 24px;
+            color: white;
+            font-size: 18px;
+            font-weight: 500;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .menu-item {
+            padding: 12px 24px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .menu-item:hover {
+            background-color: #1890ff;
+            color: white;
+        }
+        .menu-item.active {
+            background-color: #1890ff;
+            color: white;
+        }
+        .header {
+            padding: 0 24px;
+            background: white;
+            box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .card {
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            margin-bottom: 24px;
+        }
+        .card-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid #f0f0f0;
+            font-weight: 500;
+            font-size: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .card-body {
+            padding: 24px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        .badge-success {
+            background-color: #f6ffed;
+            border: 1px solid #b7eb8f;
+            color: #52c41a;
+        }
+        .badge-warning {
+            background-color: #fffbe6;
+            border: 1px solid #ffe58f;
+            color: #faad14;
+        }
+        .badge-error {
+            background-color: #fff2f0;
+            border: 1px solid #ffccc7;
+            color: #ff4d4f;
+        }
+        .badge-processing {
+            background-color: #e6f7ff;
+            border: 1px solid #91d5ff;
+            color: #1890ff;
+        }
+        .btn {
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        .btn-primary {
+            background-color: #1890ff;
+            color: white;
+            border: none;
+        }
+        .btn-primary:hover {
+            background-color: #40a9ff;
+        }
+        .btn-default {
+            background-color: white;
+            color: #1f2329;
+            border: 1px solid #d9d9d9;
+        }
+        .btn-default:hover {
+            border-color: #1890ff;
+            color: #1890ff;
+        }
+        .btn-danger {
+            background-color: #ff4d4f;
+            color: white;
+            border: none;
+        }
+        .btn-danger:hover {
+            background-color: #ff7875;
+        }
+        .form-item {
+            margin-bottom: 24px;
+        }
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #1f2329;
+        }
+        .form-control {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+        .form-control:focus {
+            border-color: #1890ff;
+            box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+            outline: none;
+        }
+        .form-select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            transition: all 0.3s;
+            background-color: white;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        th {
+            background-color: #fafafa;
+            font-weight: 500;
+            color: #1f2329;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .tab {
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-bottom: 2px solid transparent;
+        }
+        .tab.active {
+            color: #1890ff;
+            border-bottom: 2px solid #1890ff;
+        }
+        .flex-between {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .mt-4 {
+            margin-top: 16px;
+        }
+        .mr-2 {
+            margin-right: 8px;
+        }
+        .pagination {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 16px;
+        }
+        .page-item {
+            padding: 8px 12px;
+            border: 1px solid #d9d9d9;
+            margin: 0 4px;
+            cursor: pointer;
+        }
+        .page-item.active {
+            background-color: #1890ff;
+            color: white;
+            border-color: #1890ff;
+        }
+    </style>
+</head>
+<body>
+    <!-- 侧边栏 -->
+    <div class="sidebar">
+        <div class="logo">
+            <span>课表同步系统</span>
+        </div>
+        <div class="menu">
+            <div class="menu-item">首页仪表盘</div>
+            <div class="menu-item">数据源管理</div>
+            <div class="menu-item active">同步管理</div>
+            <div class="menu-item">日历管理</div>
+            <div class="menu-item">打卡管理</div>
+            <div class="menu-item">审批流程</div>
+            <div class="menu-item">系统设置</div>
+        </div>
+    </div>
+
+    <!-- 主内容区 -->
+    <div class="main-content">
+        <div class="header">
+            <h2>同步管理</h2>
+            <div>
+                <span>管理员</span>
+                <span style="margin: 0 8px;">|</span>
+                <span>退出</span>
+            </div>
+        </div>
+
+        <!-- 同步配置卡片 -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <span>同步策略配置</span>
+                <button class="btn btn-primary">保存配置</button>
+            </div>
+            <div class="card-body">
+                <div class="form-item">
+                    <label class="form-label">同步频率</label>
+                    <select class="form-select">
+                        <option value="manual">手动同步</option>
+                        <option value="daily">每日同步</option>
+                        <option value="hourly">每小时同步</option>
+                        <option value="realtime">实时同步</option>
+                    </select>
+                </div>
+                <div class="form-item">
+                    <label class="form-label">同步方式</label>
+                    <select class="form-select">
+                        <option value="full">全量同步</option>
+                        <option value="increment">增量同步</option>
+                    </select>
+                </div>
+                <div class="form-item">
+                    <label class="form-label">同步失败重试次数</label>
+                    <input type="number" class="form-control" value="3">
+                </div>
+                <div class="form-item">
+                    <label class="form-label">同步时间段</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="time" class="form-control" value="00:00">
+                        <span style="line-height: 38px;">至</span>
+                        <input type="time" class="form-control" value="23:59">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 数据转换规则卡片 -->
+        <div class="card">
+            <div class="card-header">
+                <span>数据转换规则</span>
+            </div>
+            <div class="card-body">
+                <div class="tabs">
+                    <div class="tab active">日历转换规则</div>
+                    <div class="tab">打卡转换规则</div>
+                    <div class="tab">审批流转换规则</div>
+                </div>
+                <div class="mt-4">
+                    <div class="form-item">
+                        <label class="form-label">日历标题格式</label>
+                        <input type="text" class="form-control" value="${kcmc}">
+                    </div>
+                    <div class="form-item">
+                        <label class="form-label">日历描述格式</label>
+                        <textarea class="form-control" rows="3">教师：${xms}&#10;教室：${room}&#10;周次：${zc}</textarea>
+                    </div>
+                    <div class="form-item">
+                        <label class="form-label">时间设置</label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <span>上课前</span>
+                            <input type="number" class="form-control" value="10" style="width: 80px;">
+                            <span>分钟提醒</span>
+                        </div>
+                    </div>
+                    <div class="form-item">
+                        <label class="form-label">日历可见性</label>
+                        <select class="form-select">
+                            <option value="all">所有人可见</option>
+                            <option value="teacher">仅教师可见</option>
+                            <option value="student">仅学生可见</option>
+                            <option value="custom">自定义</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 同步状态监控卡片 -->
+        <div class="card">
+            <div class="card-header">
+                <span>同步状态监控</span>
+                <button class="btn btn-primary">立即同步</button>
+            </div>
+            <div class="card-body">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>任务ID</th>
+                            <th>同步类型</th>
+                            <th>数据源</th>
+                            <th>目标应用</th>
+                            <th>开始时间</th>
+                            <th>结束时间</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>SYNC202405261001</td>
+                            <td>日历同步</td>
+                            <td>教务系统</td>
+                            <td>WPS日历</td>
+                            <td>2024-05-26 10:01:25</td>
+                            <td>2024-05-26 10:03:45</td>
+                            <td><span class="badge badge-success">成功</span></td>
+                            <td>
+                                <button class="btn btn-default">查看详情</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>SYNC202405260901</td>
+                            <td>打卡同步</td>
+                            <td>教务系统</td>
+                            <td>WPS打卡</td>
+                            <td>2024-05-26 09:01:10</td>
+                            <td>2024-05-26 09:02:30</td>
+                            <td><span class="badge badge-success">成功</span></td>
+                            <td>
+                                <button class="btn btn-default">查看详情</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>SYNC202405260801</td>
+                            <td>审批流同步</td>
+                            <td>教务系统</td>
+                            <td>WPS审批</td>
+                            <td>2024-05-26 08:01:05</td>
+                            <td>2024-05-26 08:04:15</td>
+                            <td><span class="badge badge-error">失败</span></td>
+                            <td>
+                                <button class="btn btn-default mr-2">查看详情</button>
+                                <button class="btn btn-primary">重试</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>SYNC202405260701</td>
+                            <td>全量同步</td>
+                            <td>教务系统</td>
+                            <td>WPS协作空间</td>
+                            <td>2024-05-26 07:01:00</td>
+                            <td>-</td>
+                            <td><span class="badge badge-processing">处理中</span></td>
+                            <td>
+                                <button class="btn btn-default mr-2">查看详情</button>
+                                <button class="btn btn-danger">取消</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="pagination">
+                    <div class="page-item">上一页</div>
+                    <div class="page-item active">1</div>
+                    <div class="page-item">2</div>
+                    <div class="page-item">3</div>
+                    <div class="page-item">下一页</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 错误处理卡片 -->
+        <div class="card">
+            <div class="card-header">
+                <span>错误处理</span>
+                <button class="btn btn-primary">全部标记为已处理</button>
+            </div>
+            <div class="card-body">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>错误ID</th>
+                            <th>错误类型</th>
+                            <th>错误信息</th>
+                            <th>来源任务</th>
+                            <th>发生时间</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>ERR202405260801001</td>
+                            <td>API调用失败</td>
+                            <td>WPS API请求超时</td>
+                            <td>SYNC202405260801</td>
+                            <td>2024-05-26 08:03:45</td>
+                            <td><span class="badge badge-error">未处理</span></td>
+                            <td>
+                                <button class="btn btn-default mr-2">查看详情</button>
+                                <button class="btn btn-primary">重试</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>ERR202405260401001</td>
+                            <td>数据格式错误</td>
+                            <td>课程数据缺少必要字段</td>
+                            <td>SYNC202405260401</td>
+                            <td>2024-05-26 04:02:10</td>
+                            <td><span class="badge badge-warning">处理中</span></td>
+                            <td>
+                                <button class="btn btn-default">查看详情</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>ERR202405250901001</td>
+                            <td>权限不足</td>
+                            <td>无创建日历权限</td>
+                            <td>SYNC202405250901</td>
+                            <td>2024-05-25 09:03:20</td>
+                            <td><span class="badge badge-success">已处理</span></td>
+                            <td>
+                                <button class="btn btn-default">查看详情</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="pagination">
+                    <div class="page-item">上一页</div>
+                    <div class="page-item active">1</div>
+                    <div class="page-item">2</div>
+                    <div class="page-item">下一页</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 简单的标签页切换功能
+        document.addEventListener('DOMContentLoaded', function() {
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+        });
+    </script>
+</body>
+</html> 

@@ -1,4 +1,8 @@
-export * from './app.js';
-export * from './config.js';
-export * from './hooks.js';
-export * from './plugin.js';
+/**
+ * 类型定义索引文件
+ */
+
+export * from './common.js';
+export * from './errors.js';
+export * from './hook.js';
+export * from './logger.js';
