@@ -1,42 +1,48 @@
-# 构建阶段
-FROM node:20-alpine AS builder
-
-# 安装 pnpm
-RUN npm install -g pnpm
-
-# 设置工作目录
+# 多阶段构建 - 基础镜像
+FROM node:2-alpine AS base
+RUN npm install -g pnpm turbo
 WORKDIR /app
 
-# 复制 package.json 和锁文件
-COPY package.json pnpm-lock.yaml* ./
-
-# 安装依赖
-RUN pnpm install
-
-# 复制源代码
+# 依赖裁剪阶段（使用 turbo prune）
+FROM base AS pruner
 COPY . .
+RUN turbo prune --scope=@wps/template --docker
 
-# 构建应用
-RUN pnpm run build
+# 依赖安装阶段
+FROM base AS installer
+COPY --from=pruner /app/out/json/ .
+COPY --from=pruner /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
+RUN pnpm install --frozen-lockfile
 
-# 运行阶段
-FROM node:20-alpine
+# 构建阶段
+FROM base AS builder
+COPY --from=pruner /app/out/full/ .
+COPY --from=installer /app/node_modules ./node_modules
+RUN turbo run build --filter=@wps/template
 
-# 设置工作目录
+# 生产运行阶段
+FROM node:20-alpine AS runner
 WORKDIR /app
 
 # 设置环境变量
 ENV NODE_ENV=production
+ENV PORT=3000
 
-# 复制package.json和锁文件
-COPY package.json package-lock.json* yarn.lock* ./
+# 创建非root用户
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 appuser
 
-# 仅安装生产依赖
-RUN npm ci --only=production install --production --frozen-lockfile
+# 复制构建产物和依赖
+COPY --from=builder --chown=appuser:nodejs /app/apps/template/dist ./dist
+COPY --from=builder --chown=appuser:nodejs /app/apps/template/package.json ./package.json
 
-# 复制构建产物
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/stratix.config.js ./stratix.config.js
+# 安装生产依赖
+RUN npm install -g pnpm && \
+    pnpm install --prod --frozen-lockfile && \
+    pnpm store prune
 
-# 应用启动命令
+USER appuser
+
+EXPOSE 3000
+
 CMD ["node", "dist/index.js"]

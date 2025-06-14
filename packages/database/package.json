@@ -4,7 +4,7 @@
   "description": "A powerful ORM library supporting multiple databases and caching solutions",
   "type": "module",
   "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "types": "dist/types/index.d.ts",
   "scripts": {
     "clean": "rimraf dist",
     "build": "pnpm run clean && tsc",
@@ -13,37 +13,21 @@
     "lint": "eslint src --ext .ts"
   },
   "dependencies": {
-    "glob": "^10.3.10",
-    "knex": "^3.0.1",
-    "yargs": "^17.7.2",
-    "@stratix/utils": "workspace:*"
+    "@stratix/utils": "workspace:*",
+    "kysely": "^0.28.2"
   },
   "peerDependencies": {
-    "mysql2": "^3.12.0",
-    "pg": "^8.13.3",
-    "sqlite3": "^5.1.7",
+    "@stratix/core": "workspace:*",
+    "better-sqlite3": "^11.10.0",
+    "mysql2": "^3.14.1",
     "oracledb": "^6.8.0",
-    "mssql": "^11.0.1"
+    "pg": "^8.16.0",
+    "redis": "^4.7.0",
+    "tarn": "^3.0.2",
+    "tedious": "^18.6.1",
+    "kysely-oracledb": "^2.0.7"
   },
   "peerDependenciesMeta": {
-    "mysql2": {
-      "optional": true
-    },
-    "pg": {
-      "optional": true
-    },
-    "sqlite3": {
-      "optional": true
-    },
-    "oracledb": {
-      "optional": true
-    },
-    "mssql": {
-      "optional": true
-    },
-    "redis": {
-      "optional": true
-    }
   },
   "keywords": [
     "orm",
@@ -55,7 +39,7 @@
   "exports": {
     ".": {
       "import": "./dist/index.js",
-      "require": "./dist/index.cjs",
+      "require": "./dist/index.js",
       "types": "./dist/types/index.d.ts"
     }
   },
@@ -63,5 +47,8 @@
   "license": "MIT",
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.15.2"
   }
 }

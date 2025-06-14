@@ -1,19 +1,94 @@
 /**
- * @stratix/queue 包主入口
- * 提供队列功能的核心组件
+ * @stratix/queue 主入口文件
+ * 导出所有队列相关功能
  */
 
-// 导出插件定义
-export { createQueuePlugin, default as queuePlugin } from './plugin.js';
+// 插件
+export { wrapQueuePlugin as default } from './plugin.js';
 
-// 导出类型定义
-export * from './types/index.js';
+// 零配置队列服务
+export {
+  type BatchJobInput,
+  type GroupServiceOptions,
+  type GroupStatus,
+  type QueueService,
+  type ServiceStats,
+  type SimpleJobInput,
+  type TaskStatus
+} from './services/group-service.js';
 
-// 导出API具体实现类
-export { createQueueManager } from './api/factory.js';
-export { Job } from './api/job.js';
-export { QueueManager } from './api/manager.js';
-export { Queue } from './api/queue.js';
+// 核心管理器
+export { QueueManager } from './managers/queue-manager.js';
 
-// 默认导出插件
-export { default } from './plugin.js';
+// 仓储层
+export {
+  QueueGroupRepository,
+  QueueJobRepository
+} from './repositories/index.js';
+
+// 服务层
+export {
+  GroupManagementService,
+  JobExecutionService
+} from './services/index.js';
+
+// 监控
+export { QueueMonitor } from './monitoring/queue-monitor.js';
+
+// 核心组件
+export { SmartBackpressureManager } from './core/backpressure-manager.js';
+export { EventDrivenMemoryQueue } from './core/memory-queue.js';
+export { JobNotificationSystem } from './notifications/job-notification-system.js';
+export { DatabaseJobStream } from './streams/database-job-stream.js';
+
+// 类型定义
+export type {
+  BackpressureActivatedEvent,
+  BackpressureConfig,
+  BackpressureDeactivatedEvent,
+  CreateJobInput,
+  CreateJobsBatchInput,
+  DatabaseStreamConfig,
+  DebounceConfig,
+  ExecutorConfig,
+  GroupManagementConfig,
+  GroupPausedEvent,
+  GroupResumedEvent,
+  // 监控类型
+  HealthStatus,
+  JobCompletedEvent,
+  JobExecutor,
+  JobFailedEvent,
+  // 任务相关类型
+  JobPayload,
+  JobProcessingConfig,
+  JobResult,
+  JobStatus,
+  JobsAddedEvent,
+  MonitoringConfig,
+  PersistenceConfig,
+  // 队列核心类型
+  QueueConfig,
+  QueueDatabase,
+  // 事件类型
+  QueueEventMap,
+  QueueFailuresTable,
+  GroupStatus as QueueGroupStatus,
+  QueueGroupsTable,
+  QueueJob,
+  QueueJobsTable,
+  QueueMetricsTable,
+  QueuePluginOptions,
+  QueueSuccessTable,
+  StreamStartedEvent,
+  WaterMarkChangeEvent,
+  // 配置类型
+  WaterMarkConfig,
+  WaterMarkLevel
+} from './types/index.js';
+
+// ============================================================================
+// 模型
+// ============================================================================
+
+export { QueueJobModel } from './models/queue-job.model.js';

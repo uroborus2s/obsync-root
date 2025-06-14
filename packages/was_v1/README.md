@@ -15,6 +15,7 @@ npm install @stratix/was-v1
 - 自动处理WPS3签名
 - 类型安全的API调用
 - 支持模块化API调用（认证、通讯录、文档、消息等）
+- **支持API模块按需加载**，提高应用性能
 
 ## 使用方法
 
@@ -36,7 +37,7 @@ app.register(wasV1Plugin, {
 await app.start();
 
 // 使用API
-const departments = await app.wasV1.contact.getDepartments();
+const departments = await app.wasV1.api.contact.getDepartments();
 console.log('部门列表:', departments);
 ```
 
@@ -60,7 +61,39 @@ interface WasV1Options {
   
   // 日志配置
   logLevel?: 'debug' | 'info' | 'warn' | 'error'; // 日志级别，默认为'info'
+  
+  // API模块配置，支持选择性加载模块
+  apiModules?: {
+    auth?: boolean;    // 是否加载认证API模块，默认为true
+    contact?: boolean; // 是否加载通讯录API模块，默认为true
+    document?: boolean;// 是否加载文档API模块，默认为true
+    message?: boolean; // 是否加载消息API模块，默认为true
+  };
 }
+```
+
+### API模块按需加载
+
+插件支持按需加载API模块，减少不必要的资源消耗：
+
+```typescript
+// 仅加载认证和文档模块
+app.register(wasV1Plugin, {
+  appId: 'your-app-id',
+  appKey: 'your-app-key',
+  apiModules: {
+    auth: true,     // 加载认证模块
+    document: true, // 加载文档模块
+    contact: false, // 不加载通讯录模块
+    message: false  // 不加载消息模块
+  }
+});
+
+// 使用已加载的模块
+const documents = await app.wasV1.api.document.getDocumentList();
+
+// 未加载的模块无法使用，以下代码将抛出错误
+// const departments = await app.wasV1.api.contact.getDepartments();
 ```
 
 ## API示例
@@ -69,73 +102,73 @@ interface WasV1Options {
 
 ```typescript
 // 获取用户token
-const tokenResult = await app.wasV1.auth.getUserToken('authorization_code');
+const tokenResult = await app.wasV1.api.auth.getUserToken('authorization_code');
 
 // 刷新用户token
-const refreshResult = await app.wasV1.auth.refreshUserToken('refresh_token');
+const refreshResult = await app.wasV1.api.auth.refreshUserToken('refresh_token');
 
 // 获取用户信息
-const userInfo = await app.wasV1.auth.getUserInfo('access_token');
+const userInfo = await app.wasV1.api.auth.getUserInfo('access_token');
 ```
 
 ### 通讯录API
 
 ```typescript
 // 获取部门列表
-const departments = await app.wasV1.contact.getDepartments();
+const departments = await app.wasV1.api.contact.getDepartments();
 
 // 获取部门详情
-const department = await app.wasV1.contact.getDepartment('department_id');
+const department = await app.wasV1.api.contact.getDepartment('department_id');
 
 // 创建部门
-const createResult = await app.wasV1.contact.createDepartment({
+const createResult = await app.wasV1.api.contact.createDepartment({
   name: '测试部门',
   parentid: 'parent_department_id'
 });
 
 // 获取用户列表
-const users = await app.wasV1.contact.getUsers();
+const users = await app.wasV1.api.contact.getUsers();
 
 // 获取用户详情
-const user = await app.wasV1.contact.getUser('user_id');
+const user = await app.wasV1.api.contact.getUser('user_id');
 ```
 
 ### 文档API
 
 ```typescript
 // 获取文档列表
-const documents = await app.wasV1.document.getDocuments({
+const documents = await app.wasV1.api.document.getDocuments({
   parent_id: 'folder_id'
 });
 
 // 创建文件夹
-const folder = await app.wasV1.document.createFolder({
+const folder = await app.wasV1.api.document.createFolder({
   name: '测试文件夹',
   parent_id: 'parent_folder_id'
 });
 
 // 获取下载链接
-const downloadUrl = await app.wasV1.document.getDownloadUrl('file_id');
+const downloadUrl = await app.wasV1.api.document.getDownloadUrl('file_id');
 ```
 
 ### 消息API
 
 ```typescript
 // 发送文本消息
-const messageResult = await app.wasV1.message.sendTextMessage({
+const messageResult = await app.wasV1.api.message.sendTextMessage({
   chat_id: 'chat_id',
   content: '测试消息'
 });
 
 // 创建会话
-const chatResult = await app.wasV1.message.createChat({
+const chatResult = await app.wasV1.api.message.createChat({
   name: '测试会话',
   user_ids: ['user1', 'user2'],
   chat_type: 'group'
 });
 
 // 获取会话消息列表
-const messages = await app.wasV1.message.getMessages('chat_id');
+const messages = await app.wasV1.api.message.getMessages('chat_id');
 ```
 
 ## 高级功能
@@ -157,10 +190,10 @@ const result = await app.wasV1.request({
 
 ```typescript
 // 清除特定应用的token缓存
-app.wasV1.clearTokenCache('app_id');
+app.wasV1.token.clearCache('app_id');
 
 // 清除所有token缓存
-app.wasV1.clearTokenCache();
+app.wasV1.token.clearCache();
 ```
 
 ## 依赖

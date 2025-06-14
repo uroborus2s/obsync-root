@@ -1,13 +1,27 @@
-/**
- * @stratix/database 包主入口
- * 提供数据库功能的核心组件
- */
+export { wrapDatabasePlugin as default } from './plugin.js';
 
-// 导出插件定义
-export { createDatabasePlugin, default as databasePlugin } from './plugin.js';
+// 导出配置类型
+export type {
+  CacheConfig,
+  DatabaseConfig,
+  DatabaseConnectionConfig,
+  ExtendedDatabaseConnectionConfig,
+  PoolConfig,
+  ReadWriteConfig
+} from './config.js';
 
-// 导出类型
-export * from './types/index.js';
+// 导出类型定义
+export type { DatabaseProvider } from './types.js';
 
-// 导出工厂函数
-export { createDatabaseAPI } from './api/factory.js';
+// 导出工厂类
+export { DatabaseDialectFactory, KyselyFactory } from './factory.js';
+
+export { sql } from 'kysely';
+export type {
+  ColumnType,
+  Generated,
+  Insertable,
+  Kysely,
+  Selectable,
+  Updateable
+} from 'kysely';

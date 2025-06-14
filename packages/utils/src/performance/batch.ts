@@ -1,29 +1,109 @@
 /**
- * 批处理和并发控制相关函数
+ * @remarks
+ * 模块: 
+ *
+ * 批处理相关函数，提供批量处理数据的工具函数
+ *
+ * 提供批量处理数据的工具函数，用于优化需要重复处理的操作，减少网络请求或资源消耗。
+ * 可用于将多个单一操作合并为批量操作，显著提高性能并减少资源使用。
+ *
+ * @remarks
+ * 版本: 1.0.0
+ *
+ * @packageDocumentation
  */
+
+// 导入从async/concurrency模块的limitConcurrency函数，仅供内部使用
 
 /**
  * 批处理选项接口
+ *
+ * @remarks
+ * 版本: 1.0.0
+ * 分类: 批处理
+ *
+ * @public
  */
 export interface BatchOptions {
-  maxBatchSize?: number; // 每批最大项数
-  maxDelay?: number; // 最大延迟时间(ms)
+  /**
+   * 每批最大项数
+   * @defaultValue 100
+   */
+  maxBatchSize?: number;
+
+  /**
+   * 最大延迟时间(毫秒)，超过此时间将执行批处理，即使未达到最大批量
+   * @defaultValue 10
+   */
+  maxDelay?: number;
 }
 
 /**
  * 批处理任务队列项接口
+ * @internal
  */
 interface BatchQueueItem<T, R> {
+  /** 要处理的单个项 */
   item: T;
+  /** 解析Promise的函数 */
   resolve: (value: R) => void;
+  /** 拒绝Promise的函数 */
   reject: (error: any) => void;
 }
 
 /**
- * 创建批处理函数
- * @param fn 处理批量项的函数
- * @param options 批处理选项
+ * 创建批处理函数，将多个单项操作合并为批量操作
+ *
+ * 此函数将单个项的处理转换为批量处理，当累积足够的项或达到指定的延迟时间时，
+ * 会自动触发批量处理。适用于优化API请求或数据库操作等场景。
+ *
+ * @typeParam T - 单个项的类型
+ * @typeParam R - 处理结果的类型
+ * @param fn - 处理批量项的函数，接收项数组，返回结果数组
+ * @param options - 批处理选项
  * @returns 处理单个项的函数，内部会批量处理
+ * @throws `Error` 如果批处理函数返回的结果数量与输入项数量不匹配
+ * @remarks
+ * 版本: 1.0.0
+ * 分类: 性能优化
+ *
+ * @example
+ * ```typescript
+ * // 基本使用 - 将单个API请求合并为批量请求
+ * const batchFetchUser = batch(
+ *   async (userIds) => {
+ *     // 一次请求获取多个用户
+ *     const response = await fetch(`/api/users?ids=${userIds.join(',')}`);
+ *     return response.json();
+ *   },
+ *   { maxBatchSize: 50, maxDelay: 20 }
+ * );
+ *
+ * // 现在可以单独调用，但内部会合并请求
+ * const user1 = await batchFetchUser(101);
+ * const user2 = await batchFetchUser(102);
+ * const user3 = await batchFetchUser(103);
+ * // 这些请求会合并为一个批量请求
+ *
+ * // 自定义批量选项
+ * const batchInsert = batch(
+ *   async (records) => {
+ *     // 批量插入数据库
+ *     const results = await db.batchInsert('users', records);
+ *     return results.map(r => r.id);
+ *   },
+ *   { maxBatchSize: 500, maxDelay: 50 }
+ * );
+ *
+ * // 错误处理
+ * try {
+ *   const id = await batchInsert({ name: 'Test' });
+ * } catch (error) {
+ *   // 如果批处理中有一个项失败，所有相关项都会失败
+ *   console.error('批量插入失败:', error);
+ * }
+ * ```
+ * @public
  */
 export function batch<T, R>(
   fn: (items: T[]) => Promise<R[]>,
@@ -33,8 +113,11 @@ export function batch<T, R>(
   let queue: BatchQueueItem<T, R>[] = [];
   let timer: ReturnType<typeof setTimeout> | null = null;
 
-  // 处理队列的函数
-  async function processQueue() {
+  /**
+   * 处理队列中的项
+   * @internal
+   */
+  async function processQueue(): Promise<void> {
     const currentQueue = queue;
     queue = [];
     timer = null;
@@ -51,7 +134,7 @@ export function batch<T, R>(
       // 确保结果数组长度与请求数组匹配
       if (results.length !== items.length) {
         const error = new Error(
-          `Batch function returned ${results.length} results for ${items.length} items`
+          `批处理函数返回了 ${results.length} 个结果，但提供了 ${items.length} 个项`
         );
         currentQueue.forEach(({ reject }) => reject(error));
         return;
@@ -89,63 +172,6 @@ export function batch<T, R>(
           void processQueue();
         }, maxDelay);
       }
-    });
-  };
-}
-
-/**
- * 限制并发的异步函数
- * @param fn 要限制并发的异步函数
- * @param maxConcurrent 最大并发数
- * @returns 受限的异步函数
- */
-export function limitConcurrency<T, A extends any[]>(
-  fn: (...args: A) => Promise<T>,
-  maxConcurrent: number
-): (...args: A) => Promise<T> {
-  if (maxConcurrent <= 0) {
-    throw new Error('maxConcurrent must be greater than 0');
-  }
-
-  let activeCount = 0;
-  const queue: {
-    args: A;
-    resolve: (value: T | PromiseLike<T>) => void;
-    reject: (reason?: any) => void;
-  }[] = [];
-
-  // 处理下一个队列项
-  function processNext() {
-    if (activeCount < maxConcurrent && queue.length > 0) {
-      const { args, resolve, reject } = queue.shift()!;
-      activeCount++;
-
-      void executeTask(args, resolve, reject);
-    }
-  }
-
-  // 执行任务
-  async function executeTask(
-    args: A,
-    resolve: (value: T | PromiseLike<T>) => void,
-    reject: (reason?: any) => void
-  ) {
-    try {
-      const result = await fn(...args);
-      resolve(result);
-    } catch (error) {
-      reject(error);
-    } finally {
-      activeCount--;
-      processNext();
-    }
-  }
-
-  // 返回限制并发的函数
-  return function (this: any, ...args: A): Promise<T> {
-    return new Promise((resolve, reject) => {
-      queue.push({ args, resolve, reject });
-      processNext();
     });
   };
 }

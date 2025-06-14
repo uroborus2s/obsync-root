@@ -4,7 +4,7 @@
     "target": "ESNext",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "rootDir": ".",
+    "rootDir": "./src",
     "outDir": "dist",
     "declarationDir": "dist/types",
     "experimentalDecorators": true,

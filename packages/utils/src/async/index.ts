@@ -1,20 +1,50 @@
 /**
- * 异步处理工具函数模块
- * 提供异步操作相关的工具函数
+ * 异步工具函数模块，提供异步操作相关的工具函数
+ *
+ * 此模块提供了丰富的异步操作工具，包括重试、防抖、节流、并发控制、
+ * Promise工具、流程控制等，帮助简化异步操作和控制异步流程。
+ *
+ * @remarks
+ * 版本: 1.0.0
+ * 分类: 异步操作
+ *
+ * @example
+ * ```typescript
+ * import { retry, debounce, withTimeout, queue } from '@stratix/utils/async';
+ *
+ * // 使用重试功能
+ * const data = await retry(
+ *   async () => fetchData(url),
+ *   { retries: 3, delay: 1000 }
+ * );
+ *
+ * // 使用防抖功能
+ * const debouncedSave = debounce(saveData, 500);
+ * input.addEventListener('input', () => debouncedSave(input.value));
+ *
+ * // 使用超时控制
+ * const result = await withTimeout(
+ *   fetch(url).then(r => r.json()),
+ *   5000,
+ *   '请求超时'
+ * );
+ *
+ * // 使用任务队列
+ * const taskQueue = queue(async task => processTask(task), 3);
+ * const results = await Promise.all([
+ *   taskQueue.push(task1),
+ *   taskQueue.push(task2),
+ *   taskQueue.push(task3)
+ * ]);
+ * ```
+ *
+ * @packageDocumentation
  */
 
-// 首先导出基础函数，然后是依赖它们的复杂函数
-export * from './retry.js';
-export * from './sleep.js';
-export * from './timeout.js';
-
-// 其他独立函数
-export * from './asyncify.js';
-export * from './asyncPool.js';
-export * from './debounce.js';
-export * from './parallelLimit.js';
-export * from './pMap.js';
-export * from './promisify.js';
-export * from './queue.js';
-export * from './throttle.js';
-export * from './waterfall.js';
+// 导出子模块
+export * from './common/index.js';
+export * from './concurrency/index.js';
+export * from './debounce-throttle/index.js';
+export * from './flow-control/index.js';
+export * from './promise-utils/index.js';
+export * from './retry/index.js';

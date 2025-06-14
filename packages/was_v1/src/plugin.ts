@@ -1,4 +1,4 @@
-import { validateConfig, wasV1ConfigSchema } from './schemas/config.js';
+import { wasV1ConfigSchema } from './schemas/config.js';
 import { createApiClient } from './services/api/index.js';
 import { createWpsApiClient, sendRequest } from './services/request.js';
 import {
@@ -10,75 +10,80 @@ import { WasV1Options } from './types/config.js';
 
 /**
  * 创建WPS客户端
- * @param app Stratix应用实例
- * @param config 插件配置
+ * @param app 应用实例
+ * @param config 配置选项
  * @returns WPS客户端
  */
 function createWpsClient(app: any, config: WasV1Options) {
-  // 获取日志对象
+  // 获取logger
   const logger = app.hasPlugin('logger') ? app.logger : console;
 
   // 初始化token缓存
   initTokenCache(config);
 
-  // 创建API客户端
+  // 创建API请求实例
   const apiClient = createWpsApiClient(app, config);
 
-  // 创建API模块
-  const api = createApiClient(apiClient);
+  // 创建API模块，传入apiModules配置
+  const api = createApiClient(apiClient, config.apiModules, logger);
 
-  // 添加辅助方法
+  // 构建客户端对象
   return {
+    // 运行环境
+    app,
+    // 配置信息
+    config,
+    // API客户端
+    apiClient,
     // API模块
-    ...api,
-
-    // 辅助方法
-    getCompanyToken: () => getCompanyToken(app, config),
-    clearTokenCache: (appId?: string) => clearTokenCache(appId),
-
+    api,
+    // Token相关方法
+    token: {
+      getCompanyToken: () => getCompanyToken(app, config),
+      clearCache: clearTokenCache
+    },
     // 低级API访问方法
     request: <T>(axiosConfig: any, schema?: any) =>
-      sendRequest<T>(apiClient, axiosConfig, schema),
-
-    // 原始客户端
-    client: apiClient
+      sendRequest<T>(apiClient, axiosConfig, schema)
   };
 }
 
 /**
- * WPS API V1插件
+ * 插件工厂函数
+ * @param options 配置选项
+ * @returns 插件函数
  */
-export const pluginFactory = () => {
-  return {
-    name: 'wasV1',
-    dependencies: ['core'],
-    optionalDependencies: ['logger', 'cache'],
+export function pluginFactory(options: WasV1Options) {
+  // 验证配置
+  const parseResult = wasV1ConfigSchema.safeParse(options);
+  if (!parseResult.success) {
+    const errorMessage = `WasV1插件配置验证失败: ${parseResult.error.message}`;
+    throw new Error(errorMessage);
+  }
 
-    register: async (app: any, options: WasV1Options) => {
-      // 验证配置
-      const config = validateConfig(options);
-
-      // 获取日志对象
-      const logger = app.hasPlugin('logger') ? app.logger : console;
-      logger.info('注册WPS API V1插件');
-
+  // 返回插件函数
+  return function (app: any, opts: any, done: Function) {
+    try {
       // 创建WPS客户端
-      const client = createWpsClient(app, config);
+      const wpsClient = createWpsClient(app, options);
 
-      // 注册钩子
-      app.hook('beforeClose', async () => {
-        // 清理缓存
-        clearTokenCache();
-        logger.info('清理WPS API V1插件资源');
+      // 将客户端挂载到app实例
+      app.decorate('wpsV1', wpsClient);
+
+      // 注册钩子函数用于资源释放
+      app.addHook('onClose', async (instance: any, done: Function) => {
+        try {
+          clearTokenCache();
+          done();
+        } catch (error) {
+          done(error);
+        }
       });
 
-      // 添加装饰器
-      app.decorate('wasV1', client);
-
-      logger.info('WPS API V1插件注册完成');
-    },
-
-    // 配置验证模式
-    schema: wasV1ConfigSchema
+      // 完成插件注册
+      done();
+    } catch (error) {
+      done(error);
+    }
   };
-};
+}

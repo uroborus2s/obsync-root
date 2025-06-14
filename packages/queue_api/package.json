@@ -1,0 +1,43 @@
+{
+  "name": "@stratix/queue-api",
+  "version": "0.1.0",
+  "description": "Queue management REST API plugin for @stratix/queue",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/types/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "clean": "rimraf dist",
+    "build": "pnpm run clean && tsc",
+    "dev": "tsc --watch",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix"
+  },
+  "keywords": [
+    "queue",
+    "api",
+    "rest",
+    "fastify",
+    "stratix",
+    "typescript"
+  ],
+  "author": "Stratix Team",
+  "license": "MIT",
+  "dependencies": {
+    "@stratix/utils": "workspace:*"
+  },
+  "peerDependencies": {
+    "@stratix/core": "workspace:*",
+    "@stratix/queue": "workspace:*"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

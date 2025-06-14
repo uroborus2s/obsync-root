@@ -10,7 +10,10 @@
     "clean": "rimraf dist",
     "build": "pnpm run clean && tsc",
     "lint": "eslint src --ext .ts",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "build:docs": "api-extractor run --local --verbose",
+    "build:api-docs": "api-documenter markdown -i api/temp -o ../../apps/api-website/docs/api/utils && rimraf api/temp",
+    "docs:generate": "pnpm run build && pnpm run build:docs && pnpm run build:api-docs"
   },
   "exports": {
     ".": {
@@ -30,65 +33,25 @@
       "import": "./dist/string/index.js",
       "types": "./dist/types/string/index.d.ts"
     },
-    "./object": {
-      "import": "./dist/object/index.js",
-      "types": "./dist/types/object/index.d.ts"
-    },
-    "./function": {
-      "import": "./dist/function/index.js",
-      "types": "./dist/types/function/index.d.ts"
+    "./data": {
+      "import": "./dist/data/index.js",
+      "types": "./dist/types/data/index.d.ts"
     },
     "./number": {
       "import": "./dist/number/index.js",
       "types": "./dist/types/number/index.d.ts"
     },
-    "./file": {
-      "import": "./dist/file/index.js",
-      "types": "./dist/types/file/index.d.ts"
-    },
     "./time": {
       "import": "./dist/time/index.js",
       "types": "./dist/types/time/index.d.ts"
-    },
-    "./type": {
-      "import": "./dist/type/index.js",
-      "types": "./dist/types/type/index.d.ts"
-    },
-    "./env": {
-      "import": "./dist/env/index.js",
-      "types": "./dist/types/env/index.d.ts"
     },
     "./environment": {
       "import": "./dist/environment/index.js",
       "types": "./dist/types/environment/index.d.ts"
     },
-    "./crypto": {
-      "import": "./dist/crypto/index.js",
-      "types": "./dist/types/crypto/index.d.ts"
-    },
-    "./validator": {
-      "import": "./dist/validator/index.js",
-      "types": "./dist/types/validator/index.d.ts"
-    },
-    "./json": {
-      "import": "./dist/json/index.js",
-      "types": "./dist/types/json/index.d.ts"
-    },
-    "./collection": {
-      "import": "./dist/collection/index.js",
-      "types": "./dist/types/collection/index.d.ts"
-    },
     "./performance": {
       "import": "./dist/performance/index.js",
       "types": "./dist/types/performance/index.d.ts"
-    },
-    "./i18n": {
-      "import": "./dist/i18n/index.js",
-      "types": "./dist/types/i18n/index.d.ts"
-    },
-    "./immutable": {
-      "import": "./dist/immutable/index.js",
-      "types": "./dist/types/immutable/index.d.ts"
     },
     "./context": {
       "import": "./dist/context/index.js",
@@ -96,8 +59,6 @@
     }
   },
   "dependencies": {
-    "ajv": "^8.17.1",
-    "ajv-formats": "^3.0.1",
     "bcryptjs": "^3.0.2",
     "date-fns": "^4.1.0",
     "glob": "^11.0.1",

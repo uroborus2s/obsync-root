@@ -1,0 +1,49 @@
+{
+  "name": "@stratix/tasks",
+  "version": "0.1.0",
+  "description": "Stratix框架任务管理系统 - 支持多级任务创建、状态控制和进度管理",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/types/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "clean": "rimraf dist",
+    "build": "pnpm run clean && tsc",
+    "dev": "tsc --watch",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "demo": "node examples/demo-script.js",
+    "demo:help": "node examples/demo-script.js --help",
+    "demo:workflow": "node examples/demo-script.js --workflow"
+  },
+  "keywords": [
+    "tasks",
+    "task-management",
+    "workflow",
+    "jobs",
+    "hierarchy",
+    "progress",
+    "database",
+    "typescript",
+    "stratix"
+  ],
+  "author": "Stratix Team",
+  "license": "MIT",
+  "dependencies": {
+    "@stratix/utils": "workspace:*"
+  },
+  "peerDependencies": {
+    "@stratix/core": "workspace:*",
+    "@stratix/database": "workspace:*"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

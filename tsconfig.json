@@ -5,8 +5,10 @@
     "target": "ESNext", // 对齐Node.js 22的V8引擎版本
     "module": "NodeNext", // 强制使用Node.js原生ESM模块系统
     "moduleResolution": "NodeNext",
-    "declaration": true,
     "allowSyntheticDefaultImports": true,
-    "baseUrl": "."
+    "baseUrl": ".",
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true
   }
 }

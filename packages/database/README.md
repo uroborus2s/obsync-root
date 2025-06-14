@@ -1,339 +1,470 @@
 # @stratix/database
 
-## 功能概述
+基于 Kysely 的 Stratix 数据库插件，提供多数据库支持、查询缓存和读写分离功能。
 
-数据库模块提供了一个灵活、强大的ORM系统，支持多数据库连接、查询构建器、模型关系、缓存功能和自动迁移生成。
+## 特性
 
-## 主要特性
-
-- 基于Knex.js构建的强大查询构建器
-- 支持多种数据库驱动，包括PostgreSQL、MySQL、SQLite等
-- 完整的ORM模型系统
-- 支持模型关系（一对一、一对多、多对多等）
-- 生命周期钩子系统
-- 查询和模型缓存支持
-- 软删除功能
-- 从模型自动生成数据库迁移文件
-- 数据迁移和种子系统
+- 🚀 基于 Kysely 的类型安全数据库操作
+- 🔄 多数据库连接支持
+- 📊 查询缓存（Redis/内存）
+- 🔀 读写分离
+- 🏥 健康检查
+- 🔧 连接池管理
+- 📝 完整的 TypeScript 支持
 
 ## 安装
 
 ```bash
-npm install @stratix/database @stratix/cache
+npm install @stratix/database kysely
 ```
 
-## 基本用法
+根据你使用的数据库，还需要安装相应的驱动：
 
-### 初始化数据库连接
+```bash
+# MySQL
+npm install mysql2
+
+# PostgreSQL
+npm install pg
+npm install @types/pg
+
+# SQLite
+npm install better-sqlite3
+npm install @types/better-sqlite3
+
+# MSSQL (开发中)
+npm install tedious
+
+# Oracle (开发中)
+npm install oracledb
+```
+
+## 基本使用
+
+### 1. 注册插件
 
 ```typescript
-import { Database } from '@stratix/database';
-import { CacheManager } from '@stratix/cache';
+import Fastify from 'fastify';
+import databasePlugin from '@stratix/database';
 
-// 创建缓存管理器
-const cacheManager = new CacheManager({
-  driver: 'memory',
-  // 或使用Redis
-  // driver: 'redis',
-  // connection: {
-  //   host: 'localhost',
-  //   port: 6379
-  // }
+const fastify = Fastify();
+
+await fastify.register(databasePlugin, {
+  databases: {
+    main: {
+      dialect: 'mysql',
+      connection: {
+        host: 'localhost',
+        port: 3306,
+        user: 'root',
+        password: 'password',
+        database: 'myapp'
+      }
+    }
+  }
+});
+```
+
+### 2. DI 容器注册
+
+插件会自动向 DI 容器注册两个对象：
+
+#### `db` - 默认数据库实例
+```typescript
+// 直接获取默认数据库
+const db = fastify.diContainer.resolve<Kysely<Database>>('db');
+
+const users = await db
+  .selectFrom('users')
+  .selectAll()
+  .execute();
+```
+
+#### `databaseProvider` - 数据库提供者
+```typescript
+import type { DatabaseProvider } from '@stratix/database';
+
+// 获取数据库提供者
+const provider = fastify.diContainer.resolve<DatabaseProvider>('databaseProvider');
+
+// 获取默认数据库
+const defaultDb = provider.getDatabase();
+
+// 获取指定名称的数据库
+const readonlyDb = provider.getDatabase('readonly');
+
+// 如果数据库不存在，会自动返回默认数据库
+const fallbackDb = provider.getDatabase('nonexistent'); // 返回默认数据库
+
+// 检查数据库是否存在
+const hasAnalytics = provider.hasDatabase('analytics');
+
+// 获取所有数据库名称
+const dbNames = provider.getDatabaseNames();
+
+// 获取所有数据库实例
+const allDbs = provider.getAllDatabases();
+```
+
+### 3. 便捷方法
+
+插件还为 Fastify 实例添加了便捷方法：
+
+```typescript
+// 获取数据库（通过 databaseProvider）
+const db = fastify.getDatabase(); // 默认数据库
+const readonlyDb = fastify.getDatabase('readonly'); // 指定数据库
+
+// 获取所有数据库
+const allDatabases = fastify.getAllDatabases();
+```
+
+## 多数据库配置
+
+```typescript
+await fastify.register(databasePlugin, {
+  databases: {
+    // 主数据库（默认数据库）
+    main: {
+      dialect: 'mysql',
+      connection: {
+        host: 'localhost',
+        port: 3306,
+        user: 'root',
+        password: 'password',
+        database: 'main_db'
+      }
+    },
+    // 只读数据库
+    readonly: {
+      dialect: 'mysql',
+      connection: {
+        host: 'readonly-host',
+        port: 3306,
+        user: 'readonly_user',
+        password: 'password',
+        database: 'main_db'
+      }
+    },
+    // 分析数据库
+    analytics: {
+      dialect: 'postgresql',
+      connection: {
+        host: 'analytics-host',
+        port: 5432,
+        user: 'postgres',
+        password: 'password',
+        database: 'analytics_db'
+      }
+    }
+  }
+});
+```
+
+## 在服务中使用
+
+### 方式1：直接注入默认数据库
+
+```typescript
+class UserService {
+  constructor(
+    private db: Kysely<Database>
+  ) {}
+
+  async getUsers() {
+    return await this.db
+      .selectFrom('users')
+      .selectAll()
+      .execute();
+  }
+}
+
+// 注册服务
+fastify.registerDI(
+  (db: Kysely<Database>) => new UserService(db),
+  {
+    name: 'userService',
+    lifetime: 'SINGLETON',
+    dependencies: ['db'] // 注入默认数据库
+  }
+);
+```
+
+### 方式2：注入数据库提供者
+
+```typescript
+import type { DatabaseProvider } from '@stratix/database';
+
+class UserService {
+  private db: Kysely<Database>;
+  private readonlyDb: Kysely<Database>;
+
+  constructor(
+    private provider: DatabaseProvider
+  ) {
+    this.db = provider.getDatabase(); // 默认数据库用于写操作
+    this.readonlyDb = provider.getDatabase('readonly'); // 只读数据库用于读操作
+  }
+
+  async createUser(name: string, email: string) {
+    return await this.db
+      .insertInto('users')
+      .values({ name, email })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+  }
+
+  async getUsers() {
+    return await this.readonlyDb
+      .selectFrom('users')
+      .selectAll()
+      .execute();
+  }
+}
+
+// 注册服务
+fastify.registerDI(
+  (provider: DatabaseProvider) => new UserService(provider),
+  {
+    name: 'userService',
+    lifetime: 'SINGLETON',
+    dependencies: ['databaseProvider'] // 注入数据库提供者
+  }
+);
+```
+
+## 路由中使用
+
+```typescript
+// 使用默认数据库
+fastify.get('/users', async () => {
+  const db = fastify.diContainer.resolve<Kysely<Database>>('db');
+  const users = await db.selectFrom('users').selectAll().execute();
+  return { users };
 });
 
-// 配置数据库
-const db = new Database({
-  client: 'pg',
-  connection: {
-    host: 'localhost',
-    user: 'postgres',
-    password: 'password',
-    database: 'mydb'
-  },
-  // 缓存配置
-  cache: {
-    enabled: true,
-    prefix: 'db:',
-    ttl: 60000, // 1分钟
-    queries: {
-      enabled: true,
-      ttl: 30000 // 30秒
-    },
-    models: {
-      enabled: true,
-      ttl: 60000 // 1分钟
-    }
-  },
-  // 迁移配置
-  migrations: {
-    directory: './migrations',
-    // 自动从模型生成迁移
-    autoGenerate: true,
-    // 自动生成的迁移存放目录
-    autoGenerateDirectory: './migrations/auto',
-    // 表名前缀
-    tablePrefix: 'app_'
-  }
-}, cacheManager);
+// 使用数据库提供者
+fastify.get('/analytics', async () => {
+  const provider = fastify.diContainer.resolve<DatabaseProvider>('databaseProvider');
+  const analyticsDb = provider.getDatabase('analytics');
+  const stats = await analyticsDb.selectFrom('user_stats').selectAll().execute();
+  return { stats };
+});
 
-// 连接数据库
-await db.connect();
+// 使用便捷方法
+fastify.get('/posts', async () => {
+  const db = fastify.getDatabase();
+  const readonlyDb = fastify.getDatabase('readonly');
+  
+  const [posts, comments] = await Promise.all([
+    db.selectFrom('posts').selectAll().execute(),
+    readonlyDb.selectFrom('comments').selectAll().execute()
+  ]);
+  
+  return { posts, comments };
+});
 ```
 
-### 定义模型
+## 高级配置
 
-```typescript
-import { BaseModel } from '@stratix/database';
-import { FieldType } from '@stratix/database/types';
-
-export class User extends BaseModel {
-  static tableName = 'users';
-  
-  static fields = {
-    id: {
-      type: FieldType.Increments,
-      primaryKey: true
-    },
-    name: {
-      type: FieldType.String,
-      length: 100,
-      nullable: false
-    },
-    email: {
-      type: FieldType.String,
-      unique: true
-    },
-    created_at: {
-      type: FieldType.Timestamp
-    },
-    updated_at: {
-      type: FieldType.Timestamp
-    }
-  };
-  
-  static relations = {
-    posts: {
-      type: 'hasMany',
-      model: 'Post',
-      foreignKey: 'user_id'
-    }
-  };
-}
-
-export class Post extends BaseModel {
-  static tableName = 'posts';
-  
-  static fields = {
-    id: {
-      type: FieldType.Increments,
-      primaryKey: true
-    },
-    title: {
-      type: FieldType.String,
-      length: 200,
-      nullable: false
-    },
-    content: {
-      type: FieldType.Text
-    },
-    user_id: {
-      type: FieldType.Integer,
-      unsigned: true,
-      nullable: false
-    },
-    created_at: {
-      type: FieldType.Timestamp
-    },
-    updated_at: {
-      type: FieldType.Timestamp
-    }
-  };
-  
-  static relations = {
-    user: {
-      type: 'belongsTo',
-      model: 'User',
-      foreignKey: 'user_id',
-      // 外键约束
-      onDelete: 'CASCADE'
-    }
-  };
-}
-```
-
-### 使用查询构建器
-
-```typescript
-// 基本查询
-const users = await User.query().where('email', 'like', '%@example.com').get();
-
-// 分页查询
-const result = await User.query()
-  .orderBy('created_at', 'desc')
-  .paginate(1, 20);
-
-// 关系查询
-const usersWithPosts = await User.query()
-  .with('posts')
-  .get();
-
-// 聚合查询
-const count = await User.query().count();
-```
-
-### 缓存查询结果
-
-```typescript
-// 启用缓存的查询
-const user = await User.query({ useCache: true })
-  .where('id', 1)
-  .first();
-
-// 设置自定义缓存时间
-const posts = await Post.query()
-  .cache(true, 300000) // 5分钟缓存
-  .where('user_id', userId)
-  .get();
-```
-
-## 迁移系统
-
-数据库模块支持从模型自动生成迁移文件，这大大简化了数据库架构的管理。
-
-### 配置迁移
-
-在数据库配置中通过`migrations`选项配置迁移：
+### 读写分离
 
 ```typescript
 {
-  // 其他配置...
-  migrations: {
-    // 迁移文件目录
-    directory: './migrations',
-    
-    // 是否自动从模型生成迁移
-    autoGenerate: true,
-    
-    // 自动生成的迁移存放目录
-    autoGenerateDirectory: './migrations/auto',
-    
-    // 表名前缀
-    tablePrefix: 'app_',
-    
-    // 自定义迁移模板文件
-    templateFile: './templates/migration.js'
-  }
-}
-```
-
-### 手动生成迁移
-
-```typescript
-// 获取迁移管理器
-const migrationManager = db.getMigrationManager();
-
-// 注册模型
-migrationManager.addModel(User);
-migrationManager.addModel(Post);
-
-// 从所有已注册模型生成迁移
-const files = await migrationManager.generateMigrations();
-console.log('已生成迁移文件:', files);
-
-// 从单个模型生成迁移
-const file = await migrationManager.generateMigrationFromModel(User);
-console.log('已为User模型生成迁移文件:', file);
-```
-
-### 运行迁移
-
-```typescript
-// 执行所有待处理的迁移
-const migratedFiles = await migrationManager.migrate();
-console.log('已执行迁移:', migratedFiles);
-
-// 回滚最后一批迁移
-const rolledBackFiles = await migrationManager.rollback();
-console.log('已回滚迁移:', rolledBackFiles);
-
-// 回滚所有迁移
-const resetFiles = await migrationManager.reset();
-console.log('已重置所有迁移:', resetFiles);
-
-// 查看迁移状态
-const status = await migrationManager.status();
-console.log('迁移状态:', status);
-```
-
-## 缓存系统
-
-数据库模块内置了强大的缓存支持，可以缓存查询结果和模型实例，大幅提高应用性能。
-
-### 缓存配置
-
-缓存配置在数据库配置中通过`cache`选项指定：
-
-```typescript
-{
-  // 其他数据库配置...
-  cache: {
-    // 是否启用缓存
-    enabled: true,
-    
-    // 缓存键前缀
-    prefix: 'db:',
-    
-    // 默认缓存时间（毫秒）
-    ttl: 60000,
-    
-    // 查询缓存配置
-    queries: {
-      enabled: true,
-      ttl: 30000
-    },
-    
-    // 模型缓存配置
-    models: {
-      enabled: true,
-      ttl: 60000
+  databases: {
+    main: {
+      dialect: 'mysql',
+      connection: {
+        host: 'master-host',
+        // ... 主库配置
+      },
+      readWrite: {
+        read: {
+          host: 'slave-host',
+          // ... 从库配置
+        }
+      }
     }
   }
 }
 ```
 
-### 自动缓存
-
-当缓存启用时，以下操作会自动使用缓存：
-
-1. 通过ID查找模型实例：`Model.find(id)`
-2. 获取第一条记录：`Model.query().first()`
-3. 获取多条记录：`Model.query().get()`
-
-### 手动控制缓存
-
-您可以通过查询选项或`cache()`方法显式控制缓存行为：
+### 查询缓存
 
 ```typescript
-// 通过查询选项控制
-const users = await User.query({ useCache: true, cacheTTL: 120000 }).get();
-
-// 通过cache方法控制
-const user = await User.query()
-  .cache(true, 300000)
-  .where('id', userId)
-  .first();
+{
+  databases: {
+    main: {
+      dialect: 'mysql',
+      connection: { /* ... */ },
+      cache: {
+        enabled: true,
+        type: 'redis',
+        redis: {
+          host: 'localhost',
+          port: 6379
+        },
+        ttl: 300 // 5分钟
+      }
+    }
+  }
+}
 ```
 
-### 缓存失效
+### 健康检查
 
-当模型数据发生变化（插入、更新、删除）时，相关缓存会自动失效。
+```typescript
+{
+  databases: { /* ... */ },
+  global: {
+    healthCheck: {
+      enabled: true,
+      interval: 30000, // 30秒检查一次
+      timeout: 5000,   // 5秒超时
+      retries: 3       // 重试3次
+    }
+  }
+}
+```
 
-## 其他功能
+### 连接验证
 
-- 软删除/恢复: `model.delete()`, `model.restore()`
-- 事务支持: `db.transaction(async (trx) => { ... })`
-- 生命周期钩子: `beforeCreate`, `afterSave`等
+插件支持智能的数据库连接验证，针对不同数据库使用最优的验证查询：
 
-## 贡献
+```typescript
+{
+  databases: { /* ... */ },
+  global: {
+    connectionValidation: {
+      enabled: true,        // 是否启用连接验证，默认 true
+      timeout: 5000,        // 验证超时时间（毫秒），默认 5000
+      retryOnFailure: false, // 验证失败时是否重试，默认 false
+      customQuery: undefined // 自定义验证查询，可选
+    }
+  }
+}
+```
 
-欢迎提交问题和PR到我们的Gitee仓库。 
+#### 连接验证查询原理
+
+**重要说明**：连接验证查询如 `SELECT 1 as connection_test` 中的 `connection_test` **不是表名**，而是**列的别名**。
+
+```sql
+-- 这个查询的含义：
+SELECT 1 as connection_test
+-- ↑     ↑    ↑
+-- |     |    └── 给结果列起别名为 "connection_test"
+-- |     └── 选择常量值 1
+-- └── SELECT 关键字
+
+-- 查询结果：
+-- | connection_test |
+-- |-----------------|
+-- |        1        |
+```
+
+这种查询的优势：
+- **不依赖任何表**：即使数据库中没有任何表，查询也能成功
+- **执行速度快**：只是选择常量，不涉及磁盘 I/O
+- **通用性强**：所有主流数据库都支持常量查询
+- **结果可预测**：总是返回相同的结果
+
+#### 数据库特定的验证查询
+
+- **MySQL**: `SELECT 1 as connection_test`
+- **PostgreSQL**: `SELECT 1 as connection_test`
+- **SQLite**: `SELECT 1 as connection_test`
+- **Oracle**: `SELECT 1 as connection_test FROM DUAL`
+- **MSSQL**: `SELECT 1 as connection_test`
+
+#### 自定义验证查询
+
+```typescript
+{
+  global: {
+    connectionValidation: {
+      enabled: true,
+      customQuery: 'SELECT CURRENT_TIMESTAMP' // 自定义验证查询
+    }
+  }
+}
+```
+
+#### 禁用连接验证
+
+```typescript
+{
+  global: {
+    connectionValidation: {
+      enabled: false // 禁用连接验证
+    }
+  }
+}
+```
+
+## API 参考
+
+### DatabaseProvider 接口
+
+```typescript
+interface DatabaseProvider {
+  /**
+   * 根据名称获取数据库实例
+   * @param name 数据库名称，如果不提供则返回默认数据库
+   * @returns Kysely 数据库实例
+   */
+  getDatabase(name?: string): Kysely<any>;
+
+  /**
+   * 获取所有数据库实例
+   * @returns 包含所有数据库实例的对象
+   */
+  getAllDatabases(): Record<string, Kysely<any>>;
+
+  /**
+   * 检查是否存在指定名称的数据库
+   * @param name 数据库名称
+   * @returns 是否存在
+   */
+  hasDatabase(name: string): boolean;
+
+  /**
+   * 获取所有数据库名称
+   * @returns 数据库名称数组
+   */
+  getDatabaseNames(): string[];
+
+  /**
+   * 销毁所有数据库连接
+   */
+  destroy(): Promise<void>;
+}
+```
+
+### Fastify 实例扩展
+
+```typescript
+interface FastifyInstance {
+  /**
+   * 获取数据库实例
+   * @param name 数据库名称，如果不提供则返回默认数据库
+   */
+  getDatabase(name?: string): Kysely<any>;
+
+  /**
+   * 获取所有数据库实例
+   */
+  getAllDatabases(): Record<string, Kysely<any>>;
+}
+```
+
+## 注意事项
+
+1. **默认数据库**：第一个配置的数据库或名为 'default' 的数据库会被设置为默认数据库
+2. **自动回退**：当请求不存在的数据库时，会自动返回默认数据库并记录警告日志
+3. **生命周期管理**：所有数据库连接会在应用关闭时自动清理
+4. **类型安全**：建议定义数据库表结构接口以获得完整的类型支持
+
+## 许可证
+
+MIT 

@@ -1,217 +1,258 @@
-/**
- * @stratix/database 插件实现
- */
-
-import { createDatabaseAPI } from './api/factory.js';
-import { DatabaseConfig } from './types/database.js';
-
-// 默认配置
-export const DEFAULT_DATABASE_OPTIONS: Partial<DatabaseConfig> = {
-  debug: process.env.NODE_ENV === 'development',
-  client: 'postgresql',
-  connection: {
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '5432'),
-    user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'stratix'
-  },
-  pool: {
-    min: 2,
-    max: 10
-  },
-  migrations: {
-    tableName: 'migrations'
-  }
-};
-
-// 简单的对象合并函数
-function merge<T extends Record<string, any>>(target: T, ...sources: any[]): T {
-  if (!sources.length) return target;
-  const source = sources.shift();
-
-  if (isObject(target) && isObject(source)) {
-    for (const key in source) {
-      if (isObject(source[key])) {
-        if (!target[key]) Object.assign(target, { [key]: {} });
-        merge(target[key] as Record<string, any>, source[key]);
-      } else {
-        Object.assign(target, { [key]: source[key] });
-      }
-    }
-  }
-
-  return merge(target, ...sources);
-}
-
-// 检查是否为对象
-function isObject(item: any): item is Record<string, any> {
-  return item && typeof item === 'object' && !Array.isArray(item);
-}
+import type { FastifyInstance, StratixPlugin } from '@stratix/core';
+import { fp } from '@stratix/core';
+import { DatabaseConfig } from './config.js';
+import { KyselyFactory } from './factory.js';
+import type { DatabaseProvider } from './types.js';
 
 /**
- * 数据库插件注册函数
+ * Stratix数据库插件
+ * 基于Kysely提供多数据库支持，包括缓存和读写分离
  */
-export async function register(
-  app: any,
-  options: DatabaseConfig = {} as DatabaseConfig
-): Promise<void> {
-  // 合并配置选项
-  const config = merge({} as DatabaseConfig, DEFAULT_DATABASE_OPTIONS, options);
-
-  // 创建数据库API
-  const database = createDatabaseAPI(config);
-
-  // 注册到应用实例中
-  app.decorate('database', database);
-
-  // 如果应用有容器，注册为服务
-  if (app.container) {
-    app.container.registerInstance('database', database);
-    app.container.registerValue('DatabaseAPI', database);
+const databasePlugin: StratixPlugin<DatabaseConfig> = async (
+  fastify: FastifyInstance,
+  options: DatabaseConfig
+) => {
+  // 验证配置
+  if (!options.databases || Object.keys(options.databases).length === 0) {
+    throw new Error('数据库配置不能为空');
   }
 
-  // 注册钩子，在应用退出前关闭数据库连接
-  if (app.hook) {
-    app.hook.register('beforeExit', async () => {
-      try {
-        await database.close();
-      } catch (error) {
-        console.error('关闭数据库连接时出错:', error);
-      }
-    });
-  }
+  // 存储数据库实例，用于清理
+  const databaseInstances = new Map<string, any>();
+  let defaultDatabase: any = null;
 
-  // 初始化数据库连接
-  try {
-    // 获取默认连接并连接
-    const defaultConnection = database.connection();
-    await defaultConnection.connect();
+  // 遍历配置中的每个数据库
+  for (const [databaseName, databaseConfig] of Object.entries(
+    options.databases
+  )) {
+    try {
+      fastify.log.info(`正在初始化数据库连接: ${databaseName}`);
 
-    // 执行onConnect回调（如果存在）
-    if (config.onConnect && typeof config.onConnect === 'function') {
-      // 创建一个上下文对象传递给onConnect回调
-      const context = {
-        app,
-        database,
-        config
-      };
-      await config.onConnect(context);
-    }
-
-    // 记录连接成功
-    if (app.log && app.log.info) {
-      app.log.info('数据库连接成功');
-    } else {
-      console.log('数据库连接成功');
-    }
-  } catch (error) {
-    // 记录连接错误
-    if (app.log && app.log.error) {
-      app.log.error('数据库连接失败:', error);
-    } else {
-      console.error('数据库连接失败:', error);
-    }
-
-    // 重新抛出错误
-    throw error;
-  }
-}
-
-/**
- * 数据库插件定义
- */
-const databasePlugin = {
-  name: 'database',
-  dependencies: ['core'],
-  optionalDependencies: ['logger', 'container', 'cache'],
-  register,
-
-  /**
-   * 预置配置验证Schema
-   */
-  schema: {
-    type: 'object',
-    properties: {
-      client: { type: 'string' },
-      debug: { type: 'boolean' },
-      connection: {
-        oneOf: [
-          { type: 'string' },
-          {
-            type: 'object',
-            properties: {
-              host: { type: 'string' },
-              port: { type: 'number' },
-              user: { type: 'string' },
-              password: { type: 'string' },
-              database: { type: 'string' }
-            }
-          }
-        ]
-      },
-      pool: {
-        type: 'object',
-        properties: {
-          min: { type: 'number' },
-          max: { type: 'number' }
-        }
-      },
-      migrations: {
-        type: 'object',
-        properties: {
-          tableName: { type: 'string' },
-          directory: { type: 'string' },
-          autoGenerate: { type: 'boolean' }
-        }
-      },
-      seeds: {
-        type: 'object',
-        properties: {
-          directory: { type: 'string' }
-        }
-      },
-      models: {
-        type: 'object',
-        properties: {
-          directory: { type: 'string' },
-          baseClass: { type: 'string' },
-          autoRegister: { type: 'boolean' }
-        }
-      },
-      cache: {
-        type: 'object',
-        properties: {
-          enabled: { type: 'boolean' },
-          ttl: { type: 'number' }
-        }
-      }
-    }
-  }
-};
-
-export default databasePlugin;
-
-/**
- * 工厂函数，用于创建带有自定义选项的插件实例
- * @param factoryOptions 工厂配置选项
- */
-export function createDatabasePlugin(
-  factoryOptions: DatabaseConfig = {} as DatabaseConfig
-) {
-  return {
-    ...databasePlugin,
-    register: async (
-      app: any,
-      options: DatabaseConfig = {} as DatabaseConfig
-    ) => {
-      // 合并工厂选项和注册选项
-      const mergedOptions = merge(
-        {} as DatabaseConfig,
-        factoryOptions,
-        options
+      // 创建 Kysely 实例
+      const kyselyInstance = await KyselyFactory.createInstance(
+        databaseConfig,
+        fastify.log
       );
-      await register(app, mergedOptions);
+
+      // 验证数据库连接
+      const isConnected =
+        await KyselyFactory.validateConnection(kyselyInstance);
+      if (!isConnected) {
+        throw new Error(`数据库连接验证失败: ${databaseName}`);
+      }
+
+      // 存储实例引用
+      databaseInstances.set(databaseName, kyselyInstance);
+
+      // 设置默认数据库（第一个或名为 'default' 的）
+      if (
+        databaseName === 'default' ||
+        Object.keys(options.databases).indexOf(databaseName) === 0
+      ) {
+        defaultDatabase = kyselyInstance;
+      }
+
+      fastify.log.info(`数据库连接初始化成功: ${databaseName}`);
+    } catch (error) {
+      fastify.log.error(error, `数据库连接初始化失败: ${databaseName}`);
+      throw error;
+    }
+  }
+
+  // 确保有默认数据库
+  if (!defaultDatabase) {
+    throw new Error('未找到默认数据库');
+  }
+
+  // 注册默认数据库实例到 DI 容器
+  fastify.registerDI(defaultDatabase, {
+    name: 'db',
+    lifetime: 'SINGLETON'
+  });
+
+  // 创建数据库提供者
+  const databaseProvider: DatabaseProvider = {
+    getDatabase: (name?: string) => {
+      if (!name) {
+        return defaultDatabase;
+      }
+
+      // 如果指定了名称，尝试获取对应的数据库实例
+      const database = databaseInstances.get(name);
+      if (database) {
+        return database;
+      }
+
+      // 如果找不到指定名称的数据库，返回默认数据库
+      fastify.log.warn(`数据库 '${name}' 不存在，返回默认数据库`);
+      return defaultDatabase;
+    },
+
+    getAllDatabases: () => {
+      const databases: Record<string, any> = {};
+      for (const [name, instance] of databaseInstances) {
+        databases[name] = instance;
+      }
+      return databases;
+    },
+
+    hasDatabase: (name: string) => {
+      return databaseInstances.has(name);
+    },
+
+    getDatabaseNames: () => {
+      return Array.from(databaseInstances.keys());
+    },
+
+    destroy: async () => {
+      for (const [name, instance] of databaseInstances) {
+        try {
+          await KyselyFactory.destroyInstance(instance);
+          fastify.log.debug(`数据库连接已关闭: ${name}`);
+        } catch (error) {
+          fastify.log.error(error, `关闭数据库连接时出错: ${name}`);
+        }
+      }
+      databaseInstances.clear();
+      defaultDatabase = null;
     }
   };
+
+  // 注册数据库提供者到 DI 容器
+  fastify.registerDI(databaseProvider, {
+    name: 'databaseProvider',
+    lifetime: 'SINGLETON',
+    asyncDispose: 'destroy', // 数据库实例的销毁方法
+    asyncDisposePriority: 100 // 较高的销毁优先级，确保在其他服务之后销毁
+  });
+
+  // 注册健康检查（如果启用）
+  if (options.global?.healthCheck?.enabled) {
+    await registerHealthCheck(
+      fastify,
+      databaseInstances,
+      options.global.healthCheck
+    );
+  }
+
+  // 注册插件关闭钩子
+  fastify.addHook('onClose', async () => {
+    fastify.log.info('正在关闭数据库连接...');
+    await databaseProvider.destroy();
+    fastify.log.info('所有数据库连接已关闭');
+  });
+
+  // 装饰 Fastify 实例，添加便捷方法
+  fastify.decorate('getDatabase', (name?: string) => {
+    try {
+      const provider = fastify.diContainer.resolve('databaseProvider');
+      return provider.getDatabase(name);
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      throw new Error(`无法获取数据库提供者: ${errorMessage}`);
+    }
+  });
+
+  // 添加获取所有数据库实例的方法
+  fastify.decorate('getAllDatabases', () => {
+    try {
+      const provider = fastify.diContainer.resolve('databaseProvider');
+      return provider.getAllDatabases();
+    } catch (error) {
+      fastify.log.error(error, '获取所有数据库实例失败');
+      return {};
+    }
+  });
+
+  fastify.log.info(
+    `数据库插件初始化完成，共注册 ${databaseInstances.size} 个数据库连接，默认数据库已设置`
+  );
+};
+
+/**
+ * 注册健康检查
+ */
+async function registerHealthCheck(
+  fastify: FastifyInstance,
+  databaseInstances: Map<string, any>,
+  healthCheckConfig: NonNullable<DatabaseConfig['global']>['healthCheck']
+) {
+  const timeout = healthCheckConfig?.timeout || 5000; // 默认5秒
+  const retries = healthCheckConfig?.retries || 3; // 默认重试3次
+
+  let healthCheckTimer: NodeJS.Timeout | null = null;
+
+  const performHealthCheck = async () => {
+    for (const [name, instance] of databaseInstances) {
+      let attempts = 0;
+      let isHealthy = false;
+
+      while (attempts < retries && !isHealthy) {
+        try {
+          const startTime = Date.now();
+          isHealthy = await Promise.race([
+            KyselyFactory.validateConnection(instance),
+            new Promise<boolean>((_, reject) =>
+              setTimeout(
+                () => reject(new Error('Health check timeout')),
+                timeout
+              )
+            )
+          ]);
+
+          const duration = Date.now() - startTime;
+
+          if (isHealthy) {
+            fastify.log.debug(`数据库健康检查通过: ${name} (${duration}ms)`);
+          }
+        } catch (error) {
+          attempts++;
+          fastify.log.warn(
+            `数据库健康检查失败: ${name}, 尝试 ${attempts}/${retries}`,
+            error
+          );
+
+          if (attempts < retries) {
+            // 等待一段时间后重试
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
+        }
+      }
+
+      if (!isHealthy) {
+        fastify.log.error(`数据库健康检查最终失败: ${name}`);
+        // 这里可以添加告警逻辑
+      }
+    }
+  };
+
+  // 启动健康检查定时器
+  await performHealthCheck();
+  // 注册关闭钩子清理定时器
+  fastify.addHook('onClose', async () => {
+    if (healthCheckTimer) {
+      clearInterval(healthCheckTimer);
+      healthCheckTimer = null;
+      fastify.log.debug('数据库健康检查定时器已清理');
+    }
+  });
+
+  fastify.log.info(`数据库健康检查已启用，检查间隔`);
 }
+
+Object.defineProperties(databasePlugin, {
+  description: {
+    value:
+      'Stratix Database plugin powered by Kysely with caching and read-write splitting support',
+    writable: false
+  }
+});
+
+export const wrapDatabasePlugin: StratixPlugin<DatabaseConfig> = fp(
+  databasePlugin,
+  {
+    name: '@stratix/database',
+    fastify: '>=5.0.0'
+  }
+);

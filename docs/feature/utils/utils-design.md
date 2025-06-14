@@ -384,7 +384,8 @@ try {
 #### 2.8.2 使用示例
 
 ```typescript
-import { isString, isNumber, toNumber, getType } from '@stratix/utils/type';
+import { isString, isNumber, getType } from '@stratix/utils/common/guards';
+import { toNumber } from '@stratix/utils/common/type';
 
 // 类型检查
 if (isString(value)) {

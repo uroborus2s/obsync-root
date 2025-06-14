@@ -1,10 +1,11 @@
 {
   "name": "@stratix/auth",
   "version": "0.1.0",
-  "description": "Stratix框架中用于处理用户认证和授权的核心插件",
+  "description": "Authentication and authorization plugin for Stratix framework",
+  "type": "module",
   "main": "dist/index.js",
-  "module": "dist/index.mjs",
-  "types": "dist/index.d.ts",
+  "module": "dist/index.js",
+  "types": "dist/types/index.d.ts",
   "files": [
     "dist",
     "README.md"
@@ -14,25 +15,41 @@
     "build": "pnpm run clean && tsc",
     "dev": "tsc --watch",
     "lint": "eslint src",
-    "lint:fix": "eslint src --fix"
+    "lint:fix": "eslint src --fix",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [
-    "logger",
-    "logging",
-    "typescript",
-    "structured-logging",
-    "pino"
+    "auth",
+    "authentication",
+    "authorization",
+    "jwt",
+    "apikey",
+    "basic-auth",
+    "oauth",
+    "saml",
+    "rbac",
+    "stratix",
+    "fastify",
+    "typescript"
   ],
   "author": "Stratix Team",
   "license": "MIT",
   "dependencies": {
-    "@stratix/utils": "workspace:*"
+    "@stratix/utils": "workspace:*",
+    "jsonwebtoken": "^9.0.2",
+    "bcrypt": "^6.0.0"
   },
   "peerDependencies": {
-    "typescript": ">=4.5.0"
+    "@stratix/core": "workspace:*",
+    "@stratix/database": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.9",
+    "@types/bcrypt": "^5.0.2"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=22.0.0"
   },
   "publishConfig": {
     "access": "public"

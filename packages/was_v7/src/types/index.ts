@@ -1,0 +1,114 @@
+/**
+ * WPS V7 API 类型定义
+ */
+
+// 基础响应类型
+export type WpsApiResponse<T = any> = {
+  code: number;
+  msg: string;
+  data: T;
+};
+
+// 分页响应类型
+export interface WpsPageResponse<T = any> {
+  code: number;
+  msg: string;
+  data: {
+    items: T[];
+    page_token?: string;
+    has_more: boolean;
+    total?: number;
+  };
+}
+
+// 错误响应类型
+export interface WpsErrorResponse {
+  code: number;
+  msg: string;
+  error?: string;
+  error_description?: string;
+}
+
+// 配置类型
+export interface WpsConfig {
+  appId: string;
+  appSecret: string;
+  baseUrl?: string;
+  timeout?: number;
+  retryTimes?: number;
+  debug?: boolean;
+}
+
+// 访问凭证类型
+export interface AccessToken {
+  access_token: string;
+  token_type?: string;
+  expires_in: number;
+  refresh_token?: string;
+  scope?: string;
+  tenant_access_token?: string;
+  app_access_token?: string;
+}
+
+// 签名参数类型
+export interface SignatureParams {
+  timestamp: string;
+  nonce: string;
+  signature: string;
+}
+
+// HTTP请求配置类型
+export interface RequestConfig {
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+  url: string;
+  params?: Record<string, any>;
+  data?: any;
+  headers?: Record<string, string>;
+  timeout?: number;
+}
+
+// 企业信息类型
+export interface CompanyInfo {
+  company_id: string;
+  name: string;
+  domain?: string;
+  avatar?: string;
+  description?: string;
+}
+
+// 部门信息类型
+export interface DeptInfo {
+  dept_id: string;
+  name: string;
+  parent_id?: string;
+  order?: number;
+  status: number;
+  company_id: string;
+}
+
+// 文件信息类型
+export interface FileInfo {
+  file_id: string;
+  name: string;
+  type: 'file' | 'folder';
+  size?: number;
+  parent_id?: string;
+  created_time: string;
+  modified_time: string;
+  creator_id: string;
+  modifier_id?: string;
+  url?: string;
+  download_url?: string;
+}
+
+// 导出所有类型
+// export * from './auth.js';
+export * from './contact.js';
+// export * from './drive.js';
+// export * from './message.js';
+
+// 导出日历相关类型
+export * from './calendar.js';
+
+// 导出用户授权相关类型
+export * from '../modules/user-auth.js';

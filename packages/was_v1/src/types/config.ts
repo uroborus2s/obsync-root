@@ -18,4 +18,12 @@ export interface WasV1Options {
 
   // 日志配置
   logLevel?: 'debug' | 'info' | 'warn' | 'error'; // 日志级别，默认为'info'
+
+  // API模块配置，支持选择性加载模块
+  apiModules?: {
+    auth?: boolean; // 是否加载认证API模块
+    contact?: boolean; // 是否加载通讯录API模块
+    document?: boolean; // 是否加载文档API模块
+    message?: boolean; // 是否加载消息API模块
+  };
 }

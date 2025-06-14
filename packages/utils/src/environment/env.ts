@@ -1,15 +1,35 @@
 /**
- * @stratix/utils/env 环境变量工具函数模块
+ * 环境变量工具函数模块
+ *
  * 提供用于处理环境变量的实用工具函数，帮助开发者安全地读取、验证和管理应用程序的环境配置。
+ *
+ * @remarks
+ * 版本: 1.0.0
+ * 分类: 环境变量
+ *
+ * @packageDocumentation
  */
 
 /**
- * 获取指定环境变量的值，支持默认值和自定义转换。
+ * 获取指定环境变量的值，支持默认值和自定义转换
  *
- * @param key 环境变量名称
- * @param defaultValue 如果环境变量不存在时的默认值（可选）
- * @param transform 自定义转换函数，用于处理环境变量值（可选）
+ * @param key - 环境变量名称
+ * @param defaultValue - 如果环境变量不存在时的默认值（可选）
+ * @param transform - 自定义转换函数，用于处理环境变量值（可选）
  * @returns 环境变量的值（字符串或转换后的值）
+ * @remarks
+ * 版本: 1.0.0
+ * 分类: 环境变量获取
+ *
+ * @example
+ * ```typescript
+ * // 获取字符串环境变量
+ * const apiUrl = get('API_URL', 'https://default-api.com');
+ *
+ * // 使用转换函数
+ * const port = get('PORT', '3000', (value) => parseInt(value, 10));
+ * ```
+ * @public
  */
 export function get<T = string>(
   key: string,
@@ -30,13 +50,27 @@ export function get<T = string>(
 }
 
 /**
- * 获取环境变量的布尔值。
+ * 获取环境变量的布尔值
+ *
  * 'true', '1', 'yes' 被视为 true
  * 'false', '0', 'no' 被视为 false
  *
- * @param key 环境变量名称
- * @param defaultValue 如果环境变量不存在时的默认布尔值（可选）
+ * @param key - 环境变量名称
+ * @param defaultValue - 如果环境变量不存在时的默认布尔值（可选）
  * @returns 环境变量的布尔值
+ * @remarks
+ * 版本: 1.0.0
+ * 分类: 环境变量获取
+ *
+ * @example
+ * ```typescript
+ * // 检查是否启用调试模式
+ * const isDebug = getBoolean('DEBUG', false);
+ *
+ * // 检查功能标志
+ * const isFeatureEnabled = getBoolean('FEATURE_X_ENABLED');
+ * ```
+ * @public
  */
 export function getBoolean(
   key: string,
@@ -54,8 +88,8 @@ export function getBoolean(
 /**
  * 获取环境变量的数值。
  *
- * @param key 环境变量名称
- * @param defaultValue 如果环境变量不存在或无法解析为数字时的默认值（可选）
+ * @param key - 环境变量名称
+ * @param defaultValue - 如果环境变量不存在或无法解析为数字时的默认值（可选）
  * @returns 环境变量的数值
  */
 export function getNumber(key: string, defaultValue: number = 0): number {
@@ -72,9 +106,9 @@ export function getNumber(key: string, defaultValue: number = 0): number {
 /**
  * 获取环境变量的数组值，通过分隔符分割字符串。
  *
- * @param key 环境变量名称
- * @param defaultValue 如果环境变量不存在时的默认数组（可选）
- * @param separator 用于分割字符串的分隔符（默认为','）
+ * @param key - 环境变量名称
+ * @param defaultValue - 如果环境变量不存在时的默认数组（可选）
+ * @param separator - 用于分割字符串的分隔符（默认为','）
  * @returns 由环境变量值分割而成的字符串数组
  */
 export function getArray(
@@ -94,8 +128,8 @@ export function getArray(
 /**
  * 获取环境变量的对象值，解析JSON字符串。
  *
- * @param key 环境变量名称
- * @param defaultValue 如果环境变量不存在或无法解析为对象时的默认对象（可选）
+ * @param key - 环境变量名称
+ * @param defaultValue - 如果环境变量不存在或无法解析为对象时的默认对象（可选）
  * @returns 由环境变量JSON字符串解析而成的对象
  */
 export function getObject<T extends Record<string, any>>(
@@ -155,7 +189,7 @@ export function getNodeEnv(): string {
 /**
  * 检查是否存在指定的环境变量。
  *
- * @param key 环境变量名称
+ * @param key - 环境变量名称
  * @returns 如果环境变量存在且不为空则返回true，否则返回false
  */
 export function hasEnv(key: string): boolean {
@@ -166,8 +200,8 @@ export function hasEnv(key: string): boolean {
 /**
  * 获取必要的环境变量值，如果不存在则抛出错误。
  *
- * @param key 环境变量名称
- * @param message 自定义错误消息（可选）
+ * @param key - 环境变量名称
+ * @param message - 自定义错误消息（可选）
  * @returns 环境变量的值
  * @throws 如果环境变量不存在或为空，则抛出错误
  */
@@ -179,44 +213,6 @@ export function required(key: string, message?: string): string {
   }
 
   return value;
-}
-
-/**
- * 从指定的.env文件加载环境变量。
- * 注意：此函数需要依赖dotenv包，如果未安装dotenv，将抛出错误。
- *
- * @param options 加载选项（可选）
- * @returns 无返回值
- */
-export function load(options?: {
-  path?: string;
-  override?: boolean;
-  silent?: boolean;
-}): void {
-  try {
-    // 尝试导入dotenv
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const dotenv = require('dotenv');
-
-    const result = dotenv.config({
-      path: options?.path || '.env',
-      override: options?.override || false
-    });
-
-    if (result.error && !options?.silent) {
-      throw result.error;
-    }
-  } catch (error: any) {
-    if (error.code === 'MODULE_NOT_FOUND') {
-      if (!options?.silent) {
-        console.warn(
-          '警告: 加载.env文件需要安装dotenv包。请运行 npm install dotenv'
-        );
-      }
-    } else if (!options?.silent) {
-      throw error;
-    }
-  }
 }
 
 /**
@@ -244,8 +240,8 @@ export function getAll(): Record<string, string> {
 /**
  * 临时设置环境变量（仅在运行时有效）。
  *
- * @param key 环境变量名称
- * @param value 环境变量值
+ * @param key - 环境变量名称
+ * @param value - 环境变量值
  */
 export function set(key: string, value: string): void {
   process.env[key] = value;

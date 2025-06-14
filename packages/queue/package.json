@@ -5,7 +5,7 @@
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "types": "dist/types/index.d.ts",
   "files": [
     "dist",
     "README.md"
@@ -19,24 +19,24 @@
   },
   "keywords": [
     "queue",
-    "bullmq",
     "tasks",
     "jobs",
     "messages",
-    "redis",
+    "memory",
+    "database",
     "typescript"
   ],
   "author": "Stratix Team",
   "license": "MIT",
   "dependencies": {
-    "@stratix/utils": "workspace:*",
-    "bullmq": "^5.51.0"
+    "@stratix/utils": "workspace:*"
   },
   "peerDependencies": {
-    "typescript": ">=4.5.0"
+    "@stratix/core": "workspace:*",
+    "@stratix/database": "workspace:*"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=22.0.0"
   },
   "publishConfig": {
     "access": "public"

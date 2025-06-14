@@ -1,21 +1,99 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "ui": "tui",
+  "globalDependencies": ["**/.env.*local"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".next/**", "!.next/cache/**"]
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
+      "env": ["NODE_ENV", "VITE_*"],
+      "inputs": [
+        "src/**",
+        "tsconfig.json",
+        "tsconfig.build.json",
+        "package.json"
+      ]
     },
-    "lint": {
-      "dependsOn": ["^lint"]
+    "build:core": {
+      "dependsOn": [],
+      "outputs": ["dist/**"],
+      "inputs": [
+        "src/**",
+        "tsconfig.json",
+        "tsconfig.build.json",
+        "package.json"
+      ]
     },
-    "check-types": {
-      "dependsOn": ["^check-types"]
+    "build:utils": {
+      "dependsOn": [],
+      "outputs": ["dist/**"],
+      "inputs": [
+        "src/**",
+        "tsconfig.json",
+        "tsconfig.build.json",
+        "package.json"
+      ]
+    },
+    "build:foundation": {
+      "dependsOn": ["@stratix/utils#build", "@stratix/core#build"],
+      "outputs": ["dist/**"],
+      "inputs": [
+        "src/**",
+        "tsconfig.json",
+        "tsconfig.build.json",
+        "package.json"
+      ]
     },
     "dev": {
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "dependsOn": ["^build"]
+    },
+    "lint": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "src/**",
+        "*.js",
+        "*.ts",
+        "*.tsx",
+        ".eslintrc*",
+        "eslint.config.*"
+      ]
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"],
+      "inputs": [
+        "src/**",
+        "test/**",
+        "tests/**",
+        "*.test.*",
+        "*.spec.*",
+        "vitest.config.*",
+        "jest.config.*"
+      ]
+    },
+    "test:coverage": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"],
+      "inputs": [
+        "src/**",
+        "test/**",
+        "tests/**",
+        "*.test.*",
+        "*.spec.*",
+        "vitest.config.*",
+        "jest.config.*"
+      ]
+    },
+    "clean": {
+      "cache": false
+    },
+    "type-check": {
+      "dependsOn": ["^build"],
+      "inputs": ["src/**", "tsconfig.json", "tsconfig.build.json"]
     }
+  },
+  "remoteCache": {
+    "enabled": false
   }
 }

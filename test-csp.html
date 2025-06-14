@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSP测试</title>
+</head>
+<body>
+    <h1>CSP表单提交测试</h1>
+    
+    <div>
+        <h2>测试信息</h2>
+        <div>当前origin: <span id="current-origin"></span></div>
+        <div>用户代理: <span id="user-agent"></span></div>
+    </div>
+
+    <div>
+        <h2>表单测试</h2>
+        <form id="testForm" action="/oauth/login" method="post">
+            <input type="hidden" name="test" value="csp-test">
+            <button type="submit">测试提交</button>
+        </form>
+        <div>表单action: <span id="form-action"></span></div>
+        <div>完整URL: <span id="full-url"></span></div>
+    </div>
+
+    <div>
+        <h2>CSP违规日志</h2>
+        <div id="violation-log"></div>
+    </div>
+
+    <script>
+        // 显示基本信息
+        document.getElementById('current-origin').textContent = window.location.origin;
+        document.getElementById('user-agent').textContent = navigator.userAgent;
+        
+        const form = document.getElementById('testForm');
+        document.getElementById('form-action').textContent = form.action;
+        document.getElementById('full-url').textContent = new URL(form.action, window.location.href).href;
+
+        // 监听CSP违规
+        document.addEventListener('securitypolicyviolation', function(e) {
+            const log = document.getElementById('violation-log');
+            log.innerHTML += `
+                <div style="border: 1px solid red; margin: 5px; padding: 10px;">
+                    <strong>CSP违规:</strong><br>
+                    被阻止的URI: ${e.blockedURI}<br>
+                    违反的指令: ${e.violatedDirective}<br>
+                    有效指令: ${e.effectiveDirective}<br>
+                    源文件: ${e.sourceFile}:${e.lineNumber}<br>
+                    时间: ${new Date().toLocaleString()}
+                </div>
+            `;
+        });
+
+        // 监听表单提交
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            console.log('表单提交被阻止，用于测试');
+            console.log('提交目标:', this.action);
+            console.log('完整URL:', new URL(this.action, window.location.href).href);
+            
+            // 显示提交信息
+            const log = document.getElementById('violation-log');
+            log.innerHTML += `
+                <div style="border: 1px solid blue; margin: 5px; padding: 10px;">
+                    <strong>表单提交尝试:</strong><br>
+                    目标: ${this.action}<br>
+                    完整URL: ${new URL(this.action, window.location.href).href}<br>
+                    时间: ${new Date().toLocaleString()}
+                </div>
+            `;
+        });
+    </script>
+</body>
+</html> 

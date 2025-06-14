@@ -6,7 +6,8 @@
     "rootDir": "./src",
     "outDir": "dist",
     "declarationDir": "dist/types",
-    "strictNullChecks": true
+    "strictNullChecks": true,
+    "lib": ["ES2020"]
   },
   "include": ["src/**/*.ts"]
 }

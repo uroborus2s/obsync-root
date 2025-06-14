@@ -19,7 +19,23 @@ export const wasV1ConfigSchema = z.object({
   logLevel: z
     .enum(['debug', 'info', 'warn', 'error'])
     .optional()
-    .default('info')
+    .default('info'),
+
+  // API模块配置
+  apiModules: z
+    .object({
+      auth: z.boolean().optional().default(true),
+      contact: z.boolean().optional().default(true),
+      document: z.boolean().optional().default(true),
+      message: z.boolean().optional().default(true)
+    })
+    .optional()
+    .default({
+      auth: true,
+      contact: true,
+      document: true,
+      message: true
+    })
 });
 
 /**
