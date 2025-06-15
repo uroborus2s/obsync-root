@@ -921,10 +921,9 @@ export function AttendanceSheet() {
                         </div>
                         <div className='rounded-lg bg-orange-50 p-4'>
                           <div className='text-2xl font-bold text-orange-600'>
-                            {(
-                              personalCourseStats.data.course_info
-                                .overall_attendance_rate * 100
-                            ).toFixed(1)}
+                            {personalCourseStats.data.course_info.overall_attendance_rate.toFixed(
+                              1
+                            )}
                             %
                           </div>
                           <div className='text-sm text-gray-600'>
@@ -972,8 +971,7 @@ export function AttendanceSheet() {
                                 </div>
                                 <div className='text-right'>
                                   <div className='text-lg font-bold text-blue-600'>
-                                    {(student.attendance_rate * 100).toFixed(1)}
-                                    %
+                                    {student.attendance_rate.toFixed(1)}%
                                   </div>
                                   <div className='text-sm text-gray-500'>
                                     出勤率
@@ -986,7 +984,7 @@ export function AttendanceSheet() {
                                 <div
                                   className='h-2 rounded-full bg-blue-500'
                                   style={{
-                                    width: `${student.attendance_rate * 100}%`
+                                    width: `${student.attendance_rate}%`
                                   }}
                                 ></div>
                               </div>

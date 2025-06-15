@@ -415,41 +415,53 @@ export class LeaveApprovalRepository extends BaseRepository {
               dateStr = String(app.leave_date).split('T')[0];
             }
 
+            // 添加日期格式调试
+            this.log.info('日期处理:', {
+              original_leave_date: app.leave_date,
+              processed_dateStr: dateStr,
+              leave_date_type: typeof app.leave_date
+            });
+
+            // 使用juhe_renwu表匹配课程，需要kkh、rq、sj_f三个字段
             courseDetail = await this.db
-              .selectFrom('u_jw_kcb_cur')
+              .selectFrom('juhe_renwu')
               .select([
-                'room',
-                'st',
-                'ed',
+                'room_s as room',
+                'sj_f as st',
+                'sj_t as ed',
                 'jxz', // 教学周
-                'lq' // 楼群
+                'lq', // 楼群
+                'kcmc' // 课程名称
               ])
               .where('kkh', '=', app.course_id)
               .where('rq', '=', dateStr)
-              .executeTakeFirst(); // 只取第一条记录避重复
+              .where('sj_f', '=', app.class_start_time)
+              .executeTakeFirst(); // 只取第一条记录
 
             // 添加调试日志
-            this.log.info('课程详细信息查询:', {
+            this.log.info('课程详细信息查询(juhe_renwu):', {
               course_id: app.course_id,
               dateStr,
+              class_start_time: app.class_start_time,
               courseDetail,
               hasDetail: !!courseDetail,
               queryConditions: {
                 kkh: app.course_id,
-                rq: dateStr
+                rq: dateStr,
+                sj_f: app.class_start_time
               }
             });
 
             // 如果没有找到课程详细信息，尝试查询是否存在该课程的任何记录
             if (!courseDetail) {
               const anyCourseRecord = await this.db
-                .selectFrom('u_jw_kcb_cur')
-                .select(['kkh', 'rq', 'room'])
+                .selectFrom('juhe_renwu')
+                .select(['kkh', 'rq', 'sj_f', 'room_s'])
                 .where('kkh', '=', app.course_id)
                 .limit(3)
                 .execute();
 
-              this.log.info('该课程的所有记录:', {
+              this.log.info('该课程的所有记录(juhe_renwu):', {
                 course_id: app.course_id,
                 allRecords: anyCourseRecord
               });
@@ -479,7 +491,7 @@ export class LeaveApprovalRepository extends BaseRepository {
             // 添加课程地点信息
             class_location: courseDetail?.room || '',
             lq: courseDetail?.lq || '', // 楼群
-            room_s: courseDetail?.room || '', // 教室
+            room_s: courseDetail?.room || '', // 教室（使用room字段）
             // 添加教学周
             jxz: courseDetail?.jxz || null, // 教学周
             // 添加课程开始和结束时间

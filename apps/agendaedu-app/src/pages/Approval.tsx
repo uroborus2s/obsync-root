@@ -12,6 +12,7 @@ import {
   Eye,
   FileText,
   User,
+  X,
   XCircle
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -72,6 +73,15 @@ export function Approval() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [imageModal, setImageModal] = useState<{
+    isOpen: boolean;
+    imageUrl: string;
+    fileName: string;
+  }>({
+    isOpen: false,
+    imageUrl: '',
+    fileName: ''
+  });
   const [stats, setStats] = useState({
     pending_count: 0,
     processed_count: 0,
@@ -84,6 +94,26 @@ export function Approval() {
   useEffect(() => {
     loadApplications();
   }, [activeTab]);
+
+  // 添加键盘事件监听，ESC键关闭模态框
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && imageModal.isOpen) {
+        closeImageModal();
+      }
+    };
+
+    if (imageModal.isOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+      // 防止背景滚动
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'unset';
+    };
+  }, [imageModal.isOpen]);
 
   const loadApplications = async () => {
     setIsLoading(true);
@@ -241,15 +271,33 @@ export function Approval() {
     }
   };
 
-  const handleViewAttachment = async (attachmentId: string) => {
+  const handleViewAttachment = async (
+    attachmentId: string,
+    fileName: string
+  ) => {
     try {
-      // 直接打开图片查看接口
+      // 构建图片URL
       const imageUrl = `/api/attendance/attachments/${attachmentId}/image`;
-      window.open(imageUrl, '_blank');
+
+      // 在模态框中显示图片
+      setImageModal({
+        isOpen: true,
+        imageUrl,
+        fileName
+      });
     } catch (error) {
       console.error('查看附件失败:', error);
       alert('查看附件失败');
     }
+  };
+
+  // 关闭图片模态框
+  const closeImageModal = () => {
+    setImageModal({
+      isOpen: false,
+      imageUrl: '',
+      fileName: ''
+    });
   };
 
   const getStatusColor = (status: string) => {
@@ -342,6 +390,14 @@ export function Approval() {
     const day = String(date.getDate()).padStart(2, '0');
     const weekday = weekdays[date.getDay()];
     return `${month}/${day}${weekday}`;
+  };
+
+  // 截取文件名，如果超过30个字符则用...代替
+  const truncateFileName = (fileName: string, maxLength: number = 25) => {
+    if (fileName.length <= maxLength) {
+      return fileName;
+    }
+    return fileName.substring(0, maxLength) + '...';
   };
 
   const ApplicationCard = ({
@@ -459,7 +515,7 @@ export function Approval() {
         <div className='text-sm text-gray-600'>{application.leave_reason}</div>
       </div>
 
-      {/* 附件 - 只保留查看按钮 */}
+      {/* 附件 - 修改查看按钮调用 */}
       {application.attachments && application.attachments.length > 0 && (
         <div className='mb-3 rounded-lg bg-yellow-50 p-3'>
           <div className='mb-2 text-sm font-medium text-yellow-700'>附件</div>
@@ -472,8 +528,11 @@ export function Approval() {
                 <div className='flex items-center space-x-2'>
                   <FileText className='h-4 w-4 text-gray-500' />
                   <div>
-                    <div className='text-sm text-gray-700'>
-                      {attachment.file_name}
+                    <div
+                      className='text-sm text-gray-700'
+                      title={attachment.file_name}
+                    >
+                      {truncateFileName(attachment.file_name)}
                     </div>
                     <div className='text-xs text-gray-500'>
                       {(attachment.file_size / 1024).toFixed(1)} KB
@@ -481,7 +540,9 @@ export function Approval() {
                   </div>
                 </div>
                 <button
-                  onClick={() => handleViewAttachment(attachment.id)}
+                  onClick={() =>
+                    handleViewAttachment(attachment.id, attachment.file_name)
+                  }
                   className='flex items-center space-x-1 rounded bg-blue-100 px-2 py-1 text-xs text-blue-600 hover:bg-blue-200'
                   title='查看附件'
                 >
@@ -618,6 +679,47 @@ export function Approval() {
           </div>
         )}
       </div>
+
+      {/* 图片查看模态框 */}
+      {imageModal.isOpen && (
+        <div
+          className='fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75'
+          onClick={closeImageModal}
+        >
+          <div
+            className='relative max-h-[90vh] max-w-[90vw] overflow-hidden rounded-lg bg-white'
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 模态框头部 */}
+            <div className='flex items-center justify-between border-b bg-white px-4 py-3'>
+              <h3 className='text-lg font-medium text-gray-900'>
+                {imageModal.fileName}
+              </h3>
+              <button
+                onClick={closeImageModal}
+                className='rounded-lg p-1 hover:bg-gray-100'
+                aria-label='关闭'
+              >
+                <X className='h-5 w-5 text-gray-500' />
+              </button>
+            </div>
+
+            {/* 图片内容 */}
+            <div className='p-4'>
+              <img
+                src={imageModal.imageUrl}
+                alt={imageModal.fileName}
+                className='mx-auto max-h-[70vh] max-w-full object-contain'
+                onError={(e) => {
+                  console.error('图片加载失败');
+                  e.currentTarget.src =
+                    'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5YTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPuWbvueJh+WKoOi9veWksei0pTwvdGV4dD48L3N2Zz4=';
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

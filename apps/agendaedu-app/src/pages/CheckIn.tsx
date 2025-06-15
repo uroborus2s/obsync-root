@@ -566,10 +566,9 @@ export function CheckIn() {
                         <span
                           className={`font-medium ${getAttendanceRateColor(historyData.data.overall_stats.average_attendance_rate)}`}
                         >
-                          {(
-                            historyData.data.overall_stats
-                              .average_attendance_rate * 100
-                          ).toFixed(1)}
+                          {historyData.data.overall_stats.average_attendance_rate.toFixed(
+                            1
+                          )}
                           %
                         </span>
                       </div>
@@ -611,8 +610,7 @@ export function CheckIn() {
                             <div
                               className={`text-sm font-medium ${getAttendanceRateColor(classItem.attendance_rate)}`}
                             >
-                              出勤率{' '}
-                              {(classItem.attendance_rate * 100).toFixed(1)}%
+                              出勤率 {classItem.attendance_rate.toFixed(1)}%
                             </div>
                             <div className='text-xs text-gray-500'>
                               {classItem.present_count}/

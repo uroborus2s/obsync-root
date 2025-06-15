@@ -1360,10 +1360,11 @@ export class StudentAttendanceRepository extends BaseRepository {
           'icalink_attendance_records.id'
         )
         .leftJoin('out_xsxx', 'icalink_student_attendance.xh', 'out_xsxx.xh')
-        .leftJoin('u_jw_kcb_cur', (join) =>
+        .leftJoin('juhe_renwu', (join) =>
           join
-            .onRef('u_jw_kcb_cur.kkh', '=', 'icalink_attendance_records.kkh')
-            .onRef('u_jw_kcb_cur.rq', '=', 'icalink_attendance_records.rq')
+            .onRef('juhe_renwu.kkh', '=', 'icalink_attendance_records.kkh')
+            .onRef('juhe_renwu.rq', '=', 'icalink_attendance_records.rq')
+            .onRef('juhe_renwu.sj_f', '=', 'icalink_attendance_records.sj_f')
         )
         .select([
           'icalink_student_attendance.id',
@@ -1380,7 +1381,7 @@ export class StudentAttendanceRepository extends BaseRepository {
           'icalink_attendance_records.jc_s',
           'icalink_attendance_records.lq',
           'icalink_attendance_records.sjd',
-          'u_jw_kcb_cur.room as class_location',
+          'juhe_renwu.room_s as class_location',
           'icalink_student_attendance.leave_reason',
           'icalink_student_attendance.leave_time as application_time',
           'icalink_student_attendance.status',
@@ -1392,9 +1393,9 @@ export class StudentAttendanceRepository extends BaseRepository {
       // 教师筛选条件 - 通过课程关联查找该教师的课程
       // 由于当前数据结构中approver_id可能没有正确设置，我们通过课程表来查找
       const teacherCoursesQuery = this.db
-        .selectFrom('u_jw_kcb_cur')
+        .selectFrom('juhe_renwu')
         .select('kkh')
-        .where('ghs', 'like', `%${teacherId}%`)
+        .where('gh_s', 'like', `%${teacherId}%`)
         .distinct();
 
       const teacherCourses = await teacherCoursesQuery.execute();
@@ -1508,10 +1509,11 @@ export class StudentAttendanceRepository extends BaseRepository {
           'icalink_attendance_records.id'
         )
         .leftJoin('out_xsxx', 'icalink_student_attendance.xh', 'out_xsxx.xh')
-        .leftJoin('u_jw_kcb_cur', (join) =>
+        .leftJoin('juhe_renwu', (join) =>
           join
-            .onRef('u_jw_kcb_cur.kkh', '=', 'icalink_attendance_records.kkh')
-            .onRef('u_jw_kcb_cur.rq', '=', 'icalink_attendance_records.rq')
+            .onRef('juhe_renwu.kkh', '=', 'icalink_attendance_records.kkh')
+            .onRef('juhe_renwu.rq', '=', 'icalink_attendance_records.rq')
+            .onRef('juhe_renwu.sj_f', '=', 'icalink_attendance_records.sj_f')
         )
         .select([
           'icalink_student_attendance.id',
@@ -1528,7 +1530,7 @@ export class StudentAttendanceRepository extends BaseRepository {
           'icalink_attendance_records.jc_s',
           'icalink_attendance_records.lq',
           'icalink_attendance_records.sjd',
-          'u_jw_kcb_cur.room as class_location',
+          'juhe_renwu.room_s as class_location',
           'icalink_student_attendance.leave_reason',
           'icalink_student_attendance.leave_time as application_time',
           'icalink_student_attendance.status',
