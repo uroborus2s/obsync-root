@@ -1,0 +1,19 @@
+{
+  "mode": "pre",
+  "tag": "beta",
+  "initialVersions": {
+    "@agendaedu/web": "0.0.1",
+    "@agendaedu/app": "0.0.0",
+    "api-website": "0.0.0",
+    "@wps/template": "0.1.2",
+    "@stratix/core": "0.0.1",
+    "@stratix/database": "0.0.1",
+    "@stratix/icalink": "0.0.1",
+    "@stratix/queue": "0.0.1",
+    "@stratix/tasks": "0.0.1",
+    "@stratix/utils": "0.0.1",
+    "@stratix/was-v7": "0.0.1",
+    "@stratix/web": "0.0.1"
+  },
+  "changesets": []
+}

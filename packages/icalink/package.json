@@ -1,6 +1,6 @@
 {
   "name": "@stratix/icalink",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Stratix framework plugin for syncing school schedule data to WPS Collaboration calendar",
   "type": "module",
   "main": "dist/index.js",

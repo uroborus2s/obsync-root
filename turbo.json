@@ -13,9 +13,10 @@
         "package.json"
       ]
     },
-    "build:core": {
-      "dependsOn": [],
+    "@stratix/web#build": {
+      "dependsOn": ["@stratix/core#build", "^build"],
       "outputs": ["dist/**"],
+      "env": ["NODE_ENV", "VITE_*"],
       "inputs": [
         "src/**",
         "tsconfig.json",
@@ -23,9 +24,10 @@
         "package.json"
       ]
     },
-    "build:utils": {
-      "dependsOn": [],
+    "@stratix/queue#build": {
+      "dependsOn": ["@stratix/core#build", "@stratix/database#build", "^build"],
       "outputs": ["dist/**"],
+      "env": ["NODE_ENV", "VITE_*"],
       "inputs": [
         "src/**",
         "tsconfig.json",
@@ -33,9 +35,50 @@
         "package.json"
       ]
     },
-    "build:foundation": {
-      "dependsOn": ["@stratix/utils#build", "@stratix/core#build"],
+    "@stratix/tasks#build": {
+      "dependsOn": ["@stratix/core#build", "@stratix/database#build", "^build"],
       "outputs": ["dist/**"],
+      "env": ["NODE_ENV", "VITE_*"],
+      "inputs": [
+        "src/**",
+        "tsconfig.json",
+        "tsconfig.build.json",
+        "package.json"
+      ]
+    },
+    "@stratix/database#build": {
+      "dependsOn": ["@stratix/core#build", "^build"],
+      "outputs": ["dist/**"],
+      "env": ["NODE_ENV", "VITE_*"],
+      "inputs": [
+        "src/**",
+        "tsconfig.json",
+        "tsconfig.build.json",
+        "package.json"
+      ]
+    },
+    "@stratix/icalink#build": {
+      "dependsOn": [
+        "@stratix/core#build",
+        "@stratix/database#build",
+        "@stratix/was-v7#build",
+        "@stratix/tasks#build",
+        "@stratix/queue#build",
+        "^build"
+      ],
+      "outputs": ["dist/**"],
+      "env": ["NODE_ENV", "VITE_*"],
+      "inputs": [
+        "src/**",
+        "tsconfig.json",
+        "tsconfig.build.json",
+        "package.json"
+      ]
+    },
+    "@stratix/was-v7#build": {
+      "dependsOn": ["@stratix/core#build", "^build"],
+      "outputs": ["dist/**"],
+      "env": ["NODE_ENV", "VITE_*"],
       "inputs": [
         "src/**",
         "tsconfig.json",
