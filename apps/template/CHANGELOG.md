@@ -1,5 +1,21 @@
 # @wps/template
 
+## 0.0.2
+
+### Patch Changes
+
+- Updated dependencies [5950d4b]
+- Updated dependencies [3264d70]
+- Updated dependencies [68fc729]
+- Updated dependencies [494005d]
+  - @stratix/utils@0.0.1
+  - @stratix/database@0.0.1
+  - @stratix/was-v7@0.0.1
+  - @stratix/queue@0.0.1
+  - @stratix/tasks@0.0.1
+  - @stratix/core@0.0.1
+  - @stratix/web@0.0.1
+
 ## 0.0.2-beta.3
 
 ### Patch Changes

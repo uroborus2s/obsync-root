@@ -1,6 +1,6 @@
 {
   "name": "@stratix/database",
-  "version": "0.0.1-beta.2",
+  "version": "0.0.1",
   "description": "A powerful ORM library supporting multiple databases and caching solutions",
   "type": "module",
   "main": "dist/index.js",

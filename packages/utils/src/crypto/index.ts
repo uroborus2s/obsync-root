@@ -256,9 +256,7 @@ export function decryptConfig(
   if (parts.length !== 3) {
     throw new Error('Invalid encrypted config format');
   }
-
   const [ivHex, authTagHex, encryptedData] = parts;
-  console.log(ivHex);
   // 解析IV和认证标签
   const iv = Buffer.from(ivHex, 'hex');
   const authTag = authTagHex ? Buffer.from(authTagHex, 'hex') : undefined;
@@ -268,7 +266,6 @@ export function decryptConfig(
     // 解析JSON
     return JSON.parse(jsonStr);
   } catch (err) {
-    console.log(err);
     throw new Error(
       `Invalid JSON in decrypted config: ${err instanceof Error ? err.message : String(err)}`
     );

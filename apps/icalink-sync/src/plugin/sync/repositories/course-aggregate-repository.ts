@@ -114,11 +114,14 @@ export class CourseAggregateRepository extends BaseRepository {
    */
   async findByXnxq(xnxq: string): Promise<CourseAggregateEntity[]> {
     try {
+      // 获取当前日期作为同步基准
+      const cutoffDate = '2025/06/18'; // 或者使用动态日期
       const results = await this.db
         .selectFrom('juhe_renwu')
         .selectAll()
         .where('xnxq', '=', xnxq)
         .where('gx_zt', 'is', null)
+        .where('rq', '>', cutoffDate)
         .orderBy('rq', 'asc')
         .orderBy('sj_f', 'asc')
         .execute();

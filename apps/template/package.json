@@ -1,6 +1,6 @@
 {
   "name": "@wps/template",
-  "version": "0.0.2-beta.3",
+  "version": "0.0.2",
   "private": true,
   "description": "基于Stratix框架的模块化项目模板",
   "type": "module",
