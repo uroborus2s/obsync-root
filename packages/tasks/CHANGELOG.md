@@ -1,5 +1,14 @@
 # @stratix/tasks
 
+## 0.0.1-beta.2
+
+### Patch Changes
+
+- Updated dependencies
+  - @stratix/utils@0.0.1-beta.5
+  - @stratix/core@0.0.1-beta.3
+  - @stratix/database@0.0.1-beta.2
+
 ## 0.0.1-beta.1
 
 ### Patch Changes

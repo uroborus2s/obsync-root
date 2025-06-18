@@ -1,6 +1,6 @@
 {
   "name": "@stratix/web",
-  "version": "0.0.1-beta.1",
+  "version": "0.0.1-beta.2",
   "description": "Stratix框架的Web服务插件，基于Fastify提供HTTP服务",
   "type": "module",
   "main": "./dist/index.js",
