@@ -1,6 +1,6 @@
 {
   "name": "@stratix/core",
-  "version": "0.0.1-beta.1",
+  "version": "0.0.1-beta.2",
   "description": "一个轻量级的Node.js应用框架，基于Fastify构建",
   "type": "module",
   "main": "dist/index.js",
@@ -33,7 +33,6 @@
   "license": "MIT",
   "dependencies": {
     "@fastify/awilix": "^8.0.0",
-    "@stratix/utils": "workspace:*",
     "ajv": "^8.17.0",
     "ajv-formats": "^3.0.1",
     "awilix": "^12.0.5",
@@ -51,6 +50,9 @@
     "@types/js-yaml": "^4.0.9",
     "@types/minimist": "^1.2.5",
     "pino-pretty": "^13.0.0"
+  },
+  "peerDependencies": {
+    "@stratix/utils": "workspace:*"
   },
   "engines": {
     "node": ">=22.0.0"

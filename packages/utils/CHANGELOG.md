@@ -1,13 +1,7 @@
 # @stratix/utils
 
-## 0.0.1-beta.1
+## 0.0.1-beta.4
 
 ### Patch Changes
 
-- 修改utils的版本
-
-## 0.0.1-beta.0
-
-### Patch Changes
-
-- 发布测试版本
+- 修改测试版本

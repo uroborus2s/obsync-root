@@ -28,10 +28,9 @@
   ],
   "author": "Stratix Team",
   "license": "MIT",
-  "dependencies": {
-    "@stratix/utils": "workspace:*"
-  },
+  "dependencies": {},
   "peerDependencies": {
+    "@stratix/utils": "workspace:*",
     "@stratix/core": "workspace:*",
     "@stratix/database": "workspace:*"
   },

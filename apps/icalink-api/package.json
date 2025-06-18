@@ -18,8 +18,8 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@stratix/core": "^0.0.1-beta.0",
-    "@stratix/utils": "^0.0.1-beta.0",
+    "@stratix/core": "^0.0.1-beta.1",
+    "@stratix/utils": "^0.0.1-beta.3",
     "@stratix/web": "^0.0.1-beta.0",
     "@stratix/database": "^0.0.1-beta.0",
     "@stratix/was-v7": "^0.0.1-beta.0",

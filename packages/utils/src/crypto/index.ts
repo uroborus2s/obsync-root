@@ -193,6 +193,7 @@ export function decrypt(
   const algorithm = options.algorithm || EncryptionAlgorithm.AES_256_GCM;
   const key = getEncryptionKey(options.key, options.useDefaultKey);
   const inputFormat = options.inputFormat || 'base64';
+  console.log(key);
 
   // 转换为Buffer
   const encryptedBuffer =
@@ -203,6 +204,7 @@ export function decrypt(
   // 创建解密器
   const decipher = crypto.createDecipheriv(algorithm, key, iv);
 
+  console.log(decipher);
   // 设置认证标签(GCM模式)
   if (algorithm.includes('gcm') && authTag) {
     decipher.setAuthTag(authTag);
@@ -251,6 +253,7 @@ export function decryptConfig(
   encryptedConfig: string,
   options: DecryptOptions = {}
 ): Record<string, any> {
+  console.log(encryptedConfig);
   // 分割字符串: iv + "." + authTag + "." + encrypted
   const parts = encryptedConfig.split('.');
   if (parts.length !== 3) {
@@ -261,12 +264,13 @@ export function decryptConfig(
 
   // 解析IV和认证标签
   const iv = Buffer.from(ivHex, 'hex');
+  console.log(iv.length);
   const authTag = authTagHex ? Buffer.from(authTagHex, 'hex') : undefined;
-  console.log(ivHex, authTagHex, encryptedData);
   try {
+    console.log(iv);
     // 解密
     const jsonStr = decrypt(encryptedData, iv, authTag, options);
-
+    console.log(jsonStr);
     // 解析JSON
     return JSON.parse(jsonStr);
   } catch (err) {

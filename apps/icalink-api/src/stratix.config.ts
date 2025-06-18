@@ -19,7 +19,6 @@ export default (sensitiveInfo: any): StratixConfig => {
       : dirname(fileURLToPath(import.meta.url)),
     '..'
   );
-  console.log(sensitiveInfo);
   let httpsOptions = {};
   if (sensitiveInfo.web.https) {
     const keyPath = path.resolve(
@@ -53,7 +52,7 @@ export default (sensitiveInfo: any): StratixConfig => {
     },
     server: {
       disableRequestLogging: sensitiveInfo.logger.disableRequestLogging,
-      bodyLimit: 50 * 1024 * 1024, // 50MB - 临时增大用于测试
+      bodyLimit: 20 * 1024 * 1024, // 50MB - 临时增大用于测试
       ...httpsOptions
     },
     registers: [
