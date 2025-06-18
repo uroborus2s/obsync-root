@@ -17,6 +17,7 @@
     "@stratix/web": "0.0.0"
   },
   "changesets": [
+    "angry-trees-lose",
     "large-apples-love"
   ]
 }

@@ -10,9 +10,8 @@
     "lint:pkg": "turbo run lint --filter=\"$npm_config_pkg\"",
     "clean": "turbo run clean",
     "test": "turbo run test",
-    "release": "npm_config_registry=https://g-rrng9518-npm.pkg.coding.net/npm/repo/ pnpm changeset publish",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "publish:core": "pnpm run build:all && npm_config_registry=https://g-rrng9518-npm.pkg.coding.net/npm/repo/ pnpm changeset publish"
+    "release": "pnpm run build:all && npm_config_registry=https://g-rrng9518-npm.pkg.coding.net/npm/repo/ pnpm changeset publish",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "packageManager": "pnpm@10.0.0",
   "devDependencies": {

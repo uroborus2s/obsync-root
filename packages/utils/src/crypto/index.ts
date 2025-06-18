@@ -263,13 +263,14 @@ export function decryptConfig(
   const iv = Buffer.from(ivHex, 'hex');
   const authTag = authTagHex ? Buffer.from(authTagHex, 'hex') : undefined;
   console.log(ivHex, authTagHex, encryptedData);
-  // 解密
-  const jsonStr = decrypt(encryptedData, iv, authTag, options);
-
-  // 解析JSON
   try {
+    // 解密
+    const jsonStr = decrypt(encryptedData, iv, authTag, options);
+
+    // 解析JSON
     return JSON.parse(jsonStr);
   } catch (err) {
+    console.log(err);
     throw new Error(
       `Invalid JSON in decrypted config: ${err instanceof Error ? err.message : String(err)}`
     );

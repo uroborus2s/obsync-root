@@ -330,20 +330,20 @@ importers:
   apps/icalink-api:
     dependencies:
       '@stratix/core':
-        specifier: ^0.0.3-beta.0
-        version: 0.0.3-beta.0
+        specifier: ^0.0.1-beta.0
+        version: 0.0.1-beta.0
       '@stratix/database':
-        specifier: ^0.0.3-beta.0
-        version: 0.0.3-beta.0(@stratix/core@0.0.3-beta.0)(better-sqlite3@11.10.0)(kysely-oracledb@2.0.8(kysely@0.28.2)(oracledb@6.8.0))(mysql2@3.14.1)(oracledb@6.8.0)(pg@8.16.0)(redis@4.7.1)(tarn@3.0.2)(tedious@18.6.1)
+        specifier: ^0.0.1-beta.0
+        version: 0.0.1-beta.0(@stratix/core@0.0.1-beta.0)(better-sqlite3@11.10.0)(kysely-oracledb@2.0.8(kysely@0.28.2)(oracledb@6.8.0))(mysql2@3.14.1)(oracledb@6.8.0)(pg@8.16.0)(redis@4.7.1)(tarn@3.0.2)(tedious@18.6.1)
       '@stratix/utils':
-        specifier: ^0.0.2
-        version: 0.0.2
+        specifier: ^0.0.1-beta.0
+        version: 0.0.1-beta.0
       '@stratix/was-v7':
-        specifier: ^0.0.3-beta.0
-        version: 0.0.3-beta.0(@stratix/core@0.0.3-beta.0)
+        specifier: ^0.0.1-beta.0
+        version: 0.0.1-beta.0(@stratix/core@0.0.1-beta.0)
       '@stratix/web':
-        specifier: ^0.0.2-beta.2
-        version: 0.0.2-beta.2(@stratix/core@0.0.3-beta.0)
+        specifier: ^0.0.1-beta.0
+        version: 0.0.1-beta.0(@stratix/core@0.0.1-beta.0)
       awilix:
         specifier: ^12.0.5
         version: 12.0.5
@@ -397,26 +397,26 @@ importers:
   apps/icalink-sync:
     dependencies:
       '@stratix/core':
-        specifier: ^0.0.3-beta.0
-        version: 0.0.3-beta.0
+        specifier: ^0.0.1-beta.0
+        version: 0.0.1-beta.0
       '@stratix/database':
-        specifier: ^0.0.3-beta.0
-        version: 0.0.3-beta.0(@stratix/core@0.0.3-beta.0)(better-sqlite3@11.10.0)(kysely-oracledb@2.0.8(kysely@0.28.2)(oracledb@6.8.0))(mysql2@3.14.1)(oracledb@6.8.0)(pg@8.16.0)(redis@4.7.1)(tarn@3.0.2)(tedious@18.6.1)
+        specifier: ^0.0.1-beta.0
+        version: 0.0.1-beta.0(@stratix/core@0.0.1-beta.0)(better-sqlite3@11.10.0)(kysely-oracledb@2.0.8(kysely@0.28.2)(oracledb@6.8.0))(mysql2@3.14.1)(oracledb@6.8.0)(pg@8.16.0)(redis@4.7.1)(tarn@3.0.2)(tedious@18.6.1)
       '@stratix/queue':
-        specifier: ^0.0.3-beta.0
-        version: 0.0.3-beta.0(@stratix/core@0.0.3-beta.0)(@stratix/database@0.0.3-beta.0(@stratix/core@0.0.3-beta.0)(better-sqlite3@11.10.0)(kysely-oracledb@2.0.8(kysely@0.28.2)(oracledb@6.8.0))(mysql2@3.14.1)(oracledb@6.8.0)(pg@8.16.0)(redis@4.7.1)(tarn@3.0.2)(tedious@18.6.1))
+        specifier: ^0.0.1-beta.0
+        version: 0.0.1-beta.0(@stratix/core@0.0.1-beta.0)(@stratix/database@0.0.1-beta.0(@stratix/core@0.0.1-beta.0)(better-sqlite3@11.10.0)(kysely-oracledb@2.0.8(kysely@0.28.2)(oracledb@6.8.0))(mysql2@3.14.1)(oracledb@6.8.0)(pg@8.16.0)(redis@4.7.1)(tarn@3.0.2)(tedious@18.6.1))
       '@stratix/tasks':
-        specifier: ^0.0.3-beta.0
-        version: 0.0.3-beta.0(@stratix/core@0.0.3-beta.0)(@stratix/database@0.0.3-beta.0(@stratix/core@0.0.3-beta.0)(better-sqlite3@11.10.0)(kysely-oracledb@2.0.8(kysely@0.28.2)(oracledb@6.8.0))(mysql2@3.14.1)(oracledb@6.8.0)(pg@8.16.0)(redis@4.7.1)(tarn@3.0.2)(tedious@18.6.1))
+        specifier: ^0.0.1-beta.0
+        version: 0.0.1-beta.0(@stratix/core@0.0.1-beta.0)(@stratix/database@0.0.1-beta.0(@stratix/core@0.0.1-beta.0)(better-sqlite3@11.10.0)(kysely-oracledb@2.0.8(kysely@0.28.2)(oracledb@6.8.0))(mysql2@3.14.1)(oracledb@6.8.0)(pg@8.16.0)(redis@4.7.1)(tarn@3.0.2)(tedious@18.6.1))
       '@stratix/utils':
-        specifier: ^0.0.2
-        version: 0.0.2
+        specifier: ^0.0.1-beta.0
+        version: 0.0.1-beta.0
       '@stratix/was-v7':
-        specifier: ^0.0.3-beta.0
-        version: 0.0.3-beta.0(@stratix/core@0.0.3-beta.0)
+        specifier: ^0.0.1-beta.0
+        version: 0.0.1-beta.0(@stratix/core@0.0.1-beta.0)
       '@stratix/web':
-        specifier: ^0.0.2-beta.2
-        version: 0.0.2-beta.2(@stratix/core@0.0.3-beta.0)
+        specifier: ^0.0.1-beta.0
+        version: 0.0.1-beta.0(@stratix/core@0.0.1-beta.0)
       awilix:
         specifier: ^12.0.5
         version: 12.0.5
@@ -3041,16 +3041,16 @@ packages:
   '@slorber/remark-comment@1.0.0':
     resolution: {integrity: sha512-RCE24n7jsOj1M0UPvIQCHTe7fI0sFL4S2nwKVWwHyVr/wI/H8GosgsJGyhnsZoGFnD/P2hLf1mSbrrgSLN93NA==}
 
-  '@stratix/core@0.0.3-beta.0':
-    resolution: {integrity: sha512-dp4ObVyo5U9UqV5CqZWtnWg/jOYiqd4uxakYLyt2vOdMszBmOd0Gm0zoJWVPCmdJFtnGumgtRNIk0Nb+5TnczA==, tarball: https://g-rrng9518-npm.pkg.coding.net/npm/repo/@stratix/core/-/@stratix/core-0.0.3-beta.0.tgz}
+  '@stratix/core@0.0.1-beta.0':
+    resolution: {integrity: sha512-Ao/7DLNxV63KCk0o3TVjnlAy9/iAUzj/leBsEkzsO9h/QGgO+wmZZewHzfWELapBXU1gNKcf33gD9HDjS8mMgg==, tarball: https://g-rrng9518-npm.pkg.coding.net/npm/repo/@stratix/core/-/@stratix/core-0.0.1-beta.0.tgz}
     engines: {node: '>=22.0.0'}
     hasBin: true
 
-  '@stratix/database@0.0.3-beta.0':
-    resolution: {integrity: sha512-zYqDZc4GicQ62CgQg1NfUnyV+r1kct7g28bq6d4GN8/cdiRHtS3rAlGIvdu+tq+hLxUuDyL62BsluI13btUa1Q==, tarball: https://g-rrng9518-npm.pkg.coding.net/npm/repo/@stratix/database/-/@stratix/database-0.0.3-beta.0.tgz}
+  '@stratix/database@0.0.1-beta.0':
+    resolution: {integrity: sha512-XvQHYH3gNdCNCvd7jnVV9oG/gA49MO1NQ3gWubamqjRIJbvEquTr8GMgGh+uPeQfKNsTkenKld007pi8XtEW+A==, tarball: https://g-rrng9518-npm.pkg.coding.net/npm/repo/@stratix/database/-/@stratix/database-0.0.1-beta.0.tgz}
     engines: {node: '>=20'}
     peerDependencies:
-      '@stratix/core': 0.0.3-beta.0
+      '@stratix/core': 0.0.1-beta.0
       better-sqlite3: ^11.10.0
       kysely-oracledb: ^2.0.7
       mysql2: ^3.14.1
@@ -3060,32 +3060,32 @@ packages:
       tarn: ^3.0.2
       tedious: ^18.6.1
 
-  '@stratix/queue@0.0.3-beta.0':
-    resolution: {integrity: sha512-QgCCLVOBfICfYT7vmN2or54JiU8ylgZZJTCoZPC9ba5frLGgowhJeYakKD5hIJHWMrwP6+Urhfywhphj0yl1EQ==, tarball: https://g-rrng9518-npm.pkg.coding.net/npm/repo/@stratix/queue/-/@stratix/queue-0.0.3-beta.0.tgz}
+  '@stratix/queue@0.0.1-beta.0':
+    resolution: {integrity: sha512-m0EyXKNTEvjfroTLiAxKUjBUzPlSOhxcHcGZzOaChEKLzQo1O9PTylvwJXSovoUUJUyaPQ86yPC5PlC+F8ddaQ==, tarball: https://g-rrng9518-npm.pkg.coding.net/npm/repo/@stratix/queue/-/@stratix/queue-0.0.1-beta.0.tgz}
     engines: {node: '>=22.0.0'}
     peerDependencies:
-      '@stratix/core': 0.0.3-beta.0
-      '@stratix/database': 0.0.3-beta.0
+      '@stratix/core': 0.0.1-beta.0
+      '@stratix/database': 0.0.1-beta.0
 
-  '@stratix/tasks@0.0.3-beta.0':
-    resolution: {integrity: sha512-YGcbR1y0GaJADYNKFZN8QA3Kx1gCsHDfNEsPtcdk9ikVDv7yIlo0hHAvDl3uX9mDHbS9eAFfMRPMy2vYaKzhYQ==, tarball: https://g-rrng9518-npm.pkg.coding.net/npm/repo/@stratix/tasks/-/@stratix/tasks-0.0.3-beta.0.tgz}
+  '@stratix/tasks@0.0.1-beta.0':
+    resolution: {integrity: sha512-h00Ty1Ydyr6187F6IgIEHqMuAP2LUQl6JOVAeHJ+0A+JnHQEIZ9sfFj2RB9tjuAt1ANrepz+vUuEQtI6QBjG/Q==, tarball: https://g-rrng9518-npm.pkg.coding.net/npm/repo/@stratix/tasks/-/@stratix/tasks-0.0.1-beta.0.tgz}
     engines: {node: '>=22.0.0'}
     peerDependencies:
-      '@stratix/core': 0.0.3-beta.0
-      '@stratix/database': 0.0.3-beta.0
+      '@stratix/core': 0.0.1-beta.0
+      '@stratix/database': 0.0.1-beta.0
 
-  '@stratix/utils@0.0.2':
-    resolution: {integrity: sha512-Kc48zN+Yx4cb0R7wh7Q83V3M2FyTrcHPBwYHAQ762vydkhGPwlbIgchZjoXFb40MAanBgkz6ZTY4gKI5qdva4A==, tarball: https://g-rrng9518-npm.pkg.coding.net/npm/repo/@stratix/utils/-/@stratix/utils-0.0.2.tgz}
+  '@stratix/utils@0.0.1-beta.0':
+    resolution: {integrity: sha512-+6aUTkUV4G/dYER9G6P8HkAufC/K1IRqkNxTl0i7+DK81JgP4T3MUtcZNfqqvgf18ISZzDGHqS1JA0/umjfKuA==, tarball: https://g-rrng9518-npm.pkg.coding.net/npm/repo/@stratix/utils/-/@stratix/utils-0.0.1-beta.0.tgz}
 
-  '@stratix/was-v7@0.0.3-beta.0':
-    resolution: {integrity: sha512-fskxyD5446U8/KJe154vK5T6sMp23/STY6cI355xW0igmhxKBmtf6hF2vW+Wt/rGNkoJSbniMuD7mbG7aNYTcw==, tarball: https://g-rrng9518-npm.pkg.coding.net/npm/repo/@stratix/was-v7/-/@stratix/was-v7-0.0.3-beta.0.tgz}
+  '@stratix/was-v7@0.0.1-beta.0':
+    resolution: {integrity: sha512-xovGRg+OqLd0kWGUn/5egNQDtyLD58FYE1tqseFF/m1bgvMj50RSzxPxpj5HuWBIWn40jzHCI/WX+kPLdo/XHA==, tarball: https://g-rrng9518-npm.pkg.coding.net/npm/repo/@stratix/was-v7/-/@stratix/was-v7-0.0.1-beta.0.tgz}
     peerDependencies:
-      '@stratix/core': 0.0.3-beta.0
+      '@stratix/core': 0.0.1-beta.0
 
-  '@stratix/web@0.0.2-beta.2':
-    resolution: {integrity: sha512-jjqqqdMkXLFKm3O4oeL2U4MX4+b5UosT78AwkXfx+vpwJG0inpyLRmeXmcouNjy7ubSj+UJj9cIqwA9G7V5TjQ==, tarball: https://g-rrng9518-npm.pkg.coding.net/npm/repo/@stratix/web/-/@stratix/web-0.0.2-beta.2.tgz}
+  '@stratix/web@0.0.1-beta.0':
+    resolution: {integrity: sha512-kEDXdpGNgGoXSNnOOcDBbnHiTQj7FluqTXB/V2VW+vQf2tBluN+MEGQtspj45ZJLK1KBYeEIoe+vVJ0fl09kIQ==, tarball: https://g-rrng9518-npm.pkg.coding.net/npm/repo/@stratix/web/-/@stratix/web-0.0.1-beta.0.tgz}
     peerDependencies:
-      '@stratix/core': 0.0.3-beta.0
+      '@stratix/core': 0.0.1-beta.0
 
   '@svgr/babel-plugin-add-jsx-attribute@8.0.0':
     resolution: {integrity: sha512-b9MIk7yhdS1pMCZM8VeNfUlSKVRhsHZNMl5O9SfaX0l0t5wjdgu4IDzGB8bpnGBBOjGST3rRFVsaaEtI4W6f7g==}
@@ -12450,10 +12450,10 @@ snapshots:
       micromark-util-character: 1.2.0
       micromark-util-symbol: 1.1.0
 
-  '@stratix/core@0.0.3-beta.0':
+  '@stratix/core@0.0.1-beta.0':
     dependencies:
       '@fastify/awilix': 8.0.0(awilix@12.0.5)(fastify@5.4.0)
-      '@stratix/utils': 0.0.2
+      '@stratix/utils': 0.0.1-beta.0
       ajv: 8.17.1
       ajv-formats: 3.0.1(ajv@8.17.1)
       awilix: 12.0.5
@@ -12467,10 +12467,10 @@ snapshots:
       pino: 9.7.0
       pino-roll: 1.3.0
 
-  '@stratix/database@0.0.3-beta.0(@stratix/core@0.0.3-beta.0)(better-sqlite3@11.10.0)(kysely-oracledb@2.0.8(kysely@0.28.2)(oracledb@6.8.0))(mysql2@3.14.1)(oracledb@6.8.0)(pg@8.16.0)(redis@4.7.1)(tarn@3.0.2)(tedious@18.6.1)':
+  '@stratix/database@0.0.1-beta.0(@stratix/core@0.0.1-beta.0)(better-sqlite3@11.10.0)(kysely-oracledb@2.0.8(kysely@0.28.2)(oracledb@6.8.0))(mysql2@3.14.1)(oracledb@6.8.0)(pg@8.16.0)(redis@4.7.1)(tarn@3.0.2)(tedious@18.6.1)':
     dependencies:
-      '@stratix/core': 0.0.3-beta.0
-      '@stratix/utils': 0.0.2
+      '@stratix/core': 0.0.1-beta.0
+      '@stratix/utils': 0.0.1-beta.0
       better-sqlite3: 11.10.0
       kysely: 0.28.2
       kysely-oracledb: 2.0.8(kysely@0.28.2)(oracledb@6.8.0)
@@ -12481,19 +12481,19 @@ snapshots:
       tarn: 3.0.2
       tedious: 18.6.1
 
-  '@stratix/queue@0.0.3-beta.0(@stratix/core@0.0.3-beta.0)(@stratix/database@0.0.3-beta.0(@stratix/core@0.0.3-beta.0)(better-sqlite3@11.10.0)(kysely-oracledb@2.0.8(kysely@0.28.2)(oracledb@6.8.0))(mysql2@3.14.1)(oracledb@6.8.0)(pg@8.16.0)(redis@4.7.1)(tarn@3.0.2)(tedious@18.6.1))':
+  '@stratix/queue@0.0.1-beta.0(@stratix/core@0.0.1-beta.0)(@stratix/database@0.0.1-beta.0(@stratix/core@0.0.1-beta.0)(better-sqlite3@11.10.0)(kysely-oracledb@2.0.8(kysely@0.28.2)(oracledb@6.8.0))(mysql2@3.14.1)(oracledb@6.8.0)(pg@8.16.0)(redis@4.7.1)(tarn@3.0.2)(tedious@18.6.1))':
     dependencies:
-      '@stratix/core': 0.0.3-beta.0
-      '@stratix/database': 0.0.3-beta.0(@stratix/core@0.0.3-beta.0)(better-sqlite3@11.10.0)(kysely-oracledb@2.0.8(kysely@0.28.2)(oracledb@6.8.0))(mysql2@3.14.1)(oracledb@6.8.0)(pg@8.16.0)(redis@4.7.1)(tarn@3.0.2)(tedious@18.6.1)
-      '@stratix/utils': 0.0.2
+      '@stratix/core': 0.0.1-beta.0
+      '@stratix/database': 0.0.1-beta.0(@stratix/core@0.0.1-beta.0)(better-sqlite3@11.10.0)(kysely-oracledb@2.0.8(kysely@0.28.2)(oracledb@6.8.0))(mysql2@3.14.1)(oracledb@6.8.0)(pg@8.16.0)(redis@4.7.1)(tarn@3.0.2)(tedious@18.6.1)
+      '@stratix/utils': 0.0.1-beta.0
 
-  '@stratix/tasks@0.0.3-beta.0(@stratix/core@0.0.3-beta.0)(@stratix/database@0.0.3-beta.0(@stratix/core@0.0.3-beta.0)(better-sqlite3@11.10.0)(kysely-oracledb@2.0.8(kysely@0.28.2)(oracledb@6.8.0))(mysql2@3.14.1)(oracledb@6.8.0)(pg@8.16.0)(redis@4.7.1)(tarn@3.0.2)(tedious@18.6.1))':
+  '@stratix/tasks@0.0.1-beta.0(@stratix/core@0.0.1-beta.0)(@stratix/database@0.0.1-beta.0(@stratix/core@0.0.1-beta.0)(better-sqlite3@11.10.0)(kysely-oracledb@2.0.8(kysely@0.28.2)(oracledb@6.8.0))(mysql2@3.14.1)(oracledb@6.8.0)(pg@8.16.0)(redis@4.7.1)(tarn@3.0.2)(tedious@18.6.1))':
     dependencies:
-      '@stratix/core': 0.0.3-beta.0
-      '@stratix/database': 0.0.3-beta.0(@stratix/core@0.0.3-beta.0)(better-sqlite3@11.10.0)(kysely-oracledb@2.0.8(kysely@0.28.2)(oracledb@6.8.0))(mysql2@3.14.1)(oracledb@6.8.0)(pg@8.16.0)(redis@4.7.1)(tarn@3.0.2)(tedious@18.6.1)
-      '@stratix/utils': 0.0.2
+      '@stratix/core': 0.0.1-beta.0
+      '@stratix/database': 0.0.1-beta.0(@stratix/core@0.0.1-beta.0)(better-sqlite3@11.10.0)(kysely-oracledb@2.0.8(kysely@0.28.2)(oracledb@6.8.0))(mysql2@3.14.1)(oracledb@6.8.0)(pg@8.16.0)(redis@4.7.1)(tarn@3.0.2)(tedious@18.6.1)
+      '@stratix/utils': 0.0.1-beta.0
 
-  '@stratix/utils@0.0.2':
+  '@stratix/utils@0.0.1-beta.0':
     dependencies:
       bcryptjs: 3.0.2
       date-fns: 4.1.0
@@ -12501,16 +12501,16 @@ snapshots:
       jsonwebtoken: 9.0.2
       uuid: 11.1.0
 
-  '@stratix/was-v7@0.0.3-beta.0(@stratix/core@0.0.3-beta.0)':
+  '@stratix/was-v7@0.0.1-beta.0(@stratix/core@0.0.1-beta.0)':
     dependencies:
-      '@stratix/core': 0.0.3-beta.0
-      '@stratix/utils': 0.0.2
+      '@stratix/core': 0.0.1-beta.0
+      '@stratix/utils': 0.0.1-beta.0
       axios: 1.10.0
       zod: 3.25.67
     transitivePeerDependencies:
       - debug
 
-  '@stratix/web@0.0.2-beta.2(@stratix/core@0.0.3-beta.0)':
+  '@stratix/web@0.0.1-beta.0(@stratix/core@0.0.1-beta.0)':
     dependencies:
       '@fastify/compress': 8.0.3
       '@fastify/cookie': 11.0.2
@@ -12522,8 +12522,8 @@ snapshots:
       '@fastify/static': 8.2.0
       '@fastify/swagger': 9.5.1
       '@fastify/swagger-ui': 5.2.3
-      '@stratix/core': 0.0.3-beta.0
-      '@stratix/utils': 0.0.2
+      '@stratix/core': 0.0.1-beta.0
+      '@stratix/utils': 0.0.1-beta.0
       json-schema-to-ts: 3.1.1
       path-to-regexp: 8.2.0
     transitivePeerDependencies:

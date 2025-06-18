@@ -1,6 +1,6 @@
 {
   "name": "@stratix/core",
-  "version": "0.0.1-beta.0",
+  "version": "0.0.1-beta.1",
   "description": "一个轻量级的Node.js应用框架，基于Fastify构建",
   "type": "module",
   "main": "dist/index.js",
