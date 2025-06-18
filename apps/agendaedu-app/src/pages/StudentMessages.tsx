@@ -1,3 +1,4 @@
+import { useToast } from '@/hooks/use-toast';
 import {
   attendanceApi,
   type StudentLeaveApplicationItem
@@ -11,6 +12,7 @@ import {
   Eye,
   FileText,
   MapPin,
+  RotateCcw,
   User,
   XCircle
 } from 'lucide-react';
@@ -19,6 +21,7 @@ import { useNavigate } from 'react-router-dom';
 
 export function StudentMessages() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [applications, setApplications] = useState<
     StudentLeaveApplicationItem[]
   >([]);
@@ -33,6 +36,7 @@ export function StudentMessages() {
     leave_count: 0,
     leave_rejected_count: 0
   });
+  const [withdrawingIds, setWithdrawingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadApplications();
@@ -51,14 +55,79 @@ export function StudentMessages() {
         setApplications(response.data.applications);
         setStats(response.data.stats);
       } else {
-        setError(response.message || '获取请假申请记录失败');
+        const errorMessage = response.message || '获取请假申请记录失败';
+        setError(errorMessage);
+        toast.error(errorMessage);
       }
     } catch (error) {
       console.error('加载申请记录失败:', error);
-      setError('网络错误，请稍后重试');
+      const errorMessage = '网络错误，请稍后重试';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // 撤回请假申请
+  const handleWithdrawLeave = async (attendanceRecordId: string) => {
+    const isWithdrawing = withdrawingIds.has(attendanceRecordId);
+    if (isWithdrawing) {
+      return; // 防止重复点击
+    }
+
+    setWithdrawingIds((prev) => new Set(prev).add(attendanceRecordId));
+
+    try {
+      const response = await attendanceApi.studentWithdrawLeave({
+        attendance_record_id: attendanceRecordId
+      });
+
+      if (response.success) {
+        toast.success('请假申请撤回成功', {
+          description: '已成功撤回您的请假申请'
+        });
+        // 重新加载申请列表
+        await loadApplications();
+      } else {
+        toast.error(response.message || '撤回失败');
+      }
+    } catch (error) {
+      console.error('撤回请假申请失败:', error);
+      toast.error('撤回失败，请稍后重试');
+    } finally {
+      setWithdrawingIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(attendanceRecordId);
+        return newSet;
+      });
+    }
+  };
+
+  // 检查是否可以撤回（课程开始时间之前且状态允许）
+  const canWithdraw = (application: StudentLeaveApplicationItem): boolean => {
+    // 检查状态是否允许撤回
+    const allowedStatuses: StudentLeaveApplicationItem['status'][] = [
+      'leave_pending',
+      'leave_rejected',
+      'leave'
+    ];
+
+    if (!allowedStatuses.includes(application.status)) {
+      return false;
+    }
+
+    // 检查课程开始时间
+    const courseStartTime = application.course_info?.course_start_time;
+    if (!courseStartTime) {
+      return false;
+    }
+
+    const now = new Date();
+    const startTime = new Date(courseStartTime);
+
+    // 只有在课程开始时间之前才能撤回
+    return now < startTime;
   };
 
   const getStatusIcon = (status: StudentLeaveApplicationItem['status']) => {
@@ -160,15 +229,6 @@ export function StudentMessages() {
     url: string;
     name: string;
   } | null>(null);
-  const [message, setMessage] = useState<{
-    type: 'success' | 'error' | 'info';
-    text: string;
-  } | null>(null);
-
-  const showMessage = (type: 'success' | 'error' | 'info', text: string) => {
-    setMessage({ type, text });
-    setTimeout(() => setMessage(null), 3000);
-  };
 
   const handleViewAttachment = async (
     attachmentId: string,
@@ -183,7 +243,7 @@ export function StudentMessages() {
       });
     } catch (error) {
       console.error('查看附件失败:', error);
-      showMessage('error', '查看附件失败，请稍后重试');
+      toast.error('查看附件失败，请稍后重试');
     }
   };
 
@@ -260,16 +320,18 @@ export function StudentMessages() {
                     : application.class_date}
                 </div>
               </div>
-              <span
-                className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${getStatusColor(
-                  application.status
-                )}`}
-              >
-                {getStatusIcon(application.status)}
-                <span className='ml-1'>
-                  {getStatusText(application.status)}
+              <div className='flex items-center space-x-2'>
+                <span
+                  className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${getStatusColor(
+                    application.status
+                  )}`}
+                >
+                  {getStatusIcon(application.status)}
+                  <span className='ml-1'>
+                    {getStatusText(application.status)}
+                  </span>
                 </span>
-              </span>
+              </div>
             </div>
 
             {/* 课程信息 */}
@@ -451,6 +513,30 @@ export function StudentMessages() {
                 </div>
               </div>
             )}
+
+            {/* 撤回按钮 - 移到卡片底部，更加醒目 */}
+            {canWithdraw(application) && (
+              <div className='mt-4 border-t border-gray-200 pt-3'>
+                <button
+                  onClick={() => handleWithdrawLeave(application.id)}
+                  disabled={withdrawingIds.has(application.id)}
+                  className='flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-100 active:bg-red-200 disabled:cursor-not-allowed disabled:opacity-50'
+                  title='撤回请假申请'
+                >
+                  {withdrawingIds.has(application.id) ? (
+                    <>
+                      <div className='h-4 w-4 animate-spin rounded-full border-2 border-red-600 border-t-transparent'></div>
+                      <span>撤回中...</span>
+                    </>
+                  ) : (
+                    <>
+                      <RotateCcw className='h-4 w-4' />
+                      <span>撤回申请</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -520,30 +606,6 @@ export function StudentMessages() {
         {renderContent()}
       </div>
 
-      {/* 消息提示 */}
-      {message && (
-        <div className='fixed left-1/2 top-4 z-50 -translate-x-1/2 transform'>
-          <div
-            className={`rounded-lg px-4 py-2 text-white shadow-lg ${
-              message.type === 'success'
-                ? 'bg-green-500'
-                : message.type === 'error'
-                  ? 'bg-red-500'
-                  : 'bg-blue-500'
-            }`}
-          >
-            <div className='flex items-center space-x-2'>
-              {message.type === 'success' && (
-                <CheckCircle className='h-4 w-4' />
-              )}
-              {message.type === 'error' && <XCircle className='h-4 w-4' />}
-              {message.type === 'info' && <AlertCircle className='h-4 w-4' />}
-              <span className='text-sm'>{message.text}</span>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* 图片查看模态框 */}
       {selectedImage && (
         <div className='fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75'>
@@ -568,14 +630,7 @@ export function StudentMessages() {
                 className='max-h-[70vh] max-w-full object-contain'
                 onError={() => {
                   console.error('图片加载失败:', selectedImage.url);
-                  showMessage('error', '图片加载失败，请稍后重试');
                   setSelectedImage(null);
-                }}
-                onLoad={() => {
-                  // 图片加载成功，清除任何错误消息
-                  if (message?.type === 'error') {
-                    setMessage(null);
-                  }
                 }}
               />
             </div>

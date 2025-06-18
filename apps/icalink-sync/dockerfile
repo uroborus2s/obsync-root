@@ -1,0 +1,49 @@
+# 多阶段构建 - 支持多平台
+FROM --platform=$BUILDPLATFORM node:22-alpine AS builder
+WORKDIR /app
+
+# 复制 package.json 和 pnpm-lock.yaml
+COPY package.json pnpm-lock.yaml* ./
+COPY tsconfig.json tsconfig.build.json ./
+
+# 安装 pnpm 并安装依赖
+RUN npm install -g pnpm
+RUN pnpm install --frozen-lockfile
+
+# 复制源代码
+COPY src ./src
+
+# 构建应用
+RUN pnpm run build
+
+# 生产运行阶段 - 目标平台
+FROM --platform=$TARGETPLATFORM node:22-alpine AS runner
+WORKDIR /app
+
+# 设置环境变量
+ENV NODE_ENV=production
+ENV PORT=8091
+
+# 创建非root用户
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 appuser
+
+# 复制 package.json
+COPY --chown=appuser:nodejs package.json ./
+
+# 安装 pnpm 并安装生产依赖
+RUN npm install -g pnpm && \
+    pnpm install --prod --frozen-lockfile && \
+    pnpm store prune
+
+# 复制构建产物
+COPY --from=builder --chown=appuser:nodejs /app/dist ./dist
+
+USER appuser
+
+EXPOSE 8091
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8091/health || exit 1
+
+CMD ["node", "dist/index.js"] 

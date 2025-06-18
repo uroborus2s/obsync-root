@@ -71,6 +71,12 @@ export class TaskNode extends EventEmitter {
     context: SharedContext | null = null
   ) {
     super();
+
+    // 设置更高的 EventEmitter 监听器限制
+    // 考虑到一个父任务可能有很多子任务，每个子任务需要监听 3 个父任务事件
+    // 设置为 100 以支持最多 33 个子任务的场景
+    this.setMaxListeners(100);
+
     this.id = id;
     this.data = {
       status: TaskStatus.PENDING,

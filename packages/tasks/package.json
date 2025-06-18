@@ -1,6 +1,6 @@
 {
   "name": "@stratix/tasks",
-  "version": "0.0.1",
+  "version": "0.0.1-beta.0",
   "description": "Stratix框架任务管理系统 - 支持多级任务创建、状态控制和进度管理",
   "type": "module",
   "main": "dist/index.js",

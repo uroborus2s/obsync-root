@@ -326,7 +326,7 @@ export class QueueJobRepository {
     job: QueueJobSelect,
     error: { message: string; stack?: string; code?: string }
   ): Promise<void> {
-    await this.db
+    const result = await this.db
       .updateTable('queue_jobs')
       .set({
         status: 'failed',
@@ -338,6 +338,7 @@ export class QueueJobRepository {
       })
       .where('id', '=', job.id)
       .execute();
+    console.log(result);
   }
 
   /**

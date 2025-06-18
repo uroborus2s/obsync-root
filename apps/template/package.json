@@ -1,6 +1,6 @@
 {
   "name": "@wps/template",
-  "version": "0.1.2",
+  "version": "0.0.2-beta.0",
   "private": true,
   "description": "基于Stratix框架的模块化项目模板",
   "type": "module",
@@ -25,8 +25,7 @@
     "@stratix/database": "workspace:*",
     "mysql2": "^3.14.1",
     "@stratix/queue": "workspace:*",
-    "@stratix/tasks": "workspace:*",
-    "@stratix/icalink": "workspace:*"
+    "@stratix/tasks": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

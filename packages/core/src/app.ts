@@ -447,11 +447,9 @@ export class StratixApplication extends EventEmitter implements IStratixApp {
    */
   private getPluginName(plugin: any): string {
     if (typeof plugin === 'function') {
-      return (
-        plugin[Symbol.for('plugin-meta')].name ||
-        plugin.name ||
-        'anonymous-function-plugin'
-      );
+      // 安全地访问插件元数据
+      const meta = plugin[Symbol.for('plugin-meta')];
+      return (meta && meta.name) || plugin.name || 'anonymous-function-plugin';
     }
 
     if (typeof plugin === 'object' && plugin !== null) {
@@ -951,7 +949,6 @@ async function run(options?: StratixRunOptions): Promise<IStratixApp> {
     // 1. 配置日志级别
     const loglevel =
       opts.loglevel || (env.isProduction() ? 'info' : 'debug') || 'info';
-
     // 3. 创建临时日志记录器
     logger = pino({
       level: loglevel,

@@ -69,14 +69,12 @@ export async function loadEnv(
   const strict = options.strict || false;
 
   try {
-    // 动态导入依赖，无论是什么环境，都准备好dotenv
-    const dotenv = await import('dotenv');
-    const dotenvExpand = await import('dotenv-expand');
-
     // 如果提供了自定义路径，或者不是生产环境，加载环境变量文件
     if (!env.isProduction() || options.paths) {
       logger.debug('从环境变量文件加载配置');
-
+      // 动态导入依赖，无论是什么环境，都准备好dotenv
+      const dotenv = await import('dotenv');
+      const dotenvExpand = await import('dotenv-expand');
       // 获取环境变量文件路径
       const envFiles =
         options.paths || getDefaultEnvFiles(rootDir, env.getNodeEnv());

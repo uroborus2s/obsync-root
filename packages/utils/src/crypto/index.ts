@@ -262,7 +262,7 @@ export function decryptConfig(
   // 解析IV和认证标签
   const iv = Buffer.from(ivHex, 'hex');
   const authTag = authTagHex ? Buffer.from(authTagHex, 'hex') : undefined;
-
+  console.log(ivHex, authTagHex, encryptedData);
   // 解密
   const jsonStr = decrypt(encryptedData, iv, authTag, options);
 

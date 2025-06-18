@@ -1,3 +1,5 @@
+import { RejectReasonDialog } from '@/components/RejectReasonDialog';
+import { useToast } from '@/hooks/use-toast';
 import {
   attendanceApi,
   type TeacherApprovalRequest,
@@ -66,6 +68,7 @@ interface ApplicationItem {
 
 export function Approval() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'pending' | 'processed'>(
     'pending'
   );
@@ -89,6 +92,15 @@ export function Approval() {
     rejected_count: 0,
     cancelled_count: 0,
     total_count: 0
+  });
+
+  // 新增：拒绝理由弹窗状态
+  const [rejectDialog, setRejectDialog] = useState<{
+    isOpen: boolean;
+    application: ApplicationItem | null;
+  }>({
+    isOpen: false,
+    application: null
   });
 
   useEffect(() => {
@@ -129,14 +141,18 @@ export function Approval() {
       if (activeTab === 'pending') {
         params.status = 'pending';
       } else {
-        // 已处理：包括approved, rejected, cancelled
+        // 已处理：包括除pending外的所有状态（approved, rejected, cancelled等）
         params.status = 'approved,rejected,cancelled';
       }
 
       // 使用API服务调用
       const response = await attendanceApi.getTeacherLeaveApplications(params);
-      console.log(response);
       if (response.success && response.data) {
+        // 如果API返回了特殊消息（通常是没有审批记录的情况），显示给用户
+        if (response.message && response.data.total === 0) {
+          setError(response.message);
+        }
+
         // 转换数据格式以匹配我们的ApplicationItem接口
         const convertedApplications: ApplicationItem[] =
           response.data.applications.map(
@@ -192,11 +208,15 @@ export function Approval() {
         setApplications(convertedApplications);
         setStats(response.data.stats);
       } else {
-        setError(response.message || '获取请假申请失败');
+        const errorMessage = response.message || '获取请假申请失败';
+        setError(errorMessage);
+        toast.error(errorMessage);
       }
     } catch (error) {
       console.error('加载请假申请失败:', error);
-      setError('网络错误，请稍后重试');
+      const errorMessage = '网络错误，请稍后重试';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -207,7 +227,7 @@ export function Approval() {
     comment?: string
   ) => {
     if (!application.approval_id) {
-      setError('缺少审批记录ID');
+      toast.error('缺少审批记录ID');
       return;
     }
 
@@ -222,14 +242,16 @@ export function Approval() {
       const response = await attendanceApi.teacherApproveLeave(request);
 
       if (response.success) {
-        alert('申请已批准');
+        toast.success('申请已批准', {
+          description: `学生 ${application.student_name} 的请假申请已通过审批`
+        });
         await loadApplications(); // 重新加载数据
       } else {
-        setError(response.message || '审批失败');
+        toast.error(response.message || '审批失败');
       }
     } catch (error) {
       console.error('审批失败:', error);
-      setError('审批失败，请重试');
+      toast.error('审批失败，请重试');
     } finally {
       setProcessingId(null);
     }
@@ -237,38 +259,52 @@ export function Approval() {
 
   const handleReject = async (application: ApplicationItem) => {
     if (!application.approval_id) {
-      setError('缺少审批记录ID');
+      toast.error('缺少审批记录ID');
       return;
     }
 
-    const reason = prompt('请输入拒绝理由:');
-    if (!reason?.trim()) {
-      alert('请输入拒绝理由');
-      return;
-    }
+    // 打开拒绝理由弹窗
+    setRejectDialog({
+      isOpen: true,
+      application: application
+    });
+  };
+
+  // 处理拒绝确认
+  const handleRejectConfirm = async (reason: string) => {
+    const application = rejectDialog.application;
+    if (!application) return;
 
     setProcessingId(application.id);
     try {
       const request: TeacherApprovalRequest = {
         approval_id: application.approval_id,
         action: 'reject',
-        comment: reason.trim()
+        comment: reason
       };
 
       const response = await attendanceApi.teacherApproveLeave(request);
 
       if (response.success) {
-        alert('申请已拒绝');
+        toast.success('申请已拒绝', {
+          description: `学生 ${application.student_name} 的请假申请已被拒绝`
+        });
         await loadApplications(); // 重新加载数据
+        setRejectDialog({ isOpen: false, application: null });
       } else {
-        setError(response.message || '审批失败');
+        toast.error(response.message || '审批失败');
       }
     } catch (error) {
       console.error('审批失败:', error);
-      setError('审批失败，请重试');
+      toast.error('审批失败，请重试');
     } finally {
       setProcessingId(null);
     }
+  };
+
+  // 关闭拒绝理由弹窗
+  const handleRejectCancel = () => {
+    setRejectDialog({ isOpen: false, application: null });
   };
 
   const handleViewAttachment = async (
@@ -287,7 +323,7 @@ export function Approval() {
       });
     } catch (error) {
       console.error('查看附件失败:', error);
-      alert('查看附件失败');
+      toast.error('查看附件失败');
     }
   };
 
@@ -400,6 +436,21 @@ export function Approval() {
     return fileName.substring(0, maxLength) + '...';
   };
 
+  // 格式化课程时间：将 "09:50:00.000 - 11:25:00.000" 转换为 "9:50 - 11:25"
+  const formatClassTime = (timeString: string) => {
+    if (!timeString) return timeString;
+
+    // 匹配时间格式，提取小时和分钟
+    return timeString.replace(
+      /(\d{2}):(\d{2}):\d{2}\.\d{3}/g,
+      (hour, minute) => {
+        // 移除小时前的0（如果有的话）
+        const formattedHour = parseInt(hour, 10).toString();
+        return `${formattedHour}:${minute}`;
+      }
+    );
+  };
+
   const ApplicationCard = ({
     application
   }: {
@@ -414,17 +465,13 @@ export function Approval() {
             <div className='font-medium text-gray-900'>
               {application.student_info.student_name}
             </div>
-            <div className='text-sm text-gray-500'>
-              学号：{application.student_info.student_id}
+            <div className='space-y-1 text-sm text-gray-500'>
+              <div>学号：{application.student_info.student_id}</div>
               {application.student_info.class_name && (
-                <span className='ml-2'>
-                  班级：{application.student_info.class_name}
-                </span>
+                <div>班级：{application.student_info.class_name}</div>
               )}
               {application.student_info.major_name && (
-                <span className='ml-2'>
-                  专业：{application.student_info.major_name}
-                </span>
+                <div>专业：{application.student_info.major_name}</div>
               )}
             </div>
           </div>
@@ -464,7 +511,7 @@ export function Approval() {
           {/* 时间 */}
           <div className='flex items-center'>
             <span className='mr-2 h-4 w-4'>🕘</span>
-            <span>{application.class_time}</span>
+            <span>{formatClassTime(application.class_time)}</span>
           </div>
 
           {/* 地点 */}
@@ -719,6 +766,17 @@ export function Approval() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 拒绝理由弹窗 */}
+      {rejectDialog.isOpen && rejectDialog.application && (
+        <RejectReasonDialog
+          isOpen={rejectDialog.isOpen}
+          onConfirm={handleRejectConfirm}
+          onClose={handleRejectCancel}
+          studentName={rejectDialog.application.student_name}
+          isLoading={processingId === rejectDialog.application.id}
+        />
       )}
     </div>
   );

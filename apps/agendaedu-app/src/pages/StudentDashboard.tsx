@@ -364,7 +364,7 @@ function StudentDashboardContent() {
                   <div className='mb-3 text-4xl'>⏳</div>
                   <div className='text-xl font-semibold'>请假审批中</div>
                   <div className='mt-2 text-sm text-gray-500'>
-                    请假申请正在审批中，请耐心等待
+                    请在右下角消息处查看审核状态或撤回请假重新签到
                   </div>
                 </div>
               ) : attendance_status.status === 'leave' ? (
@@ -372,7 +372,7 @@ function StudentDashboardContent() {
                   <div className='mb-3 text-4xl'>📝</div>
                   <div className='text-xl font-semibold'>已请假</div>
                   <div className='mt-2 text-sm text-gray-500'>
-                    请假申请已通过审批
+                    请假申请已通过，请在右下角处查着审核状态或撤回请假，重新签到
                   </div>
                 </div>
               ) : (

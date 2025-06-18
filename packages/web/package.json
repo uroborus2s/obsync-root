@@ -1,10 +1,9 @@
 {
   "name": "@stratix/web",
-  "version": "0.0.1",
+  "version": "0.0.1-beta.0",
   "description": "Stratix框架的Web服务插件，基于Fastify提供HTTP服务",
   "type": "module",
-  "main": "./dist/cjs/index.js",
-  "module": "./dist/esm/index.js",
+  "main": "./dist/index.js",
   "types": "./dist/types/index.d.ts",
   "files": [
     "dist"
@@ -15,12 +14,6 @@
     "clean": "rimraf dist",
     "build": "pnpm run clean && tsc",
     "dev": "tsc -p tsconfig.es6.json --watch"
-  },
-  "exports": {
-    "development": "./src/index.ts",
-    "import": "./dist/esm/index.js",
-    "require": "./dist/cjs/index.js",
-    "types": "./dist/types/index.d.ts"
   },
   "dependencies": {
     "@fastify/compress": "^8.0.1",

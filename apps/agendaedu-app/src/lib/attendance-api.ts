@@ -178,6 +178,20 @@ export interface StudentLeaveResponse {
   };
 }
 
+export interface StudentWithdrawLeaveRequest {
+  attendance_record_id: string;
+}
+
+export interface StudentWithdrawLeaveResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    deleted_attendance_id: string;
+    cancelled_approval_ids: string[];
+    withdraw_time: string;
+  };
+}
+
 export interface StudentLeaveApplicationItem {
   id: string;
   course_name: string;
@@ -614,7 +628,7 @@ export class AttendanceApiService {
       '/attendance/teacher-approve-leave',
       request
     );
-    return response.data;
+    return response as unknown as TeacherApprovalResponse;
   }
 
   /**
@@ -725,6 +739,19 @@ export class AttendanceApiService {
     // 这里需要从auth-manager获取token
     const { authManager } = await import('./auth-manager');
     return authManager.getAccessToken();
+  }
+
+  /**
+   * 学生撤回请假申请
+   */
+  async studentWithdrawLeave(
+    request: StudentWithdrawLeaveRequest
+  ): Promise<StudentWithdrawLeaveResponse> {
+    const response = await this.apiClient.post<StudentWithdrawLeaveResponse>(
+      '/attendance/withdraw-leave',
+      request
+    );
+    return response as unknown as StudentWithdrawLeaveResponse;
   }
 }
 

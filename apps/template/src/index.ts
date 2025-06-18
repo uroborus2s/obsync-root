@@ -14,13 +14,4 @@ StratixApp.run().then(async (app: IStratixApp) => {
   //     config: {}
   //   }
   // });
-  // try {
-  //   const fullSyncService = app.tryResolve('fullSyncService');
-  //   fullSyncService.startFullSync({
-  //     reason: '新学期初始化',
-  //     xnxq: '2024-2025-2'
-  //   });
-  // } catch (error) {
-  //   console.error(error);
-  // }
 });

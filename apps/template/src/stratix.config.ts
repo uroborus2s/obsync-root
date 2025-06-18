@@ -4,7 +4,6 @@ import { default as icalinkPlugin } from '@stratix/icalink';
 import queuePlugin from '@stratix/queue';
 import tasksPlugin from '@stratix/tasks';
 import wasV7Plugin from '@stratix/was-v7';
-import webPlugin from '@stratix/web';
 import fs from 'node:fs';
 import path, { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -65,7 +64,6 @@ export default (sensitiveInfo: any): StratixConfig => {
           appSecret: sensitiveInfo.wasV7.appSecret
         }
       ],
-      [webPlugin, { projectRootDir, port: 8090 }],
       [
         databasePlugin,
         {
@@ -87,7 +85,44 @@ export default (sensitiveInfo: any): StratixConfig => {
           }
         }
       ],
-      [tasksPlugin, {}],
+      [
+        tasksPlugin,
+        {
+          onRecoveryComplete: async (recoveryResult: any, fastify: any) => {
+            // 任务恢复完成后执行全量同步
+            fastify.log.info('任务恢复完成，开始执行后续操作', {
+              recoveredCount: recoveryResult.recoveredCount,
+              rootTasksCount: recoveryResult.rootTasksCount,
+              errorCount: recoveryResult.errors.length
+            });
+
+            // 延迟执行，确保所有服务都已完全初始化
+            setTimeout(async () => {
+              try {
+                // 从DI容器获取fullSyncService
+                const fullSyncService = fastify.tryResolve('fullSyncService');
+
+                if (fullSyncService) {
+                  // 如果没有恢复任务，启动新的全量同步
+                  fastify.log.info('没有恢复任务，开始执行全量同步...');
+
+                  await fullSyncService.startFullSync({
+                    reason: '应用启动后自动执行',
+                    xnxq: '2024-2025-2'
+                  });
+
+                  fastify.log.info('全量同步启动成功');
+                } else {
+                  fastify.log.warn('fullSyncService 未找到，跳过全量同步');
+                }
+              } catch (error) {
+                fastify.log.error('执行恢复后操作失败', error);
+              }
+            }, 3000); // 延迟3秒确保所有服务就绪
+          }
+        }
+      ],
+      // [postRecoveryPlugin, {}], // 临时注释掉以测试其他插件
       [icalinkPlugin, { ...sensitiveInfo.icalink }]
     ]
   };

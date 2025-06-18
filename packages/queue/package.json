@@ -1,6 +1,6 @@
 {
   "name": "@stratix/queue",
-  "version": "0.0.1",
+  "version": "0.0.1-beta.0",
   "description": "高性能、灵活的结构化消息栈",
   "type": "module",
   "main": "dist/index.js",

@@ -1,3 +1,4 @@
+import { ToastProvider, Toaster } from '@/components/ui/toast';
 import { Approval } from '@/pages/Approval';
 import { AttendanceSheet } from '@/pages/AttendanceSheet';
 import AuthCallback from '@/pages/AuthCallback';
@@ -64,6 +65,7 @@ function AppContent() {
           />
         </Routes>
       </main>
+      <Toaster />
     </div>
   );
 }
@@ -101,7 +103,9 @@ function App() {
 
   return (
     <Router basename='/app'>
-      <AppContent />
+      <ToastProvider>
+        <AppContent />
+      </ToastProvider>
     </Router>
   );
 }

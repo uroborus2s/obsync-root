@@ -10,17 +10,9 @@
     "lint:pkg": "turbo run lint --filter=\"$npm_config_pkg\"",
     "clean": "turbo run clean",
     "test": "turbo run test",
-    "test:pkg": "turbo run test --filter=\"$npm_config_pkg\"",
-    "test:coverage": "turbo run test:coverage",
-    "publish": "turbo run build --filter=\"$npm_config_pkg\" && changeset version && pnpm install && turbo run build --filter=\"$npm_config_pkg\" && changeset publish",
-    "publish:single": "turbo run build --filter=\"$npm_config_pkg\" && pnpm publish --filter=\"$npm_config_pkg\"",
-    "release": "changeset version && pnpm install && turbo run build --filter=\"$npm_config_pkg\" && changeset publish",
-    "release:full": "changeset version && pnpm install && turbo run build && changeset publish && git push --follow-tags",
-    "changeset:add": "changeset add",
-    "changeset:version": "changeset version",
-    "changeset:publish": "changeset publish",
+    "release": "npm_config_registry=https://g-rrng9518-npm.pkg.coding.net/npm/repo/ pnpm changeset publish",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "turbo": "turbo prune --docker --scope"
+    "publish:core": "pnpm run build:all && npm_config_registry=https://g-rrng9518-npm.pkg.coding.net/npm/repo/ pnpm changeset publish"
   },
   "packageManager": "pnpm@10.0.0",
   "devDependencies": {

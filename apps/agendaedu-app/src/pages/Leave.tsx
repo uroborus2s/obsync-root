@@ -204,16 +204,84 @@ function LeaveContent() {
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files) {
-      const newFiles = Array.from(files).slice(0, 3 - attachments.length);
-      setAttachments([...attachments, ...newFiles]);
+      const validFiles: File[] = [];
+      const maxSize = 3 * 1024 * 1024; // 减少到3MB
+      const maxTotalSize = 8 * 1024 * 1024; // 总大小限制8MB
 
-      if (newFiles.length > 0) {
-        toast.success('文件上传成功', {
-          description: `已添加 ${newFiles.length} 个附件`,
+      Array.from(files).forEach((file) => {
+        // 检查文件类型是否为图片
+        if (!file.type.startsWith('image/')) {
+          toast.error('文件格式错误', {
+            description: `文件 "${file.name}" 不是图片格式，请上传图片文件`,
+            duration: 4000
+          });
+          return;
+        }
+
+        // 检查文件大小是否超过3MB
+        if (file.size > maxSize) {
+          const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+          toast.error('文件过大', {
+            description: `文件 "${file.name}" 大小为 ${fileSizeMB}MB，超过3MB限制`,
+            duration: 4000
+          });
+          return;
+        }
+
+        validFiles.push(file);
+      });
+
+      if (validFiles.length === 0) {
+        event.target.value = '';
+        return;
+      }
+
+      // 限制总附件数量不超过3个
+      const candidateFiles = validFiles.slice(0, 3 - attachments.length);
+
+      // 检查总大小限制
+      const currentTotalSize = attachments.reduce(
+        (sum: number, file: File) => sum + file.size,
+        0
+      );
+      const newFilesTotalSize = candidateFiles.reduce(
+        (sum: number, file: File) => sum + file.size,
+        0
+      );
+
+      if (currentTotalSize + newFilesTotalSize > maxTotalSize) {
+        const totalSizeMB = (
+          (currentTotalSize + newFilesTotalSize) /
+          (1024 * 1024)
+        ).toFixed(2);
+        toast.error('文件总大小超限', {
+          description: `所有图片总大小 ${totalSizeMB}MB，超过8MB限制`,
+          duration: 4000
+        });
+        event.target.value = '';
+        return;
+      }
+
+      // 直接添加文件，不进行压缩
+      if (candidateFiles.length > 0) {
+        setAttachments([...attachments, ...candidateFiles]);
+        toast.success('图片上传成功', {
+          description: `已添加 ${candidateFiles.length} 张图片`,
           duration: 2000
         });
       }
+
+      // 如果超出数量限制，给出提示
+      if (validFiles.length > candidateFiles.length) {
+        toast.warning('附件数量限制', {
+          description: '最多只能上传3个附件',
+          duration: 3000
+        });
+      }
     }
+
+    // 清空input的值，允许重复选择同一文件
+    event.target.value = '';
   };
 
   const removeAttachment = (index: number) => {
@@ -437,8 +505,11 @@ function LeaveContent() {
           {/* 附件上传 */}
           <div className='mb-6'>
             <label className='mb-2 block text-sm font-medium text-gray-700'>
-              附件（可选）
+              图片附件（可选）
             </label>
+            <div className='mb-2 text-xs text-gray-500'>
+              支持JPG、PNG、GIF等图片格式，单个文件不超过3MB，总大小不超过8MB，最多3张
+            </div>
             <div className='space-y-2'>
               {/* 上传按钮 */}
               {attachments.length < 3 && (
@@ -446,13 +517,13 @@ function LeaveContent() {
                   <div className='text-center'>
                     <Upload className='mx-auto mb-2 h-6 w-6 text-gray-400' />
                     <span className='text-sm text-gray-600'>
-                      点击上传附件（最多3个）
+                      点击上传图片（最多3张）
                     </span>
                   </div>
                   <input
                     type='file'
                     className='hidden'
-                    accept='image/*,.pdf,.doc,.docx'
+                    accept='image/*'
                     multiple
                     onChange={handleFileUpload}
                   />
@@ -465,15 +536,20 @@ function LeaveContent() {
                   key={index}
                   className='flex items-center justify-between rounded-lg border border-gray-200 p-3'
                 >
-                  <div className='flex items-center'>
+                  <div className='flex flex-1 items-center'>
                     <FileText className='mr-2 h-4 w-4 text-gray-400' />
-                    <span className='text-sm text-gray-700'>{file.name}</span>
+                    <div className='flex-1'>
+                      <div className='text-sm text-gray-700'>{file.name}</div>
+                      <div className='text-xs text-gray-500'>
+                        {(file.size / (1024 * 1024)).toFixed(2)} MB
+                      </div>
+                    </div>
                   </div>
                   <button
                     onClick={() => removeAttachment(index)}
                     className='rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600'
-                    title='移除附件'
-                    aria-label='移除附件'
+                    title='移除图片'
+                    aria-label='移除图片'
                   >
                     <X className='h-4 w-4' />
                   </button>

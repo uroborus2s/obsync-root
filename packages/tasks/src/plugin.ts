@@ -37,6 +37,10 @@ export interface TasksPluginOptions {
   // 插件配置选项
   autoRecovery?: boolean; // 是否自动恢复运行中的任务
   cleanupInterval?: number; // 清理间隔（毫秒）
+  onRecoveryComplete?: (
+    result: any,
+    fastify: FastifyInstance
+  ) => Promise<void> | void; // 恢复完成后的回调函数
 }
 
 /**
@@ -114,12 +118,45 @@ async function tasksPlugin(
       const taskTreeService = fastify.tryResolve('taskTreeService');
       if (taskTreeService) {
         fastify.log.info('Recovering running tasks');
-        await taskTreeService.recoverRunningTasks();
+
+        taskTreeService
+          .recoverRunningTasks()
+          .then(async (recoveryResult: any) => {
+            fastify.log.info('Task recovery completed successfully', {
+              recoveredCount: recoveryResult.recoveredCount,
+              rootTasksCount: recoveryResult.rootTasksCount,
+              errorCount: recoveryResult.errors.length
+            });
+            // 如果提供了恢复完成回调，则执行它
+            if (options.onRecoveryComplete) {
+              try {
+                fastify.log.info('Executing post-recovery callback...');
+                await options.onRecoveryComplete(recoveryResult, fastify);
+                fastify.log.info(
+                  'Post-recovery callback completed successfully'
+                );
+              } catch (callbackError) {
+                fastify.log.error(
+                  'Post-recovery callback failed',
+                  callbackError
+                );
+                // 不抛出错误，避免影响应用启动
+              }
+            }
+
+            // 发出任务恢复完成事件，允许其他插件监听
+            fastify.emit('taskRecoveryCompleted', {
+              result: recoveryResult,
+              timestamp: new Date()
+            });
+          });
       } else {
         fastify.log.error('TaskTreeService not found');
       }
     } catch (error) {
       fastify.log.error('Error recovering running tasks', error);
+      // 不要抛出错误，让服务器继续启动
+      // 任务恢复失败不应该阻止整个应用启动
     }
   });
 

@@ -79,11 +79,26 @@ async function queuePlugin(
 
   fastify.addHook('onReady', async () => {
     try {
+      fastify.log.info('Starting queue service...');
       const queueService = fastify.diContainer.resolve('queueService');
-      await queueService.start(); // 🔥 添加 await
+
+      // 添加超时保护
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Queue service start timeout after 15 seconds'));
+        }, 15000);
+      });
+
+      const startPromise = queueService.start();
+
+      // 使用 Promise.race 确保不会无限等待
+      await Promise.race([startPromise, timeoutPromise]);
+
+      fastify.log.info('Queue service started successfully');
     } catch (error) {
       fastify.log.error({ error }, 'Failed to initialize queue plugin');
-      throw error;
+      // 队列服务启动失败不应该阻止整个应用启动
+      // throw error;
     }
   });
 }

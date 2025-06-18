@@ -1,0 +1,56 @@
+services:
+  icalink-api:
+    image: g-rrng9518-docker.pkg.coding.net/obsync/sync/icalink-api:latest
+    container_name: icalink-api
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    environment:
+      # 应用配置
+      - NODE_ENV=production
+      - TZ=Asia/Shanghai
+      - STRATIX_SENSITIVE_CONFIG="9a295d7544c4d84b2eec3948c62fe7c4.4db1b0b25fa29b401adf2ef66800788e.96qSzlxehHok+jS4rJ5kWGjuEKFvZkhwhy9j0bxp8lC1F4N1ZAwCRe+Bd+MgESwHLRkygM8EhZKYdrmfoKTAzji6gB/hdjV8csE7zzfrjaWhrikupTB3+I5vOWC+iGQkDWbciz8Y9Z8TEzoJXfuImGw+6/5my3tOhTcuD8BdxfVn6EUpbYBHWmmdsOHUcXOHy+1/D9/FgBE6dvj3tCvv0Mo9xQ/MqT+iv+qvvVf1RUFlB6L2gwAWU3YDjah+FhqK1qrHDrVjNY+CcVX6JZMaln5plroWj7VP5a8N2ZXM7A6wfCKkKFL8reO+d1g/r5DzFbQCe4tET6JLjmTbbUWCvwTAAqNRfUqrq1XFCxcSU27Dn/kacLtJg4jqeuyhKPPLVQaJizuQljgY6WZcvwMqN/Q8wg3+z0QTFMXoJMp2X3IMrnceTNvBlxx7J/zmGkJFu25RpeC9+cBOvIGFrih5KRVSPfl77VQhkU2fyZcDwyuWlJdFP83VgqNPf8C5ne0/m3/HHauS2eytZ7jsudXY2LsVIy87rJyjPOSPzti6XJDT1OlD1+qBS+W+lRFxNoXAshvi5DMFXa4xugfNhBMIgluVogOcKveagI/ezy+06XEzF2Gs1VSJJI+QErqeDEHDLfXqCEES4dsxhDCYEI36tokjDkS/SDEKm/XeanvmPgwm+KVDcxVJppODvoQBwUe0zaBbgg=="
+    networks:
+      - icalink-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    volumes:
+      - icalink-api-logs:/app/logs
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # icalink-sync:
+  #   image: g-rrng9518-docker.pkg.coding.net/obsync/sync/icalink-sync:latest
+  #   container_name: icalink-sync
+  #   restart: unless-stopped
+  #   environment:
+  #     # 应用配置
+  #     - NODE_ENV=production
+  #     - TZ=Asia/Shanghai
+  #     - STRATIX_SENSITIVE_CONFIG="c6623e5198c32d08a9403c8a12597e62.61f7ac5a63b9d1bab5e6ce22fa708188.jx1yedpGJmoXPEGb4X8mtNDbbAsZUpBjdG2I2OYl+E2izGW19LesXeK7yw+6i5640Bs2Kb97RzbAqoNLWx73ogqmUk9KAAW0Nnt0C7EPT5tKj53Y8S1eOwfiZwKriNak1asyxbRt5hNT/fla189UNMFZ8hI7f1ng6vwwGcVXIj+vwztd2Q1V3Nrna2Xxytcoeyc6WZakUeKJDesnozaq3uWKXxgbIqv0dr+ZqbKJspaaELKikIiuR466HIbWmuAcdh6dmRtEPIDYuHZzf5W3gfL/zf3K8X6QsLO1/XlX4gVkiS8q3Ono/Uq2pd8Xl//ccHy/2fjg3a6XliBGJo4cufGe3hKLwwLF7lX1mVkI1ms/SgIbvgOFXsRxoZFwjsPgVZMq0A/1OySQG2GCNObpfkbaBKrRMTUa1LdReVcwvBbVCbKfJx6ZcbcHGZrQNWS0hT/g5pCEv0XPWjqCdhrgVFok4MDAswh4xfQeMHQ5Q1kRWZVSwmnnOXWsaUIkF+cnGNlN5ERZK0fg+Iwe279R4pNIIzQSUM+kzdpDmtS8nsn3qMsWnR2p0aQmXI4LRQmXLOAxWGDPmXq7Oi5Fj0vGyBY7A7q4AGBxGJMjI+WudguuEhalJ8RSpmvqLCYzZhSqotDvUGTpfMf4hQWApEvj3py1bypM3moxXhgRQsAEqYhXpMZkEmanS0Mi0tgHcH4yJ05Y4A=="
+  #   networks:
+  #     - icalink-network
+  #   volumes:
+  #     - icalink-sync-logs:/app/logs
+  #   logging:
+  #     driver: "json-file"
+  #     options:
+  #       max-size: "10m"
+  #       max-file: "3"
+
+networks:
+  icalink-network:
+    driver: bridge
+
+volumes:
+  icalink-api-logs:
+    driver: local
+  icalink-sync-logs:
+    driver: local 

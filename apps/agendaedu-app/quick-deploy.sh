@@ -7,7 +7,7 @@ set -e
 
 # 配置
 SERVER_HOST="${1:-chat.wzhsc.cn}"  # 从命令行参数获取，默认为chat.wzhsc.cn
-SERVER_USER="ecs-user"
+SERVER_USER="${2:-ecs-user}"
 SERVER_PATH="/var/www/app"
 TEMP_PATH="/tmp/agendaedu-app-deploy"
 

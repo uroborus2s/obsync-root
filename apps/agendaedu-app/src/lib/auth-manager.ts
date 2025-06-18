@@ -108,6 +108,7 @@ export class WpsAuthManager {
         scope: 'kso.user_base.read',
         state: btoa(`${state}||type=web`) || randomState
       });
+      console.log('params', params.toString());
       return `https://openapi.wps.cn/oauth2/auth?${params.toString()}`;
     }
   }

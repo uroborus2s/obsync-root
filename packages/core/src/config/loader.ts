@@ -246,8 +246,8 @@ function getEntryModulePath(): string | null {
  * @returns 敏感信息对象
  */
 function loadSensitiveInfoFromEnv(decryptionKey?: string): any {
-  const encryptedInfo = env.get(SENSITIVE_CONFIG_ENV);
 
+  const encryptedInfo = env.get(SENSITIVE_CONFIG_ENV);
   if (!encryptedInfo) {
     return {};
   }

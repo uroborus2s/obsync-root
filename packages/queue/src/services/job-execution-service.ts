@@ -372,48 +372,70 @@ export class JobExecutionService extends EventEmitter {
    */
   private async handleJobFailure(job: QueueJob, error: Error): Promise<void> {
     try {
-      const shouldRetry = job.attempts < job.max_attempts;
+      // const shouldRetry = job.attempts < job.max_attempts;
 
-      if (shouldRetry) {
-        // 重新设置任务状态为等待，增加重试次数
-        await this.jobRepository.updateStatus({
+      // if (shouldRetry) {
+      //   // 重新设置任务状态为等待，增加重试次数
+      //   await this.jobRepository.updateStatus({
+      //     jobId: job.id,
+      //     status: 'waiting'
+      //   });
+
+      //   this.log.warn(
+      //     {
+      //       jobId: job.id,
+      //       attempt: job.attempts + 1,
+      //       maxAttempts: job.max_attempts,
+      //       error: error.message
+      //     },
+      //     '任务执行失败，将重试'
+      //   );
+      // } else {
+      //   // 标记任务为失败状态（保留在queue_jobs表中便于重试）
+      //   await this.jobRepository.markAsFailed(job, {
+      //     message: error.message,
+      //     stack: error.stack,
+      //     code: (error as any).code
+      //   });
+
+      //   this.state.totalProcessed++;
+      //   this.state.totalFailed++;
+
+      //   this.log.error(
+      //     {
+      //       jobId: job.id,
+      //       attempts: job.attempts,
+      //       maxAttempts: job.max_attempts,
+      //       error: error.message
+      //     },
+      //     '任务执行失败，已标记为失败状态'
+      //   );
+
+      //   // 🔥 新增：任务失败后直接检查队列水位并加载数据
+      //   this.checkQueueAndLoadData('failure');
+      // }
+      // 标记任务为失败状态（保留在queue_jobs表中便于重试）
+      await this.jobRepository.markAsFailed(job, {
+        message: error.message,
+        stack: error.stack,
+        code: (error as any).code
+      });
+
+      this.state.totalProcessed++;
+      this.state.totalFailed++;
+
+      this.log.error(
+        {
           jobId: job.id,
-          status: 'waiting'
-        });
+          attempts: job.attempts,
+          maxAttempts: job.max_attempts,
+          error: error.message
+        },
+        '任务执行失败，已标记为失败状态'
+      );
 
-        this.log.warn(
-          {
-            jobId: job.id,
-            attempt: job.attempts + 1,
-            maxAttempts: job.max_attempts,
-            error: error.message
-          },
-          '任务执行失败，将重试'
-        );
-      } else {
-        // 标记任务为失败状态（保留在queue_jobs表中便于重试）
-        await this.jobRepository.markAsFailed(job, {
-          message: error.message,
-          stack: error.stack,
-          code: (error as any).code
-        });
-
-        this.state.totalProcessed++;
-        this.state.totalFailed++;
-
-        this.log.error(
-          {
-            jobId: job.id,
-            attempts: job.attempts,
-            maxAttempts: job.max_attempts,
-            error: error.message
-          },
-          '任务执行失败，已标记为失败状态'
-        );
-
-        // 🔥 新增：任务失败后直接检查队列水位并加载数据
-        this.checkQueueAndLoadData('failure');
-      }
+      // 🔥 新增：任务失败后直接检查队列水位并加载数据
+      this.checkQueueAndLoadData('failure');
     } catch (repositoryError) {
       this.log.error(
         {

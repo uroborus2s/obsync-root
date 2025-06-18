@@ -531,8 +531,17 @@ export class TaskTreeService implements ITaskTreeService {
     this.log.info('开始从数据库恢复运行中的任务树');
 
     try {
-      // 1. 获取所有运行中的任务
+      // 1. 获取所有运行中的任务（添加超时保护）
+      this.log.debug('正在从数据库获取运行中任务...');
+      const queryStartTime = Date.now();
+
       const runningTasks = await this.runningTaskRepo.findAll();
+      const queryDuration = Date.now() - queryStartTime;
+
+      this.log.debug(
+        { queryDuration, taskCount: runningTasks.length },
+        '数据库查询完成'
+      );
 
       if (runningTasks.length === 0) {
         this.log.info('没有需要恢复的运行中任务');
@@ -545,7 +554,7 @@ export class TaskTreeService implements ITaskTreeService {
       }
 
       this.log.info(
-        { taskCount: runningTasks.length },
+        { taskCount: runningTasks.length, queryDuration },
         '找到需要恢复的运行中任务'
       );
 
@@ -553,34 +562,62 @@ export class TaskTreeService implements ITaskTreeService {
       const rootTasks = runningTasks.filter((task) => !task.parent_id);
       const childTasks = runningTasks.filter((task) => task.parent_id);
 
+      rootTasksCount = rootTasks.length;
+
+      this.log.info(
+        { rootTasksCount, childTasksCount: childTasks.length },
+        '开始恢复任务树'
+      );
+
       // 3. 恢复子任务（按层级递归恢复）
       const recoverChildren = async (
-        parentNode: TaskNode | TaskNodePlaceholder
+        parentNode: TaskNode | TaskNodePlaceholder,
+        depth = 0
       ): Promise<void> => {
+        if (depth > 10) {
+          this.log.warn(
+            { parentId: parentNode.id, depth },
+            '任务树深度过深，停止递归恢复'
+          );
+          return;
+        }
+
         if (parentNode instanceof TaskNode) {
           const parentId = parentNode.id;
           const children = childTasks.filter(
             (task) => task.parent_id === parentId
           );
+
+          this.log.debug(
+            { parentId, childrenCount: children.length, depth },
+            '恢复子任务'
+          );
+
           for (const childEntity of children) {
             try {
+              const childStartTime = Date.now();
+
               const taskNode = await this.recoverSingleTask(
                 childEntity,
                 parentId
               );
               recoveredCount++;
 
+              const childDuration = Date.now() - childStartTime;
+
               this.log.debug(
                 {
                   taskId: childEntity.id,
                   name: childEntity.name,
-                  parentId
+                  parentId,
+                  depth,
+                  duration: childDuration
                 },
                 '子任务恢复成功'
               );
 
               // 递归恢复该子任务的子任务
-              await recoverChildren(taskNode);
+              await recoverChildren(taskNode, depth + 1);
             } catch (error) {
               const errorMsg =
                 error instanceof Error ? error.message : String(error);
@@ -594,6 +631,7 @@ export class TaskTreeService implements ITaskTreeService {
                   taskId: childEntity.id,
                   name: childEntity.name,
                   parentId,
+                  depth,
                   error: errorMsg
                 },
                 '子任务恢复失败'
@@ -606,9 +644,44 @@ export class TaskTreeService implements ITaskTreeService {
       };
 
       // 为每个根任务恢复其子任务
-      for (const rootTask of rootTasks) {
-        const taskNode = await this.recoverSingleTask(rootTask, null);
-        await recoverChildren(taskNode);
+      for (let i = 0; i < rootTasks.length; i++) {
+        const rootTask = rootTasks[i];
+        const rootStartTime = Date.now();
+
+        this.log.info(
+          {
+            taskId: rootTask.id,
+            name: rootTask.name,
+            index: i + 1,
+            total: rootTasks.length
+          },
+          '开始恢复根任务'
+        );
+
+        try {
+          const taskNode = await this.recoverSingleTask(rootTask, null);
+          recoveredCount++;
+
+          await recoverChildren(taskNode, 0);
+
+          const rootDuration = Date.now() - rootStartTime;
+          this.log.info(
+            { taskId: rootTask.id, duration: rootDuration },
+            '根任务及其子任务恢复完成'
+          );
+        } catch (error) {
+          const errorMsg =
+            error instanceof Error ? error.message : String(error);
+          errors.push({
+            taskId: rootTask.id,
+            error: errorMsg
+          });
+
+          this.log.error(
+            { taskId: rootTask.id, error: errorMsg },
+            '根任务恢复失败'
+          );
+        }
       }
 
       const duration = Date.now() - startTime;
