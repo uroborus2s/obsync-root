@@ -14,7 +14,6 @@ import { LeaveApprovalRepository } from '../repositories/leave-approval-reposito
 import { LeaveAttachmentRepository } from '../repositories/leave-attachment-repository.js';
 import { StudentAttendanceRepository } from '../repositories/student-attendance-repository.js';
 import { CourseScheduleEntity } from '../repositories/types.js';
-import { CourseService } from '../services/course.service.js';
 import { StudentService } from '../services/student.service.js';
 import { TeacherService } from '../services/teacher.service.js';
 import {
@@ -356,7 +355,7 @@ const getTeacherAttendanceRecord = async (
     const studentAttendanceRepo =
       request.diScope.resolve<StudentAttendanceRepository>(
         'studentAttendanceRepo'
-      );
+      ) as StudentAttendanceRepository;
     const courseScheduleRepo =
       request.diScope.resolve<CourseScheduleRepository>('courseScheduleRepo');
 
@@ -642,10 +641,7 @@ const studentCheckIn = async (
     }
 
     // 创建课程服务实例获取授课教师信息
-    const courseService = new CourseService(
-      request.diScope.resolve('db'),
-      request.log
-    );
+    const courseService = request.diScope.resolve<JwtPayload>('courseService');
 
     const primaryTeacher =
       await courseService.getPrimaryCourseTeacher(attendance_record_id);
@@ -870,10 +866,7 @@ const studentLeave = async (
     }
 
     // 创建课程服务实例获取授课教师信息
-    const courseService = new CourseService(
-      request.diScope.resolve('db'),
-      request.log
-    );
+    const courseService = request.diScope.resolve<JwtPayload>('courseService');
 
     // 获取所有授课教师信息
     const allTeachers =
@@ -902,7 +895,7 @@ const studentLeave = async (
         const leaveApprovalRepo = request.diScope.resolve('leaveApprovalRepo');
 
         // 为每位教师创建待审批记录
-        const teacherApprovals = allTeachers.map((teacher) => ({
+        const teacherApprovals = allTeachers.map((teacher: any) => ({
           approver_id: teacher.gh,
           approver_name: teacher.xm
         }));
@@ -916,7 +909,7 @@ const studentLeave = async (
           attendanceRecordId: attendance_record_id,
           studentId: studentInfo.xh,
           teacherCount: allTeachers.length,
-          teachers: allTeachers.map((t) => ({ gh: t.gh, xm: t.xm }))
+          teachers: allTeachers.map((t: any) => ({ gh: t.gh, xm: t.xm }))
         });
       } catch (approvalError) {
         request.log.error('创建教师审批记录失败:', {
@@ -986,7 +979,7 @@ const studentLeave = async (
       leaveReason: leave_reason,
       leaveType: leave_type,
       teacherCount: allTeachers.length,
-      teachers: allTeachers.map((t) => ({ gh: t.gh, xm: t.xm })),
+      teachers: allTeachers.map((t: any) => ({ gh: t.gh, xm: t.xm })),
       attachmentCount: attachments?.length || 0,
       ip: request.ip
     });

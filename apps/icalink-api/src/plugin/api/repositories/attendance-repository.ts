@@ -43,8 +43,11 @@ interface AttendanceRecordData {
  * 考勤仓库类
  */
 export class AttendanceRepository extends BaseRepository {
-  constructor(db: Kysely<ExtendedDatabase>, log: Logger) {
-    super(db, log);
+  constructor(
+    private db: Kysely<ExtendedDatabase>,
+    log: Logger
+  ) {
+    super(log);
   }
 
   /**

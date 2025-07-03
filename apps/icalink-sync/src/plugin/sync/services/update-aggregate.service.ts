@@ -57,12 +57,8 @@ export class UpdateAggregateService implements TaskExecutor {
       for (const task of aggregateTasks) {
         if (task.id) {
           await this.courseAggregateRepo.updateStatus(task.id, gxZt);
+          await this.updateRelatedCourseSchedules(aggregateTasks, gxZt);
         }
-      }
-
-      // 当状态为2（学生任务完成）时，更新对应的u_jw_kcb_cur记录
-      if (gxZt === 2) {
-        await this.updateRelatedCourseSchedules(aggregateTasks);
       }
 
       this.log.info(
@@ -94,8 +90,9 @@ export class UpdateAggregateService implements TaskExecutor {
    * 当学生任务完成（gx_zt=2）时，检查该课程的所有聚合任务是否都已完成，
    * 如果是则根据聚合记录的信息找到对应的u_jw_kcb_cur记录并更新其gx_zt和gx_sj
    */
-  private async updateRelatedCourseSchedules(
-    aggregateTasks: any[]
+  public async updateRelatedCourseSchedules(
+    aggregateTasks: any[],
+    zt?: number
   ): Promise<void> {
     try {
       // 检查是否所有相关的聚合任务都已完成（gx_zt = 2）
@@ -107,14 +104,12 @@ export class UpdateAggregateService implements TaskExecutor {
         {
           kkh: firstTask.kkh,
           xnxq: firstTask.xnxq,
-          rq: firstTask.rq
+          rq: firstTask.rq,
+          sjf: firstTask.sj_f
         }
       );
 
-      // 检查是否所有聚合任务都已完成（gx_zt = 2）
-      const allCompleted = allAggregateTasks.every((task) => task.gx_zt === 2);
-
-      if (allCompleted && allAggregateTasks.length > 0) {
+      if (allAggregateTasks.length > 0) {
         this.log.info(
           {
             courseKkh: firstTask.kkh,
@@ -127,68 +122,50 @@ export class UpdateAggregateService implements TaskExecutor {
         // 根据每个聚合任务的信息，找到对应的u_jw_kcb_cur记录并更新
         // juhe_renwu是由u_jw_kcb_cur按照kkh,xnxq,jxz,zc,rq,kcmc,sfdk分组聚合而来
         for (const aggregateTask of allAggregateTasks) {
-          // 根据聚合任务的信息查找对应的u_jw_kcb_cur记录
+          // 根据聚合任务的信息和时间段直接查找对应的u_jw_kcb_cur记录
+          // 通过数据库查询条件直接过滤时间段，提高查询效率
           const courseSchedules =
             await this.courseScheduleRepo.findByConditions({
               kkh: aggregateTask.kkh,
-              xnxq: aggregateTask.xnxq,
-              rq: aggregateTask.rq
+              rq: `${aggregateTask.rq}`,
+              sjd: aggregateTask.sjd as 'am' | 'pm'
             });
 
           if (courseSchedules.length > 0) {
-            // 根据聚合逻辑，需要找到与该聚合任务对应的u_jw_kcb_cur记录
-            // 聚合是按照kkh,xnxq,jxz,zc,rq,kcmc,sfdk分组的
-            const matchingSchedules = courseSchedules.filter((schedule) => {
-              // 检查课程名称是否匹配
-              const courseNameMatch = schedule.kcmc === aggregateTask.kcmc;
-              // 检查是否打卡字段是否匹配
-              const attendanceMatch = schedule.sfdk === aggregateTask.sfdk;
-              // 检查时间段是否匹配（上午1-4节，下午5-10节）
-              const timeMatch =
-                aggregateTask.sjd === 'am'
-                  ? schedule.jc >= 1 && schedule.jc <= 4
-                  : schedule.jc >= 5 && schedule.jc <= 10;
+            // 准备批量更新的条件
+            const updateConditions = courseSchedules.map((schedule) => ({
+              kkh: schedule.kkh,
+              xnxq: schedule.xnxq,
+              rq: schedule.rq,
+              st: schedule.st
+            }));
 
-              return courseNameMatch && attendanceMatch && timeMatch;
-            });
+            // 批量更新同步状态
+            await this.courseScheduleRepo.batchUpdateSyncStatus(
+              updateConditions,
+              zt || 1
+            );
 
-            if (matchingSchedules.length > 0) {
-              // 准备批量更新的条件
-              const updateConditions = matchingSchedules.map((schedule) => ({
-                kkh: schedule.kkh,
-                xnxq: schedule.xnxq,
-                jxz: schedule.jxz,
-                zc: schedule.zc,
-                rq: schedule.rq
-              }));
-
-              // 批量更新同步状态
-              await this.courseScheduleRepo.batchUpdateSyncStatus(
-                updateConditions,
-                1
-              );
-
-              this.log.info(
-                {
-                  aggregateTaskId: aggregateTask.id,
-                  courseKkh: aggregateTask.kkh,
-                  courseName: aggregateTask.kcmc,
-                  timeSlot: aggregateTask.sjd,
-                  updatedScheduleCount: matchingSchedules.length
-                },
-                '已更新对应的u_jw_kcb_cur记录'
-              );
-            } else {
-              this.log.warn(
-                {
-                  aggregateTaskId: aggregateTask.id,
-                  courseKkh: aggregateTask.kkh,
-                  courseName: aggregateTask.kcmc,
-                  timeSlot: aggregateTask.sjd
-                },
-                '未找到匹配的u_jw_kcb_cur记录'
-              );
-            }
+            this.log.info(
+              {
+                aggregateTaskId: aggregateTask.id,
+                courseKkh: aggregateTask.kkh,
+                courseName: aggregateTask.kcmc,
+                timeSlot: aggregateTask.sjd,
+                updatedScheduleCount: courseSchedules.length
+              },
+              '已更新对应的u_jw_kcb_cur记录'
+            );
+          } else {
+            this.log.warn(
+              {
+                aggregateTaskId: aggregateTask.id,
+                courseKkh: aggregateTask.kkh,
+                courseName: aggregateTask.kcmc,
+                timeSlot: aggregateTask.sjd
+              },
+              '未找到匹配的u_jw_kcb_cur记录'
+            );
           }
         }
 

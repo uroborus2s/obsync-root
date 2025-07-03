@@ -93,8 +93,11 @@ export interface LeaveApplicationStats {
  * 请假申请仓库类
  */
 export class LeaveApplicationRepository extends BaseRepository {
-  constructor(db: Kysely<ExtendedDatabase>, log: Logger) {
-    super(db, log);
+  constructor(
+    private db: Kysely<ExtendedDatabase>,
+    log: Logger
+  ) {
+    super(log);
   }
 
   /**

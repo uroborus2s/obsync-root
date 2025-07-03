@@ -5,7 +5,6 @@ import type {
   CreateCalendarParams,
   CreateCalendarPermissionParams,
   CreateCalendarPermissionResponse,
-  CreateCalendarResponse,
   GetPrimaryCalendarResponse
 } from '../types/calendar.js';
 
@@ -39,11 +38,11 @@ export class CalendarModule {
   async createCalendar(params: CreateCalendarParams): Promise<CalendarInfo> {
     await this.ensureAccessToken();
 
-    const response = await this.wasV7HttpClient.post<CreateCalendarResponse>(
+    const response = await this.wasV7HttpClient.post<CalendarInfo>(
       '/v7/calendars/create',
       params
     );
-    return response.data.calendar;
+    return response.data;
   }
 
   /**

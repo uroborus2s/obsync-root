@@ -21,6 +21,7 @@ import { StudentInfoRepository } from './repositories/student-info-repository.js
 import { TeacherInfoRepository } from './repositories/teacher-info-repository.js';
 import { UserCalendarRepository } from './repositories/user-calendar-repository.js';
 import { AttendanceService } from './services/attendance/attendance.service.js';
+import { CourseService } from './services/course.service.js';
 import { createPageUrlFactory } from './services/generatePageUrl.js';
 import { StudentService } from './services/student.service.js';
 import { TeacherService } from './services/teacher.service.js';
@@ -91,6 +92,11 @@ async function apiPlugin(
 
   fastify.registerDI(AttendanceService, {
     name: 'attendanceService',
+    lifetime: 'SINGLETON'
+  });
+
+  fastify.registerDI(CourseService, {
+    name: 'courseService',
     lifetime: 'SINGLETON'
   });
 

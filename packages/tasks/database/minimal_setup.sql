@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS `running_tasks` (
   `status` enum('pending','running','paused','success','failed','cancelled','completed') NOT NULL DEFAULT 'pending' COMMENT '任务状态',
   `priority` int NOT NULL DEFAULT '0' COMMENT '优先级',
   `progress` decimal(5,2) NOT NULL DEFAULT '0.00' COMMENT '进度百分比(0-100)',
+  `total_children` int NOT NULL DEFAULT '0' COMMENT '总计子任务数量',
+  `completed_children` int NOT NULL DEFAULT '0' COMMENT '已完成子任务数量',
   `executor_name` varchar(100) DEFAULT NULL COMMENT '执行器名称',
   `metadata` json DEFAULT NULL COMMENT '任务元数据',
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -41,6 +43,8 @@ CREATE TABLE IF NOT EXISTS `completed_tasks` (
   `status` enum('pending','running','paused','success','failed','cancelled','completed') NOT NULL DEFAULT 'pending' COMMENT '任务状态',
   `priority` int NOT NULL DEFAULT '0' COMMENT '优先级',
   `progress` decimal(5,2) NOT NULL DEFAULT '100.00' COMMENT '最终进度',
+  `total_children` int NOT NULL DEFAULT '0' COMMENT '总计子任务数量',
+  `completed_children` int NOT NULL DEFAULT '0' COMMENT '已完成子任务数量',
   `executor_name` varchar(100) DEFAULT NULL COMMENT '执行器名称',
   `metadata` json DEFAULT NULL COMMENT '任务元数据',
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -69,6 +73,59 @@ CREATE TABLE IF NOT EXISTS `shared_contexts` (
   KEY `idx_root_task_id` (`root_task_id`),
   KEY `idx_updated_at` (`updated_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='任务树共享上下文表';
+
+-- 为现有表添加新字段的迁移脚本
+-- 检查并添加 total_children 字段到 running_tasks 表
+SET @sql = IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS 
+   WHERE TABLE_SCHEMA = DATABASE() 
+   AND TABLE_NAME = 'running_tasks' 
+   AND COLUMN_NAME = 'total_children') = 0,
+  'ALTER TABLE running_tasks ADD COLUMN total_children int NOT NULL DEFAULT 0 COMMENT "总计子任务数量" AFTER progress',
+  'SELECT "total_children field already exists in running_tasks" as message'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- 检查并添加 completed_children 字段到 running_tasks 表
+SET @sql = IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS 
+   WHERE TABLE_SCHEMA = DATABASE() 
+   AND TABLE_NAME = 'running_tasks' 
+   AND COLUMN_NAME = 'completed_children') = 0,
+  'ALTER TABLE running_tasks ADD COLUMN completed_children int NOT NULL DEFAULT 0 COMMENT "已完成子任务数量" AFTER total_children',
+  'SELECT "completed_children field already exists in running_tasks" as message'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- 检查并添加 total_children 字段到 completed_tasks 表
+SET @sql = IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS 
+   WHERE TABLE_SCHEMA = DATABASE() 
+   AND TABLE_NAME = 'completed_tasks' 
+   AND COLUMN_NAME = 'total_children') = 0,
+  'ALTER TABLE completed_tasks ADD COLUMN total_children int NOT NULL DEFAULT 0 COMMENT "总计子任务数量" AFTER progress',
+  'SELECT "total_children field already exists in completed_tasks" as message'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- 检查并添加 completed_children 字段到 completed_tasks 表
+SET @sql = IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS 
+   WHERE TABLE_SCHEMA = DATABASE() 
+   AND TABLE_NAME = 'completed_tasks' 
+   AND COLUMN_NAME = 'completed_children') = 0,
+  'ALTER TABLE completed_tasks ADD COLUMN completed_children int NOT NULL DEFAULT 0 COMMENT "已完成子任务数量" AFTER total_children',
+  'SELECT "completed_children field already exists in completed_tasks" as message'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- 验证表创建
 SELECT 

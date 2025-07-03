@@ -10,7 +10,7 @@
  */
 export interface CalendarInfo {
   /** 日历ID */
-  calendar_id: string;
+  id: string;
   /** 日历标题 */
   summary: string;
   /** 日历描述 */
@@ -209,10 +209,6 @@ export interface LeaveEventInfo {
 export interface CreateCalendarParams {
   /** 日历标题 */
   summary: string;
-  /** 日历描述 */
-  description?: string;
-  /** 时区 */
-  time_zone?: string;
 }
 
 /**
@@ -468,14 +464,6 @@ export interface DeleteLeaveEventParams {
 }
 
 // ==================== 响应类型 ====================
-
-/**
- * 创建日历响应
- */
-export interface CreateCalendarResponse {
-  /** 日历信息 */
-  calendar: CalendarInfo;
-}
 
 /**
  * 查询主日历响应

@@ -12,8 +12,11 @@ import { ExtendedDatabase, TeacherInfoEntity } from './types.js';
  * 教师信息Repository实现
  */
 export class TeacherInfoRepository extends BaseRepository {
-  constructor(db: Kysely<ExtendedDatabase>, log: Logger) {
-    super(db, log);
+  constructor(
+    private db: Kysely<ExtendedDatabase>,
+    log: Logger
+  ) {
+    super(log);
   }
 
   /**

@@ -9,6 +9,7 @@ import { randomUUID } from 'crypto';
 import { AttendanceStatus } from '../types/attendance.js';
 import { calculateCourseTimeAndStatus } from '../utils/time.js';
 import { BaseRepository } from './base-repository.js';
+import { StudentCourseRepository } from './student-course-repository.js';
 import { ExtendedDatabase, StudentAttendanceEntity } from './types.js';
 
 /**
@@ -77,8 +78,12 @@ export interface StudentAttendanceStats {
  * 学生签到仓库类
  */
 export class StudentAttendanceRepository extends BaseRepository {
-  constructor(db: Kysely<ExtendedDatabase>, log: Logger) {
-    super(db, log);
+  constructor(
+    private db: Kysely<ExtendedDatabase>,
+    log: Logger,
+    private studentCourseRepo: StudentCourseRepository
+  ) {
+    super(log);
   }
 
   /**
@@ -389,14 +394,10 @@ export class StudentAttendanceRepository extends BaseRepository {
       }
 
       // 获取这门课的总学生数
-      const totalStudentsResult = await this.db
-        .selectFrom('out_jw_kcb_xs')
-        .select([this.db.fn.count('xh').as('total')])
-        .where('kkh', '=', attendanceRecord.kkh)
-        .where('xnxq', '=', attendanceRecord.xnxq)
-        .executeTakeFirst();
-
-      const totalCount = Number(totalStudentsResult?.total || 0);
+      // 使用StudentCourseRepository 重写下面这一段sql
+      const totalCount = await this.studentCourseRepo.getStudentCountByKkh(
+        attendanceRecord.kkh
+      );
 
       // 获取已有签到记录的统计
       const stats = await this.db
@@ -669,18 +670,11 @@ export class StudentAttendanceRepository extends BaseRepository {
       }
 
       // 查询这门课的所有学生（从学生课表中获取）
-      const courseStudents = await this.db
-        .selectFrom('out_jw_kcb_xs')
-        .innerJoin('out_xsxx', 'out_jw_kcb_xs.xh', 'out_xsxx.xh')
-        .select([
-          'out_jw_kcb_xs.xh',
-          'out_xsxx.xm',
-          'out_xsxx.bjmc',
-          'out_xsxx.zymc'
-        ])
-        .where('out_jw_kcb_xs.kkh', '=', attendanceRecord.kkh)
-        .where('out_jw_kcb_xs.xnxq', '=', attendanceRecord.xnxq)
-        .execute();
+      const courseStudents =
+        await this.studentCourseRepo.findStudentsWithDetailsByCourse(
+          attendanceRecord.kkh,
+          attendanceRecord.xnxq
+        );
 
       // 查询已有的签到记录
       const existingAttendances = await this.db

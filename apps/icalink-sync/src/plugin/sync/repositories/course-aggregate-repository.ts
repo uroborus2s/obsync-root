@@ -4,7 +4,7 @@
  */
 
 import { Logger } from '@stratix/core';
-import type { Kysely } from '@stratix/database';
+import type { DatabaseProvider, Kysely } from '@stratix/database';
 import { BaseRepository } from './base-repository.js';
 import { CourseAggregateEntity, ExtendedDatabase } from './types.js';
 
@@ -12,8 +12,10 @@ import { CourseAggregateEntity, ExtendedDatabase } from './types.js';
  * 聚合任务Repository实现
  */
 export class CourseAggregateRepository extends BaseRepository {
-  constructor(db: Kysely<ExtendedDatabase>, log: Logger) {
-    super(db, log);
+  private db: Kysely<ExtendedDatabase>;
+  constructor(databaseProvider: DatabaseProvider, log: Logger) {
+    super(log);
+    this.db = databaseProvider.getDatabase('origin');
   }
 
   /**
@@ -120,8 +122,11 @@ export class CourseAggregateRepository extends BaseRepository {
         .selectFrom('juhe_renwu')
         .selectAll()
         .where('xnxq', '=', xnxq)
+        .where('rq', '>', '2025/06/22')
+        .where('rq', '<', '2025/07/26')
         .where('gx_zt', 'is', null)
-        .where('rq', '>', cutoffDate)
+        // .where('kkh', 'in', ['20242025sunyongrui'])
+        .where('kcmc', '!=', '习近平新时代中国特色社会主义思想概论')
         .orderBy('rq', 'asc')
         .orderBy('sj_f', 'asc')
         .execute();
@@ -243,8 +248,7 @@ export class CourseAggregateRepository extends BaseRepository {
         .updateTable('juhe_renwu')
         .set({
           gx_zt: gxZt,
-          gx_sj: now.toISOString(), // 同时更新gx_sj为当前时间
-          updated_at: now
+          gx_sj: now.toISOString() // 同时更新gx_sj为当前时间
         })
         .where('id', '=', id)
         .execute();
@@ -413,9 +417,11 @@ export class CourseAggregateRepository extends BaseRepository {
     xnxq?: string;
     kkh?: string;
     rq?: string;
+    beginDate?: string;
     sjd?: string;
     gxZt?: number | null;
     sjf?: string;
+    kcmc?: string;
   }): Promise<CourseAggregateEntity[]> {
     try {
       let query = this.db.selectFrom('juhe_renwu').selectAll();
@@ -431,6 +437,13 @@ export class CourseAggregateRepository extends BaseRepository {
       if (conditions.rq) {
         query = query.where('rq', '=', conditions.rq);
       }
+      if (conditions.beginDate) {
+        query = query.where('rq', '>=', conditions.beginDate);
+      }
+
+      if (conditions.kcmc) {
+        query = query.where('kcmc', '!=', conditions.kcmc);
+      }
 
       if (conditions.sjd) {
         query = query.where('sjd', '=', conditions.sjd);
@@ -441,12 +454,14 @@ export class CourseAggregateRepository extends BaseRepository {
 
       if (conditions.gxZt !== undefined) {
         if (conditions.gxZt === null) {
-          query = query.where('gx_zt', 'is', null);
+          // 将条件 gx_zt 为 null 的记录，改为 gx_zt 为 '' 或者为 null 的记录
+          query = query.where((eb) =>
+            eb.or([eb('gx_zt', 'is', null), eb('gx_zt', '=', '')])
+          );
         } else {
           query = query.where('gx_zt', '=', conditions.gxZt);
         }
       }
-
       const results = await query
         .orderBy('rq', 'asc')
         .orderBy('sj_f', 'asc')

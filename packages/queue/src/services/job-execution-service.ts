@@ -4,6 +4,7 @@
 
 import type { IStratixApp, Logger } from '@stratix/core';
 import { EventEmitter } from 'node:events';
+import { DEFAULT_QUEUE_CONFIG } from '../config/default-config.js';
 import { EventDrivenMemoryQueue } from '../core/memory-queue.js';
 import type { QueueJobRepository } from '../repositories/index.js';
 import { DatabaseJobStream } from '../streams/database-job-stream.js';
@@ -29,9 +30,14 @@ interface ExecutionState {
     }
   >;
   concurrencyLimit: number;
+  maxConcurrency: number;
+  parallelEnabled: boolean;
+  batchSize: number;
+  taskInterval: number;
   totalProcessed: number;
   totalSuccessful: number;
   totalFailed: number;
+  lastTaskStartTime: number;
 }
 
 /**
@@ -56,10 +62,127 @@ export class JobExecutionService extends EventEmitter {
       isPaused: false,
       activeJobs: new Map(),
       concurrencyLimit: 1,
+      maxConcurrency: 10,
+      parallelEnabled: true,
+      batchSize: 5,
+      taskInterval: 50,
       totalProcessed: 0,
       totalSuccessful: 0,
-      totalFailed: 0
+      totalFailed: 0,
+      lastTaskStartTime: 0
     };
+
+    // 设置事件监听：当数据库加载新任务时，自动重启处理循环
+    this.setupEventListeners();
+  }
+
+  /**
+   * 设置事件监听器
+   */
+  private setupEventListeners(): void {
+    // 监听数据库流的任务加载事件
+    this.databaseJobStream.on('jobs:added', (event) => {
+      this.log.debug(
+        { jobCount: event.jobs.length },
+        '检测到新任务加载，检查是否需要重启处理循环'
+      );
+
+      // 如果当前没有处理循环在运行且服务正在运行，则启动处理循环
+      if (
+        !this.isProcessingLoop &&
+        this.state.isRunning &&
+        !this.state.isPaused
+      ) {
+        this.log.info('自动重启处理循环以处理新加载的任务');
+        this.startProcessingLoop();
+      }
+    });
+
+    // 监听内存队列的长度变化
+    this.drivenMemoryQueue.on('length:changed', (event) => {
+      // 如果队列长度从0变为大于0，且当前没有处理循环在运行，则启动处理循环
+      if (
+        event.length > 0 &&
+        !this.isProcessingLoop &&
+        this.state.isRunning &&
+        !this.state.isPaused
+      ) {
+        this.log.debug(
+          { newLength: event.length },
+          '队列中有新任务，检查是否需要启动处理循环'
+        );
+        this.startProcessingLoop();
+      }
+    });
+  }
+
+  /**
+   * 初始化执行服务配置
+   * 设置并行处理的默认配置
+   */
+  private initializeConfig(): void {
+    // 使用配置文件中的默认并行处理配置 - 默认并行3个任务
+    const jobConfig = DEFAULT_QUEUE_CONFIG.jobProcessing;
+    const parallelConfig = jobConfig.parallel;
+
+    this.state.concurrencyLimit = jobConfig.concurrency;
+    this.state.parallelEnabled = parallelConfig.enabled;
+    this.state.maxConcurrency = parallelConfig.maxConcurrency;
+    this.state.batchSize = parallelConfig.batchSize;
+    this.state.taskInterval = parallelConfig.taskInterval;
+
+    this.log.info(
+      {
+        concurrencyLimit: this.state.concurrencyLimit,
+        parallelEnabled: this.state.parallelEnabled,
+        maxConcurrency: this.state.maxConcurrency,
+        batchSize: this.state.batchSize,
+        taskInterval: this.state.taskInterval
+      },
+      '任务执行配置已初始化 - 从配置文件加载，默认并行3个任务'
+    );
+  }
+
+  /**
+   * 更新并发配置
+   */
+  public updateConcurrencyConfig(config: {
+    concurrency?: number;
+    parallelEnabled?: boolean;
+    maxConcurrency?: number;
+    batchSize?: number;
+    taskInterval?: number;
+  }): void {
+    if (config.concurrency !== undefined) {
+      this.state.concurrencyLimit = Math.max(1, config.concurrency);
+    }
+
+    if (config.parallelEnabled !== undefined) {
+      this.state.parallelEnabled = config.parallelEnabled;
+    }
+
+    if (config.maxConcurrency !== undefined) {
+      this.state.maxConcurrency = Math.max(1, config.maxConcurrency);
+    }
+
+    if (config.batchSize !== undefined) {
+      this.state.batchSize = Math.max(1, config.batchSize);
+    }
+
+    if (config.taskInterval !== undefined) {
+      this.state.taskInterval = Math.max(0, config.taskInterval);
+    }
+
+    this.log.info(
+      {
+        concurrencyLimit: this.state.concurrencyLimit,
+        parallelEnabled: this.state.parallelEnabled,
+        maxConcurrency: this.state.maxConcurrency,
+        batchSize: this.state.batchSize,
+        taskInterval: this.state.taskInterval
+      },
+      '并发配置已更新'
+    );
   }
 
   /**
@@ -71,13 +194,20 @@ export class JobExecutionService extends EventEmitter {
       return;
     }
 
+    // 初始化配置
+    this.initializeConfig();
+
     this.state.isRunning = true;
     this.state.isPaused = false;
+
+    const mode = this.state.parallelEnabled ? '并行执行模式' : '串行执行模式';
 
     this.log.info(
       {
         concurrencyLimit: this.state.concurrencyLimit,
-        mode: '连续执行模式'
+        parallelEnabled: this.state.parallelEnabled,
+        maxConcurrency: this.state.maxConcurrency,
+        mode
       },
       '任务执行服务已启动，等待数据库加载完成后开始处理'
     );
@@ -105,6 +235,10 @@ export class JobExecutionService extends EventEmitter {
     isProcessingLoop: boolean;
     activeJobsCount: number;
     concurrencyLimit: number;
+    parallelEnabled: boolean;
+    maxConcurrency: number;
+    batchSize: number;
+    taskInterval: number;
     totalProcessed: number;
     totalSuccessful: number;
     totalFailed: number;
@@ -121,6 +255,10 @@ export class JobExecutionService extends EventEmitter {
       isProcessingLoop: this.isProcessingLoop,
       activeJobsCount: this.state.activeJobs.size,
       concurrencyLimit: this.state.concurrencyLimit,
+      parallelEnabled: this.state.parallelEnabled,
+      maxConcurrency: this.state.maxConcurrency,
+      batchSize: this.state.batchSize,
+      taskInterval: this.state.taskInterval,
       totalProcessed: this.state.totalProcessed,
       totalSuccessful: this.state.totalSuccessful,
       totalFailed: this.state.totalFailed,
@@ -154,37 +292,59 @@ export class JobExecutionService extends EventEmitter {
   }
 
   /**
-   * 连续处理循环 - 处理所有任务直到队列为空
+   * 连续处理循环 - 支持并行处理
    */
   private async runContinuousProcessingLoop(): Promise<void> {
     try {
-      this.log.debug('开始连续处理循环');
+      const mode = this.state.parallelEnabled ? '并行' : '串行';
+      this.log.debug(`开始${mode}处理循环`);
 
       while (
         this.isProcessingLoop &&
         this.state.isRunning &&
         !this.state.isPaused
       ) {
-        // 检查是否有活跃任务（确保串行执行）
-        if (this.state.activeJobs.size > 0) {
-          // 有活跃任务时，短暂等待
-          await this.delay(50);
-          continue;
+        let hasProcessedJobs = false;
+
+        if (this.state.parallelEnabled) {
+          // 并行处理模式
+          hasProcessedJobs = await this.runParallelProcessing();
+        } else {
+          // 串行处理模式（原有逻辑）
+          hasProcessedJobs = await this.runSerialProcessing();
         }
 
-        // 从队列管理器获取下一个任务
-        const job = this.drivenMemoryQueue.shift();
-        if (!job) {
-          // 队列为空，停止处理循环
-          this.log.debug('队列为空，停止连续处理循环');
-          break;
-        }
+        // 如果队列为空且没有活跃任务，尝试从数据库加载数据
+        if (
+          !hasProcessedJobs &&
+          this.drivenMemoryQueue.isEmpty &&
+          this.state.activeJobs.size === 0
+        ) {
+          this.log.debug('队列为空且无活跃任务，尝试从数据库加载数据');
 
-        // 执行任务
-        await this.executeJob(job);
+          try {
+            // 直接调用数据库流加载数据，使用'empty_queue'触发器
+            await this.databaseJobStream.triggerBatchLoad('empty_queue');
+
+            // 加载后检查是否有新任务
+            if (this.drivenMemoryQueue.isEmpty) {
+              this.log.debug(
+                '数据库中也没有待处理任务，暂停处理循环等待新任务'
+              );
+              // 停止当前处理循环，等待有新任务时重新启动
+              this.stopProcessingLoop();
+              break;
+            }
+          } catch (error) {
+            this.log.error({ error }, '从数据库加载数据失败，暂停处理循环');
+            // 加载失败时也停止循环，避免空转
+            this.stopProcessingLoop();
+            break;
+          }
+        }
 
         // 短暂让出控制权，避免阻塞事件循环
-        await this.delay(10);
+        await this.delay(50);
       }
     } catch (error) {
       this.log.error({ error }, '连续处理循环发生错误');
@@ -192,6 +352,105 @@ export class JobExecutionService extends EventEmitter {
       this.isProcessingLoop = false;
       this.log.debug('连续处理循环已结束');
     }
+  }
+
+  /**
+   * 并行处理逻辑
+   * @returns 是否处理了任务
+   */
+  private async runParallelProcessing(): Promise<boolean> {
+    // 检查当前活跃任务数量是否已达到并发限制
+    const currentActiveJobs = this.state.activeJobs.size;
+    const availableSlots = Math.min(
+      this.state.concurrencyLimit - currentActiveJobs,
+      this.state.maxConcurrency - currentActiveJobs
+    );
+
+    if (availableSlots <= 0) {
+      // 已达到并发限制，等待一段时间
+      await this.delay(100);
+      return false;
+    }
+
+    // 批量获取任务
+    const jobsToProcess = this.drivenMemoryQueue.shiftBatch(
+      Math.min(availableSlots, this.state.batchSize)
+    );
+
+    if (jobsToProcess.length === 0) {
+      // 队列为空，返回false表示没有处理任务
+      return false;
+    }
+
+    this.log.debug(
+      {
+        jobCount: jobsToProcess.length,
+        availableSlots,
+        activeJobs: currentActiveJobs,
+        concurrencyLimit: this.state.concurrencyLimit
+      },
+      '开始并行处理任务批次'
+    );
+
+    // 并行启动任务（不等待完成）
+    const taskPromises = jobsToProcess.map(async (job, index) => {
+      // 根据配置添加任务间隔
+      if (index > 0 && this.state.taskInterval > 0) {
+        await this.delay(this.state.taskInterval * index);
+      }
+
+      // 检查是否需要控制任务启动频率
+      const now = Date.now();
+      if (
+        this.state.lastTaskStartTime > 0 &&
+        now - this.state.lastTaskStartTime < this.state.taskInterval
+      ) {
+        const waitTime =
+          this.state.taskInterval - (now - this.state.lastTaskStartTime);
+        await this.delay(waitTime);
+      }
+
+      this.state.lastTaskStartTime = Date.now();
+
+      // 执行任务
+      return this.executeJob(job);
+    });
+
+    // 可以选择等待所有任务完成，也可以不等待（真正的并行）
+    // 这里不等待，让任务在后台运行
+    Promise.allSettled(taskPromises).catch((error) => {
+      this.log.error({ error }, '并行任务批次执行出错');
+    });
+
+    return true; // 返回true表示处理了任务
+  }
+
+  /**
+   * 串行处理逻辑（原有逻辑）
+   * @returns 是否处理了任务
+   */
+  private async runSerialProcessing(): Promise<boolean> {
+    // 检查是否有活跃任务（确保串行执行）
+    if (this.state.activeJobs.size > 0) {
+      // 有活跃任务时，短暂等待
+      await this.delay(50);
+      return false;
+    }
+
+    // 从队列管理器获取下一个任务
+    const job = this.drivenMemoryQueue.shift();
+    if (!job) {
+      // 队列为空，返回false表示没有处理任务
+      return false;
+    }
+
+    // 执行任务
+    await this.executeJob(job);
+
+    // 短暂让出控制权，避免阻塞事件循环
+    await this.delay(10);
+
+    return true; // 返回true表示处理了任务
   }
 
   /**
@@ -372,48 +631,48 @@ export class JobExecutionService extends EventEmitter {
    */
   private async handleJobFailure(job: QueueJob, error: Error): Promise<void> {
     try {
-      // const shouldRetry = job.attempts < job.max_attempts;
+      const shouldRetry = job.attempts < job.max_attempts;
 
-      // if (shouldRetry) {
-      //   // 重新设置任务状态为等待，增加重试次数
-      //   await this.jobRepository.updateStatus({
-      //     jobId: job.id,
-      //     status: 'waiting'
-      //   });
+      if (shouldRetry) {
+        // 重新设置任务状态为等待，增加重试次数
+        await this.jobRepository.updateStatus({
+          jobId: job.id,
+          status: 'waiting'
+        });
 
-      //   this.log.warn(
-      //     {
-      //       jobId: job.id,
-      //       attempt: job.attempts + 1,
-      //       maxAttempts: job.max_attempts,
-      //       error: error.message
-      //     },
-      //     '任务执行失败，将重试'
-      //   );
-      // } else {
-      //   // 标记任务为失败状态（保留在queue_jobs表中便于重试）
-      //   await this.jobRepository.markAsFailed(job, {
-      //     message: error.message,
-      //     stack: error.stack,
-      //     code: (error as any).code
-      //   });
+        this.log.warn(
+          {
+            jobId: job.id,
+            attempt: job.attempts + 1,
+            maxAttempts: job.max_attempts,
+            error: error.message
+          },
+          '任务执行失败，将重试'
+        );
+      } else {
+        // 标记任务为失败状态（保留在queue_jobs表中便于重试）
+        await this.jobRepository.markAsFailed(job, {
+          message: error.message,
+          stack: error.stack,
+          code: (error as any).code
+        });
 
-      //   this.state.totalProcessed++;
-      //   this.state.totalFailed++;
+        this.state.totalProcessed++;
+        this.state.totalFailed++;
 
-      //   this.log.error(
-      //     {
-      //       jobId: job.id,
-      //       attempts: job.attempts,
-      //       maxAttempts: job.max_attempts,
-      //       error: error.message
-      //     },
-      //     '任务执行失败，已标记为失败状态'
-      //   );
+        this.log.error(
+          {
+            jobId: job.id,
+            attempts: job.attempts,
+            maxAttempts: job.max_attempts,
+            error: error.message
+          },
+          '任务执行失败，已标记为失败状态'
+        );
 
-      //   // 🔥 新增：任务失败后直接检查队列水位并加载数据
-      //   this.checkQueueAndLoadData('failure');
-      // }
+        // 🔥 新增：任务失败后直接检查队列水位并加载数据
+        this.checkQueueAndLoadData('failure');
+      }
       // 标记任务为失败状态（保留在queue_jobs表中便于重试）
       await this.jobRepository.markAsFailed(job, {
         message: error.message,
@@ -586,6 +845,16 @@ export class JobExecutionService extends EventEmitter {
    * 销毁执行服务
    */
   async destroy(): Promise<void> {
+    // 停止处理循环
+    this.stopProcessingLoop();
+
+    // 等待活跃任务完成
+    await this.waitForActiveJobs(5000);
+
+    // 清理事件监听器
+    this.databaseJobStream.removeAllListeners('jobs:added');
+    this.drivenMemoryQueue.removeAllListeners('length:changed');
+
     this.log.info('任务执行服务已销毁');
   }
 }

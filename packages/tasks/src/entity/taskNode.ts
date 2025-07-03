@@ -37,7 +37,9 @@ import {
  */
 export class TaskNode extends EventEmitter {
   public readonly id: string;
-  public data: Omit<Required<TaskData>, 'parentId'>;
+  public data: Omit<Required<TaskData>, 'parentId'> & {
+    executorConfig?: import('../types/task.types.js').TaskExecutorConfig;
+  };
   public parent: TaskNode | null = null;
   public children: (TaskNode | TaskNodePlaceholder)[] = [];
   private _sharedContext: SharedContext | null = null; // 任务树共享上下文
@@ -555,7 +557,7 @@ export class TaskNode extends EventEmitter {
     this.log.debug({ parentId: this.id, childId: child.id }, '子任务失败');
 
     // 转为占位符并检查状态
-    await this.convertChildToPlaceholder(child);
+    // await this.convertChildToPlaceholder(child);
     await this.checkAllChildrenStatus();
   }
 
@@ -584,7 +586,7 @@ export class TaskNode extends EventEmitter {
       id: child.id,
       name: child.data.name,
       status: child.status,
-      progress: child.progress,
+      progress: 100,
       completedAt: new Date(),
       isPlaceholder: true
     };
@@ -1116,6 +1118,10 @@ export class TaskNode extends EventEmitter {
             case TaskStatusChangeEvent.COMPLETED:
               executorMethod = 'onComplete';
               break;
+            case TaskStatusChangeEvent.RETRIED:
+              // 重试事件不需要执行特定的执行器方法，因为它会转到 PENDING 状态然后再次启动
+              executorMethod = '';
+              break;
             default:
               executorMethod = '';
           }
@@ -1157,6 +1163,8 @@ export class TaskNode extends EventEmitter {
 
       // 使用setImmediate确保异步执行，不阻塞当前状态变更
       this.emit(TASK_NODE_EVENTS.STATUS_SYNC, syncEvent);
+      // 发布状态事件
+      this.emit(event, this);
 
       // 检查是否为根节点且状态变为完成状态
       if (this.isRoot() && TaskStatusUtils.isCompleted(newStatus)) {
@@ -1364,6 +1372,101 @@ export class TaskNode extends EventEmitter {
       TaskStatusChangeEvent.CANCELLED,
       TriggerType.MANUAL,
       reason
+    );
+  }
+
+  /**
+   * 重试失败的任务
+   * @param reason 重试原因
+   * @param resetProgress 是否重置进度，默认为 true
+   */
+  async retry(reason?: string, resetProgress: boolean = true): Promise<void> {
+    // 检查任务是否可以重试
+    if (!TaskStatusUtils.canRetry(this.data.status)) {
+      throw new Error(`任务 ${this.id} 当前状态 ${this.data.status} 无法重试`);
+    }
+
+    // 检查是否超过重试限制
+    const executorConfig =
+      this.data.executorConfig || this.data.metadata?.executorConfig;
+    const maxRetries = executorConfig?.retries || 0;
+    const currentRetries = this.data.metadata?.currentRetries || 0;
+
+    if (maxRetries > 0 && currentRetries >= maxRetries) {
+      throw new Error(
+        `任务 ${this.id} 已达到最大重试次数 ${maxRetries}，无法继续重试`
+      );
+    }
+
+    this.log.info(
+      {
+        taskId: this.id,
+        currentRetries,
+        maxRetries,
+        reason
+      },
+      '开始重试失败的任务'
+    );
+
+    // 更新重试相关的元数据
+    const newCurrentRetries = currentRetries + 1;
+    const now = new Date();
+
+    // 构建重试历史记录
+    const retryHistory = this.data.metadata?.retryHistory || [];
+    retryHistory.push({
+      attemptNumber: newCurrentRetries,
+      timestamp: now,
+      reason: reason || '手动重试',
+      error: undefined // 这次重试还没有错误信息
+    });
+
+    // 更新元数据
+    this.updateMetadata(
+      (oldMetadata) => ({
+        ...oldMetadata,
+        currentRetries: newCurrentRetries,
+        lastRetryAt: now,
+        retryHistory
+      }),
+      `重试任务：第 ${newCurrentRetries} 次尝试`
+    );
+
+    // 重置进度（如果需要）
+    if (resetProgress) {
+      this.data.progress = 0;
+    }
+
+    // 更新状态到 PENDING，然后自动启动任务
+    await this.setStatus(
+      TaskStatus.PENDING,
+      TaskStatusChangeEvent.RETRIED,
+      TriggerType.MANUAL,
+      reason || `重试任务：第 ${newCurrentRetries} 次尝试`
+    );
+
+    // 自动启动重试的任务
+    try {
+      await this.start('重试后自动启动');
+    } catch (error) {
+      this.log.error(
+        {
+          taskId: this.id,
+          currentRetries: newCurrentRetries,
+          error: error instanceof Error ? error.message : String(error)
+        },
+        '重试任务启动失败'
+      );
+      throw error;
+    }
+
+    this.log.info(
+      {
+        taskId: this.id,
+        currentRetries: newCurrentRetries,
+        maxRetries
+      },
+      '任务重试完成并已启动'
     );
   }
 

@@ -14,6 +14,7 @@ Stratix框架任务管理系统 - 支持多级任务创建、状态控制和进�
 - [高级功能](#高级功能)
 - [最佳实践](#最佳实践)
 - [故障排除](#故障排除)
+- [任务重试功能](#任务重试功能)
 
 ## 🚀 功能特性
 
@@ -647,4 +648,193 @@ MIT License
 
 ---
 
-更多信息请参考 [Stratix 框架文档](https://github.com/stratix/framework)。 
+更多信息请参考 [Stratix 框架文档](https://github.com/stratix/framework)。
+
+## 任务重试功能
+
+### 功能概述
+
+`@stratix/tasks` 提供了完善的任务重试机制，允许失败的任务重新执行。重试功能包括：
+
+- 自动重试计数跟踪
+- 重试历史记录
+- 最大重试次数限制
+- 重试间隔配置（在执行器配置中）
+- 灵活的进度重置选项
+
+### 基本用法
+
+#### 1. 配置任务重试参数
+
+```typescript
+import { TaskTreeService, TaskExecutorConfig, CreateTaskParams } from '@stratix/tasks';
+
+// 创建带重试配置的任务
+const taskParams: CreateTaskParams = {
+  name: '数据同步任务',
+  description: '同步用户数据到远程服务器',
+  type: TaskType.LEAF,
+  executorConfig: {
+    name: 'dataSyncExecutor',
+    retries: 3,        // 最大重试次数
+    retryDelay: 5000   // 重试间隔（毫秒）
+  }
+};
+
+const task = await taskTreeService.createTask({
+  data: taskParams
+});
+```
+
+#### 2. 手动重试失败的任务
+
+```typescript
+// 重试失败的任务
+const retryResult = await taskTreeService.retryTask(
+  'task-id',
+  '网络连接恢复，重新尝试',  // 重试原因
+  true  // 是否重置进度（默认为 true）
+);
+
+if (retryResult.success) {
+  console.log('任务重试成功启动');
+} else {
+  console.error('任务重试失败:', retryResult.error);
+}
+```
+
+#### 3. 检查任务是否可以重试
+
+```typescript
+import { TaskStatusUtils } from '@stratix/tasks';
+
+const task = taskTreeService.getTask('task-id');
+if (task && TaskStatusUtils.canRetry(task.status)) {
+  console.log('任务可以重试');
+  
+  // 检查重试次数
+  const currentRetries = task.data.metadata?.currentRetries || 0;
+  const maxRetries = task.data.executorConfig?.retries || 0;
+  
+  console.log(`当前重试次数: ${currentRetries}/${maxRetries}`);
+}
+```
+
+#### 4. 查看重试历史
+
+```typescript
+const task = taskTreeService.getTask('task-id');
+if (task && task.data.metadata?.retryHistory) {
+  console.log('重试历史:');
+  task.data.metadata.retryHistory.forEach(retry => {
+    console.log(`第${retry.attemptNumber}次重试 - ${retry.timestamp}: ${retry.reason}`);
+  });
+}
+```
+
+### 高级功能
+
+#### 自动重试逻辑
+
+在执行器中实现自动重试逻辑：
+
+```typescript
+import { TaskExecutor, TaskNode, SharedContext } from '@stratix/tasks';
+
+class DataSyncExecutor implements TaskExecutor {
+  name = 'dataSyncExecutor';
+  description = '数据同步执行器，支持自动重试';
+
+  async onFail(taskNode: TaskNode, context: SharedContext): Promise<void> {
+    const currentRetries = taskNode.data.metadata?.currentRetries || 0;
+    const maxRetries = taskNode.data.executorConfig?.retries || 0;
+    const retryDelay = taskNode.data.executorConfig?.retryDelay || 1000;
+
+    // 检查是否可以自动重试
+    if (currentRetries < maxRetries) {
+      console.log(`任务失败，将在 ${retryDelay}ms 后自动重试...`);
+      
+      // 延迟后自动重试
+      setTimeout(async () => {
+        try {
+          await taskNode.retry('自动重试');
+        } catch (error) {
+          console.error('自动重试失败:', error);
+        }
+      }, retryDelay);
+    } else {
+      console.log('已达到最大重试次数，任务彻底失败');
+    }
+  }
+}
+```
+
+#### 重试策略配置
+
+```typescript
+// 不同类型任务的重试策略
+const networkTaskConfig: TaskExecutorConfig = {
+  name: 'networkExecutor',
+  retries: 5,         // 网络任务重试多次
+  retryDelay: 2000    // 较短的重试间隔
+};
+
+const databaseTaskConfig: TaskExecutorConfig = {
+  name: 'databaseExecutor',
+  retries: 2,         // 数据库任务重试少一些
+  retryDelay: 10000   // 较长的重试间隔
+};
+```
+
+### 重试状态和事件
+
+重试功能会触发以下状态变更：
+
+1. `FAILED` → `PENDING`：任务状态从失败重置为待执行
+2. `PENDING` → `RUNNING`：重试的任务自动启动
+
+监听重试事件：
+
+```typescript
+taskNode.on('retried', (taskNode) => {
+  console.log(`任务 ${taskNode.id} 开始重试`);
+});
+```
+
+### 注意事项
+
+1. **重试限制**：只有状态为 `FAILED` 的任务才能重试
+2. **占位符任务**：占位符任务无法重试
+3. **子任务**：有子任务的任务无法直接重试
+4. **进度重置**：默认情况下重试会重置任务进度，可以通过参数控制
+5. **重试计数**：重试次数会自动记录在任务元数据中
+
+### API 参考
+
+#### TaskStatusUtils.canRetry()
+
+检查任务是否可以重试：
+
+```typescript
+static canRetry(status: TaskStatus): boolean
+```
+
+#### TaskNode.retry()
+
+重试任务节点：
+
+```typescript
+async retry(reason?: string, resetProgress?: boolean): Promise<void>
+```
+
+#### TaskTreeService.retryTask()
+
+重试服务层任务：
+
+```typescript
+async retryTask(
+  id: string, 
+  reason?: string, 
+  resetProgress?: boolean
+): Promise<TaskStateChangeResult>
+``` 

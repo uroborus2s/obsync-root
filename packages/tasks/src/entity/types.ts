@@ -34,7 +34,8 @@ export enum TaskStatusChangeEvent {
   SUCCESS = 'success', // 成功完成事件
   FAILED = 'failed',
   CANCELLED = 'cancelled',
-  COMPLETED = 'completed' // 通用完成事件
+  COMPLETED = 'completed', // 通用完成事件
+  RETRIED = 'retried' // 重试事件
 }
 
 /**

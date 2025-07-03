@@ -4,12 +4,9 @@
  */
 
 import { Logger } from '@stratix/core';
-import { Kysely } from '@stratix/database';
 import { AttendanceRepository } from '../repositories/attendance-repository.js';
 import { CourseAggregateRepository } from '../repositories/course-aggregate-repository.js';
-import { CourseScheduleRepository } from '../repositories/course-schedule-repository.js';
 import { TeacherInfoRepository } from '../repositories/teacher-info-repository.js';
-import { ExtendedDatabase } from '../repositories/types.js';
 
 /**
  * 课程教师信息接口
@@ -31,20 +28,12 @@ export interface CourseTeacherInfo {
  * 课程服务类
  */
 export class CourseService {
-  private attendanceRepo: AttendanceRepository;
-  private courseScheduleRepo: CourseScheduleRepository;
-  private courseAggregateRepo: CourseAggregateRepository;
-  private teacherInfoRepo: TeacherInfoRepository;
-
   constructor(
-    private db: Kysely<ExtendedDatabase>,
-    private log: Logger
-  ) {
-    this.attendanceRepo = new AttendanceRepository(db, log);
-    this.courseScheduleRepo = new CourseScheduleRepository(db, log);
-    this.courseAggregateRepo = new CourseAggregateRepository(db, log);
-    this.teacherInfoRepo = new TeacherInfoRepository(db, log);
-  }
+    private log: Logger,
+    private attendanceRepo: AttendanceRepository,
+    private courseAggregateRepo: CourseAggregateRepository,
+    private teacherInfoRepo: TeacherInfoRepository
+  ) {}
 
   /**
    * 根据考勤记录ID获取课程的授课教师信息

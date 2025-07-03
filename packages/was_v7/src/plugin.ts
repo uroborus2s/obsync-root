@@ -27,7 +27,7 @@ export const wasV7Plugin: StratixPlugin = {
   skipOverride: true,
   defaultOptions: {
     baseUrl: 'https://openapi.wps.cn',
-    timeout: 30000,
+    timeout: 1000 * 60 * 5,
     retryTimes: 3,
     debug: false
   },

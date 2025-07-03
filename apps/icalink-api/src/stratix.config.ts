@@ -80,19 +80,19 @@ export default (sensitiveInfo: any): StratixConfig => {
             default: {
               connection: {
                 client: 'mysql',
-                ...sensitiveInfo.databases.default,
-                // 增加MySQL特定配置以支持大数据包
-                connectionLimit: 20,
-                acquireTimeout: 60000,
-                timeout: 60000,
-                reconnect: true,
-                bigNumberStrings: true
+                ...sensitiveInfo.databases.default
+              }
+            },
+            origin: {
+              connection: {
+                client: 'mysql',
+                ...sensitiveInfo.databases.origin
               }
             }
           }
         }
       ],
-      [apiPlugin, { ...sensitiveInfo.icalink }]
+      [apiPlugin, { ...sensitiveInfo.icalink_api }]
     ]
   };
 };

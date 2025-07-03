@@ -4,7 +4,7 @@
  */
 
 import { Logger } from '@stratix/core';
-import type { Kysely } from '@stratix/database';
+import type { DatabaseProvider, Kysely } from '@stratix/database';
 import { BaseRepository } from './base-repository.js';
 import { ExtendedDatabase, StudentCourseEntity } from './types.js';
 
@@ -12,8 +12,12 @@ import { ExtendedDatabase, StudentCourseEntity } from './types.js';
  * 学生课表Repository实现
  */
 export class StudentCourseRepository extends BaseRepository {
-  constructor(db: Kysely<ExtendedDatabase>, log: Logger) {
-    super(db, log);
+  private db: Kysely<ExtendedDatabase>;
+  constructor(databaseProvider: DatabaseProvider, log: Logger) {
+    super(log);
+    this.db = databaseProvider.getDatabase(
+      'origin'
+    ) as Kysely<ExtendedDatabase>;
   }
 
   /**
@@ -108,6 +112,48 @@ export class StudentCourseRepository extends BaseRepository {
       return results;
     } catch (error) {
       this.handleDatabaseError('根据开课号和学年学期查询学生', error, {
+        kkh,
+        xnxq
+      });
+    }
+  }
+
+  /**
+   * 根据课程号和学年学期查询学生详细信息列表
+   */
+  async findStudentsWithDetailsByCourse(
+    kkh: string,
+    xnxq: string
+  ): Promise<
+    {
+      xh: string;
+      xm: string | null;
+      bjmc: string | null;
+      zymc: string | null;
+    }[]
+  > {
+    try {
+      const results = await this.db
+        .selectFrom('out_jw_kcb_xs')
+        .innerJoin('out_xsxx', 'out_jw_kcb_xs.xh', 'out_xsxx.xh')
+        .select([
+          'out_jw_kcb_xs.xh',
+          'out_xsxx.xm',
+          'out_xsxx.bjmc',
+          'out_xsxx.zymc'
+        ])
+        .where('out_jw_kcb_xs.kkh', '=', kkh)
+        .where('out_jw_kcb_xs.xnxq', '=', xnxq)
+        .execute();
+
+      this.logOperation('根据课程查询学生详细信息', {
+        kkh,
+        xnxq,
+        count: results.length
+      });
+      return results;
+    } catch (error) {
+      this.handleDatabaseError('根据课程查询学生详细信息', error, {
         kkh,
         xnxq
       });

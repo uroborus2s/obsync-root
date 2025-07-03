@@ -4,7 +4,8 @@
  */
 
 import { Logger } from '@stratix/core';
-import type { Kysely } from '@stratix/database';
+import type { DatabaseProvider, Kysely } from '@stratix/database';
+import { sql } from '@stratix/database';
 import { BaseRepository } from './base-repository.js';
 import { CourseScheduleEntity, ExtendedDatabase } from './types.js';
 
@@ -12,8 +13,10 @@ import { CourseScheduleEntity, ExtendedDatabase } from './types.js';
  * 课表数据Repository实现
  */
 export class CourseScheduleRepository extends BaseRepository {
-  constructor(db: Kysely<ExtendedDatabase>, log: Logger) {
-    super(db, log);
+  private db: Kysely<ExtendedDatabase>;
+  constructor(databaseProvider: DatabaseProvider, log: Logger) {
+    super(log);
+    this.db = databaseProvider.getDatabase('origin');
   }
 
   /**
@@ -136,9 +139,8 @@ export class CourseScheduleRepository extends BaseRepository {
     conditions: Array<{
       kkh: string;
       xnxq: string;
-      jxz: string;
-      zc: number;
       rq: string;
+      st: string;
     }>,
     gxZt: number
   ): Promise<number> {
@@ -156,8 +158,7 @@ export class CourseScheduleRepository extends BaseRepository {
             })
             .where('kkh', '=', condition.kkh)
             .where('xnxq', '=', condition.xnxq)
-            .where('jxz', '=', condition.jxz)
-            .where('zc', '=', condition.zc)
+            .where('st', '=', condition.st)
             .where('rq', '=', condition.rq)
             .execute();
 
@@ -206,6 +207,8 @@ export class CourseScheduleRepository extends BaseRepository {
         .where('jxz', '=', jxz)
         .where('zc', '=', zc)
         .where('rq', '=', rq)
+        .where('zt', '=', 'delete')
+        .where('gx_zt', 'is', null)
         .execute();
 
       const updated = result.length > 0 && result[0].numUpdatedRows > BigInt(0);
@@ -266,6 +269,12 @@ export class CourseScheduleRepository extends BaseRepository {
     rq?: string;
     gxZt?: number | null;
     zt?: string;
+    sjf?: string;
+    sjt?: string;
+    sjd?: 'am' | 'pm';
+    kcmc?: string;
+    beginDate?: string;
+    endDate?: string;
   }): Promise<CourseScheduleEntity[]> {
     try {
       let query = this.db.selectFrom('u_jw_kcb_cur').selectAll();
@@ -279,12 +288,33 @@ export class CourseScheduleRepository extends BaseRepository {
       }
 
       if (conditions.rq) {
-        query = query.where('rq', '=', conditions.rq);
+        query = query.where(sql`DATE(rq)`, '=', conditions.rq);
+      }
+
+      if (conditions.beginDate) {
+        query = query.where(sql`DATE(rq)`, '>=', conditions.beginDate);
+      }
+
+      // 如果endDate和beginDate都存在，则查询这两个日期之间的数据
+      if (conditions.beginDate && conditions.endDate) {
+        query = query
+          .where(sql`DATE(rq)`, '>=', conditions.beginDate)
+          .where(sql`DATE(rq)`, '<=', conditions.endDate);
+      }
+
+      // 如果endDate存在，则查询endDate之前的所有数据
+      if (conditions.endDate) {
+        query = query.where(sql`DATE(rq)`, '<=', conditions.endDate);
+      }
+      if (conditions.kcmc) {
+        query = query.where('kcmc', '!=', conditions.kcmc);
       }
 
       if (conditions.gxZt !== undefined) {
         if (conditions.gxZt === null) {
-          query = query.where('gx_zt', 'is', null);
+          query = query.where((eb) =>
+            eb.or([eb('gx_zt', 'is', null), eb('gx_zt', '=', '')])
+          );
         } else {
           query = query.where('gx_zt', '=', conditions.gxZt);
         }
@@ -292,6 +322,31 @@ export class CourseScheduleRepository extends BaseRepository {
 
       if (conditions.zt) {
         query = query.where('zt', '=', conditions.zt);
+      }
+
+      if (conditions.sjf || conditions.sjt) {
+        query = query.where((eb) => {
+          const expressions = [];
+          if (conditions.sjf) {
+            expressions.push(eb('st', '=', conditions.sjf));
+          }
+          if (conditions.sjt) {
+            // 注意这里的列名是 st
+            expressions.push(eb('ed', '=', conditions.sjt));
+          }
+          return eb.or(expressions);
+        });
+      }
+
+      // 根据时间段(sjd)过滤节次
+      if (conditions.sjd) {
+        if (conditions.sjd === 'am') {
+          // 上午时段：节次1-4
+          query = query.where('jc', '>=', 1).where('jc', '<=', 4);
+        } else if (conditions.sjd === 'pm') {
+          // 下午时段：节次5-10
+          query = query.where('jc', '>=', 5).where('jc', '<=', 10);
+        }
       }
 
       const results = await query
@@ -411,6 +466,284 @@ export class CourseScheduleRepository extends BaseRepository {
       return results;
     } catch (error) {
       this.handleDatabaseError('查询教师课表', error, { xnxq, ghs });
+    }
+  }
+
+  /**
+   * 生成聚合数据到juhe_renwu表
+   * 通过对kkh，日期，上下午的聚合和union，生成日历的任务清单
+   *
+   * @param xnxq 学年学期
+   * @param conditions 过滤条件
+   * @param conditions.gxZtFilter 更新状态过滤器
+   *   - 'null': 只处理gx_zt为null的数据（未处理）
+   *   - '4': 只处理gx_zt为4的数据（软删除处理完毕）
+   *   - 'both': 处理gx_zt为null或4的数据（所有待处理）
+   * @param conditions.dateRange 日期范围过滤
+   * @param conditions.zt 是否过滤删除状态
+   *
+   * @example
+   * // 处理未同步数据
+   * await repo.generateAggregateData('2024-2025-2', { gxZtFilter: 'null' });
+   *
+   * // 处理软删除数据
+   * await repo.generateAggregateData('2024-2025-2', { gxZtFilter: '4' });
+   *
+   * // 处理所有待处理数据
+   * await repo.generateAggregateData('2024-2025-2', { gxZtFilter: 'both' });
+   */
+  async generateAggregateData(
+    xnxq?: string,
+    conditions?: {
+      gxZtIsNull?: boolean;
+      gxZtEquals4?: boolean;
+      gxZtFilter?: 'null' | '4' | 'both';
+      dateRange?: {
+        startDate: string;
+        endDate: string;
+      };
+      zt?: boolean;
+    }
+  ): Promise<{
+    amRecords: number;
+    pmRecords: number;
+    totalRecords: number;
+  }> {
+    try {
+      this.log.info({ xnxq, conditions }, '开始生成聚合数据');
+
+      // 使用 sql 模板字面量构建参数化查询
+      // 构建WHERE条件的sql片段
+      let whereConditions = sql`1 = 1`;
+
+      if (xnxq) {
+        whereConditions = sql`${whereConditions} AND xnxq = ${xnxq}`;
+      }
+
+      // 处理gx_zt状态过滤
+      if (conditions?.gxZtFilter) {
+        switch (conditions.gxZtFilter) {
+          case 'null':
+            whereConditions = sql`${whereConditions} AND (gx_zt IS NULL OR gx_zt = '')`;
+            break;
+          case '4':
+            whereConditions = sql`${whereConditions} AND gx_zt = 4`;
+            break;
+          case 'both':
+            whereConditions = sql`${whereConditions} AND (gx_zt IS NULL OR gx_zt = 4)`;
+            break;
+        }
+      } else {
+        // 保持向后兼容性
+        if (conditions?.gxZtIsNull) {
+          whereConditions = sql`${whereConditions} AND gx_zt IS NULL`;
+        }
+        if (conditions?.gxZtEquals4) {
+          whereConditions = sql`${whereConditions} AND gx_zt = 4`;
+        }
+      }
+
+      if (conditions?.dateRange) {
+        whereConditions = sql`${whereConditions} AND Date(rq) >= ${conditions.dateRange.startDate} AND Date(rq) <= ${conditions.dateRange.endDate}`;
+      }
+
+      // 增加删除聚合和未删除聚合
+      if (conditions?.zt) {
+        whereConditions = sql`${whereConditions} AND zt != 'delete'`;
+      }
+
+      // 执行聚合SQL - 使用UNION合并上午和下午的数据
+      const result = await sql`
+        INSERT INTO juhe_renwu (
+          kkh, xnxq, jxz, zc, rq, kcmc, sfdk,
+          jc_s, room_s, gh_s, xm_s, lq, sj_f, sj_t, sjd
+        )
+        SELECT
+          kkh,
+          xnxq,
+          jxz,
+          zc,
+          LEFT(rq, 10) rq,
+          kcmc,
+          sfdk,
+          GROUP_CONCAT(jc ORDER BY jc SEPARATOR '/') jc_s,
+          GROUP_CONCAT(IFNULL(room, '无') ORDER BY jc SEPARATOR '/') room_s,
+          GROUP_CONCAT(DISTINCT ghs) gh_s,
+          GROUP_CONCAT(DISTINCT xms) xm_s,
+          SUBSTRING_INDEX(GROUP_CONCAT(lq ORDER BY st), ',', 1) lq,
+          SUBSTRING_INDEX(GROUP_CONCAT(st ORDER BY st), ',', 1) sj_f,
+          SUBSTRING_INDEX(GROUP_CONCAT(ed ORDER BY ed DESC), ',', 1) sj_t,
+          'am' sjd
+        FROM u_jw_kcb_cur
+        WHERE ${whereConditions} AND jc < 5
+        GROUP BY kkh, xnxq, jxz, zc, rq, kcmc, sfdk
+        UNION
+        SELECT
+          kkh,
+          xnxq,
+          jxz,
+          zc,
+          LEFT(rq, 10) rq,
+          kcmc,
+          sfdk,
+          GROUP_CONCAT(jc ORDER BY jc SEPARATOR '/') jc_s,
+          GROUP_CONCAT(IFNULL(room, '无') ORDER BY jc SEPARATOR '/') room_s,
+          GROUP_CONCAT(DISTINCT ghs) gh_s,
+          GROUP_CONCAT(DISTINCT xms) xm_s,
+          SUBSTRING_INDEX(GROUP_CONCAT(lq ORDER BY st), ',', 1) lq,
+          SUBSTRING_INDEX(GROUP_CONCAT(st ORDER BY st), ',', 1) sj_f,
+          SUBSTRING_INDEX(GROUP_CONCAT(ed ORDER BY ed DESC), ',', 1) sj_t,
+          'pm' sjd
+        FROM u_jw_kcb_cur
+        WHERE ${whereConditions} AND jc > 4
+        GROUP BY kkh, xnxq, jxz, zc, rq, kcmc, sfdk
+      `.execute(this.db);
+
+      const totalInserted = Number(result.numAffectedRows || 0);
+
+      // 查询生成的上午和下午记录数量（用于统计）
+      const amCountResult = await this.db
+        .selectFrom('juhe_renwu')
+        .select(this.db.fn.count('id').as('count'))
+        .where('sjd', '=', 'am')
+        .where('xnxq', '=', xnxq || '')
+        .executeTakeFirst();
+
+      const pmCountResult = await this.db
+        .selectFrom('juhe_renwu')
+        .select(this.db.fn.count('id').as('count'))
+        .where('sjd', '=', 'pm')
+        .where('xnxq', '=', xnxq || '')
+        .executeTakeFirst();
+
+      const stats = {
+        amRecords: Number(amCountResult?.count || 0),
+        pmRecords: Number(pmCountResult?.count || 0),
+        totalRecords: totalInserted
+      };
+
+      this.logOperation('生成聚合数据完成', {
+        xnxq,
+        conditions,
+        stats
+      });
+
+      return stats;
+    } catch (error) {
+      this.handleDatabaseError('生成聚合数据', error, { xnxq, conditions });
+    }
+  }
+
+  /**
+   * 生成增量聚合数据（只处理gx_zt为null的数据）
+   * 用于增量同步场景
+   */
+  async generateIncrementalAggregateData(xnxq: string): Promise<{
+    amRecords: number;
+    pmRecords: number;
+    totalRecords: number;
+  }> {
+    try {
+      this.log.info({ xnxq }, '开始生成增量聚合数据');
+
+      return await this.generateAggregateData(xnxq, {
+        gxZtFilter: 'null',
+        dateRange: {
+          startDate: '2025-06-24',
+          endDate: '2025-07-16'
+        }
+      });
+    } catch (error) {
+      this.handleDatabaseError('生成增量聚合数据', error, { xnxq });
+    }
+  }
+
+  /**
+   * 生成软删除聚合数据（只处理gx_zt为4的数据）
+   * 用于处理软删除的课程数据
+   */
+  async generateSoftDeletedAggregateData(xnxq: string): Promise<{
+    amRecords: number;
+    pmRecords: number;
+    totalRecords: number;
+  }> {
+    try {
+      this.log.info({ xnxq }, '开始生成软删除聚合数据');
+
+      return await this.generateAggregateData(xnxq, {
+        gxZtFilter: '4',
+        dateRange: {
+          startDate: '2025-06-24',
+          endDate: '2025-07-16'
+        }
+      });
+    } catch (error) {
+      this.handleDatabaseError('生成软删除聚合数据', error, { xnxq });
+    }
+  }
+
+  /**
+   * 生成全量待处理聚合数据（处理gx_zt为null或4的数据）
+   * 用于处理所有待处理的课程数据
+   */
+  async generatePendingAggregateData(xnxq: string): Promise<{
+    amRecords: number;
+    pmRecords: number;
+    totalRecords: number;
+  }> {
+    try {
+      this.log.info({ xnxq }, '开始生成全量待处理聚合数据');
+
+      return await this.generateAggregateData(xnxq, {
+        gxZtFilter: 'both',
+        dateRange: {
+          startDate: '2025-06-24',
+          endDate: '2025-07-16'
+        }
+      });
+    } catch (error) {
+      this.handleDatabaseError('生成全量待处理聚合数据', error, { xnxq });
+    }
+  }
+
+  /**
+   * 为指定日期范围生成聚合数据
+   */
+  async generateAggregateDataForDateRange(
+    xnxq: string,
+    startDate: string,
+    endDate: string,
+    gxZtFilter: 'null' | '4' | 'both' | 'all' = 'all'
+  ): Promise<{
+    amRecords: number;
+    pmRecords: number;
+    totalRecords: number;
+  }> {
+    try {
+      this.log.info(
+        { xnxq, startDate, endDate, gxZtFilter },
+        '开始为日期范围生成聚合数据'
+      );
+
+      const conditions: any = {
+        dateRange: {
+          startDate,
+          endDate
+        }
+      };
+
+      if (gxZtFilter !== 'all') {
+        conditions.gxZtFilter = gxZtFilter;
+      }
+
+      return await this.generateAggregateData(xnxq, conditions);
+    } catch (error) {
+      this.handleDatabaseError('为日期范围生成聚合数据', error, {
+        xnxq,
+        startDate,
+        endDate,
+        gxZtFilter
+      });
     }
   }
 }

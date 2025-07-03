@@ -63,8 +63,8 @@ export type {
   JobPayload,
   JobProcessingConfig,
   JobResult,
-  JobStatus,
   JobsAddedEvent,
+  JobStatus,
   MonitoringConfig,
   PersistenceConfig,
   // 队列核心类型
@@ -73,8 +73,8 @@ export type {
   // 事件类型
   QueueEventMap,
   QueueFailuresTable,
-  GroupStatus as QueueGroupStatus,
   QueueGroupsTable,
+  GroupStatus as QueueGroupStatus,
   QueueJob,
   QueueJobsTable,
   QueueMetricsTable,
@@ -92,3 +92,16 @@ export type {
 // ============================================================================
 
 export { QueueJobModel } from './models/queue-job.model.js';
+
+// ============================================================================
+// 配置
+// ============================================================================
+
+export {
+  DEFAULT_QUEUE_CONFIG,
+  getPresetConfig,
+  HIGH_THROUGHPUT_CONFIG,
+  LOW_LATENCY_CONFIG,
+  MEMORY_OPTIMIZED_CONFIG,
+  mergeConfig
+} from './config/default-config.js';

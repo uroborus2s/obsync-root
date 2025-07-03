@@ -43,19 +43,74 @@ interface AttendanceRecordData {
  * 考勤仓库类
  */
 export class AttendanceRepository extends BaseRepository {
-  constructor(db: Kysely<ExtendedDatabase>, log: Logger) {
-    super(db, log);
+  constructor(
+    private db: Kysely<ExtendedDatabase>,
+    log: Logger
+  ) {
+    super(log);
   }
 
   /**
-   * 创建考勤记录
+   * 创建或更新考勤记录
+   * 如果ID已存在则更新记录，否则创建新记录
    */
   async createAttendanceRecord(
     data: AttendanceRecordData
   ): Promise<AttendanceRecord> {
     try {
-      this.log.debug({ taskId: data.id, kkh: data.kkh }, '创建考勤记录');
+      this.log.debug({ taskId: data.id, kkh: data.kkh }, '创建或更新考勤记录');
 
+      // 先检查ID是否已存在
+      const existingRecord = await this.getAttendanceRecord(data.id);
+
+      if (existingRecord) {
+        this.log.info(
+          {
+            taskId: data.id,
+            kkh: data.kkh
+          },
+          '考勤记录ID已存在，开始更新记录'
+        );
+
+        // 更新现有记录
+        await this.db
+          .updateTable('icalink_attendance_records')
+          .set({
+            kkh: data.kkh,
+            xnxq: data.xnxq,
+            jxz: data.jxz || null,
+            zc: data.zc || null,
+            rq: data.rq,
+            jc_s: data.jc_s,
+            kcmc: data.kcmc,
+            sj_f: data.sj_f,
+            sj_t: data.sj_t,
+            sjd: data.sjd,
+            lq: data.lq || null,
+            total_count: data.total_count,
+            checkin_count: data.checkin_count,
+            absent_count: data.absent_count,
+            leave_count: data.leave_count,
+            checkin_url: data.checkin_url || null,
+            leave_url: data.leave_url || null,
+            checkin_token: data.checkin_token || null,
+            status: data.status,
+            auto_start_time: data.auto_start_time || null,
+            auto_close_time: data.auto_close_time || null,
+            updated_at: new Date() // 更新时间戳
+            // 注意：不更新 created_at，保持原始创建时间
+          })
+          .where('id', '=', data.id)
+          .execute();
+
+        this.log.info({ taskId: data.id, kkh: data.kkh }, '考勤记录更新成功');
+
+        // 返回更新后的记录
+        const updatedRecord = await this.getAttendanceRecord(data.id);
+        return updatedRecord!;
+      }
+
+      // ID不存在则创建新记录
       await this.db
         .insertInto('icalink_attendance_records')
         .values({
@@ -95,10 +150,20 @@ export class AttendanceRepository extends BaseRepository {
           taskId: data.id,
           kkh: data.kkh
         },
-        '创建考勤记录失败'
+        '创建或更新考勤记录失败'
       );
       throw error;
     }
+  }
+
+  /**
+   * 插入或更新考勤记录（upsert操作）
+   * 这是createAttendanceRecord的别名方法，提供更明确的语义
+   */
+  async upsertAttendanceRecord(
+    data: AttendanceRecordData
+  ): Promise<AttendanceRecord> {
+    return this.createAttendanceRecord(data);
   }
 
   /**
@@ -131,6 +196,14 @@ export class AttendanceRepository extends BaseRepository {
       );
       throw error;
     }
+  }
+
+  /**
+   * 检查考勤记录ID是否存在
+   */
+  async checkAttendanceRecordExists(id: string): Promise<boolean> {
+    const record = await this.getAttendanceRecord(id);
+    return record !== null;
   }
 
   /**
@@ -180,7 +253,7 @@ export class AttendanceRepository extends BaseRepository {
   }
 
   /**
-   * 更新考勤记录
+   * 更新考勤记录（部分字段更新）
    */
   async updateAttendanceRecord(
     id: string,
@@ -189,7 +262,7 @@ export class AttendanceRepository extends BaseRepository {
     try {
       this.log.debug({ id, updates }, '更新考勤记录');
 
-      await this.db
+      const result = await this.db
         .updateTable('icalink_attendance_records')
         .set({
           ...updates,
@@ -197,6 +270,10 @@ export class AttendanceRepository extends BaseRepository {
         })
         .where('id', '=', id)
         .execute();
+
+      if (result.length === 0 || Number(result[0].numUpdatedRows) === 0) {
+        throw new Error(`考勤记录不存在或更新失败: ${id}`);
+      }
 
       this.log.info({ id }, '考勤记录更新成功');
     } catch (error) {
@@ -207,6 +284,71 @@ export class AttendanceRepository extends BaseRepository {
           updates
         },
         '更新考勤记录失败'
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * 更新完整考勤记录（如果记录不存在则抛出错误）
+   */
+  async updateFullAttendanceRecord(
+    id: string,
+    data: AttendanceRecordData
+  ): Promise<AttendanceRecord> {
+    try {
+      this.log.debug({ id, kkh: data.kkh }, '更新完整考勤记录');
+
+      // 先检查记录是否存在
+      const existingRecord = await this.getAttendanceRecord(id);
+      if (!existingRecord) {
+        throw new Error(`考勤记录不存在: ${id}`);
+      }
+
+      // 更新记录
+      await this.db
+        .updateTable('icalink_attendance_records')
+        .set({
+          kkh: data.kkh,
+          xnxq: data.xnxq,
+          jxz: data.jxz || null,
+          zc: data.zc || null,
+          rq: data.rq,
+          jc_s: data.jc_s,
+          kcmc: data.kcmc,
+          sj_f: data.sj_f,
+          sj_t: data.sj_t,
+          sjd: data.sjd,
+          lq: data.lq || null,
+          total_count: data.total_count,
+          checkin_count: data.checkin_count,
+          absent_count: data.absent_count,
+          leave_count: data.leave_count,
+          checkin_url: data.checkin_url || null,
+          leave_url: data.leave_url || null,
+          checkin_token: data.checkin_token || null,
+          status: data.status,
+          auto_start_time: data.auto_start_time || null,
+          auto_close_time: data.auto_close_time || null,
+          updated_at: new Date()
+          // 不更新 created_at，保持原始创建时间
+        })
+        .where('id', '=', id)
+        .execute();
+
+      this.log.info({ id, kkh: data.kkh }, '完整考勤记录更新成功');
+
+      // 返回更新后的记录
+      const updatedRecord = await this.getAttendanceRecord(id);
+      return updatedRecord!;
+    } catch (error) {
+      this.log.error(
+        {
+          error: error instanceof Error ? error.message : String(error),
+          id,
+          kkh: data.kkh
+        },
+        '更新完整考勤记录失败'
       );
       throw error;
     }
@@ -289,6 +431,76 @@ export class AttendanceRepository extends BaseRepository {
           attendanceRecordId
         },
         '更新考勤统计失败'
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * 根据任务ID列表查找考勤记录
+   */
+  async findByTaskIds(taskIds: string[]): Promise<AttendanceRecord[]> {
+    try {
+      this.log.debug({ taskIds }, '根据任务ID列表查找考勤记录');
+
+      if (taskIds.length === 0) {
+        return [];
+      }
+
+      const results = await this.db
+        .selectFrom('icalink_attendance_records')
+        .selectAll()
+        .where('id', 'in', taskIds)
+        .execute();
+
+      return results.map((result) => this.convertToAttendanceRecord(result));
+    } catch (error) {
+      this.log.error(
+        {
+          error: error instanceof Error ? error.message : String(error),
+          taskIds
+        },
+        '根据任务ID列表查找考勤记录失败'
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * 根据条件查找所有考勤记录
+   */
+  async findAllWithConditions(
+    conditions: Record<string, any>
+  ): Promise<AttendanceRecord[]> {
+    try {
+      this.log.debug({ conditions }, '根据条件查找所有考勤记录');
+
+      let query = this.db.selectFrom('icalink_attendance_records').selectAll();
+
+      // 动态构建查询条件
+      for (const [key, value] of Object.entries(conditions)) {
+        if (value !== undefined && value !== null) {
+          if (typeof value === 'object' && value['>=']) {
+            query = query.where(key as any, '>=', value['>=']);
+          } else if (typeof value === 'object' && value['<=']) {
+            query = query.where(key as any, '<=', value['<=']);
+          } else if (typeof value === 'object' && value['like']) {
+            query = query.where(key as any, 'like', value['like']);
+          } else {
+            query = query.where(key as any, '=', value);
+          }
+        }
+      }
+
+      const results = await query.execute();
+      return results.map((result) => this.convertToAttendanceRecord(result));
+    } catch (error) {
+      this.log.error(
+        {
+          error: error instanceof Error ? error.message : String(error),
+          conditions
+        },
+        '根据条件查找所有考勤记录失败'
       );
       throw error;
     }

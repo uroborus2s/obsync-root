@@ -26,8 +26,11 @@ export interface CreateLeaveApprovalParams {
  * 请假审批仓库类
  */
 export class LeaveApprovalRepository extends BaseRepository {
-  constructor(db: Kysely<ExtendedDatabase>, log: Logger) {
-    super(db, log);
+  constructor(
+    private db: Kysely<ExtendedDatabase>,
+    log: Logger
+  ) {
+    super(log);
   }
 
   /**

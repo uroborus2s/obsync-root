@@ -25,8 +25,11 @@ export interface CreateLeaveAttachmentParams {
  * 请假附件仓库类
  */
 export class LeaveAttachmentRepository extends BaseRepository {
-  constructor(db: Kysely<ExtendedDatabase>, log: Logger) {
-    super(db, log);
+  constructor(
+    private db: Kysely<ExtendedDatabase>,
+    log: Logger
+  ) {
+    super(log);
   }
 
   /**

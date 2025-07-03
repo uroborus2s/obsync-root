@@ -62,6 +62,16 @@ export interface StudentAttendanceQueryConditions {
   checkin_time_end?: Date;
 }
 
+export interface DetailedAttendanceQueryConditions {
+  studentId?: string;
+  teacherName?: string;
+  week?: number;
+  startTime?: string;
+  endTime?: string;
+  page?: number;
+  pageSize?: number;
+}
+
 /**
  * 学生签到统计结果
  */
@@ -77,8 +87,11 @@ export interface StudentAttendanceStats {
  * 学生签到仓库类
  */
 export class StudentAttendanceRepository extends BaseRepository {
-  constructor(db: Kysely<ExtendedDatabase>, log: Logger) {
-    super(db, log);
+  constructor(
+    private db: Kysely<ExtendedDatabase>,
+    log: Logger
+  ) {
+    super(log);
   }
 
   /**
@@ -184,6 +197,69 @@ export class StudentAttendanceRepository extends BaseRepository {
           id
         },
         '获取学生签到记录失败'
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * 根据考勤记录ID获取所有学生签到记录
+   */
+  async findByAttendanceRecordId(
+    attendanceRecordId: string
+  ): Promise<StudentAttendanceEntity[]> {
+    try {
+      this.log.debug({ attendanceRecordId }, '根据考勤记录ID获取学生签到记录');
+
+      const results = await this.db
+        .selectFrom('icalink_student_attendance')
+        .selectAll()
+        .where('attendance_record_id', '=', attendanceRecordId)
+        .execute();
+
+      return results as StudentAttendanceEntity[];
+    } catch (error) {
+      this.log.error(
+        {
+          error: error instanceof Error ? error.message : String(error),
+          attendanceRecordId
+        },
+        '根据考勤记录ID获取学生签到记录失败'
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * 根据考勤记录ID列表获取所有学生签到记录
+   */
+  async findByAttendanceRecordIds(
+    attendanceRecordIds: string[]
+  ): Promise<StudentAttendanceEntity[]> {
+    try {
+      this.log.debug(
+        { attendanceRecordIds },
+        '根据考勤记录ID列表获取学生签到记录'
+      );
+
+      if (attendanceRecordIds.length === 0) {
+        return [];
+      }
+
+      const results = await this.db
+        .selectFrom('icalink_student_attendance')
+        .selectAll()
+        .where('attendance_record_id', 'in', attendanceRecordIds)
+        .execute();
+
+      return results as StudentAttendanceEntity[];
+    } catch (error) {
+      this.log.error(
+        {
+          error: error instanceof Error ? error.message : String(error),
+          attendanceRecordIds
+        },
+        '根据考勤记录ID列表获取学生签到记录失败'
       );
       throw error;
     }
@@ -2623,5 +2699,130 @@ export class StudentAttendanceRepository extends BaseRepository {
         message: error instanceof Error ? error.message : '撤回请假申请失败'
       };
     }
+  }
+
+  async findWithDetails(params: DetailedAttendanceQueryConditions): Promise<{
+    total: number;
+    records: any[];
+  }> {
+    const {
+      studentId,
+      week,
+      startTime,
+      endTime,
+      page = 1,
+      pageSize = 10
+    } = params;
+
+    let baseQuery = this.db
+      .selectFrom('icalink_student_attendance as sa')
+      .innerJoin(
+        'icalink_attendance_records as a',
+        'a.id',
+        'sa.attendance_record_id'
+      );
+
+    if (studentId) {
+      baseQuery = baseQuery.where('sa.xh', '=', studentId);
+    }
+    if (week) {
+      baseQuery = baseQuery.where('a.zc', '=', week);
+    }
+    if (startTime) {
+      baseQuery = baseQuery.where('a.rq', '>=', startTime.split(' ')[0]);
+    }
+    if (endTime) {
+      baseQuery = baseQuery.where('a.rq', '<=', endTime.split(' ')[0]);
+    }
+
+    // --- Deferred Join Optimization ---
+    // 1. Get the total count first
+    const totalResult = await baseQuery
+      .select((eb) => eb.fn.count('sa.id').as('total'))
+      .executeTakeFirst();
+    const total = Number(totalResult?.total) || 0;
+
+    if (total === 0) {
+      return { total: 0, records: [] };
+    }
+
+    // 2. Find the IDs of the records for the current page
+    const pageIdsQuery = baseQuery
+      .select('sa.id')
+      .orderBy('a.rq', 'desc')
+      .orderBy('sa.id', 'desc') // Add a secondary sort for stable pagination
+      .limit(pageSize)
+      .offset((page - 1) * pageSize);
+
+    const pageIdsResult = await pageIdsQuery.execute();
+    const pageIds = pageIdsResult.map((row) => row.id);
+
+    if (pageIds.length === 0) {
+      return { total, records: [] };
+    }
+
+    // 3. Fetch the full details for only those IDs
+    const records = await this.db
+      .selectFrom('icalink_student_attendance as sa')
+      .innerJoin(
+        'icalink_attendance_records as a',
+        'a.id',
+        'sa.attendance_record_id'
+      )
+      .leftJoin('out_xsxx as si', 'si.xh', 'sa.xh')
+      .where('sa.id', 'in', pageIds)
+      .orderBy('a.rq', 'desc')
+      .orderBy('sa.id', 'desc') // Ensure same order
+      .select([
+        'sa.id',
+        'sa.xh',
+        'sa.status',
+        'sa.checkin_time',
+        'sa.remark as note',
+        'si.xm as student_name',
+        'si.bjmc as class_name',
+        'si.xymc as college_name',
+        'si.zymc as major_name',
+        'a.kcmc as course_name',
+        'a.jc_s as lesson',
+        'a.lq as location',
+        'a.sj_f as course_start_time',
+        'a.sj_t as course_end_time',
+        'a.rq as date'
+      ])
+      .execute();
+
+    // Helper to format Date object to 'YYYY-MM-DD HH:mm:ss'
+    const formatNullableDate = (date: Date | null): string | null => {
+      if (!date) return null;
+      // Adjust for timezone offset to get local time
+      const tzOffset = date.getTimezoneOffset() * 60000; // offset in milliseconds
+      const localDate = new Date(date.getTime() - tzOffset);
+      return localDate.toISOString().slice(0, 19).replace('T', ' ');
+    };
+
+    return {
+      total,
+      records: records.map((r: any) => ({
+        id: r.id,
+        status: r.status,
+        checkin_time: formatNullableDate(r.checkin_time),
+        note: r.note,
+        student: {
+          xh: r.xh,
+          xm: r.student_name,
+          bjmc: r.class_name,
+          college_name: r.college_name,
+          major_name: r.major_name
+        },
+        course: {
+          kcmc: r.course_name,
+          location: r.location,
+          lesson: r.lesson,
+          start_time: `${r.date} ${r.course_start_time}:00`,
+          end_time: `${r.date} ${r.course_end_time}:00`
+        }
+      }))
+    };
   }
 }

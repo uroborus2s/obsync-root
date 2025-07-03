@@ -4,17 +4,15 @@
  */
 
 import { Logger } from '@stratix/core';
-import type { Kysely } from '@stratix/database';
-import { ExtendedDatabase } from './types.js';
 
 /**
  * 基础Repository实现
  */
 export abstract class BaseRepository {
-  constructor(
-    protected db: Kysely<ExtendedDatabase>,
-    protected log: Logger
-  ) {}
+  protected log: Logger;
+  constructor(log: Logger) {
+    this.log = log;
+  }
 
   /**
    * 生成UUID

@@ -4,7 +4,7 @@
  */
 
 import { Logger } from '@stratix/core';
-import type { Kysely } from '@stratix/database';
+import type { DatabaseProvider, Kysely } from '@stratix/database';
 import { BaseRepository } from './base-repository.js';
 import { ExtendedDatabase, StudentCourseEntity } from './types.js';
 
@@ -12,8 +12,10 @@ import { ExtendedDatabase, StudentCourseEntity } from './types.js';
  * 学生课表Repository实现
  */
 export class StudentCourseRepository extends BaseRepository {
-  constructor(db: Kysely<ExtendedDatabase>, log: Logger) {
-    super(db, log);
+  private db: Kysely<ExtendedDatabase>;
+  constructor(log: Logger, databaseProvider: DatabaseProvider) {
+    super(log);
+    this.db = databaseProvider.getDatabase('origin');
   }
 
   /**

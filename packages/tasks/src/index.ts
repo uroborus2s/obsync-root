@@ -19,7 +19,7 @@ export type {
 
 // 导出任务状态类型和执行器类型
 export type { TaskExecutor } from './entity/executor.types.js';
-export { TaskStatus } from './types/task.types.js';
+export { TaskStatus, TaskStatusUtils } from './types/task.types.js';
 
 // 导出新的仓储层
 export {
@@ -38,6 +38,10 @@ export type {
 
 // 导出服务层
 export { TaskTreeService } from './services/index.js';
+export { QueryService } from './services/queryService.js';
+export type { TaskQueryConditions } from './services/queryService.js';
+export { TaskService } from './services/taskService.js';
+export type { ITaskService } from './services/taskService.js';
 export type {
   ITaskTreeService,
   TaskQueryOptions,
@@ -48,4 +52,10 @@ export type {
 } from './services/types.js';
 
 // 导出类型
-export type { CreateTaskParams, TaskBase, TaskType } from './types/index.js';
+export type {
+  CreateTaskParams,
+  TaskBase,
+  TaskExecutorConfig,
+  TaskMetadata,
+  TaskType
+} from './types/index.js';

@@ -77,26 +77,23 @@ function App() {
     console.log('🔧 useEffect 执行中...');
 
     // 全局初始化WPS协作JSAPI
-    // const initializeWPS = async () => {
-    //   try {
-    //     console.log('🔍 检查 WPS SDK...');
-    //     // 检测是否在WPS协作环境中
-    //     if (typeof window !== 'undefined' && window.ksoxz_sdk) {
-    //       console.log('✅ 找到 WPS SDK，开始初始化...');
-    //       await wpsCollaboration.initialize({
-    //         appId: 'your-app-id', // 需要替换为实际的AppID
-    //         scope: ['location', 'image', 'share', 'device', 'ui']
-    //       });
-    //       console.log('🎉 WPS协作JSAPI全局初始化成功');
-    //     } else {
-    //       console.log('⚠️ 当前不在WPS协作环境中，将使用模拟模式');
-    //     }
-    //   } catch (error) {
-    //     console.warn('⚠️ WPS协作JSAPI初始化失败，使用模拟模式:', error);
-    //   }
-    // };
+    const initializeWPS = async () => {
+      try {
+        console.log('🔍 检查 WPS SDK...');
+        // 检测是否在WPS协作环境中
+        if (typeof window !== 'undefined' && window.ksoxz_sdk) {
+          console.log('✅ 找到 WPS SDK，应用将支持完整的WPS协作功能');
+          console.log('📱 WPS协作环境检测成功，位置获取、拍照等功能已就绪');
+        } else {
+          console.log('⚠️ 当前不在WPS协作环境中，将使用模拟模式');
+          console.log('💡 在WPS协作应用中打开可获得完整功能体验');
+        }
+      } catch (error) {
+        console.warn('⚠️ WPS协作环境检测异常:', error);
+      }
+    };
 
-    // initializeWPS();
+    initializeWPS();
   }, []);
 
   console.log('🎨 App 渲染中...');

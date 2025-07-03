@@ -59,6 +59,8 @@ export class RunningTaskRepository {
     status: TaskStatus;
     priority: number;
     progress?: number;
+    total_children?: number;
+    completed_children?: number;
     executor_name?: string | null;
     metadata?: Record<string, any> | null;
   }): Promise<void> {
@@ -73,6 +75,8 @@ export class RunningTaskRepository {
       status: taskData.status,
       priority: taskData.priority,
       progress: taskData.progress || 0,
+      total_children: taskData.total_children || 0,
+      completed_children: taskData.completed_children || 0,
       executor_name: taskData.executor_name || null,
       metadata: taskData.metadata ? JSON.stringify(taskData.metadata) : null,
       created_at: now,
@@ -424,5 +428,92 @@ export class RunningTaskRepository {
       .executeTakeFirst();
 
     return result?.started_at != null;
+  }
+
+  /**
+   * 更新子任务计数
+   */
+  async updateChildrenCount(
+    id: string,
+    totalChildren: number,
+    completedChildren: number
+  ): Promise<void> {
+    const updateData: Partial<RunningTaskEntity> = {
+      total_children: totalChildren,
+      completed_children: completedChildren,
+      progress:
+        totalChildren > 0
+          ? Math.round((completedChildren / totalChildren) * 100)
+          : 0,
+      updated_at: new Date()
+    };
+
+    await this.db
+      .updateTable('running_tasks')
+      .set(updateData)
+      .where('id', '=', id)
+      .execute();
+
+    this.log.debug(
+      {
+        taskId: id,
+        totalChildren,
+        completedChildren,
+        progress: updateData.progress
+      },
+      '子任务计数和进度更新成功'
+    );
+  }
+
+  /**
+   * 增加总计子任务数量
+   */
+  async incrementTotalChildren(id: string): Promise<void> {
+    await this.db
+      .updateTable('running_tasks')
+      .set((eb) => ({
+        total_children: eb('total_children', '+', 1),
+        updated_at: new Date()
+      }))
+      .where('id', '=', id)
+      .execute();
+
+    this.log.debug({ taskId: id }, '总计子任务数量+1');
+  }
+
+  /**
+   * 增加已完成子任务数量
+   */
+  async incrementCompletedChildren(id: string): Promise<void> {
+    // 先获取当前任务信息
+    const task = await this.findById(id);
+    if (!task) {
+      throw new Error(`任务 ${id} 不存在`);
+    }
+
+    const newCompletedChildren = task.completed_children + 1;
+    const newProgress =
+      task.total_children > 0
+        ? Math.round((newCompletedChildren / task.total_children) * 100)
+        : 0;
+
+    await this.db
+      .updateTable('running_tasks')
+      .set({
+        completed_children: newCompletedChildren,
+        progress: newProgress,
+        updated_at: new Date()
+      })
+      .where('id', '=', id)
+      .execute();
+
+    this.log.debug(
+      {
+        taskId: id,
+        completedChildren: newCompletedChildren,
+        progress: newProgress
+      },
+      '已完成子任务数量+1，进度已更新'
+    );
   }
 }

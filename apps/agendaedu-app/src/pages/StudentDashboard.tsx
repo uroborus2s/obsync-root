@@ -152,7 +152,7 @@ function StudentDashboardContent() {
   const handleAuthRedirect = () => {
     // 保存当前页面URL用于授权后返回
     const currentUrl = window.location.href;
-    authManager.redirectToAuth(btoa(currentUrl));
+    authManager.redirectToAuth(currentUrl);
   };
 
   const handleCheckin = async () => {

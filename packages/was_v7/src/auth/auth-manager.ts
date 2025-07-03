@@ -39,12 +39,20 @@ export class AuthManager {
         }
       );
 
+      // 🔧 修复：保存完整的AccessToken对象，而不是字符串
+      this.accessToken = {
+        access_token: response.access_token,
+        token_type: response.token_type || 'bearer',
+        expires_in: response.expires_in,
+        refresh_token: response.refresh_token,
+        scope: response.scope
+      };
       this.tokenExpireTime = Date.now() + response.expires_in * 1000;
 
       // 设置到HTTP客户端
       this.wasV7HttpClient.setAccessToken(response.access_token);
 
-      return response.access_token;
+      return this.accessToken.access_token;
     } catch (error) {
       throw createError.auth('获取应用访问凭证失败', error);
     }

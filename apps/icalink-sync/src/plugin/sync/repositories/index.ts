@@ -10,5 +10,6 @@ export * from './leave-application-repository.js';
 export * from './student-attendance-repository.js';
 export * from './student-course-repository.js';
 export * from './student-info-repository.js';
+export * from './teacher-info-repository.js';
 export * from './types.js';
 export * from './user-calendar-repository.js';

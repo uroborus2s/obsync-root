@@ -247,6 +247,14 @@ export function StudentMessages() {
     }
   };
 
+  // 截取文件名，如果超过30个字符则用...代替
+  const truncateFileName = (fileName: string, maxLength: number = 25) => {
+    if (fileName.length <= maxLength) {
+      return fileName;
+    }
+    return fileName.substring(0, maxLength) + '...';
+  };
+
   // 渲染内容列表的组件
   const renderContent = () => {
     if (isLoading) {
@@ -412,7 +420,7 @@ export function StudentMessages() {
                       <div className='flex items-center space-x-2'>
                         <FileText className='h-4 w-4 text-gray-500' />
                         <span className='text-sm text-gray-700'>
-                          {attachment.file_name}
+                          {truncateFileName(attachment.file_name)}
                         </span>
                         <span className='text-xs text-gray-500'>
                           ({Math.round(attachment.file_size / 1024)}KB)

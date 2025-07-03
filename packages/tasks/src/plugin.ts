@@ -14,6 +14,8 @@ import {
   TaskMigrationRepository
 } from './repositories/index.js';
 import { SharedContextRepository } from './repositories/SharedContextRepository.js';
+import { QueryService } from './services/queryService.js';
+import { TaskService } from './services/taskService.js';
 import { TaskTreeService } from './services/TaskTreeService.js';
 import {
   cleanup as contextCleanup,
@@ -96,6 +98,11 @@ async function tasksPlugin(
     lifetime: 'SINGLETON'
   });
 
+  fastify.registerDI(QueryService, {
+    name: 'queryService',
+    lifetime: 'SINGLETON'
+  });
+
   fastify.registerDI(TaskTreeService, {
     name: 'taskTreeService',
     lifetime: 'SINGLETON'
@@ -108,6 +115,12 @@ async function tasksPlugin(
 
   fastify.registerDI(createTaskFactory, {
     name: 'createTaskNode',
+    lifetime: 'SINGLETON'
+  });
+
+  // 注册任务服务
+  fastify.registerDI(TaskService, {
+    name: 'taskService',
     lifetime: 'SINGLETON'
   });
 

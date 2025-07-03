@@ -1,6 +1,9 @@
 import { type StratixConfig } from '@stratix/core';
 import databasePlugin from '@stratix/database';
+import queuePlugin from '@stratix/queue';
+import tasksPlugin from '@stratix/tasks';
 import wasV7Plugin from '@stratix/was-v7';
+import webPlugin from '@stratix/web';
 import fs from 'node:fs';
 import path, { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,7 +23,7 @@ export default (sensitiveInfo: any): StratixConfig => {
   );
 
   let httpsOptions = {};
-  if (sensitiveInfo.web.https) {
+  if (sensitiveInfo.web?.https) {
     const keyPath = path.resolve(
       projectRootDir,
       'ssl',
@@ -55,6 +58,19 @@ export default (sensitiveInfo: any): StratixConfig => {
       ...httpsOptions
     },
     registers: [
+      // Web 插件 - 必须在其他插件之前注册
+      [
+        webPlugin,
+        {
+          port: sensitiveInfo.web?.port || 3000,
+          host: sensitiveInfo.web?.host || '0.0.0.0',
+          cors: true,
+          helmet: true,
+          compress: false,
+          cookie: true,
+          formbody: true
+        }
+      ],
       [
         wasV7Plugin,
         {
@@ -70,6 +86,12 @@ export default (sensitiveInfo: any): StratixConfig => {
               connection: {
                 client: 'mysql',
                 ...sensitiveInfo.databases.default
+              }
+            },
+            origin: {
+              connection: {
+                client: 'mysql',
+                ...sensitiveInfo.databases.origin
               }
             }
           }
@@ -94,33 +116,33 @@ export default (sensitiveInfo: any): StratixConfig => {
               errorCount: recoveryResult.errors.length
             });
 
-            // 延迟执行，确保所有服务都已完全初始化
-            setTimeout(async () => {
-              try {
-                // 从DI容器获取fullSyncService
-                const fullSyncService = fastify.tryResolve('fullSyncService');
+            // // 延迟执行，确保所有服务都已完全初始化
+            // setTimeout(async () => {
+            //   try {
+            //     // 从DI容器获取fullSyncService
+            //     const fullSyncService = fastify.tryResolve('fullSyncService');
 
-                if (fullSyncService) {
-                  // 如果没有恢复任务，启动新的全量同步
-                  fastify.log.info('没有恢复任务，开始执行全量同步...');
+            //     if (fullSyncService) {
+            //       // 如果没有恢复任务，启动新的全量同步
+            //       fastify.log.info('没有恢复任务，开始执行全量同步...');
 
-                  await fullSyncService.startFullSync({
-                    reason: '应用启动后自动执行',
-                    xnxq: '2024-2025-2'
-                  });
+            //       await fullSyncService.startFullSync({
+            //         reason: '应用启动后自动执行',
+            //         xnxq: '2024-2025-2'
+            //       });
 
-                  fastify.log.info('全量同步启动成功');
-                } else {
-                  fastify.log.warn('fullSyncService 未找到，跳过全量同步');
-                }
-              } catch (error) {
-                fastify.log.error('执行恢复后操作失败', error);
-              }
-            }, 3000); // 延迟3秒确保所有服务就绪
+            //       fastify.log.info('全量同步启动成功');
+            //     } else {
+            //       fastify.log.warn('fullSyncService 未找到，跳过全量同步');
+            //     }
+            //   } catch (error) {
+            //     fastify.log.error('执行恢复后操作失败', error);
+            //   }
+            // }, 3000); // 延迟3秒确保所有服务就绪
           }
         }
       ],
-      [syncPlugin, { ...sensitiveInfo.icalink }]
+      [syncPlugin, { ...sensitiveInfo.icalink_api }]
     ]
   };
 };

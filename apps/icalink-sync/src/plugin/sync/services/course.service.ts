@@ -31,20 +31,14 @@ export interface CourseTeacherInfo {
  * 课程服务类
  */
 export class CourseService {
-  private attendanceRepo: AttendanceRepository;
-  private courseScheduleRepo: CourseScheduleRepository;
-  private courseAggregateRepo: CourseAggregateRepository;
-  private teacherInfoRepo: TeacherInfoRepository;
-
   constructor(
     private db: Kysely<ExtendedDatabase>,
-    private log: Logger
-  ) {
-    this.attendanceRepo = new AttendanceRepository(db, log);
-    this.courseScheduleRepo = new CourseScheduleRepository(db, log);
-    this.courseAggregateRepo = new CourseAggregateRepository(db, log);
-    this.teacherInfoRepo = new TeacherInfoRepository(db, log);
-  }
+    private log: Logger,
+    private courseScheduleRepo: CourseScheduleRepository,
+    private attendanceRepo: AttendanceRepository,
+    private courseAggregateRepo: CourseAggregateRepository,
+    private teacherInfoRepo: TeacherInfoRepository
+  ) {}
 
   /**
    * 根据考勤记录ID获取课程的授课教师信息

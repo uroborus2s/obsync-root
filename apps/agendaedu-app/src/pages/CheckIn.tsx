@@ -7,6 +7,10 @@ import {
   type StudentCheckInRequest
 } from '@/lib/attendance-api';
 import {
+  wpsAuthService,
+  type CheckInLocationResult
+} from '@/lib/wps-auth-service';
+import {
   AlertCircle,
   ArrowLeft,
   Calendar,
@@ -56,11 +60,18 @@ export function CheckIn() {
     useState<CourseAttendanceHistoryResponse | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [wpsAuthStatus, setWpsAuthStatus] = useState<{
+    isAuthorized: boolean;
+    error?: string;
+  }>({ isAuthorized: false });
 
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
+
+    // 初始化WPS鉴权
+    initializeWPSAuth();
 
     // 加载考勤数据
     if (attendanceId) {
@@ -76,6 +87,30 @@ export function CheckIn() {
 
     return () => clearInterval(timer);
   }, [attendanceId]);
+
+  const initializeWPSAuth = async () => {
+    try {
+      console.log('🔐 初始化WPS协作鉴权...');
+      const authResult = await wpsAuthService.initialize();
+
+      setWpsAuthStatus({
+        isAuthorized: authResult.isAuthorized,
+        error: authResult.error
+      });
+
+      if (authResult.isAuthorized) {
+        console.log('✅ WPS协作鉴权成功，权限:', authResult.permissions);
+      } else {
+        console.warn('⚠️ WPS协作鉴权失败:', authResult.error);
+      }
+    } catch (error) {
+      console.error('❌ WPS协作鉴权异常:', error);
+      setWpsAuthStatus({
+        isAuthorized: false,
+        error: error instanceof Error ? error.message : '鉴权失败'
+      });
+    }
+  };
 
   const loadAttendanceData = async () => {
     if (!attendanceId) return;
@@ -182,18 +217,43 @@ export function CheckIn() {
   const handleGetLocation = async () => {
     setIsLoading(true);
     try {
-      // 直接使用固定位置信息，用于测试
-      setLocationInfo(FIXED_LOCATION);
-      setLocation(
-        FIXED_LOCATION.address ||
-          `${FIXED_LOCATION.latitude.toFixed(6)}, ${FIXED_LOCATION.longitude.toFixed(6)}`
-      );
-      setIsLoading(false);
-      alert('位置获取成功（测试模式）');
+      if (wpsAuthService.isWPSEnvironment() && wpsAuthStatus.isAuthorized) {
+        console.log('🔍 使用WPS协作API获取位置...');
+
+        const wpsLocation = await wpsAuthService.getCurrentLocation();
+        const newLocationInfo: LocationInfo = {
+          latitude: wpsLocation.latitude,
+          longitude: wpsLocation.longitude,
+          address: wpsLocation.address
+        };
+
+        setLocationInfo(newLocationInfo);
+        setLocation(
+          wpsLocation.address ||
+            `${wpsLocation.latitude.toFixed(6)}, ${wpsLocation.longitude.toFixed(6)}`
+        );
+
+        await wpsAuthService.showToast('位置获取成功！', 'success');
+      } else {
+        console.log('🔍 使用固定位置（模拟模式）...');
+        // 使用固定位置信息，用于测试
+        setLocationInfo(FIXED_LOCATION);
+        setLocation(
+          FIXED_LOCATION.address ||
+            `${FIXED_LOCATION.latitude.toFixed(6)}, ${FIXED_LOCATION.longitude.toFixed(6)}`
+        );
+        alert('位置获取成功（模拟模式）');
+      }
     } catch (error) {
       console.error('获取位置失败:', error);
+
+      if (wpsAuthService.isWPSEnvironment() && wpsAuthStatus.isAuthorized) {
+        await wpsAuthService.showToast('获取位置失败，请重试', 'error');
+      } else {
+        alert('获取位置失败，请重试');
+      }
+    } finally {
       setIsLoading(false);
-      alert('获取位置失败，请重试');
     }
   };
 
@@ -203,15 +263,56 @@ export function CheckIn() {
       return;
     }
 
-    // 去掉位置检查，直接使用固定位置进行签到
-    const currentLocationInfo = locationInfo || FIXED_LOCATION;
-
     setIsLoading(true);
     try {
+      let checkInLocationResult: CheckInLocationResult | null = null;
+
+      // 如果在WPS环境中且已授权，进行位置验证
+      if (wpsAuthService.isWPSEnvironment() && wpsAuthStatus.isAuthorized) {
+        console.log('🎯 使用WPS协作API进行智能打卡...');
+
+        // 获取课程目标位置（这里使用固定位置作为示例）
+        const targetLocation = {
+          latitude: FIXED_LOCATION.latitude,
+          longitude: FIXED_LOCATION.longitude
+        };
+
+        try {
+          // 执行完整的打卡流程（位置验证 + 可选拍照）
+          checkInLocationResult = await wpsAuthService.performCheckIn(
+            targetLocation,
+            100, // 最大允许距离100米
+            false // 不强制要求拍照
+          );
+
+          if (!checkInLocationResult.isValidLocation) {
+            await wpsAuthService.showToast(
+              `距离目标位置${checkInLocationResult.distance}米，超出允许范围`,
+              'error'
+            );
+            return;
+          }
+
+          console.log(
+            '✅ 位置验证通过，距离:',
+            checkInLocationResult.distance,
+            '米'
+          );
+        } catch (error) {
+          console.error('WPS打卡流程失败:', error);
+          await wpsAuthService.showToast('打卡验证失败，使用默认位置', 'error');
+          // 继续使用默认位置进行打卡
+        }
+      }
+
+      // 使用验证后的位置或默认位置进行签到
+      const finalLocationInfo =
+        checkInLocationResult?.location || locationInfo || FIXED_LOCATION;
+
       const checkInRequest: StudentCheckInRequest = {
-        location: currentLocationInfo.address,
-        latitude: currentLocationInfo.latitude,
-        longitude: currentLocationInfo.longitude
+        location: finalLocationInfo.address || '默认位置',
+        latitude: finalLocationInfo.latitude,
+        longitude: finalLocationInfo.longitude
       };
 
       const response = await attendanceApi.studentCheckIn(
@@ -221,7 +322,12 @@ export function CheckIn() {
 
       if (response.success) {
         setIsCheckedIn(true);
-        alert('签到成功！');
+
+        if (wpsAuthService.isWPSEnvironment() && wpsAuthStatus.isAuthorized) {
+          await wpsAuthService.showToast('签到成功！', 'success');
+        } else {
+          alert('签到成功！');
+        }
 
         // 重新加载数据以获取最新状态
         setTimeout(() => {
@@ -229,12 +335,25 @@ export function CheckIn() {
         }, 1000);
       } else {
         setError(response.message || '签到失败');
-        alert(response.message || '签到失败，请重试');
+
+        if (wpsAuthService.isWPSEnvironment() && wpsAuthStatus.isAuthorized) {
+          await wpsAuthService.showToast(
+            response.message || '签到失败，请重试',
+            'error'
+          );
+        } else {
+          alert(response.message || '签到失败，请重试');
+        }
       }
     } catch (error) {
       console.error('签到失败:', error);
       setError('签到失败，请重试');
-      alert('签到失败，请重试');
+
+      if (wpsAuthService.isWPSEnvironment() && wpsAuthStatus.isAuthorized) {
+        await wpsAuthService.showToast('签到失败，请重试', 'error');
+      } else {
+        alert('签到失败，请重试');
+      }
     } finally {
       setIsLoading(false);
     }

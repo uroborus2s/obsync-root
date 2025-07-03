@@ -5,6 +5,7 @@
 
 import type { FastifyInstance } from '@stratix/core';
 import { fp } from '@stratix/core';
+import { tasksController } from './controllers/tasks.controller.js';
 import { AttendanceRepository } from './repositories/attendance-repository.js';
 import { CourseAggregateRepository } from './repositories/course-aggregate-repository.js';
 import { CourseScheduleRepository } from './repositories/course-schedule-repository.js';
@@ -15,17 +16,29 @@ import { StudentCourseRepository } from './repositories/student-course-repositor
 import { StudentInfoRepository } from './repositories/student-info-repository.js';
 import { TeacherInfoRepository } from './repositories/teacher-info-repository.js';
 import { UserCalendarRepository } from './repositories/user-calendar-repository.js';
+import { IncrementalSyncService } from './service/incremental-sync.service.js';
+import {
+  CreateAttendanceTableExecutor,
+  SyncTeacherScheduleExecutor
+} from './service/task-executors.service.js';
+import { TeacherService } from './service/teacher.service.js';
 import { AttendanceService } from './services/attendance/attendance.service.js';
 import { FullSyncService } from './services/full-sync.service.js';
 import { createPageUrlFactory } from './services/generatePageUrl.js';
 import { StudentService } from './services/student.service.js';
-import {
-  CreateAttendanceTableExecutor,
-  SyncTeacherScheduleExecutor
-} from './services/task-executors.service.js';
-import { TeacherService } from './services/teacher.service.js';
 import { UpdateAggregateService } from './services/update-aggregate.service.js';
 import { WpsScheduleProcessorService } from './services/wps-schedule-processor.service.js';
+// 新的同步服务
+import { attendanceApiController } from './controllers/attendance-api.controller.js';
+import { syncController } from './controllers/sync.controller.js';
+import {
+  SyncTaskService,
+  aggregateExecutor,
+  createCourseSyncExecutor,
+  deleteCourseExecutor,
+  getCoursesExecutor,
+  scheduleCreationExecutor
+} from './services/index.js';
 import { IicalinkPluginParams } from './types/attendance.js';
 
 /**
@@ -113,6 +126,43 @@ async function icalinkSyncPlugin(
     lifetime: 'SINGLETON'
   });
 
+  fastify.registerDI(IncrementalSyncService, {
+    name: 'incrementalSyncService',
+    lifetime: 'SINGLETON'
+  });
+
+  // 注册新的同步任务服务
+  fastify.registerDI(SyncTaskService, {
+    name: 'syncTaskService',
+    lifetime: 'SINGLETON'
+  });
+
+  // 注册执行器
+  fastify.registerDI(aggregateExecutor, {
+    name: 'aggregateExecutor',
+    lifetime: 'SINGLETON'
+  });
+
+  fastify.registerDI(getCoursesExecutor, {
+    name: 'getCoursesExecutor',
+    lifetime: 'SINGLETON'
+  });
+
+  fastify.registerDI(createCourseSyncExecutor, {
+    name: 'courseSyncExecutor',
+    lifetime: 'SINGLETON'
+  });
+
+  fastify.registerDI(deleteCourseExecutor, {
+    name: 'deleteCourseExecutor',
+    lifetime: 'SINGLETON'
+  });
+
+  fastify.registerDI(scheduleCreationExecutor, {
+    name: 'scheduleCreationExecutor',
+    lifetime: 'SINGLETON'
+  });
+
   // 注册用户服务工厂
   fastify.registerDI(StudentService.createStudentFactory, {
     name: 'createStudent',
@@ -134,6 +184,11 @@ async function icalinkSyncPlugin(
     lifetime: 'SINGLETON'
   });
 
+  // 注册路由
+  await tasksController(fastify);
+  await syncController(fastify);
+  await attendanceApiController(fastify);
+
   fastify.log.info('Initializing @stratix/icalink plugin...');
 
   fastify.log.info('AgendaEdu plugin initialized successfully');
@@ -146,6 +201,7 @@ export const wrapIcalinkSyncPlugin = fp(icalinkSyncPlugin, {
     '@stratix/database',
     '@stratix/tasks',
     '@stratix/queue',
-    '@stratix/was-v7'
+    '@stratix/was-v7',
+    '@stratix/web'
   ]
 });

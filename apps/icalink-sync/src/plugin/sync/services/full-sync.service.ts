@@ -10,15 +10,25 @@ import {
   type TaskNodePlaceholder,
   TaskStatus
 } from '@stratix/tasks';
+import { sleep } from '@stratix/utils/async';
+import { ScheduleModule } from '@stratix/was-v7';
 import {
   CourseAggregateEntity,
   CourseAggregateRepository,
+  CourseScheduleRepository,
   StudentCourseRepository,
-  StudentInfoRepository
+  StudentInfoRepository,
+  UserCalendarRepository
 } from '../repositories/index.js';
+import {
+  CreateAttendanceTableExecutor,
+  SyncTeacherScheduleExecutor
+} from '../service/task-executors.service.js';
 import { formatToRFC3339 } from '../utils/time.js';
+import { AttendanceService } from './attendance/attendance.service.js';
 import { createPageUrlFactory } from './generatePageUrl.js';
 import { StudentInfo, TeacherInfo } from './schedule.service.js';
+import { UpdateAggregateService } from './update-aggregate.service.js';
 
 /**
  * 全量同步配置
@@ -70,7 +80,14 @@ export class FullSyncService {
     private studentCourseRepo: StudentCourseRepository,
     private studentInfoRepo: StudentInfoRepository,
     private pageUrlService: ReturnType<typeof createPageUrlFactory>,
-    private log: Logger
+    private log: Logger,
+    private syncTeacherScheduleExecutor: SyncTeacherScheduleExecutor,
+    private wasV7Schedule: ScheduleModule,
+    private createAttendanceTableExecutor: CreateAttendanceTableExecutor,
+    private courseScheduleRepo: CourseScheduleRepository,
+    private userCalendarRepo: UserCalendarRepository,
+    private attendanceService: AttendanceService,
+    private updateAggregateService: UpdateAggregateService
   ) {}
 
   /**
@@ -116,6 +133,151 @@ export class FullSyncService {
     }
   }
 
+  async incremSyncc(config: FullSyncConfig): Promise<void> {
+    const {
+      xnxq,
+      batchSize = 50,
+      parallel = false,
+      maxConcurrency = 5
+    } = config;
+
+    // 增量同步前，先查询u_jw_kcb_cur表中gx_zt为null的记录
+    const courseSchedules = await this.courseScheduleRepo.findByConditions({
+      xnxq,
+      gxZt: null,
+      beginDate: '2025/06/23'
+    });
+    // 2. 根据为空的记录，查询juhe_renwu表中记录，通过kkh和rq查询，如果查询到，则将gx_zt设置为3。注意需要将rq字段从“2025/03/12 00:00:00.000” 转为“2025/03/12”
+
+    // 创建重新聚合任务,并更新juhe_renwu表，将聚合的数据新增到juhe_renwu表中
+    await this.courseScheduleRepo.generateAggregateData(xnxq, {
+      gxZtIsNull: true,
+      dateRange: {
+        startDate: '2025/06/23',
+        endDate: '2025/07/16'
+      }
+    });
+
+    // 从聚合表里获取为null的数据
+    const aggregateTasks = await this.courseAggregateRepo.findByConditions({
+      gxZt: null,
+      beginDate: '2025/06/23',
+      kcmc: '习近平新时代中国特色社会主义思想概论'
+    });
+
+    for (const juheRenwu of aggregateTasks) {
+      await this.updateAggregateService.updateRelatedCourseSchedules(
+        [juheRenwu],
+        3
+      );
+      // 修改juhe_renwu表的gx_zt为4
+      await this.courseAggregateRepo.updateStatus(Number(juheRenwu.id), 3);
+
+      // 获取关联的教师数据
+      const teachers = await this.getTeachersForCourse(juheRenwu);
+      // 获取关联的学生数据
+      const students = await this.getStudentsForCourse(
+        juheRenwu.kkh,
+        juheRenwu.xnxq
+      );
+      //将教师的日程信息删除
+      for (const teacher of teachers) {
+        // 3. 从日历中删除日程
+        try {
+          // 获取教师的日历id
+          const userCalendar = await this.userCalendarRepo.findByXgh(
+            teacher.gh
+          );
+          if (!userCalendar) {
+            this.log.warn(
+              { teacherId: teacher.gh, teacherName: teacher.xm },
+              '教师未找到日历信息，跳过日程同步'
+            );
+            continue;
+          }
+          // 检查日程是否存在，如果存在则删除日程
+          const schedules = await this.wasV7Schedule.getAllScheduleList({
+            calendar_id: userCalendar.calendar_id!,
+            start_time: formatToRFC3339(juheRenwu.rq, juheRenwu.sj_f),
+            end_time: formatToRFC3339(juheRenwu.rq, juheRenwu.sj_t)
+          });
+          // 删除所有的日程
+          for (const schedule of schedules) {
+            await sleep(50);
+            if (schedule.summary === juheRenwu.kcmc) {
+              await this.wasV7Schedule.deleteSchedule({
+                calendar_id: userCalendar.calendar_id!,
+                event_id: schedule.id!
+              });
+            }
+          }
+        } catch (error) {
+          this.log.error(
+            { error: error instanceof Error ? error.message : String(error) },
+            '删除日程失败'
+          );
+        }
+      }
+      // 删除学生的日程
+      for (const student of students) {
+        // 获取学生的日历id
+        const userCalendar = await this.userCalendarRepo.findByXgh(student.xh);
+        if (!userCalendar) {
+          this.log.warn(
+            { studentId: student.xh, studentName: student.xm },
+            '学生未找到日历信息，跳过日程同步'
+          );
+          continue;
+        }
+        if (!userCalendar.calendar_id) {
+          this.log.warn(
+            { studentId: student.xh, studentName: student.xm },
+            '学生日历ID为空，跳过日程同步'
+          );
+          continue;
+        }
+        // 删除学生的日程
+        const schedules = await this.wasV7Schedule.getAllScheduleList({
+          calendar_id: userCalendar.calendar_id!,
+          start_time: formatToRFC3339(juheRenwu.rq, juheRenwu.sj_f),
+          end_time: formatToRFC3339(juheRenwu.rq, juheRenwu.sj_t)
+        });
+        // 删除所有的日程
+        for (const schedule of schedules) {
+          await sleep(50);
+          if (schedule.summary === juheRenwu.kcmc) {
+            await this.wasV7Schedule.deleteSchedule({
+              calendar_id: userCalendar.calendar_id!,
+              event_id: schedule.id!
+            });
+          }
+        }
+      }
+      // 修改juhe_renwu表的gx_zt为4
+      await this.courseAggregateRepo.updateStatus(Number(juheRenwu.id), 4);
+      await this.updateAggregateService.updateRelatedCourseSchedules(
+        [juheRenwu],
+        4
+      );
+    }
+  }
+
+  async incremSyncc2(config: FullSyncConfig): Promise<void> {
+    const {
+      xnxq,
+      batchSize = 50,
+      parallel = false,
+      maxConcurrency = 5
+    } = config;
+    await this.courseScheduleRepo.generateAggregateData(xnxq, {
+      gxZtFilter: '4',
+      zt: true,
+      dateRange: {
+        startDate: '2025/06/2',
+        endDate: '2025/07/16'
+      }
+    });
+  }
   /**
    * 启动全量同步任务
    */
@@ -196,6 +358,9 @@ export class FullSyncService {
       );
 
       for (const courseTask of aggregateTasks) {
+        if (!courseTask.sj_f) {
+          continue;
+        }
         const startDate = formatToRFC3339(courseTask.rq, courseTask.sj_f);
         const taskId = Buffer.from(
           `${xnxq}.${courseTask.kkh}.${startDate}`,
@@ -272,7 +437,6 @@ export class FullSyncService {
           name: attendanceTaskName,
           description: `为课程 ${courseTask.kcmc} 创建签到表记录 (${courseTask.rq} ${courseTask.sjd})`,
           type: 'create_attendance_table',
-          executorName: 'createAttendanceTableExecutor',
           priority: 8, // 比教师日程任务优先级高，确保先执行
           metadata: {
             taskId,
@@ -289,14 +453,19 @@ export class FullSyncService {
         { attendanceTaskName },
         '签到表记录任务已经完成，不需要在创建'
       );
-      if (
-        attendanceTask instanceof TaskNode &&
-        attendanceTask.status === TaskStatus.PENDING
-      ) {
-        attendanceTask.start('签到表记录创建任务启动');
-      }
-      return;
     }
+    if (
+      attendanceTask instanceof TaskNode &&
+      attendanceTask.status === TaskStatus.PENDING
+    ) {
+      attendanceTask.start('签到表记录创建任务启动');
+    }
+    setTimeout(() => {
+      this.createAttendanceTableExecutor.onStart(
+        attendanceTask as TaskNode,
+        {}
+      );
+    }, 1000 * 60);
   }
 
   /**
@@ -349,7 +518,6 @@ export class FullSyncService {
             name: attendanceTaskName,
             description: `为教师 ${teacher.xm} 创建日程 (${courseTask.rq} ${courseTask.sjd})`,
             type: 'sync_teacher_schedule',
-            executorName: 'syncTeacherScheduleExecutor',
             priority: 6,
             createdAt: new Date(),
             updatedAt: new Date(),
@@ -371,6 +539,7 @@ export class FullSyncService {
         this.log.info({ xnxq }, '教师同步任务任务已经完成，不需要在创建');
         continue;
       }
+      await this.syncTeacherScheduleExecutor.onStart(attendanceTask, {});
     }
   }
 
@@ -427,7 +596,6 @@ export class FullSyncService {
             name: attendanceTaskName,
             description: `为学生 ${student.xm} 创建日程 (${courseTask.rq} ${courseTask.sjd})`,
             type: 'sync_student_schedule',
-            executorName: 'syncTeacherScheduleExecutor',
             priority: 6,
             createdAt: new Date(),
             updatedAt: new Date(),
@@ -449,13 +617,14 @@ export class FullSyncService {
         this.log.info({ xnxq }, '学生同步任务任务已经完成，不需要在创建');
         continue;
       }
+      await this.syncTeacherScheduleExecutor.onStart(attendanceTask, {});
     }
   }
 
   /**
    * 获取课程的教师信息
    */
-  private async getTeachersForCourse(courseTask: any): Promise<TeacherInfo[]> {
+  public async getTeachersForCourse(courseTask: any): Promise<TeacherInfo[]> {
     if (!courseTask.gh_s || !courseTask.xm_s) {
       return [];
     }
@@ -486,7 +655,7 @@ export class FullSyncService {
   /**
    * 获取课程的学生信息
    */
-  private async getStudentsForCourse(
+  public async getStudentsForCourse(
     kkh: string,
     xnxq: string
   ): Promise<StudentInfo[]> {

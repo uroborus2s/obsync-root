@@ -58,6 +58,17 @@ export interface TaskMetadata {
   tags?: string[];
   /** 优先级 */
   priority?: number;
+  /** 当前重试次数 */
+  currentRetries?: number;
+  /** 最后重试时间 */
+  lastRetryAt?: Date;
+  /** 重试历史记录 */
+  retryHistory?: Array<{
+    attemptNumber: number;
+    timestamp: Date;
+    reason: string;
+    error?: string;
+  }>;
   /** 自定义属性 */
   [key: string]: any;
 }
@@ -298,6 +309,13 @@ export class TaskStatusUtils {
     return [TaskStatus.PENDING, TaskStatus.RUNNING, TaskStatus.PAUSED].includes(
       status
     );
+  }
+
+  /**
+   * 检查任务是否可以重试
+   */
+  static canRetry(status: TaskStatus): boolean {
+    return status === TaskStatus.FAILED;
   }
 }
 

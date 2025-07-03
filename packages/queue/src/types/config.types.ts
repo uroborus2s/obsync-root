@@ -114,7 +114,7 @@ export interface DatabaseStreamConfig {
  * 任务处理配置
  */
 export interface JobProcessingConfig {
-  /** 并发处理数量 */
+  /** 并发处理数量 - 控制同时执行的任务数量 */
   concurrency: number;
   /** 任务超时时间（毫秒） */
   timeout: number;
@@ -133,6 +133,30 @@ export interface JobProcessingConfig {
   enablePriority: boolean;
   /** 处理间隔（毫秒） */
   processingInterval: number;
+  /** 并发执行模式配置 */
+  parallel: {
+    /** 是否启用并行处理（默认为true） */
+    enabled: boolean;
+    /** 最大并发数限制（0表示无限制，但受内存限制） */
+    maxConcurrency: number;
+    /** 任务分批处理大小（批量获取任务数量） */
+    batchSize: number;
+    /** 并发任务间隔时间（毫秒，防止过快启动） */
+    taskInterval: number;
+    /** 动态并发调整（基于系统负载自动调整并发数） */
+    dynamicAdjustment: {
+      /** 是否启用动态调整 */
+      enabled: boolean;
+      /** 最小并发数 */
+      minConcurrency: number;
+      /** CPU使用率阈值（超过此值降低并发） */
+      cpuThreshold: number;
+      /** 内存使用率阈值（超过此值降低并发） */
+      memoryThreshold: number;
+      /** 调整检查间隔（毫秒） */
+      checkInterval: number;
+    };
+  };
 }
 
 // ============================================================================

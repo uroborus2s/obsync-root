@@ -22,7 +22,7 @@ export interface CourseScheduleEntity {
   ed: string; // 结束时间
   sfdk: string | null; // 是否打卡
   gx_sj: string | null; // 更新时间
-  gx_zt: number | null; // 更新状态
+  gx_zt: string | null; // 更新状态
   zt: string | null; // 状态
 }
 

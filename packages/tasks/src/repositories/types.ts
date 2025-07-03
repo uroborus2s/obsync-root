@@ -18,6 +18,8 @@ export interface RunningTaskEntity {
   status: TaskStatus; // 只能是 pending, running, paused
   priority: number;
   progress: number;
+  total_children: number; // 总计子任务数量
+  completed_children: number; // 已完成子任务数量
   metadata: any | null; // 应用层为对象，数据库层为 JSON 字符串
   executor_name: string | null;
   created_at: Date;
@@ -39,6 +41,8 @@ export interface CompletedTaskEntity {
   status: TaskStatus; // 只能是 success, failed, cancelled, completed
   priority: number;
   progress: number;
+  total_children: number; // 总计子任务数量
+  completed_children: number; // 已完成子任务数量
   metadata: any | null; // 应用层为对象，数据库层为 JSON 字符串
   executor_name: string | null;
   created_at: Date;
