@@ -414,7 +414,7 @@ export interface GetUserByPhoneParams {
  */
 export interface GetUserByExIdParams {
   /** 外部用户ID */
-  ex_user_id: string[];
+  ex_user_ids: string[];
   status: string[];
 }
 

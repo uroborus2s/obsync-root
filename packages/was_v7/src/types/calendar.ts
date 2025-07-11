@@ -217,12 +217,12 @@ export interface CreateCalendarParams {
 export interface CreateCalendarPermissionParams {
   /** 日历ID */
   calendar_id: string;
-  /** 用户ID或用户组ID */
-  principal_id: string;
-  /** 权限类型：user | group */
-  principal_type: 'user' | 'group';
-  /** 权限级别：owner | writer | reader */
-  role: 'owner' | 'writer' | 'reader';
+  /** 用户ID */
+  user_id: string;
+  /** 权限级别：free_busy_reader | reader | writer | owner */
+  role: 'free_busy_reader' | 'reader' | 'writer' | 'owner';
+  /** ID类型：internal | external */
+  id_type?: 'internal' | 'external';
 }
 
 /**
@@ -477,8 +477,21 @@ export interface GetPrimaryCalendarResponse {
  * 创建日历权限响应
  */
 export interface CreateCalendarPermissionResponse {
-  /** 权限信息 */
-  permission: CalendarPermission;
+  /** 日历权限数据 */
+  data: {
+    /** 日历ID */
+    calendar_id: string;
+    /** 权限ID */
+    id: string;
+    /** 权限级别 */
+    role: string;
+    /** 用户ID */
+    user_id: string;
+  };
+  /** 状态码 */
+  code: number;
+  /** 消息 */
+  msg: string;
 }
 
 /**

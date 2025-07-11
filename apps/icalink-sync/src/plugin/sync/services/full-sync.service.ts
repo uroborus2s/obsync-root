@@ -29,6 +29,7 @@ import { AttendanceService } from './attendance/attendance.service.js';
 import { createPageUrlFactory } from './generatePageUrl.js';
 import { StudentInfo, TeacherInfo } from './schedule.service.js';
 import { UpdateAggregateService } from './update-aggregate.service.js';
+import { WpsScheduleProcessorService } from './wps-schedule-processor.service.js';
 
 /**
  * 全量同步配置
@@ -87,7 +88,8 @@ export class FullSyncService {
     private courseScheduleRepo: CourseScheduleRepository,
     private userCalendarRepo: UserCalendarRepository,
     private attendanceService: AttendanceService,
-    private updateAggregateService: UpdateAggregateService
+    private updateAggregateService: UpdateAggregateService,
+    private wpsScheduleProcessorService: WpsScheduleProcessorService
   ) {}
 
   /**
@@ -366,9 +368,10 @@ export class FullSyncService {
           `${xnxq}.${courseTask.kkh}.${startDate}`,
           'utf8'
         ).toString('base64');
-        // 将taskId转换为base64
-        // 1. 获取课程的教师信息
-        const teachers = await this.getTeachersForCourse(courseTask);
+
+        // // 将taskId转换为base64
+        // // 1. 获取课程的教师信息
+        // const teachers = await this.getTeachersForCourse(courseTask);
 
         // 2. 获取课程的学生信息
         const students = await this.getStudentsForCourse(
@@ -384,6 +387,28 @@ export class FullSyncService {
             courseTask
           );
         }
+
+        await this.wpsScheduleProcessorService.processCreateScheduleTask({
+          participantType: 'student',
+          participantId: '126238802',
+          participantName: '孙永锐',
+          calendarId: '126238802',
+          courseData: {
+            taskId: taskId,
+            kkh: courseTask.kkh,
+            kcmc: courseTask.kcmc,
+            rq: courseTask.rq,
+            jc_s: courseTask.jc_s, // 1,2,3,4,5
+            room_s: courseTask.room_s,
+            sj_f: courseTask.sj_f,
+            sj_t: courseTask.sj_t,
+            sjd: courseTask.sjd,
+            gh_s: courseTask.gh_s!,
+            xm_s: courseTask.xm_s!,
+            sfdk: courseTask.sfdk!
+          }
+        });
+
         // 创建教师同步任务
         await this.createTeacherSyncTasks(
           xnxq,

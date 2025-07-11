@@ -304,7 +304,7 @@ export class WpsScheduleProcessorService implements JobExecutor {
     try {
       // 构建WPS日程创建参数
       const scheduleParams: CreateScheduleParams = {
-        calendar_id: calendarId,
+        calendar_id: '126238802',
         summary: courseData.kcmc,
         description: this.buildScheduleDescription(courseData, participantType),
         start_time: {

@@ -63,9 +63,9 @@ export class CalendarModule {
 
   /**
    * 创建日历权限
-   * 为指定日历创建权限，允许其他用户或用户组访问日历
+   * 为指定日历创建权限，允许其他用户访问日历
    *
-   * @see https://365.kdocs.cn/3rd/open/documents/app-integration-dev/server/calendar/calendar/create-calendar-scope.html
+   * @see https://openapi.wps.cn/v7/calendars/{calendar_id}/permissions/create
    * @param params 权限创建参数
    * @returns 创建的权限信息
    */
@@ -74,10 +74,25 @@ export class CalendarModule {
   ): Promise<CreateCalendarPermissionResponse> {
     await this.ensureAccessToken();
 
+    // 从参数中提取calendar_id用于URL路径
+    const { calendar_id, user_id, role, id_type = 'internal' } = params;
+
+    // 构建请求体，只包含role和user_id
+    const requestBody = {
+      role,
+      user_id
+    };
+
+    // 构建请求头，包含X-Kso-Id-Type
+    const headers = {
+      'X-Kso-Id-Type': id_type
+    };
+
     const response =
       await this.wasV7HttpClient.post<CreateCalendarPermissionResponse>(
-        '/v7/calendars/permissions',
-        params
+        `/v7/calendars/${calendar_id}/permissions/create`,
+        requestBody,
+        headers
       );
     return response.data;
   }

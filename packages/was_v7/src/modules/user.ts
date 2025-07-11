@@ -293,10 +293,12 @@ export class UserModule {
    * @param params 查询参数
    * @returns 用户信息
    */
-  async getUserByExId(params: GetUserByExIdParams): Promise<UserInfo> {
+  async getUserByExId(
+    params: GetUserByExIdParams
+  ): Promise<{ items: UserInfo[] }> {
     await this.ensureAccessToken();
 
-    const response = await this.wasV7HttpClient.post<UserInfo>(
+    const response = await this.wasV7HttpClient.post(
       `/v7/users/by_ex_user_ids`,
       params
     );

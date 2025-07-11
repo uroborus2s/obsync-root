@@ -1,10 +1,64 @@
 import StratixApp, { type IStratixApp } from '@stratix/core';
+import { CalendarModule } from '@stratix/was-v7';
 import { FullSyncService } from './plugin/sync/services/full-sync.service.js';
 
 StratixApp.run().then(async (app: IStratixApp) => {
-  // const courseAggregateRepo = app.tryResolve(
-  //   'courseAggregateRepo'
-  // ) as CourseAggregateRepository;
+  const wasV7Calendar = app.tryResolve('wasV7Calendar') as CalendarModule;
+  // const calendar = await wasV7Calendar.createCalendar({
+  //   summary: '日历测试'
+  // });
+  // console.log(calendar);
+  const fullSyncService = app.tryResolve('fullSyncService') as FullSyncService;
+
+  const teachers = await fullSyncService.getTeachersForCourse({
+    gh_s: '302032',
+    xm_s: '孙永锐'
+  });
+
+  for (const teacher of teachers) {
+    // const user = await wasV7User.getUserByExId({
+    //   ex_user_ids: [teacher.gh],
+    //   status: ['active']
+    // });
+    // const id = user.items[0].id;
+    // console.log(user);
+    try {
+      const d = await wasV7Calendar.createCalendarPermission({
+        calendar_id: '126338171',
+        user_id: '101075',
+        role: 'reader',
+        id_type: 'external'
+      });
+      console.log(d);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  // const students = await fullSyncService.getStudentsForCourse(
+  //   '202420252003043225401',
+  //   '2024-2025-2'
+  // );
+  // for (const student of students) {
+  //   console.log(student);
+  //   const user = await wasV7User.getUserByExId({
+  //     ex_user_ids: [student.xh],
+  //     status: ['active']
+  //   });
+  //   const id = user.items[0].id;
+  //   console.log(user);
+  //   try {
+  //     const d = await wasV7Calendar.createCalendarPermission({
+  //       calendar_id: '126238802',
+  //       user_id: id,
+  //       role: 'reader'
+  //     });
+  //     console.log(d);
+  //   } catch (error) {
+  //     console.error(error);
+  //   }
+  // }
+
   // const fullSyncService = app.tryResolve('fullSyncService') as FullSyncService;
   // const aggregateTasks = await courseAggregateRepo.findByXnxq('2024-2025-2');
   // const wasV7Schedule = app.tryResolve('wasV7Schedule');
@@ -167,12 +221,12 @@ StratixApp.run().then(async (app: IStratixApp) => {
     const fullSyncService = app.tryResolve(
       'fullSyncService'
     ) as FullSyncService;
-    await fullSyncService.incremSyncc({
-      xnxq: '2024-2025-2'
-    });
-    await fullSyncService.incremSyncc2({
-      xnxq: '2024-2025-2'
-    });
+    // await fullSyncService.incremSyncc({
+    //   xnxq: '2024-2025-2'
+    // });
+    // await fullSyncService.incremSyncc2({
+    //   xnxq: '2024-2025-2'
+    // });
     await fullSyncService.startFullSync({
       xnxq: '2024-2025-2'
     });
