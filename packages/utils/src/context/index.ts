@@ -10,4 +10,5 @@
  * @packageDocumentation
  */
 
+// 直接导出context模块的所有功能
 export * from './context.js';

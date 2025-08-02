@@ -10,8 +10,8 @@
  * @packageDocumentation
  */
 
-// 重新导出env模块功能
-export * as env from './env.js';
+// 直接导出env模块功能
+export * from './env.js';
 
-// 导出平台检测功能
-export * as platform from './platform.js';
+// 直接导出平台检测功能
+export * from './platform.js';

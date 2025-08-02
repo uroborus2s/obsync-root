@@ -1,0 +1,3 @@
+import { createFileRoute } from "@tanstack/react-router"
+export declare const Route: import("@tanstack/router-core").Route<any, "/data-query", "/data-query", "/_authenticated/data-query", "/_authenticated/data-query", undefined, import("@tanstack/react-router").ResolveParams<"/data-query">, import("@tanstack/react-router").AnyContext, import("@tanstack/react-router").AnyContext, import("@tanstack/react-router").AnyContext, {}, undefined, unknown, unknown>;
+//# sourceMappingURL=data-query.d.ts.map

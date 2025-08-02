@@ -1,0 +1,21 @@
+{
+  "extends": "@tsconfig/recommended/tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "esModuleInterop": true,
+    "strict": true,
+    "baseUrl": ".",
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+    "declarationDir": "./dist/types",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true
+  },
+  "include": ["src/**/*", "tests/**/*", "scripts/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

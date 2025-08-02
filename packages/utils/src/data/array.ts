@@ -62,7 +62,7 @@ export function chunk<T>(array: T[], size: number = 1): T[][] {
   }
 
   const result: T[][] = [];
-  const length = array.length;
+  const { length } = array;
 
   for (let i = 0; i < length; i += size) {
     result.push(array.slice(i, i + size));
@@ -97,7 +97,7 @@ export function compact<T>(array: T[]): T[] {
     throw new TypeError('Expected array to be an array');
   }
 
-  return array.filter(Boolean) as T[];
+  return array.filter(Boolean);
 }
 
 /**
@@ -452,7 +452,7 @@ export function shuffle<T>(array: T[]): T[] {
   }
 
   const result = array.slice();
-  const length = result.length;
+  const { length } = result;
 
   for (let i = length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));

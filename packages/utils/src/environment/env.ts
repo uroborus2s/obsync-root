@@ -230,7 +230,7 @@ export function getAll(): Record<string, string> {
       Object.prototype.hasOwnProperty.call(process.env, key) &&
       process.env[key] !== undefined
     ) {
-      env[key] = process.env[key] as string;
+      env[key] = process.env[key];
     }
   }
 

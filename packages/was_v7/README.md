@@ -1,8 +1,21 @@
 # @stratix/was-v7
 
-WPS协作平台V7 API的Stratix插件，严格按照官方API文档实现。
+WPS协作平台V7 API的Stratix插件，采用服务适配器模式，提供纯函数式的API调用接口。
 
 ## 🔥 最新更新
+
+### v2.0.0 - 服务适配器架构重构
+
+- ✅ **服务适配器模式**: 将所有WPS API封装为纯函数适配器
+- ✅ **根容器注册**: 适配器注册到应用根容器，全局可用
+- ✅ **命名空间隔离**: 使用`@stratix/was-v7.{adapterName}`命名空间
+- ✅ **自动发现机制**: 插件自动发现和注册所有适配器
+- ✅ **函数式编程**: 完全采用函数式编程范式
+- ✅ **零配置使用**: 其他插件可直接通过DI容器调用适配器
+- ✅ **完整API覆盖**: 8个适配器覆盖95+个WPS API接口
+- ✅ **便捷方法**: 提供高级封装和批量操作方法
+- ✅ **参数验证**: 完整的配置参数验证和错误处理机制
+- ✅ **安全配置**: 生产环境强制HTTPS，敏感信息保护
 
 ### v1.1.0 - 日历模块开发完成
 
@@ -14,27 +27,24 @@ WPS协作平台V7 API的Stratix插件，严格按照官方API文档实现。
 - ✅ **忙闲查询**: 查询用户在指定时间范围内的忙闲状态
 - ✅ **便捷方法**: 提供简单日程创建、全天日程、今日/本周日程查询等便捷方法
 
-### v1.0.1 - Authorization头和access_token修复
-
-- ✅ **修复Authorization头设置**: 所有API请求现在都会自动包含正确的Authorization头
-- ✅ **修复access_token获取**: 使用正确的自建应用获取租户access_token的API端点
-- ✅ **优化token管理**: 获取token的请求不再包含Authorization头，避免冲突
-- ✅ **自动token刷新**: 每个API调用前自动检查并刷新过期的token
-
-详细修复内容请查看: [Authorization修复文档](./docs/AUTHORIZATION_FIX.md)
-
 ## 功能特性
 
-- 🔐 **完整的认证授权** - 支持应用授权、用户授权和租户授权
+- 🎯 **服务适配器模式** - 纯函数式API调用，注册到根容器
+- 🔐 **完整的认证授权** - 自动处理token获取和刷新
 - 🔒 **安全签名算法** - 实现WPS开放平台标准签名算法
 - 🌐 **HTTP客户端** - 基于axios的高性能HTTP客户端
 - 🔄 **自动重试** - 支持请求失败自动重试
 - 📝 **TypeScript支持** - 完整的类型定义
-- 🔌 **插件化设计** - 声明式插件，无缝集成Stratix框架
+- 🔌 **插件化设计** - 符合Stratix最新插件开发规范
 - 🛠️ **错误处理** - 统一的错误处理和分类
+- ✅ **参数验证** - 智能的配置验证和默认值处理
+- 🔒 **安全配置** - 生产环境安全检查和敏感信息保护
 - 👥 **通讯录管理** - 完整的企业、部门、用户管理功能
-- 📅 **日历管理** - 完整的日历和日程管理功能
-- 💬 **消息与会话** - 支持多种消息类型发送和会话管理
+- 📅 **日历日程** - 完整的日历和日程管理功能，支持参与者和会议室
+- 💬 **消息聊天** - 支持多种消息类型发送和聊天会话管理
+- 🔐 **用户认证** - 完整的OAuth2.0用户授权和认证流程
+- 🚀 **全局可用** - 任何插件和应用都可以直接调用WPS API
+- 📦 **8个适配器** - 覆盖95+个WPS API接口
 
 ## 安装
 
@@ -44,54 +54,84 @@ npm install @stratix/was-v7
 
 ## 快速开始
 
-### 1. 作为Stratix插件使用
+### 1. 插件注册
 
 ```typescript
-import { WasV7Plugin } from '@stratix/was-v7';
+// stratix.config.ts
+import type { StratixConfig } from '@stratix/core';
+import wasV7Plugin from '@stratix/was-v7';
 
-// 创建插件实例
-const wasV7 = new WasV7Plugin({
-  appId: 'your_app_id',
-  appSecret: 'your_app_secret', 
-  apiEndpoint: 'https://openapi.wps.cn'
-});
+export default (sensitiveConfig: any): StratixConfig => {
+  return {
+    plugins: [
+      {
+        name: '@stratix/was-v7',
+        plugin: wasV7Plugin,
+        options: {
+          // 必需参数
+          appId: sensitiveConfig.wasV7.appId,
+          appSecret: sensitiveConfig.wasV7.appSecret,
 
-// 初始化插件
-await wasV7.initialize();
+          // 可选参数（有默认值）
+          baseUrl: 'https://openapi.wps.cn', // 默认值
+          timeout: 60000, // 60秒，默认值
+          retryTimes: 3, // 默认值
+          debug: false // 默认值
+        }
+      }
+    ]
+  };
+};
 ```
 
-### 2. 直接使用模块
+#### 参数验证功能
+
+插件会自动验证配置参数：
 
 ```typescript
-import { UserModule, DepartmentModule, CompanyModule } from '@stratix/was-v7';
-import { AuthManager } from '@stratix/was-v7';
-import { HttpClient } from '@stratix/was-v7';
-import { SignatureUtil } from '@stratix/was-v7';
-
-// 配置信息
-const config = {
+// ✅ 正确配置
+options: {
   appId: 'your-app-id',
   appSecret: 'your-app-secret',
-  baseUrl: 'https://open.wps.cn'
-};
+  timeout: 30000, // 30秒，在允许范围内
+  retryTimes: 5 // 在允许范围内
+}
 
-// 创建依赖实例
-const signatureUtil = new SignatureUtil({ 'wasV7:options': config });
-const httpClient = new HttpClient({
-  wasV7SignatureUtil: signatureUtil,
-  logger: console,
-  'wasV7:options': config
-});
-const authManager = new AuthManager({
-  wasV7HttpClient: httpClient,
-  'wasV7:options': config
+// ❌ 错误配置 - 会抛出验证错误
+options: {
+  appId: '', // 错误：空字符串
+  appSecret: 'secret',
+  timeout: -1000, // 错误：负数
+  retryTimes: 15 // 错误：超出范围
+}
+```
+
+### 2. 使用适配器
+
+```typescript
+// 在路由处理器中使用
+app.get('/api/users', async (request, reply) => {
+  // 从根容器获取WPS用户适配器
+  const wpsUserAdapter = request.diScope.cradle['@stratix/was-v7.user'];
+
+  const users = await wpsUserAdapter.getAllUser({ page_size: 20 });
+  reply.send({ success: true, data: users });
 });
 
-// 创建模块实例
-const userModule = new UserModule({
-  wasV7HttpClient: httpClient,
-  wasV7AuthManager: authManager
-});
+// 在其他服务中使用
+export class MyService {
+  constructor(private container: AwilixContainer) {}
+
+  async syncUsers() {
+    const wpsUserAdapter = this.container.resolve('@stratix/was-v7.user');
+    const wpsDeptAdapter = this.container.resolve('@stratix/was-v7.department');
+
+    const departments = await wpsDeptAdapter.getAllDeptList();
+    const users = await wpsUserAdapter.getAllUserList();
+
+    // 执行业务逻辑...
+  }
+}
 ```
 
 ## 配置选项

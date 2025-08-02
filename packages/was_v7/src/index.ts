@@ -1,17 +1,21 @@
-// 导出模块类型
-export type { CalendarModule } from './modules/calendar.js';
-export type { ChatModule } from './modules/chat.js';
-export type { CompanyModule } from './modules/company.js';
-export type { DepartmentModule, DeptTreeNode } from './modules/department.js';
-export type { MessageModule } from './modules/message.js';
-export type { ScheduleModule } from './modules/schedule.js';
-export type { UserAuthModule } from './modules/user-auth.js';
-export type { UserModule } from './modules/user.js';
+// 导出适配器接口
+export type { WpsCalendarAdapter } from './adapters/calendar.adapter.js';
+export type { WpsChatAdapter } from './adapters/chat.adapter.js';
+export type { WpsCompanyAdapter } from './adapters/company.adapter.js';
+export type {
+  DeptTreeNode,
+  WpsDepartmentAdapter
+} from './adapters/department.adapter.js';
+export type { WpsMessageAdapter } from './adapters/message.adapter.js';
+export type { WpsScheduleAdapter } from './adapters/schedule.adapter.js';
+export type { WpsUserAuthAdapter } from './adapters/user-auth.adapter.js';
+export type { GetUserParams, WpsUserAdapter } from './adapters/user.adapter.js';
 
 // 导出插件配置类型
 export type { WasV7PluginOptions } from './plugin.js';
 
 // 导出类型定义，便于使用方引用
 export * from './types/index.js';
+
 // 默认导出插件工厂函数
-export { wasV7Plugin as default } from './plugin.js';
+export { default } from './plugin.js';

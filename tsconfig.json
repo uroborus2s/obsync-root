@@ -1,6 +1,15 @@
 {
   "extends": "@tsconfig/recommended/tsconfig.json",
-  "exclude": ["node_modules/", "dist/", "build/", "*/.*/"],
+  "exclude": [
+    "node_modules/",
+    "dist/",
+    "build/",
+    "*/.*/",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/__tests__/**/*",
+    "vitest.config.ts"
+  ],
   "compilerOptions": {
     "target": "ESNext", // 对齐Node.js 22的V8引擎版本
     "module": "NodeNext", // 强制使用Node.js原生ESM模块系统
@@ -9,6 +18,8 @@
     "baseUrl": ".",
     "sourceMap": true,
     "declaration": true,
-    "declarationMap": true
+    "declarationMap": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
   }
 }

@@ -44,7 +44,7 @@ interface AttendanceRecordData {
  */
 export class AttendanceRepository extends BaseRepository {
   constructor(
-    private db: Kysely<ExtendedDatabase>,
+    private readonly db: Kysely<ExtendedDatabase>,
     log: Logger
   ) {
     super(log);

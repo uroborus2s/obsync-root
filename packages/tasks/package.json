@@ -1,47 +1,63 @@
 {
   "name": "@stratix/tasks",
-  "version": "0.0.1",
-  "description": "Stratix框架任务管理系统 - 支持多级任务创建、状态控制和进度管理",
+  "version": "1.0.0",
+  "description": "Advanced task management system with tree structure and execution engine for Stratix framework",
   "type": "module",
-  "main": "dist/index.js",
-  "module": "dist/index.js",
-  "types": "dist/types/index.d.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/types/index.d.ts",
   "files": [
     "dist",
-    "README.md"
+    "docs",
+    "README.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
-    "clean": "rimraf dist",
-    "build": "pnpm run clean && tsc",
+    "build": "rimraf dist && tsc",
     "dev": "tsc --watch",
-    "lint": "eslint src",
-    "lint:fix": "eslint src --fix",
-    "demo": "node examples/demo-script.js",
-    "demo:help": "node examples/demo-script.js --help",
-    "demo:workflow": "node examples/demo-script.js --workflow"
+    "clean": "rimraf dist",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:ci": "jest --ci --coverage --watchAll=false",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write \"src/**/*.{ts,js,json}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,js,json}\"",
+    "typecheck": "tsc --noEmit",
+    "docs:build": "typedoc src/index.ts --out docs/api",
+    "prepublishOnly": "pnpm run clean && pnpm run build"
   },
   "keywords": [
+    "stratix",
     "tasks",
-    "task-management",
     "workflow",
-    "jobs",
-    "hierarchy",
-    "progress",
-    "database",
-    "typescript",
-    "stratix"
+    "execution-engine",
+    "task-tree",
+    "job-queue",
+    "scheduler",
+    "typescript"
   ],
-  "author": "Stratix Team",
-  "license": "MIT",
-  "dependencies": {},
-  "peerDependencies": {
+  "dependencies": {
     "@stratix/utils": "workspace:*",
+    "zod": "^3.22.0"
+  },
+  "peerDependencies": {
     "@stratix/core": "workspace:*",
     "@stratix/database": "workspace:*"
   },
   "engines": {
     "node": ">=22.0.0"
   },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stratix/stratix.git",
+    "directory": "packages/tasks"
+  },
+  "bugs": {
+    "url": "https://github.com/stratix/stratix/issues"
+  },
+  "homepage": "https://github.com/stratix/stratix/tree/main/packages/tasks#readme",
   "publishConfig": {
     "access": "public"
   }

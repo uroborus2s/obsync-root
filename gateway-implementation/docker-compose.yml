@@ -1,0 +1,519 @@
+# Stratix Gateway Docker Compose 配置
+# 完整的微服务架构部署示例
+
+version: '3.8'
+
+services:
+  # ================================
+  # API 网关服务
+  # ================================
+  gateway:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: stratix-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      # 服务器配置
+      - NODE_ENV=production
+      - GATEWAY_PORT=3000
+      - GATEWAY_HOST=0.0.0.0
+      
+      # JWT 配置
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      - JWT_EXPIRES_IN=24h
+      - JWT_ISSUER=stratix-gateway
+      
+      # Redis 配置
+      - REDIS_URL=redis://redis:6379
+      
+      # 限流配置
+      - RATE_LIMIT_GLOBAL=1000
+      - RATE_LIMIT_PER_IP=200
+      - RATE_LIMIT_PER_USER=100
+      
+      # 上游服务配置
+      - USER_SERVICE_URL_1=http://user-service-1:3000
+      - USER_SERVICE_URL_2=http://user-service-2:3000
+      - ORDER_SERVICE_URL=http://order-service:3000
+      - PRODUCT_SERVICE_URL_1=http://product-service-1:3000
+      - PRODUCT_SERVICE_URL_2=http://product-service-2:3000
+      - PAYMENT_SERVICE_URL=http://payment-service:3000
+      - NOTIFICATION_SERVICE_URL=http://notification-service:3000
+      - FILE_SERVICE_URL=http://file-service:3000
+      - STATIC_SERVICE_URL=http://static-service:3000
+      - ADMIN_SERVICE_URL=http://admin-service:3000
+      
+      # 健康检查配置
+      - HEALTH_CHECK_ENABLED=true
+      - HEALTH_CHECK_INTERVAL=30000
+      - HEALTH_CHECK_TIMEOUT=5000
+      
+      # 日志配置
+      - LOG_LEVEL=info
+      - LOG_FILE_ENABLED=true
+      - LOG_FILE_PATH=/app/logs/gateway.log
+    
+    volumes:
+      - gateway-logs:/app/logs
+      - ./config:/app/config:ro
+    
+    depends_on:
+      - redis
+      - user-service-1
+      - user-service-2
+      - order-service
+      - product-service-1
+      - product-service-2
+      - payment-service
+      - notification-service
+      - file-service
+      - static-service
+      - admin-service
+    
+    networks:
+      - app-network
+      - monitoring-network
+    
+    restart: unless-stopped
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ================================
+  # 缓存和存储服务
+  # ================================
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
+    volumes:
+      - redis-data:/data
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ================================
+  # 数据库服务
+  # ================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=microservices
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ================================
+  # 用户服务 (2个实例用于负载均衡)
+  # ================================
+  user-service-1:
+    image: user-service:latest
+    container_name: user-service-1
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=microservices
+      - DB_USER=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key}
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  user-service-2:
+    image: user-service:latest
+    container_name: user-service-2
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=microservices
+      - DB_USER=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key}
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ================================
+  # 订单服务
+  # ================================
+  order-service:
+    image: order-service:latest
+    container_name: order-service
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=microservices
+      - DB_USER=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - REDIS_URL=redis://redis:6379
+      - USER_SERVICE_URL=http://user-service-1:3000
+      - PRODUCT_SERVICE_URL=http://product-service-1:3000
+      - PAYMENT_SERVICE_URL=http://payment-service:3000
+    depends_on:
+      - postgres
+      - redis
+      - user-service-1
+      - product-service-1
+      - payment-service
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ================================
+  # 产品服务 (2个实例用于负载均衡)
+  # ================================
+  product-service-1:
+    image: product-service:latest
+    container_name: product-service-1
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=microservices
+      - DB_USER=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - REDIS_URL=redis://redis:6379
+      - FILE_SERVICE_URL=http://file-service:3000
+    depends_on:
+      - postgres
+      - redis
+      - file-service
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  product-service-2:
+    image: product-service:latest
+    container_name: product-service-2
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=microservices
+      - DB_USER=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - REDIS_URL=redis://redis:6379
+      - FILE_SERVICE_URL=http://file-service:3000
+    depends_on:
+      - postgres
+      - redis
+      - file-service
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ================================
+  # 支付服务
+  # ================================
+  payment-service:
+    image: payment-service:latest
+    container_name: payment-service
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=microservices
+      - DB_USER=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - REDIS_URL=redis://redis:6379
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - PAYPAL_CLIENT_ID=${PAYPAL_CLIENT_ID:-}
+      - PAYPAL_CLIENT_SECRET=${PAYPAL_CLIENT_SECRET:-}
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ================================
+  # 通知服务
+  # ================================
+  notification-service:
+    image: notification-service:latest
+    container_name: notification-service
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=microservices
+      - DB_USER=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - REDIS_URL=redis://redis:6379
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - SMS_API_KEY=${SMS_API_KEY:-}
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ================================
+  # 文件服务
+  # ================================
+  file-service:
+    image: file-service:latest
+    container_name: file-service
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=microservices
+      - DB_USER=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - REDIS_URL=redis://redis:6379
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - S3_BUCKET=${S3_BUCKET:-}
+    volumes:
+      - file-storage:/app/uploads
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ================================
+  # 静态文件服务
+  # ================================
+  static-service:
+    image: nginx:alpine
+    container_name: static-service
+    volumes:
+      - ./static:/usr/share/nginx/html:ro
+      - ./nginx/static.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ================================
+  # 管理后台服务
+  # ================================
+  admin-service:
+    image: admin-service:latest
+    container_name: admin-service
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=microservices
+      - DB_USER=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key}
+      - ADMIN_SECRET=${ADMIN_SECRET:-admin-secret-key}
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ================================
+  # 监控服务
+  # ================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - monitoring-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on:
+      - prometheus
+    networks:
+      - monitoring-network
+    restart: unless-stopped
+
+  # ================================
+  # 日志聚合
+  # ================================
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - monitoring-network
+    restart: unless-stopped
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - monitoring-network
+    restart: unless-stopped
+
+# ================================
+# 网络配置
+# ================================
+networks:
+  app-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+  
+  monitoring-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+
+# ================================
+# 数据卷配置
+# ================================
+volumes:
+  # 应用数据
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+  file-storage:
+    driver: local
+  gateway-logs:
+    driver: local
+  
+  # 监控数据
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+  elasticsearch-data:
+    driver: local

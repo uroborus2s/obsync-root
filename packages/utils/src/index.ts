@@ -26,14 +26,11 @@
  * @packageDocumentation
  */
 
-// 按照功能领域导出所有工具函数
-export * from './async/index.js';
-export * from './common/index.js';
-export * from './context/index.js';
-export * as crypto from './crypto/index.js';
-export * from './data/index.js';
-export * from './environment/index.js';
-export * from './number/index.js';
-export * from './performance/index.js';
-export * from './string/index.js';
-export * from './time/index.js';
+// 导出实际使用的模块
+export * as async from './async/index.js';
+export * as context from './context/index.js';
+export * as data from './data/index.js';
+export * as environment from './environment/index.js';
+
+// 导出函数式编程工具
+export * as functional from './functional/index.js';

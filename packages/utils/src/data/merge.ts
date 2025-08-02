@@ -1,6 +1,6 @@
 /**
  * @remarks
- * 模块: 
+ * 模块:
  *
  * 数据合并工具函数，提供对象合并、克隆等操作
  *
@@ -30,6 +30,112 @@
  */
 
 import { isObject } from './object.js';
+
+/**
+ * 合并两个数组并去重
+ *
+ * 将两个数组合并，并移除重复的元素。对于对象类型的元素，
+ * 使用深度比较来判断是否相等。
+ *
+ * @param target - 目标数组
+ * @param source - 源数组
+ * @returns 合并后的去重数组
+ */
+function mergeArraysWithDeduplication<T>(target: T[], source: T[]): T[] {
+  const result = [...target];
+
+  for (const sourceItem of source) {
+    // 检查是否已存在相同的元素
+    const isDuplicate = result.some((resultItem) => {
+      // 对于基本类型，直接比较
+      if (typeof sourceItem !== 'object' || sourceItem === null) {
+        return resultItem === sourceItem;
+      }
+
+      // 对于对象类型，进行深度比较
+      return deepEqual(resultItem, sourceItem);
+    });
+
+    // 如果不是重复元素，则添加到结果中
+    if (!isDuplicate) {
+      result.push(sourceItem);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * 深度比较两个值是否相等
+ *
+ * 递归比较两个值的所有属性，支持对象、数组、基本类型等。
+ *
+ * @param a - 第一个值
+ * @param b - 第二个值
+ * @returns 如果两个值深度相等则返回 true，否则返回 false
+ */
+function deepEqual(a: any, b: any): boolean {
+  // 严格相等检查
+  if (a === b) {
+    return true;
+  }
+
+  // null 和 undefined 检查
+  if (a == null || b == null) {
+    return a === b;
+  }
+
+  // 类型检查
+  if (typeof a !== typeof b) {
+    return false;
+  }
+
+  // 日期比较
+  if (a instanceof Date && b instanceof Date) {
+    return a.getTime() === b.getTime();
+  }
+
+  // 正则表达式比较
+  if (a instanceof RegExp && b instanceof RegExp) {
+    return a.toString() === b.toString();
+  }
+
+  // 数组比较
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) {
+      return false;
+    }
+
+    for (let i = 0; i < a.length; i++) {
+      if (!deepEqual(a[i], b[i])) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  // 对象比较
+  if (isObject(a) && isObject(b)) {
+    const keysA = Object.keys(a);
+    const keysB = Object.keys(b);
+
+    if (keysA.length !== keysB.length) {
+      return false;
+    }
+
+    for (const key of keysA) {
+      if (!keysB.includes(key) || !deepEqual(a[key], b[key])) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  // 其他情况
+  return false;
+}
 
 /**
  * 将一个或多个源对象的可枚举属性分配到目标对象
@@ -190,7 +296,7 @@ export function deepClone<T>(value: T): T {
  * 深度合并对象
  *
  * 将一个或多个源对象的属性深度合并到目标对象中。
- * 不同于assign，该函数会递归合并嵌套对象，并连接数组。
+ * 不同于assign，该函数会递归合并嵌套对象，并智能合并数组（去重）。
  *
  * @param target - 目标对象
  * @param sources - 源对象列表
@@ -206,12 +312,19 @@ export function deepClone<T>(value: T): T {
  * deepMerge(target, { a: { b: 3, d: 4 } });
  * // 输出: { a: { b: 3, c: 2, d: 4 } }
  *
- * // 合并数组
+ * // 合并数组（自动去重）
  * deepMerge(
  *   { a: [1, 2], b: { c: 3 } },
- *   { a: [3, 4], b: { d: 5 } }
+ *   { a: [2, 3], b: { d: 5 } }
  * );
- * // 输出: { a: [1, 2, 3, 4], b: { c: 3, d: 5 } }
+ * // 输出: { a: [1, 2, 3], b: { c: 3, d: 5 } }
+ *
+ * // 合并对象数组（深度去重）
+ * deepMerge(
+ *   { items: [{ id: 1, name: 'A' }] },
+ *   { items: [{ id: 1, name: 'A' }, { id: 2, name: 'B' }] }
+ * );
+ * // 输出: { items: [{ id: 1, name: 'A' }, { id: 2, name: 'B' }] }
  * ```
  */
 export function deepMerge<
@@ -237,16 +350,13 @@ export function deepMerge<
 
         // 递归合并对象
         if (isObject(resultValue) && isObject(sourceValue)) {
-          result[key] = deepMerge(
-            { ...(resultValue as Record<string, any>) },
-            sourceValue
-          );
+          result[key] = deepMerge({ ...resultValue }, sourceValue);
           continue;
         }
 
-        // 合并数组
+        // 合并数组（去重）
         if (Array.isArray(resultValue) && Array.isArray(sourceValue)) {
-          result[key] = [...resultValue, ...sourceValue];
+          result[key] = mergeArraysWithDeduplication(resultValue, sourceValue);
           continue;
         }
 
@@ -257,4 +367,40 @@ export function deepMerge<
   }
 
   return result as T & S[number];
+}
+
+/**
+ * 不可变深度合并对象
+ *
+ * 将一个或多个源对象的属性深度合并，返回新对象而不修改原对象。
+ * 是deepMerge的不可变版本，确保原始对象保持不变。
+ *
+ * @param target - 目标对象
+ * @param sources - 源对象列表
+ * @returns 合并后的新对象
+ * @remarks
+ * 版本: 1.0.0
+ * 分类: 对象合并
+ *
+ * @example
+ * ```typescript
+ * // 不可变深度合并
+ * const original = { a: { b: 1, c: 2 } };
+ * const result = immutableDeepMerge(original, { a: { b: 3, d: 4 } });
+ * // 输出: { a: { b: 3, c: 2, d: 4 } }
+ * // original保持不变: { a: { b: 1, c: 2 } }
+ * ```
+ */
+export function immutableDeepMerge<
+  T extends Record<string, any>,
+  S extends Record<string, any>[]
+>(target: T, ...sources: S): T & S[number] {
+  if (!isObject(target)) {
+    throw new TypeError('Target must be an object');
+  }
+
+  // 深度克隆目标对象，确保不可变性
+  const result = deepClone(target);
+
+  return deepMerge(result, ...sources);
 }

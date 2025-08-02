@@ -41,10 +41,39 @@
  * @packageDocumentation
  */
 
-// 导出子模块
-export * from './common/index.js';
-export * from './concurrency/index.js';
-export * from './debounce-throttle/index.js';
-export * from './flow-control/index.js';
-export * from './promise-utils/index.js';
-export * from './retry/index.js';
+// 导出实际使用的异步工具
+export * as common from './common.js';
+export * as promiseCombinators from './promise-combinators.js';
+export * as concurrency from './concurrency.js';
+
+// 直接导出常用功能
+export { sleep } from './common.js';
+export {
+  executePromises,
+  executeParallel,
+  executeSequential,
+  executeMixed,
+  withRetry,
+  withTimeout,
+  promisePipe,
+  ErrorAggregator,
+  PromiseStream,
+  createPromiseStream,
+  fromPromises,
+  ConcurrencyController,
+  CircuitBreaker,
+  ExecutionMode,
+  type PromiseExecutionOptions,
+  type PromiseResult,
+  type RetryOptions
+} from './promise-combinators.js';
+export {
+  SmartQueue,
+  ResourcePool,
+  RateLimiter,
+  TaskPriority,
+  TaskStatus,
+  type Task,
+  type QueueConfig,
+  type QueueStats
+} from './concurrency.js';

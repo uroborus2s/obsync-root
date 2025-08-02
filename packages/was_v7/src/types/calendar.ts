@@ -11,18 +11,12 @@
 export interface CalendarInfo {
   /** 日历ID */
   id: string;
+  /** 日历的权限级别 */
+  role: string;
   /** 日历标题 */
   summary: string;
-  /** 日历描述 */
-  description?: string;
-  /** 时区 */
-  time_zone?: string;
-  /** 是否为主日历 */
-  is_primary?: boolean;
-  /** 创建时间 */
-  create_time?: string;
-  /** 更新时间 */
-  update_time?: string;
+  /** 日历类型 */
+  type: string;
 }
 
 /**
@@ -30,17 +24,13 @@ export interface CalendarInfo {
  */
 export interface CalendarPermission {
   /** 权限ID */
-  permission_id: string;
+  id: string;
   /** 日历ID */
   calendar_id: string;
   /** 用户ID或用户组ID */
-  principal_id: string;
-  /** 权限类型：user | group */
-  principal_type: 'user' | 'group';
+  user_id: string;
   /** 权限级别：owner | writer | reader */
-  role: 'owner' | 'writer' | 'reader';
-  /** 创建时间 */
-  create_time?: string;
+  role: 'owner' | 'writer' | 'reader' | 'free_busy_reader';
 }
 
 /**
@@ -396,6 +386,20 @@ export interface GetGroupMembersParams {
 }
 
 /**
+ * 查询日历权限列表参数
+ */
+export interface GetCalendarPermissionListParams {
+  /** 日历ID */
+  calendar_id: string;
+  /** 分页大小，最大20 */
+  page_size?: number;
+  /** 分页标记 */
+  page_token?: string;
+  /** ID类型：internal | external */
+  id_type?: 'internal' | 'external';
+}
+
+/**
  * 批量添加日程会议室参数
  */
 export interface BatchCreateMeetingRoomsParams {
@@ -503,6 +507,43 @@ export interface CreateScheduleResponse {
 }
 
 /**
+ * 批量创建日程参数
+ */
+export interface BatchCreateSchedulesParams {
+  /** 日历ID */
+  calendar_id: string;
+  /** 日程列表，最多支持100个日程 */
+  events: Array<{
+    /** 日程标题 */
+    summary: string;
+    /** 日程描述 */
+    description?: string;
+    /** 开始时间 */
+    start_time: ScheduleDateTime;
+    /** 结束时间 */
+    end_time: ScheduleDateTime;
+    /** 是否全天日程 */
+    is_all_day?: boolean;
+    /** 时区 */
+    time_zone?: string;
+    /** 重复规则 */
+    recurrence?: string[];
+    /** 提醒设置 */
+    reminders?: ScheduleReminder[];
+    /** 地点 */
+    location?: string;
+  }>;
+}
+
+/**
+ * 批量创建日程响应
+ */
+export interface BatchCreateSchedulesResponse {
+  /** 创建的日程列表 */
+  events: ScheduleInfo[];
+}
+
+/**
  * 查询日程响应
  */
 export interface GetScheduleResponse {
@@ -572,4 +613,63 @@ export interface GetScheduleMeetingRoomsResponse {
 export interface CreateLeaveEventResponse {
   /** 请假日程信息 */
   leave_event: LeaveEventInfo;
+}
+
+/**
+ * 查询日历权限列表响应
+ */
+export interface GetCalendarPermissionListResponse {
+  /** 权限列表 */
+  items: CalendarPermission[];
+  /** 下一页标记 */
+  next_page_token?: string;
+  /** 总数 */
+  total_count?: number;
+}
+
+/**
+ * 删除日历参数
+ */
+export interface DeleteCalendarParams {
+  /** 日历ID */
+  calendar_id: string;
+  /** ID类型：internal | external */
+  id_type?: 'internal' | 'external';
+}
+
+/**
+ * 批量创建日历权限参数
+ */
+export interface BatchCreateCalendarPermissionsParams {
+  /** 日历ID */
+  calendar_id: string;
+  /** 权限列表，最多支持100个用户 */
+  permissions: Array<{
+    /** 用户ID */
+    user_id: string;
+    /** 权限级别 */
+    role: 'free_busy_reader' | 'reader' | 'writer';
+  }>;
+  /** ID类型：internal | external */
+  id_type?: 'internal' | 'external';
+}
+
+/**
+ * 批量创建日历权限响应
+ */
+export interface BatchCreateCalendarPermissionsResponse {
+  /** 创建的权限列表 */
+  items: CalendarPermission[];
+}
+
+/**
+ * 删除日历权限参数
+ */
+export interface DeleteCalendarPermissionParams {
+  /** 日历ID */
+  calendar_id: string;
+  /** 权限ID */
+  calendar_permission_id: string;
+  /** ID类型：internal | external */
+  id_type?: 'internal' | 'external';
 }

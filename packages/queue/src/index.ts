@@ -1,107 +1,111 @@
 /**
- * @stratix/queue 主入口文件
- * 导出所有队列相关功能
+ * @stratix/queue - 高可靠、基于Redis的消息队列系统
  */
 
-// 插件
-export { wrapQueuePlugin as default } from './plugin.js';
-
-// 零配置队列服务
+// 核心类 - 具体导出避免循环依赖
 export {
-  type BatchJobInput,
-  type GroupServiceOptions,
-  type GroupStatus,
-  type QueueService,
-  type ServiceStats,
-  type SimpleJobInput,
-  type TaskStatus
-} from './services/group-service.js';
+  Consumer,
+  DeadLetterQueueManager,
+  Producer,
+  Queue,
+  QueueManager
+} from './core/index.js';
 
-// 核心管理器
-export { QueueManager } from './managers/queue-manager.js';
+// Redis连接管理
+export { RedisConnectionManager } from './redis/index.js';
 
-// 仓储层
+// 序列化
 export {
-  QueueGroupRepository,
-  QueueJobRepository
-} from './repositories/index.js';
+  CachedSerializer,
+  CompressedSerializer,
+  createCachedSerializer,
+  createCompressedSerializer,
+  getSerializer,
+  SerializerAdapter,
+  SerializerFactory
+} from './serialization/index.js';
 
-// 服务层
+export type { ISerializer } from './serialization/index.js';
+
+// 重试机制
 export {
-  GroupManagementService,
-  JobExecutionService
-} from './services/index.js';
+  CircuitBreakerRetryPolicy,
+  CustomRetryPolicy,
+  DecoratedRetryPolicy,
+  ExponentialBackoffRetryPolicy,
+  FixedDelayRetryPolicy,
+  LinearBackoffRetryPolicy,
+  RetryExecutor,
+  RetryPolicyFactory
+} from './retry/index.js';
 
 // 监控
-export { QueueMonitor } from './monitoring/queue-monitor.js';
+export {
+  AlertManager,
+  ConsumerMetricsCollector,
+  HealthMonitor,
+  MetricsAggregator,
+  PerformanceMonitor,
+  ProducerMetricsCollector,
+  QueueMetricsCollector,
+  SystemMetricsCollector
+} from './monitoring/index.js';
 
-// 核心组件
-export { SmartBackpressureManager } from './core/backpressure-manager.js';
-export { EventDrivenMemoryQueue } from './core/memory-queue.js';
-export { JobNotificationSystem } from './notifications/job-notification-system.js';
-export { DatabaseJobStream } from './streams/database-job-stream.js';
+// 错误定义
+export {
+  createQueueError,
+  createRedisError,
+  handleError,
+  isRetryableError
+} from './errors/index.js';
 
-// 类型定义
+// 工具函数
+export {
+  createLogger,
+  debounce,
+  generateMessageId,
+  generateUUID,
+  retry,
+  sleep,
+  throttle
+} from './utils/index.js';
+
+// 插件
+export {
+  createQueuePlugin,
+  defaultPluginManager,
+  PluginManager
+} from './plugin.js';
+
+// 类型定义 - 只导出最常用的类型，避免循环依赖
 export type {
-  BackpressureActivatedEvent,
-  BackpressureConfig,
-  BackpressureDeactivatedEvent,
-  CreateJobInput,
-  CreateJobsBatchInput,
-  DatabaseStreamConfig,
-  DebounceConfig,
-  ExecutorConfig,
-  GroupManagementConfig,
-  GroupPausedEvent,
-  GroupResumedEvent,
-  // 监控类型
+  BatchMessageHandler,
+  ConsumeResult,
+  ConsumerMetrics,
+  ConsumerOptions,
   HealthStatus,
-  JobCompletedEvent,
-  JobExecutor,
-  JobFailedEvent,
-  // 任务相关类型
-  JobPayload,
-  JobProcessingConfig,
-  JobResult,
-  JobsAddedEvent,
-  JobStatus,
-  MonitoringConfig,
-  PersistenceConfig,
-  // 队列核心类型
-  QueueConfig,
-  QueueDatabase,
-  // 事件类型
-  QueueEventMap,
-  QueueFailuresTable,
-  QueueGroupsTable,
-  GroupStatus as QueueGroupStatus,
-  QueueJob,
-  QueueJobsTable,
-  QueueMetricsTable,
-  QueuePluginOptions,
-  QueueSuccessTable,
-  StreamStartedEvent,
-  WaterMarkChangeEvent,
+  IConsumer,
+  IProducer,
+  // 核心接口
+  IQueue,
+  IQueueManager,
+  // 消息类型
+  Message,
+  MessageHandler,
+  // 监控类型
+  Metrics,
+  ProducerConfig,
+  ProducerMetrics,
   // 配置类型
-  WaterMarkConfig,
-  WaterMarkLevel
+  QueueConfig,
+  QueueManagerConfig,
+  QueueStats,
+  SendOptions,
+  SendResult
 } from './types/index.js';
 
-// ============================================================================
-// 模型
-// ============================================================================
+// 重试类型单独导出
+export type { RetryPolicy, RetryPolicyConfig } from './retry/index.js';
 
-export { QueueJobModel } from './models/queue-job.model.js';
-
-// ============================================================================
-// 配置
-// ============================================================================
-
-export {
-  DEFAULT_QUEUE_CONFIG,
-  getPresetConfig,
-  HIGH_THROUGHPUT_CONFIG,
-  LOW_LATENCY_CONFIG,
-  MEMORY_OPTIMIZED_CONFIG,
-  mergeConfig
-} from './config/default-config.js';
+// 常量导出
+export { DEFAULT_CONFIG, PRIORITY } from './types/index.js';

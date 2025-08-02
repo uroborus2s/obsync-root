@@ -40,8 +40,8 @@
  */
 
 // 导出各子模块的命名空间
-export * as array from './array.js';
-export * as compare from './compare.js';
-export * as merge from './merge.js';
-export * as object from './object.js';
-export * as select from './select.js';
+export * from './array.js';
+export * from './compare.js';
+export * from './merge.js';
+export * from './object.js';
+export * from './select.js';

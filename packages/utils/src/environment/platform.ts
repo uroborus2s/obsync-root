@@ -71,8 +71,7 @@ export function isBrowser(): boolean {
 export function isNode(): boolean {
   return (
     typeof process !== 'undefined' &&
-    typeof process.versions !== 'undefined' &&
-    typeof process.versions.node !== 'undefined'
+    typeof process.versions?.node !== 'undefined'
   );
 }
 
@@ -121,7 +120,7 @@ export function supportsWebAPI(apiName: string): boolean {
     return false;
   }
 
-  const w = _global.window as any;
+  const w = _global.window;
   return apiName in w;
 }
 
@@ -154,7 +153,7 @@ export function supportsCSS(property: string): boolean {
   }
 
   try {
-    const doc = _global.document as any;
+    const doc = _global.document;
     const element = doc.createElement('div');
     return property in element.style;
   } catch (e) {
@@ -189,8 +188,8 @@ export function getEnvironment(): {
 } {
   if (isBrowser()) {
     try {
-      const nav = _global.navigator as any;
-      const userAgent = nav.userAgent;
+      const nav = _global.navigator;
+      const { userAgent } = nav;
       let browser = 'unknown';
 
       if (userAgent.indexOf('Chrome') > -1) {
@@ -254,7 +253,7 @@ export function getOSType(): 'windows' | 'macos' | 'linux' | 'unknown' {
     return 'unknown';
   }
 
-  const platform = process.platform;
+  const { platform } = process;
   if (platform === 'win32') return 'windows';
   if (platform === 'darwin') return 'macos';
   if (platform === 'linux') return 'linux';

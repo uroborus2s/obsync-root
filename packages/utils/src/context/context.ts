@@ -19,7 +19,7 @@ import { EventEmitter } from 'events';
 /**
  * 上下文类型定义
  */
-export interface Context<T extends Record<string, any>> {
+export interface IContext<T extends Record<string, unknown>> {
   /**
    * 获取指定键的值
    *
@@ -35,7 +35,7 @@ export interface Context<T extends Record<string, any>> {
    * @param value - 值
    * @returns 上下文实例，支持链式调用
    */
-  set<K extends keyof T>(key: K, value: T[K]): Context<T>;
+  set<K extends keyof T>(key: K, value: T[K]): IContext<T>;
 
   /**
    * 检查是否存在指定键
@@ -51,7 +51,7 @@ export interface Context<T extends Record<string, any>> {
    * @param key - 键名
    * @returns 上下文实例，支持链式调用
    */
-  remove<K extends keyof T>(key: K): Context<T>;
+  remove<K extends keyof T>(key: K): IContext<T>;
 
   /**
    * 获取所有的键值对
@@ -81,7 +81,7 @@ export interface Context<T extends Record<string, any>> {
    * @param defaultValues - 默认值
    * @returns 上下文实例，支持链式调用
    */
-  setDefaults(defaultValues: Partial<T>): Context<T>;
+  setDefaults(defaultValues: Partial<T>): IContext<T>;
 
   /**
    * 将处理函数与上下文一起执行
@@ -96,7 +96,7 @@ export interface Context<T extends Record<string, any>> {
    *
    * @returns 上下文实例，支持链式调用
    */
-  clear(): Context<T>;
+  clear(): IContext<T>;
 
   /**
    * 监听特定键的变化
@@ -114,8 +114,8 @@ export interface Context<T extends Record<string, any>> {
 /**
  * 命名空间上下文类型定义
  */
-export interface NamespaceContext<T extends Record<string, any>>
-  extends Context<T> {
+export interface INamespaceContext<T extends Record<string, unknown>>
+  extends IContext<T> {
   /**
    * 命名空间名称
    */
@@ -123,53 +123,22 @@ export interface NamespaceContext<T extends Record<string, any>>
 }
 
 /**
- * 使用上下文的返回类型
- */
-export interface UseContextReturn<T extends Record<string, any>> {
-  get: <K extends keyof T>(key: K) => T[K];
-  set: <K extends keyof T>(key: K, value: T[K]) => void;
-  has: (key: keyof T) => boolean;
-  remove: (key: keyof T) => void;
-  clear: () => void;
-  subscribe: <K extends keyof T>(
-    key: K,
-    handler: (value: T[K], oldValue: T[K]) => void
-  ) => () => void;
-  getState: () => T;
-}
-
-/**
- * 合并上下文选项
- */
-export interface MergeContextOptions {
-  /**
-   * 是否保留原始上下文键前缀
-   */
-  prefix?: boolean;
-
-  /**
-   * 键冲突时的覆盖策略
-   */
-  override?: 'first' | 'last' | 'error';
-}
-
-/**
  * 创建一个新的上下文容器
  * @param defaultValues - 默认值
  * @returns 上下文对象
  */
-export function createContext<T extends Record<string, any>>(
+export function createContext<T extends Record<string, unknown>>(
   defaultValues: Partial<T> = {}
-): Context<T> {
+): IContext<T> {
   const emitter = new EventEmitter();
   const state = { ...defaultValues } as T;
 
-  const context: Context<T> = {
+  const context: IContext<T> = {
     get<K extends keyof T>(key: K): T[K] {
       return state[key];
     },
 
-    set<K extends keyof T>(key: K, value: T[K]): Context<T> {
+    set<K extends keyof T>(key: K, value: T[K]): IContext<T> {
       const oldValue = state[key];
       if (value !== oldValue) {
         state[key] = value;
@@ -183,7 +152,7 @@ export function createContext<T extends Record<string, any>>(
       return key in state && state[key] !== undefined;
     },
 
-    remove(key: keyof T): Context<T> {
+    remove(key: keyof T): IContext<T> {
       if (key in defaultValues) {
         this.set(key, defaultValues[key] as T[keyof T]);
       } else {
@@ -212,8 +181,8 @@ export function createContext<T extends Record<string, any>>(
       return Object.keys(state).join('-');
     },
 
-    setDefaults(defaultValues: Partial<T>): Context<T> {
-      Object.assign(state, defaultValues);
+    setDefaults(vulues: Partial<T>): IContext<T> {
+      Object.assign(state, vulues);
       return this;
     },
 
@@ -221,7 +190,7 @@ export function createContext<T extends Record<string, any>>(
       return handler(state);
     },
 
-    clear(): Context<T> {
+    clear(): IContext<T> {
       // 保存旧状态以便触发事件
       const oldState = { ...state };
 
@@ -236,7 +205,7 @@ export function createContext<T extends Record<string, any>>(
       Object.assign(state, defaultValues);
 
       // 触发变更事件
-      emitter.emit('change', state);
+      emitter.emit('change', oldState, state);
 
       return this;
     },
@@ -263,10 +232,10 @@ export function createContext<T extends Record<string, any>>(
  * @param defaultValues - 默认值
  * @returns 命名空间上下文对象
  */
-export function createNamespace<T extends Record<string, any>>(
+export function createNamespace<T extends Record<string, unknown>>(
   name: string,
   defaultValues: Partial<T> = {}
-): NamespaceContext<T> {
+): INamespaceContext<T> {
   const context = createContext<T>(defaultValues);
 
   return {

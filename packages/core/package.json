@@ -32,28 +32,29 @@
   "author": "Stratix Team",
   "license": "MIT",
   "dependencies": {
-    "@fastify/awilix": "^8.0.0",
     "ajv": "^8.17.0",
     "ajv-formats": "^3.0.1",
     "awilix": "^12.0.5",
     "awilix-manager": "^6.1.0",
     "dotenv": "^16.4.7",
     "dotenv-expand": "^12.0.2",
-    "fastify": "^5.3.2",
+    "fastify": "^5.4.0",
     "fastify-plugin": "^5.0.1",
     "js-yaml": "^4.1.0",
     "minimist": "^1.2.8",
     "pino": "^9.6.0",
-    "pino-roll": "^1.0.0"
+    "pino-roll": "^1.0.0",
+    "reflect-metadata": "^0.2.2",
+    "@stratix/utils": "workspace:*"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
     "@types/minimist": "^1.2.5",
-    "pino-pretty": "^13.0.0"
+    "@vitest/coverage-v8": "^2.0.0",
+    "pino-pretty": "^13.0.0",
+    "vitest": "^2.0.0"
   },
-  "peerDependencies": {
-    "@stratix/utils": "workspace:*"
-  },
+  "peerDependencies": {},
   "engines": {
     "node": ">=22.0.0"
   }

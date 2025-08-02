@@ -1,0 +1,40 @@
+{
+  "name": "@stratix/icasync",
+  "version": "1.0.0",
+  "description": "Stratix 课表同步插件 - 将数据库课程数据同步到 WPS 日历",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/types/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rimraf dist",
+    "build": "pnpm run clean && tsc",
+    "dev": "tsc -p tsconfig.es6.json --watch"
+  },
+  "dependencies": {
+    "@stratix/utils": "workspace:*"
+  },
+  "devDependencies": {},
+  "peerDependencies": {
+    "@stratix/core": "workspace:*",
+    "@stratix/database": "workspace:*",
+    "@stratix/tasks": "workspace:*",
+    "@stratix/was-v7": "workspace:*"
+  },
+  "keywords": [
+    "stratix",
+    "plugin",
+    "calendar",
+    "sync",
+    "wps",
+    "schedule",
+    "task",
+    "icasync"
+  ],
+  "author": "Stratix Team",
+  "license": "MIT"
+}

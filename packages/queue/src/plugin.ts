@@ -1,110 +1,130 @@
 /**
- * @stratix/queue 插件
- * 提供高性能消息队列功能
+ * 队列插件系统
+ * 提供队列功能的扩展机制
  */
 
-import type { FastifyInstance } from '@stratix/core';
-import { fp } from '@stratix/core';
-import { SmartBackpressureManager } from './core/backpressure-manager.js';
-import { EventDrivenMemoryQueue } from './core/memory-queue.js';
-import { QueueManager } from './managers/queue-manager.js';
-import { JobNotificationSystem } from './notifications/job-notification-system.js';
-import { QueueGroupRepository } from './repositories/queue-group.repository.js';
-import { QueueJobRepository } from './repositories/queue-job.repository.js';
-import { GroupManagementService } from './services/group-management-service.js';
-import { QueueService } from './services/group-service.js';
-import { JobExecutionService } from './services/job-execution-service.js';
-import { DatabaseJobStream } from './streams/database-job-stream.js';
-import type { QueuePluginOptions } from './types/index.js';
+import { EventEmitter } from 'events';
+import type { IQueue, IQueueManager } from './types/index.js';
 
 /**
- * 队列插件
+ * 队列插件接口
  */
-async function queuePlugin(
-  fastify: FastifyInstance,
-  options: QueuePluginOptions = {}
-): Promise<void> {
-  // 注册仓储层到 DI 容器
-  fastify.registerDI(QueueJobRepository, {
-    name: 'jobRepository',
-    lifetime: 'SINGLETON',
-    asyncInit: 'init'
-  });
-
-  fastify.registerDI(QueueGroupRepository, {
-    name: 'groupRepository',
-    lifetime: 'SINGLETON',
-    asyncInit: 'init'
-  });
-
-  fastify.registerDI(EventDrivenMemoryQueue, {
-    name: 'drivenMemoryQueue',
-    lifetime: 'SINGLETON'
-  });
-
-  fastify.registerDI(SmartBackpressureManager, {
-    name: 'backpressureManager',
-    lifetime: 'SINGLETON'
-  });
-
-  fastify.registerDI(DatabaseJobStream, {
-    name: 'databaseJobStream',
-    lifetime: 'SINGLETON'
-  });
-
-  fastify.registerDI(JobNotificationSystem, {
-    name: 'jobNotificationSystem',
-    lifetime: 'SINGLETON'
-  });
-
-  fastify.registerDI(QueueManager, {
-    name: 'queueManager',
-    lifetime: 'SINGLETON'
-  });
-
-  fastify.registerDI(JobExecutionService, {
-    name: 'jobExecutionService',
-    lifetime: 'SINGLETON'
-  });
-
-  fastify.registerDI(GroupManagementService, {
-    name: 'groupManagementService',
-    lifetime: 'SINGLETON'
-  });
-
-  fastify.registerDI(QueueService, {
-    name: 'queueService',
-    lifetime: 'SINGLETON'
-  });
-
-  fastify.addHook('onReady', async () => {
-    try {
-      fastify.log.info('Starting queue service...');
-      const queueService = fastify.diContainer.resolve('queueService');
-
-      // 添加超时保护
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => {
-          reject(new Error('Queue service start timeout after 15 seconds'));
-        }, 15000);
-      });
-
-      const startPromise = queueService.start();
-
-      // 使用 Promise.race 确保不会无限等待
-      await Promise.race([startPromise, timeoutPromise]);
-
-      fastify.log.info('Queue service started successfully');
-    } catch (error) {
-      fastify.log.error({ error }, 'Failed to initialize queue plugin');
-      // 队列服务启动失败不应该阻止整个应用启动
-      // throw error;
-    }
-  });
+export interface IQueuePlugin {
+  name: string;
+  version: string;
+  install(queueManager: IQueueManager): Promise<void>;
+  uninstall(queueManager: IQueueManager): Promise<void>;
+  onQueueCreated?(queue: IQueue): Promise<void>;
+  onQueueDestroyed?(queue: IQueue): Promise<void>;
 }
 
-// 导出插件
-export const wrapQueuePlugin = fp(queuePlugin, {
-  name: '@stratix/queue',
-  dependencies: ['@stratix/database']
-});
+/**
+ * 插件管理器
+ */
+export class PluginManager extends EventEmitter {
+  private plugins: Map<string, IQueuePlugin> = new Map();
+  private installedPlugins: Set<string> = new Set();
+
+  /**
+   * 注册插件
+   */
+  register(plugin: IQueuePlugin): void {
+    if (this.plugins.has(plugin.name)) {
+      throw new Error(`Plugin '${plugin.name}' is already registered`);
+    }
+
+    this.plugins.set(plugin.name, plugin);
+    this.emit('pluginRegistered', plugin);
+  }
+
+  /**
+   * 安装插件
+   */
+  async install(
+    pluginName: string,
+    queueManager: IQueueManager
+  ): Promise<void> {
+    const plugin = this.plugins.get(pluginName);
+    if (!plugin) {
+      throw new Error(`Plugin '${pluginName}' not found`);
+    }
+
+    if (this.installedPlugins.has(pluginName)) {
+      throw new Error(`Plugin '${pluginName}' is already installed`);
+    }
+
+    await plugin.install(queueManager);
+    this.installedPlugins.add(pluginName);
+    this.emit('pluginInstalled', plugin);
+  }
+
+  /**
+   * 卸载插件
+   */
+  async uninstall(
+    pluginName: string,
+    queueManager: IQueueManager
+  ): Promise<void> {
+    const plugin = this.plugins.get(pluginName);
+    if (!plugin) {
+      throw new Error(`Plugin '${pluginName}' not found`);
+    }
+
+    if (!this.installedPlugins.has(pluginName)) {
+      throw new Error(`Plugin '${pluginName}' is not installed`);
+    }
+
+    await plugin.uninstall(queueManager);
+    this.installedPlugins.delete(pluginName);
+    this.emit('pluginUninstalled', plugin);
+  }
+
+  /**
+   * 获取已安装的插件列表
+   */
+  getInstalledPlugins(): string[] {
+    return Array.from(this.installedPlugins);
+  }
+
+  /**
+   * 获取所有注册的插件
+   */
+  getRegisteredPlugins(): IQueuePlugin[] {
+    return Array.from(this.plugins.values());
+  }
+
+  /**
+   * 检查插件是否已安装
+   */
+  isInstalled(pluginName: string): boolean {
+    return this.installedPlugins.has(pluginName);
+  }
+}
+
+/**
+ * 默认插件管理器实例
+ */
+export const defaultPluginManager = new PluginManager();
+
+/**
+ * 创建队列插件
+ */
+export function createQueuePlugin(
+  name: string,
+  version: string,
+  options: {
+    install?: (queueManager: IQueueManager) => Promise<void>;
+    uninstall?: (queueManager: IQueueManager) => Promise<void>;
+    onQueueCreated?: (queue: IQueue) => Promise<void>;
+    onQueueDestroyed?: (queue: IQueue) => Promise<void>;
+  }
+): IQueuePlugin {
+  return {
+    name,
+    version,
+    install: options.install || (async () => {}),
+    uninstall: options.uninstall || (async () => {}),
+    onQueueCreated: options.onQueueCreated,
+    onQueueDestroyed: options.onQueueDestroyed
+  };
+}

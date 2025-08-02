@@ -1,7 +1,7 @@
 {
   "name": "@stratix/queue",
-  "version": "0.0.1",
-  "description": "高性能、灵活的结构化消息栈",
+  "version": "1.0.0",
+  "description": "高可靠、基于Redis的消息队列系统",
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.js",
@@ -15,24 +15,35 @@
     "build": "pnpm run clean && tsc",
     "dev": "tsc --watch",
     "lint": "eslint src",
-    "lint:fix": "eslint src --fix"
+    "lint:fix": "eslint src --fix",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [
+    "redis",
     "queue",
-    "tasks",
-    "jobs",
-    "messages",
-    "memory",
-    "database",
+    "message-queue",
+    "reliable",
+    "cluster",
+    "retry",
+    "dead-letter",
     "typescript"
   ],
   "author": "Stratix Team",
   "license": "MIT",
-  "dependencies": {},
+  "dependencies": {
+    "ioredis": "^5.6.1",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/ioredis": "^5.0.0",
+    "@types/uuid": "^10.0.0",
+    "vitest": "^2.0.0"
+  },
   "peerDependencies": {
-    "@stratix/utils": "workspace:*",
     "@stratix/core": "workspace:*",
-    "@stratix/database": "workspace:*"
+    "@stratix/utils": "workspace:*"
   },
   "engines": {
     "node": ">=22.0.0"

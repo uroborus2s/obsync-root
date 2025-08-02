@@ -1,0 +1,1 @@
+{"version":3,"file":"chat-types.d.ts","sourceRoot":"","sources":["chat-types.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,aAAa,EAAE,MAAM,cAAc,CAAA;AAE5C,MAAM,MAAM,QAAQ,GAAG,CAAC,OAAO,aAAa,CAAC,CAAC,MAAM,CAAC,CAAA;AACrD,MAAM,MAAM,KAAK,GAAG,QAAQ,CAAC,UAAU,CAAC,CAAC,MAAM,CAAC,CAAA"}

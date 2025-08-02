@@ -1,0 +1,3 @@
+import { createFileRoute } from "@tanstack/react-router"
+export declare const Route: import("@tanstack/router-core").Route<any, "/notifications", "/settings/notifications", "/_authenticated/settings/notifications", "/_authenticated/settings/notifications", undefined, import("@tanstack/react-router").ResolveParams<"/notifications">, import("@tanstack/react-router").AnyContext, import("@tanstack/react-router").AnyContext, import("@tanstack/react-router").AnyContext, {}, undefined, unknown, unknown>;
+//# sourceMappingURL=notifications.d.ts.map

@@ -1,14 +1,22 @@
-import StratixApp, { type IStratixApp } from '@stratix/core';
+import { Stratix } from '@stratix/core';
 import { CalendarModule } from '@stratix/was-v7';
 import { FullSyncService } from './plugin/sync/services/full-sync.service.js';
+import createConfigWithEnvironment from './stratix.config.js';
 
-StratixApp.run().then(async (app: IStratixApp) => {
-  const wasV7Calendar = app.tryResolve('wasV7Calendar') as CalendarModule;
+// 使用新的配置加载机制启动应用
+Stratix.run({
+  config: createConfigWithEnvironment()
+}).then(async (app) => {
+  const wasV7Calendar = app.diContainer.resolve(
+    'wasV7Calendar'
+  ) as CalendarModule;
   // const calendar = await wasV7Calendar.createCalendar({
   //   summary: '日历测试'
   // });
   // console.log(calendar);
-  const fullSyncService = app.tryResolve('fullSyncService') as FullSyncService;
+  const fullSyncService = app.diContainer.resolve(
+    'fullSyncService'
+  ) as FullSyncService;
 
   const teachers = await fullSyncService.getTeachersForCourse({
     gh_s: '302032',
@@ -218,7 +226,7 @@ StratixApp.run().then(async (app: IStratixApp) => {
   //   }
   // }
   try {
-    const fullSyncService = app.tryResolve(
+    const fullSyncService = app.diContainer.resolve(
       'fullSyncService'
     ) as FullSyncService;
     // await fullSyncService.incremSyncc({

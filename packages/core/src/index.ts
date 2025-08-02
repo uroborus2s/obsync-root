@@ -1,62 +1,84 @@
-/**
- * Stratix Framework Core
- *
- * 函数式、插件驱动的Node.js应用框架
- *
- * @packageDocumentation
- */
+// Stratix Core - 主入口文件
+// 导出所有公共API
 
-// 导出StratixApp作为主要API
-export { StratixApp as default } from './app.js';
+// 主要类和接口
+export { Stratix } from './stratix.js';
+export * from './types/index.js';
 
-// 导出核心类型
-export type { IStratixApp } from './types/app.js';
-export type { StratixConfig } from './types/config.js';
+// 工具模块
+export { NamingConvention } from './utils/index.js';
 
-// 导出插件相关类型
-export type {
-  DeclarativePlugin,
-  DIFactory,
-  DIRegistrationConfig,
-  DIRegistrationValue,
-  PluginOptions,
-  PluginRegistration,
-  RegistrationOptions,
-  StratixPlugin,
-  StratixPluginOptions
-} from './types/plugin.js';
+// 高级功能模块 - 装饰器
+export {
+  // 装饰器
+  Controller,
+  CONTROLLER_METADATA_KEY,
+  Delete,
+  Get,
+  Head,
+  IsEmail,
+  IsNumber,
+  IsString,
+  METADATA_KEYS,
+  // 元数据管理
+  MetadataManager,
+  Options,
+  Patch,
+  Post,
+  Put,
+  Required,
+  ROUTE_METADATA_KEY,
+  type ControllerMetadata,
+  type ControllerOptions,
+  type ParamValidationMetadata,
+  type PropertyValidationMetadata, // 类型导出
+  type RouteMetadata,
+  type ValidationRule
+} from './decorators/index.js';
 
-// 导出扩展后的 Fastify 类型（包含 Stratix 装饰器）
-export type {
-  DIContainerManager,
-  DIRegisterOptions,
-  FastifyInstance,
-  FastifyPluginAsync,
-  FastifyPluginCallback,
-  FastifyPluginOptions,
-  FastifyPluginWrapper,
-  FastifyReply,
-  FastifyRequest,
-  SmartDIRegister
-} from './types/fastify.js';
-
-export type { Logger } from 'pino';
+// 高级功能模块 - 插件
+export {
+  // 生命周期管理
+  ConventionBasedLifecycleManager,
+  ensureAwilixPlugin,
+  FASTIFY_LIFECYCLE_METHODS,
+  getCallerFilePath,
+  getPluginName,
+  isAsyncPlugin,
+  // 服务发现和注册
+  performAutoRegistration,
+  processPluginParameters,
+  // 控制器注册
+  registerControllerRoutes,
+  // 适配器注册
+  registerServiceAdapters,
+  resolveBasePath,
+  // 主要的自动依赖注入插件
+  withRegisterAutoDI,
+  // 工具函数和类型
+  type AutoDIConfig,
+  type FastifyLifecycleMethod,
+  type InjectorFunction,
+  type LifecycleMethodResult,
+  type LifecyclePhaseResult,
+  type PluginContainerContext,
+  type RouteConfig,
+  type ServiceAdapter,
+  type ServiceAdapterClass,
+  type ServiceConfig
+} from './plugin/index.js';
 
 export { default as fp } from 'fastify-plugin';
 
-// 上下文管理
-export { AppContextManager } from './context/app-context.js';
-export type {
-  AppContextData,
-  RequestContextData
-} from './context/app-context.js';
+export { RESOLVER } from 'awilix';
 
-// 缓存管理
-export { createDefaultCache, DefaultCache } from './cache/default-cache.js';
-export { CacheManager, MemoryCache } from './cache/memory-cache.js';
 export type {
-  CacheConfig,
-  CacheEntry,
-  CacheEvents,
-  CacheStats
-} from './cache/memory-cache.js';
+  FastifyInstance,
+  FastifyPluginAsync,
+  FastifyReply,
+  FastifyRequest
+} from 'fastify';
+
+export type { AwilixContainer } from 'awilix';
+
+export type { Logger } from 'pino';

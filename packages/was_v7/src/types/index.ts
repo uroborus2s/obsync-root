@@ -33,8 +33,8 @@ export interface WpsErrorResponse {
 export interface WpsConfig {
   appId: string;
   appSecret: string;
-  baseUrl?: string;
-  timeout?: number;
+  baseUrl: string;
+  timeout: number;
   retryTimes?: number;
   debug?: boolean;
 }
@@ -109,6 +109,3 @@ export * from './contact.js';
 
 // 导出日历相关类型
 export * from './calendar.js';
-
-// 导出用户授权相关类型
-export * from '../modules/user-auth.js';
