@@ -161,27 +161,6 @@ export abstract class BaseIcasyncRepository<
   }
 
   /**
-   * 验证学年学期格式
-   */
-  protected validateXnxq(xnxq: string): void {
-    if (!xnxq) {
-      throw new Error('学年学期参数不能为空');
-    }
-
-    if (typeof xnxq !== 'string') {
-      throw new Error('学年学期参数必须是字符串');
-    }
-
-    // 格式：YYYY-YYYY-S (例如：2024-2025-1)
-    const pattern = /^\d{4}-\d{4}-[12]$/;
-    if (!pattern.test(xnxq)) {
-      throw new Error(
-        `学年学期格式错误，应为 YYYY-YYYY-S 格式，实际值: ${xnxq}`
-      );
-    }
-  }
-
-  /**
    * 验证开课号格式
    */
   protected validateKkh(kkh: string): void {
@@ -387,5 +366,14 @@ export abstract class BaseIcasyncRepository<
       created_at: now,
       updated_at: now
     };
+  }
+
+  /**
+   * 验证学年学期格式
+   */
+  protected validateXnxq(xnxq: string): void {
+    if (!xnxq || !/^\d{4}-\d{4}-[12]$/.test(xnxq)) {
+      throw new Error('Invalid xnxq format. Expected format: YYYY-YYYY-S');
+    }
   }
 }

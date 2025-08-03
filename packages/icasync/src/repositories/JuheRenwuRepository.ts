@@ -35,6 +35,7 @@ export interface IJuheRenwuRepository {
     endDate: string
   ): Promise<DatabaseResult<JuheRenwu[]>>;
   findByTeacher(teacherCode: string): Promise<DatabaseResult<JuheRenwu[]>>;
+  findByXnxq(xnxq: string): Promise<DatabaseResult<JuheRenwu[]>>;
 
   // 同步状态管理
   findPendingTasks(): Promise<DatabaseResult<JuheRenwu[]>>;
@@ -114,7 +115,7 @@ export default class JuheRenwuRepository
     protected readonly databaseApi: DatabaseAPI,
     protected readonly logger: Logger
   ) {
-    super();
+    super('syncdb');
   }
 
   /**
@@ -576,5 +577,25 @@ export default class JuheRenwuRepository
     return await this.databaseApi.executeQuery(operation, {
       readonly: false
     });
+  }
+
+  /**
+   * 根据学年学期查询任务
+   */
+  async findByXnxq(xnxq: string): Promise<DatabaseResult<JuheRenwu[]>> {
+    this.validateXnxq(xnxq);
+    this.logOperation('findByXnxq', { xnxq });
+
+    const operation = async (db: any) => {
+      return await db
+        .selectFrom(this.tableName)
+        .selectAll()
+        .where('xnxq', '=', xnxq)
+        .orderBy('rq', 'asc')
+        .orderBy('kssj', 'asc')
+        .execute();
+    };
+
+    return await this.databaseApi.executeQuery(operation);
   }
 }

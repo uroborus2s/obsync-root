@@ -11,12 +11,14 @@ export const METADATA_KEYS = {
   ROUTE: Symbol('route:metadata'),
   CONTROLLER: Symbol('controller:metadata'),
   VALIDATION: Symbol('validation:metadata'),
-  PARAM_VALIDATION: Symbol('param-validation:metadata')
+  PARAM_VALIDATION: Symbol('param-validation:metadata'),
+  EXECUTOR: Symbol('executor:metadata')
 } as const;
 
 // 向后兼容的导出
 export const ROUTE_METADATA_KEY = METADATA_KEYS.ROUTE;
 export const CONTROLLER_METADATA_KEY = METADATA_KEYS.CONTROLLER;
+export const EXECUTOR_METADATA_KEY = METADATA_KEYS.EXECUTOR;
 
 /**
  * 路由元数据接口
@@ -78,6 +80,42 @@ export interface ParamValidationMetadata {
 export interface PropertyValidationMetadata {
   propertyKey: string;
   rules: ValidationRule[];
+}
+
+/**
+ * 执行器元数据接口
+ */
+export interface ExecutorMetadata {
+  /** 执行器名称 */
+  name?: string;
+  /** 执行器描述 */
+  description?: string;
+  /** 执行器版本 */
+  version?: string;
+  /** 执行器标签 */
+  tags?: string[];
+  /** 执行器分类 */
+  category?: string;
+  /** 配置参数的JSON Schema */
+  configSchema?: any;
+  /** 自定义选项 */
+  options?: ExecutorOptions;
+}
+
+/**
+ * 执行器选项接口
+ */
+export interface ExecutorOptions {
+  /** 是否启用健康检查 */
+  healthCheck?: boolean;
+  /** 是否启用配置验证 */
+  validateConfig?: boolean;
+  /** 超时时间（毫秒） */
+  timeout?: number;
+  /** 重试次数 */
+  retries?: number;
+  /** 自定义配置 */
+  [key: string]: any;
 }
 
 /**
@@ -210,6 +248,43 @@ export class MetadataManager {
   }
 
   /**
+   * 获取执行器元数据
+   */
+  static getExecutorMetadata(target: any): ExecutorMetadata | undefined {
+    return Reflect.getMetadata(METADATA_KEYS.EXECUTOR, target);
+  }
+
+  /**
+   * 设置执行器元数据
+   */
+  static setExecutorMetadata(target: any, metadata: ExecutorMetadata): void {
+    Reflect.defineMetadata(METADATA_KEYS.EXECUTOR, metadata, target);
+  }
+
+  /**
+   * 检查是否为执行器类
+   */
+  static isExecutor(target: any): boolean {
+    return Reflect.hasMetadata(METADATA_KEYS.EXECUTOR, target);
+  }
+
+  /**
+   * 获取执行器名称
+   */
+  static getExecutorName(target: any): string | undefined {
+    const metadata = this.getExecutorMetadata(target);
+    return metadata?.name;
+  }
+
+  /**
+   * 获取执行器选项
+   */
+  static getExecutorOptions(target: any): ExecutorOptions {
+    const metadata = this.getExecutorMetadata(target);
+    return metadata?.options || {};
+  }
+
+  /**
    * 清除所有元数据（测试用）
    */
   static clearAllMetadata(target: any): void {
@@ -217,5 +292,6 @@ export class MetadataManager {
     Reflect.deleteMetadata(METADATA_KEYS.CONTROLLER, target);
     Reflect.deleteMetadata(METADATA_KEYS.VALIDATION, target);
     Reflect.deleteMetadata(METADATA_KEYS.PARAM_VALIDATION, target);
+    Reflect.deleteMetadata(METADATA_KEYS.EXECUTOR, target);
   }
 }

@@ -416,56 +416,73 @@ export default class CourseScheduleSyncService
       this.logger.info(`开始执行全量同步工作流，学年学期: ${xnxq}`);
 
       // 1. 创建全量同步工作流
-      const workflowResult = await this.tasksWorkflow.createWorkflow({
-        name: `全量同步-${xnxq}`,
-        description: `学年学期 ${xnxq} 的课表全量同步工作流`,
-        tasks: [
-          {
-            name: 'data-aggregation',
-            type: 'course_data_aggregation',
-            config: { xnxq, operation: 'aggregate' }
-          },
-          {
-            name: 'calendar-creation',
-            type: 'calendar_management',
-            config: { xnxq, operation: 'create_calendars' },
-            dependsOn: ['data-aggregation']
-          },
-          {
-            name: 'participant-management',
-            type: 'participant_management',
-            config: { xnxq, operation: 'add_participants' },
-            dependsOn: ['calendar-creation']
-          },
-          {
-            name: 'schedule-creation',
-            type: 'schedule_management',
-            config: { xnxq, operation: 'create_schedules' },
-            dependsOn: ['participant-management']
+      const workflowResult = await this.tasksWorkflow.createWorkflow(
+        {
+          name: `全量同步-${xnxq}`,
+          description: `学年学期 ${xnxq} 的课表全量同步工作流`,
+          version: '1.0.0',
+          nodes: [
+            {
+              id: 'data-aggregation',
+              type: 'task',
+              name: 'data-aggregation',
+              executor: 'course_data_aggregation',
+              config: { xnxq, operation: 'aggregate' }
+            },
+            {
+              id: 'calendar-creation',
+              type: 'task',
+              name: 'calendar-creation',
+              executor: 'calendar_management',
+              config: { xnxq, operation: 'create_calendars' },
+              dependsOn: ['data-aggregation']
+            },
+            {
+              id: 'participant-management',
+              type: 'task',
+              name: 'participant-management',
+              executor: 'participant_management',
+              config: { xnxq, operation: 'add_participants' },
+              dependsOn: ['calendar-creation']
+            },
+            {
+              id: 'schedule-creation',
+              type: 'task',
+              name: 'schedule-creation',
+              executor: 'schedule_management',
+              config: { xnxq, operation: 'create_schedules' },
+              dependsOn: ['participant-management']
+            }
+          ],
+          config: {
+            timeout: `${config.timeout || 300000}ms`,
+            retryPolicy: {
+              maxAttempts: config.retryCount || 3,
+              backoff: 'exponential',
+              delay: '1s'
+            },
+            errorHandling: 'fail-fast',
+            concurrency: config.maxConcurrency || 3
           }
-        ],
-        options: {
-          parallel: config.parallel || false,
+        },
+        { xnxq },
+        {
           timeout: config.timeout || 300000,
-          retries: config.retryCount || 3
+          maxConcurrency: config.maxConcurrency || 3,
+          contextData: { config }
         }
-      });
+      );
 
       if (!workflowResult.success) {
         throw new Error(`创建工作流失败: ${workflowResult.error}`);
       }
 
-      const workflowId = workflowResult.data!.id;
+      const workflowId = String(workflowResult.data!.id);
       this.logger.info(`工作流创建成功，ID: ${workflowId}`);
 
       // 2. 执行工作流
-      const executeResult = await this.tasksWorkflow.executeWorkflow(
-        workflowId,
-        {
-          timeout: config.timeout,
-          context: { xnxq, config }
-        }
-      );
+      const executeResult =
+        await this.tasksWorkflow.executeWorkflow(workflowId);
 
       if (!executeResult.success) {
         throw new Error(`执行工作流失败: ${executeResult.error}`);
@@ -510,50 +527,65 @@ export default class CourseScheduleSyncService
       );
 
       // 1. 创建增量同步工作流
-      const workflowResult = await this.tasksWorkflow.createWorkflow({
-        name: `增量同步-${xnxq}`,
-        description: `学年学期 ${xnxq} 的课表增量同步工作流`,
-        tasks: [
-          {
-            name: 'data-validation',
-            type: 'course_data_validation',
-            config: { xnxq, data, operation: 'validate' }
-          },
-          {
-            name: 'incremental-update',
-            type: 'incremental_update',
-            config: { xnxq, data, operation: 'update' },
-            dependsOn: ['data-validation']
-          },
-          {
-            name: 'schedule-sync',
-            type: 'schedule_sync',
-            config: { xnxq, data, operation: 'sync_schedules' },
-            dependsOn: ['incremental-update']
+      const workflowResult = await this.tasksWorkflow.createWorkflow(
+        {
+          name: `增量同步-${xnxq}`,
+          description: `学年学期 ${xnxq} 的课表增量同步工作流`,
+          version: '1.0.0',
+          nodes: [
+            {
+              id: 'data-validation',
+              type: 'task',
+              name: 'data-validation',
+              executor: 'course_data_validation',
+              config: { xnxq, data, operation: 'validate' }
+            },
+            {
+              id: 'incremental-update',
+              type: 'task',
+              name: 'incremental-update',
+              executor: 'incremental_update',
+              config: { xnxq, data, operation: 'update' },
+              dependsOn: ['data-validation']
+            },
+            {
+              id: 'schedule-sync',
+              type: 'task',
+              name: 'schedule-sync',
+              executor: 'schedule_sync',
+              config: { xnxq, data, operation: 'sync_schedules' },
+              dependsOn: ['incremental-update']
+            }
+          ],
+          config: {
+            timeout: `${config.timeout || 180000}ms`,
+            retryPolicy: {
+              maxAttempts: config.retryCount || 3,
+              backoff: 'exponential',
+              delay: '1s'
+            },
+            errorHandling: 'fail-fast',
+            concurrency: config.maxConcurrency || 3
           }
-        ],
-        options: {
-          parallel: config.parallel || true,
+        },
+        { xnxq, data },
+        {
           timeout: config.timeout || 180000,
-          retries: config.retryCount || 3
+          maxConcurrency: config.maxConcurrency || 3,
+          contextData: { config }
         }
-      });
+      );
 
       if (!workflowResult.success) {
         throw new Error(`创建增量同步工作流失败: ${workflowResult.error}`);
       }
 
-      const workflowId = workflowResult.data!.id;
+      const workflowId = String(workflowResult.data!.id);
       this.logger.info(`增量同步工作流创建成功，ID: ${workflowId}`);
 
       // 2. 执行工作流
-      const executeResult = await this.tasksWorkflow.executeWorkflow(
-        workflowId,
-        {
-          timeout: config.timeout,
-          context: { xnxq, data, config }
-        }
-      );
+      const executeResult =
+        await this.tasksWorkflow.executeWorkflow(workflowId);
 
       if (!executeResult.success) {
         throw new Error(`执行增量同步工作流失败: ${executeResult.error}`);
@@ -655,28 +687,26 @@ export default class CourseScheduleSyncService
         }
 
         const status = statusResult.data!;
-        this.logger.debug(
-          `工作流 ${workflowId} 状态: ${status.status}, 进度: ${status.progress || 0}%`
-        );
+        this.logger.debug(`工作流 ${workflowId} 状态: ${status}`);
 
         // 检查工作流是否完成
-        if (status.status === 'completed') {
+        if (status === 'completed') {
           return {
-            processedCount: status.totalTasks || 0,
-            successCount: status.completedTasks || 0,
-            failedCount: status.failedTasks || 0,
+            processedCount: 1,
+            successCount: 1,
+            failedCount: 0,
             status: 'completed'
           };
         }
 
         // 检查工作流是否失败
-        if (status.status === 'failed' || status.status === 'cancelled') {
+        if (status === 'failed' || status === 'cancelled') {
           return {
-            processedCount: status.totalTasks || 0,
-            successCount: status.completedTasks || 0,
-            failedCount: status.failedTasks || 0,
-            status: status.status,
-            error: `工作流执行失败，状态: ${status.status}`
+            processedCount: 1,
+            successCount: 0,
+            failedCount: 1,
+            status: status,
+            error: `工作流执行失败，状态: ${status}`
           };
         }
 

@@ -34,6 +34,32 @@ export {
   type ServiceConfig
 } from './adapter-registration.js';
 
+// 模块发现和分类
+export {
+  discoverAndProcessModules,
+  type ExecutorConfig as ExecutorConfigNew,
+  type LifecycleConfig,
+  type ModuleClassificationResult,
+  type ModuleInfo,
+  type ModuleKeyType,
+  type ModuleProcessingResult as ModuleProcessingResultNew,
+  type RouteConfig as RouteConfigNew
+} from './module-discovery.js';
+
+// 执行器注册
+export {
+  processExecutorRegistration,
+  registerExecutorDomain,
+  type ExecutorRegistrationResult
+} from './executor-registration.js';
+
+// 统一模块处理器
+export {
+  processModulesUnified,
+  processSingleModule,
+  type ModuleProcessingResult
+} from './unified-module-processor.js';
+
 // 工具函数和类型
 export {
   getCallerFilePath,
@@ -43,6 +69,3 @@ export {
   resolveBasePath,
   type AutoDIConfig
 } from './utils.js';
-
-// 重新导出 Awilix 的 InjectorFunction 类型
-export { type InjectorFunction } from 'awilix';

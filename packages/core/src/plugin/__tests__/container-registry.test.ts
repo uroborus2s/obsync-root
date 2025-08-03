@@ -1,14 +1,14 @@
 /**
  * @stratix/core - Plugin Container Registry Tests
- * 
+ *
  * 测试插件容器注册表的功能，包括容器注册、查找、
  * 跨容器解析和生命周期管理。
  */
 
-import { describe, test, expect, beforeEach, afterEach } from 'vitest';
-import { createContainer } from 'awilix';
 import type { AwilixContainer } from 'awilix';
-import { 
+import { createContainer } from 'awilix';
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import {
   PluginContainerRegistry,
   pluginContainerRegistry,
   type PluginContainerInfo,
@@ -78,8 +78,17 @@ describe('PluginContainerRegistry', () => {
     });
 
     test('应该验证插件名称格式', () => {
+      // 测试空名称
+      expect(() => {
+        registry.registerContainer({
+          pluginName: '',
+          container: mockContainer,
+          basePath: '/test/path'
+        });
+      }).toThrow('插件名称不能为空');
+
+      // 测试无效格式
       const invalidNames = [
-        '',
         'invalid name',
         '@',
         '@scope/',
@@ -108,7 +117,7 @@ describe('PluginContainerRegistry', () => {
 
       for (const validName of validNames) {
         const container = createContainer();
-        
+
         expect(() => {
           registry.registerContainer({
             pluginName: validName,
@@ -116,7 +125,7 @@ describe('PluginContainerRegistry', () => {
             basePath: '/test/path'
           });
         }).not.toThrow();
-        
+
         // 清理
         container.dispose();
       }
@@ -230,8 +239,8 @@ describe('PluginContainerRegistry', () => {
     test('应该正确获取所有插件', () => {
       const allPlugins = registry.getAllPlugins();
       expect(allPlugins).toHaveLength(3);
-      
-      const pluginNames = allPlugins.map(p => p.pluginName);
+
+      const pluginNames = allPlugins.map((p) => p.pluginName);
       expect(pluginNames).toContain('@test/plugin-a');
       expect(pluginNames).toContain('@test/plugin-b');
       expect(pluginNames).toContain('@test/plugin-c');
@@ -253,8 +262,10 @@ describe('PluginContainerRegistry', () => {
     });
 
     test('应该创建有效的跨容器解析器', () => {
-      const resolver = registry.createCrossContainerResolver('@test/source-plugin');
-      
+      const resolver = registry.createCrossContainerResolver(
+        '@test/source-plugin'
+      );
+
       expect(resolver).toBeDefined();
       expect(typeof resolver.resolve).toBe('function');
       expect(typeof resolver.has).toBe('function');
@@ -262,8 +273,10 @@ describe('PluginContainerRegistry', () => {
     });
 
     test('应该正确解析跨容器服务', () => {
-      const resolver = registry.createCrossContainerResolver('@test/source-plugin');
-      
+      const resolver = registry.createCrossContainerResolver(
+        '@test/source-plugin'
+      );
+
       const service = resolver.resolve('testService');
       expect(service).toBeDefined();
       expect(service.name).toBe('TestService');
@@ -271,8 +284,10 @@ describe('PluginContainerRegistry', () => {
     });
 
     test('应该正确检查服务是否存在', () => {
-      const resolver = registry.createCrossContainerResolver('@test/source-plugin');
-      
+      const resolver = registry.createCrossContainerResolver(
+        '@test/source-plugin'
+      );
+
       expect(resolver.has('testService')).toBe(true);
       expect(resolver.has('nonExistentService')).toBe(false);
     });
@@ -284,8 +299,10 @@ describe('PluginContainerRegistry', () => {
     });
 
     test('应该在解析失败时提供有用的错误信息', () => {
-      const resolver = registry.createCrossContainerResolver('@test/source-plugin');
-      
+      const resolver = registry.createCrossContainerResolver(
+        '@test/source-plugin'
+      );
+
       expect(() => {
         resolver.resolve('nonExistentService');
       }).toThrow('跨容器解析失败: @test/source-plugin.nonExistentService');
@@ -315,7 +332,7 @@ describe('PluginContainerRegistry', () => {
       });
 
       const stats = registry.getStats();
-      
+
       expect(stats.totalPlugins).toBe(3);
       expect(stats.workflowEnabledPlugins).toBe(1);
       expect(stats.tasksPluginLoaded).toBe(true);
@@ -347,7 +364,7 @@ describe('PluginContainerRegistry', () => {
 
     test('应该支持重复调用 dispose', async () => {
       await registry.dispose();
-      
+
       // 重复调用不应该抛出错误
       await expect(registry.dispose()).resolves.not.toThrow();
     });
@@ -358,11 +375,13 @@ describe('PluginContainerRegistry', () => {
       expect(pluginContainerRegistry).toBeInstanceOf(PluginContainerRegistry);
     });
 
-    test('全局实例应该是单例', () => {
-      const { getPluginContainerRegistry } = require('../container-registry.js');
+    test('全局实例应该是单例', async () => {
+      const { getPluginContainerRegistry } = await import(
+        '../container-registry.js'
+      );
       const instance1 = getPluginContainerRegistry();
       const instance2 = getPluginContainerRegistry();
-      
+
       expect(instance1).toBe(instance2);
       expect(instance1).toBe(pluginContainerRegistry);
     });

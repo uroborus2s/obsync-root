@@ -26,7 +26,8 @@ export {
   mapResult,
   memoize,
   success,
-  successResult
+  successResult,
+  type Option
 } from './utils/helpers.js';
 
 // 导出配置管理

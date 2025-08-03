@@ -23,6 +23,11 @@ export interface ISyncTaskRepository {
     data: SyncTaskRecordUpdate
   ): Promise<DatabaseResult<SyncTaskRecord | null>>;
   delete(id: number): Promise<DatabaseResult<boolean>>;
+  findMany(
+    filter?: any,
+    options?: any
+  ): Promise<DatabaseResult<SyncTaskRecord[]>>;
+  count(filter?: any): Promise<DatabaseResult<number>>;
 
   // 业务查询方法
   findByTaskType(taskType: TaskType): Promise<DatabaseResult<SyncTaskRecord[]>>;

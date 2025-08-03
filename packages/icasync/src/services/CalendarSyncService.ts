@@ -145,6 +145,29 @@ export interface ICalendarSyncService {
     kkh: string,
     config?: CalendarSyncConfig
   ): Promise<CalendarSyncResult>;
+
+  /**
+   * 获取已创建的日历列表
+   */
+  getCreatedCalendars(
+    xnxq: string,
+    batchSize?: number
+  ): Promise<CalendarInfo[]>;
+}
+
+/**
+ * 日历信息接口
+ */
+export interface CalendarInfo {
+  id: number; // 映射表ID
+  kkh: string; // 开课号
+  calendar_id: string; // WAS V7日历ID
+  calendar_name: string; // 日历名称
+  status: string; // 状态
+  teacher_ids?: string; // 教师ID列表
+  class_codes?: string; // 班级代码列表
+  created_at: Date; // 创建时间
+  updated_at: Date; // 更新时间
 }
 
 /**
@@ -1114,6 +1137,59 @@ export default class CalendarSyncService implements ICalendarSyncService {
       result.failedCount = result.totalCount;
       result.errors.push(errorMessage);
       return result;
+    }
+  }
+
+  /**
+   * 获取已创建的日历列表
+   */
+  async getCreatedCalendars(
+    xnxq: string,
+    batchSize: number = 100
+  ): Promise<CalendarInfo[]> {
+    try {
+      this.logger.info(
+        `获取已创建的日历列表，学年学期: ${xnxq}, 批次大小: ${batchSize}`
+      );
+
+      // 通过 Repository 层获取已创建的日历映射
+      const mappingsResult =
+        await this.calendarMappingRepository.findByXnxqWithStatus(
+          xnxq,
+          ['active', 'participants_added'], // 获取已创建且可以添加参与者的日历
+          batchSize
+        );
+
+      if (!mappingsResult.success) {
+        this.logger.error(`获取日历映射失败: ${mappingsResult.error?.message}`);
+        return [];
+      }
+
+      const mappings = mappingsResult.data || [];
+      const calendars: CalendarInfo[] = [];
+
+      // 转换为 CalendarInfo 格式
+      for (const mapping of mappings) {
+        calendars.push({
+          id: mapping.id,
+          kkh: mapping.kkh,
+          calendar_id: mapping.calendar_id,
+          calendar_name: mapping.calendar_name || `课程日历-${mapping.kkh}`,
+          status: 'active', // 从查询条件推断状态
+          teacher_ids: '', // 如需要可通过其他方法获取
+          class_codes: '', // 如需要可通过其他方法获取
+          created_at: mapping.created_at,
+          updated_at: mapping.updated_at
+        });
+      }
+
+      this.logger.info(`获取到 ${calendars.length} 个已创建的日历`);
+      return calendars;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(`获取已创建日历列表失败: ${errorMessage}`);
+      return [];
     }
   }
 

@@ -23,14 +23,13 @@ export default class FullSyncAdapter {
   static adapterName = 'fullSync';
 
   private courseScheduleSyncService: ICourseScheduleSyncService;
+  private logger: Logger;
 
-  constructor(
-    container: AwilixContainer,
-    private logger: Logger
-  ) {
+  constructor(container: AwilixContainer) {
     this.courseScheduleSyncService = container.resolve(
       'courseScheduleSyncService'
     );
+    this.logger = container.resolve('logger');
   }
 
   /**

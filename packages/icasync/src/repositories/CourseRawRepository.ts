@@ -792,4 +792,51 @@ export default class CourseRawRepository
 
     return await super.delete(id);
   }
+
+  /**
+   * 执行事务化聚合操作
+   */
+  async executeTransactionalAggregation(
+    xnxq: string
+  ): Promise<DatabaseResult<{ count: number; duration: number }>> {
+    const startTime = Date.now();
+    this.validateXnxq(xnxq);
+    this.logOperation('executeTransactionalAggregation', { xnxq });
+
+    try {
+      const operation = async (db: any) => {
+        // 在事务中执行聚合操作
+        const result = await db
+          .selectFrom(this.tableName)
+          .select((eb: any) => eb.fn.count('*').as('count'))
+          .where('xnxq', '=', xnxq)
+          .executeTakeFirstOrThrow();
+
+        return {
+          count: Number(result.count),
+          duration: Date.now() - startTime
+        };
+      };
+
+      return await this.databaseApi.transaction(operation);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logError(
+        'executeTransactionalAggregation',
+        new Error(errorMessage),
+        { xnxq }
+      );
+
+      return {
+        success: false,
+        error: {
+          type: 'TRANSACTION_ERROR' as any,
+          message: `事务化聚合操作失败: ${errorMessage}`,
+          timestamp: new Date(),
+          retryable: true
+        }
+      };
+    }
+  }
 }

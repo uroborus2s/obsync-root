@@ -1,263 +1,165 @@
--- @stratix/tasks 工作流引擎索引优化
--- 针对高频查询场景的索引设计和优化建议
+-- @stratix/tasks 数据库索引设计 (MySQL 5.7)
+-- 优化查询性能的索引策略
 
 -- ============================================================================
--- 1. 复合索引 - 针对常见查询模式
+-- 1. 流程定义表索引
 -- ============================================================================
 
--- 工作流实例状态查询优化
-CREATE INDEX idx_workflow_instances_status_created ON workflow_instances (status, created_at DESC);
-CREATE INDEX idx_workflow_instances_definition_status ON workflow_instances (definition_id, status, created_at DESC);
+-- 基础查询索引
+CREATE INDEX idx_workflow_definitions_name ON workflow_definitions(name);
+CREATE INDEX idx_workflow_definitions_status ON workflow_definitions(status);
+CREATE INDEX idx_workflow_definitions_category ON workflow_definitions(category);
+CREATE INDEX idx_workflow_definitions_created_at ON workflow_definitions(created_at);
 
--- 任务实例状态查询优化
-CREATE INDEX idx_task_instances_workflow_status ON task_instances (workflow_instance_id, status, execution_order);
-CREATE INDEX idx_task_instances_status_scheduled ON task_instances (status, scheduled_at);
+-- 复合索引
+CREATE INDEX idx_workflow_definitions_name_status ON workflow_definitions(name, status);
+CREATE INDEX idx_workflow_definitions_active_version ON workflow_definitions(name, version, is_active);
 
--- 执行历史查询优化
-CREATE INDEX idx_execution_history_workflow_event ON execution_history (workflow_instance_id, event_type, created_at DESC);
-CREATE INDEX idx_execution_history_task_event ON execution_history (task_instance_id, event_type, created_at DESC);
+-- JSON字段索引 (MySQL 5.7支持虚拟列索引)
+-- 为JSON字段创建虚拟列以支持索引
+ALTER TABLE workflow_definitions
+ADD COLUMN definition_type VARCHAR(100) AS (JSON_UNQUOTE(JSON_EXTRACT(definition, '$.type'))) VIRTUAL,
+ADD INDEX idx_workflow_definitions_definition_type (definition_type);
 
--- 调度查询优化
-CREATE INDEX idx_workflow_schedules_active_next_run ON workflow_schedules (is_active, next_run_at);
-CREATE INDEX idx_workflow_schedules_trigger_active ON workflow_schedules (trigger_type, is_active, next_run_at);
-
--- 性能指标查询优化
-CREATE INDEX idx_performance_metrics_type_date ON performance_metrics (metric_type, date_day, entity_id);
-CREATE INDEX idx_performance_metrics_entity_hour ON performance_metrics (entity_id, date_hour DESC);
+-- 标签搜索索引 (使用全文索引)
+ALTER TABLE workflow_definitions
+ADD COLUMN tags_text TEXT AS (JSON_UNQUOTE(JSON_EXTRACT(tags, '$'))) VIRTUAL,
+ADD FULLTEXT INDEX idx_workflow_definitions_tags_fulltext (tags_text);
 
 -- ============================================================================
--- 2. 分区表建议 - 针对大数据量场景
+-- 2. 流程实例表索引
 -- ============================================================================
 
--- 执行历史表按月分区（MySQL 8.0+）
--- ALTER TABLE execution_history 
--- PARTITION BY RANGE (YEAR(created_at) * 100 + MONTH(created_at)) (
---     PARTITION p202401 VALUES LESS THAN (202402),
---     PARTITION p202402 VALUES LESS THAN (202403),
---     PARTITION p202403 VALUES LESS THAN (202404),
---     -- 继续添加分区...
+-- 基础查询索引
+CREATE INDEX idx_workflow_instances_definition_id ON workflow_instances(workflow_definition_id);
+CREATE INDEX idx_workflow_instances_status ON workflow_instances(status);
+CREATE INDEX idx_workflow_instances_external_id ON workflow_instances(external_id);
+CREATE INDEX idx_workflow_instances_created_by ON workflow_instances(created_by);
+
+-- 时间相关索引
+CREATE INDEX idx_workflow_instances_created_at ON workflow_instances(created_at);
+CREATE INDEX idx_workflow_instances_started_at ON workflow_instances(started_at);
+CREATE INDEX idx_workflow_instances_completed_at ON workflow_instances(completed_at);
+CREATE INDEX idx_workflow_instances_scheduled_at ON workflow_instances(scheduled_at);
+
+-- 复合索引
+CREATE INDEX idx_workflow_instances_status_priority ON workflow_instances(status, priority DESC);
+CREATE INDEX idx_workflow_instances_definition_status ON workflow_instances(workflow_definition_id, status);
+CREATE INDEX idx_workflow_instances_status_created ON workflow_instances(status, created_at);
+
+-- 调度查询优化 (MySQL不支持部分索引，使用复合索引)
+CREATE INDEX idx_workflow_instances_pending_scheduled ON workflow_instances(status, scheduled_at);
+
+-- 运行中实例查询
+CREATE INDEX idx_workflow_instances_running_status ON workflow_instances(status, started_at);
+
+-- JSON字段虚拟列索引
+ALTER TABLE workflow_instances
+ADD COLUMN input_type VARCHAR(100) AS (JSON_UNQUOTE(JSON_EXTRACT(input_data, '$.type'))) VIRTUAL,
+ADD INDEX idx_workflow_instances_input_type (input_type);
+
+-- ============================================================================
+-- 3. 任务节点表索引
+-- ============================================================================
+
+-- 基础查询索引
+CREATE INDEX idx_task_nodes_workflow_instance_id ON task_nodes(workflow_instance_id);
+CREATE INDEX idx_task_nodes_node_key ON task_nodes(node_key);
+CREATE INDEX idx_task_nodes_node_type ON task_nodes(node_type);
+CREATE INDEX idx_task_nodes_status ON task_nodes(status);
+CREATE INDEX idx_task_nodes_executor_name ON task_nodes(executor_name);
+CREATE INDEX idx_task_nodes_parent_node_id ON task_nodes(parent_node_id);
+
+-- 并行执行相关索引
+CREATE INDEX idx_task_nodes_parallel_group ON task_nodes(parallel_group_id, parallel_index);
+
+-- 时间相关索引
+CREATE INDEX idx_task_nodes_created_at ON task_nodes(created_at);
+CREATE INDEX idx_task_nodes_started_at ON task_nodes(started_at);
+CREATE INDEX idx_task_nodes_completed_at ON task_nodes(completed_at);
+
+-- 复合索引
+CREATE INDEX idx_task_nodes_workflow_status ON task_nodes(workflow_instance_id, status);
+CREATE INDEX idx_task_nodes_workflow_type ON task_nodes(workflow_instance_id, node_type);
+CREATE INDEX idx_task_nodes_status_executor ON task_nodes(status, executor_name);
+
+-- 待执行任务查询 (MySQL使用复合索引替代部分索引)
+CREATE INDEX idx_task_nodes_pending ON task_nodes(status, workflow_instance_id, created_at);
+
+-- 运行中任务查询
+CREATE INDEX idx_task_nodes_running ON task_nodes(status, started_at);
+
+-- JSON字段虚拟列索引
+ALTER TABLE task_nodes
+ADD COLUMN executor_type VARCHAR(100) AS (JSON_UNQUOTE(JSON_EXTRACT(executor_config, '$.type'))) VIRTUAL,
+ADD INDEX idx_task_nodes_executor_type (executor_type);
+
+-- ============================================================================
+-- 4. 执行记录表索引
+-- ============================================================================
+
+-- 基础查询索引
+CREATE INDEX idx_execution_logs_workflow_instance_id ON execution_logs(workflow_instance_id);
+CREATE INDEX idx_execution_logs_task_node_id ON execution_logs(task_node_id);
+CREATE INDEX idx_execution_logs_log_level ON execution_logs(log_level);
+CREATE INDEX idx_execution_logs_execution_phase ON execution_logs(execution_phase);
+CREATE INDEX idx_execution_logs_executor_name ON execution_logs(executor_name);
+
+-- 时间相关索引
+CREATE INDEX idx_execution_logs_timestamp ON execution_logs(timestamp);
+
+-- 复合索引
+CREATE INDEX idx_execution_logs_workflow_timestamp ON execution_logs(workflow_instance_id, timestamp DESC);
+CREATE INDEX idx_execution_logs_task_timestamp ON execution_logs(task_node_id, timestamp DESC);
+CREATE INDEX idx_execution_logs_level_timestamp ON execution_logs(log_level, timestamp DESC);
+
+-- 错误日志查询优化 (MySQL使用复合索引)
+CREATE INDEX idx_execution_logs_errors ON execution_logs(log_level, timestamp DESC);
+
+-- ============================================================================
+-- 5. 执行器注册表索引
+-- ============================================================================
+
+-- 基础查询索引
+CREATE INDEX idx_executor_registry_name ON executor_registry(name);
+CREATE INDEX idx_executor_registry_plugin_name ON executor_registry(plugin_name);
+CREATE INDEX idx_executor_registry_is_active ON executor_registry(is_active);
+
+-- 复合索引
+CREATE INDEX idx_executor_registry_plugin_active ON executor_registry(plugin_name, is_active);
+
+-- ============================================================================
+-- 6. 工作流调度表索引
+-- ============================================================================
+
+-- 基础查询索引
+CREATE INDEX idx_workflow_schedules_definition_id ON workflow_schedules(workflow_definition_id);
+CREATE INDEX idx_workflow_schedules_is_enabled ON workflow_schedules(is_enabled);
+CREATE INDEX idx_workflow_schedules_next_run_at ON workflow_schedules(next_run_at);
+CREATE INDEX idx_workflow_schedules_last_run_at ON workflow_schedules(last_run_at);
+
+-- 复合索引 (MySQL使用复合索引替代部分索引)
+CREATE INDEX idx_workflow_schedules_enabled_next_run ON workflow_schedules(is_enabled, next_run_at);
+
+-- ============================================================================
+-- 7. MySQL特定优化建议
+-- ============================================================================
+
+-- 1. 定期清理历史数据
+-- 2. 使用OPTIMIZE TABLE维护表结构
+-- 3. 监控慢查询日志 (slow_query_log)
+-- 4. 根据实际查询模式调整索引策略
+-- 5. 考虑使用MySQL的分区表功能处理大数据量
+
+-- 分区表示例 (execution_logs按时间分区)
+-- ALTER TABLE execution_logs PARTITION BY RANGE (TO_DAYS(timestamp)) (
+--     PARTITION p202401 VALUES LESS THAN (TO_DAYS('2024-02-01')),
+--     PARTITION p202402 VALUES LESS THAN (TO_DAYS('2024-03-01')),
+--     PARTITION p202403 VALUES LESS THAN (TO_DAYS('2024-04-01')),
 --     PARTITION p_future VALUES LESS THAN MAXVALUE
 -- );
 
--- 性能指标表按日期分区
--- ALTER TABLE performance_metrics 
--- PARTITION BY RANGE (TO_DAYS(date_day)) (
---     PARTITION p_2024_01 VALUES LESS THAN (TO_DAYS('2024-02-01')),
---     PARTITION p_2024_02 VALUES LESS THAN (TO_DAYS('2024-03-01')),
---     -- 继续添加分区...
---     PARTITION p_future VALUES LESS THAN MAXVALUE
--- );
-
--- ============================================================================
--- 3. 查询优化视图
--- ============================================================================
-
--- 工作流实例详情视图
-CREATE VIEW v_workflow_instance_details AS
-SELECT 
-    wi.id,
-    wi.definition_id,
-    wd.name as definition_name,
-    wd.version as definition_version,
-    wi.status,
-    wi.priority,
-    wi.started_at,
-    wi.completed_at,
-    wi.created_at,
-    wi.correlation_id,
-    -- 任务统计
-    (SELECT COUNT(*) FROM task_instances ti WHERE ti.workflow_instance_id = wi.id) as total_tasks,
-    (SELECT COUNT(*) FROM task_instances ti WHERE ti.workflow_instance_id = wi.id AND ti.status = 'completed') as completed_tasks,
-    (SELECT COUNT(*) FROM task_instances ti WHERE ti.workflow_instance_id = wi.id AND ti.status = 'failed') as failed_tasks,
-    -- 执行时长
-    CASE 
-        WHEN wi.completed_at IS NOT NULL AND wi.started_at IS NOT NULL 
-        THEN TIMESTAMPDIFF(MICROSECOND, wi.started_at, wi.completed_at) / 1000
-        ELSE NULL 
-    END as duration_ms
-FROM workflow_instances wi
-LEFT JOIN workflow_definitions wd ON wi.definition_id = wd.id;
-
--- 任务执行统计视图
-CREATE VIEW v_task_execution_stats AS
-SELECT 
-    ti.workflow_instance_id,
-    ti.task_definition_id,
-    ti.name as task_name,
-    ti.type as task_type,
-    ti.status,
-    ti.executor_name,
-    ti.started_at,
-    ti.completed_at,
-    ti.retry_count,
-    -- 执行时长
-    CASE 
-        WHEN ti.completed_at IS NOT NULL AND ti.started_at IS NOT NULL 
-        THEN TIMESTAMPDIFF(MICROSECOND, ti.started_at, ti.completed_at) / 1000
-        ELSE NULL 
-    END as duration_ms,
-    -- 是否超时
-    CASE 
-        WHEN ti.timeout_at IS NOT NULL AND ti.completed_at > ti.timeout_at 
-        THEN TRUE 
-        ELSE FALSE 
-    END as is_timeout
-FROM task_instances ti;
-
--- 工作流性能统计视图
-CREATE VIEW v_workflow_performance_stats AS
-SELECT 
-    wd.id as definition_id,
-    wd.name as definition_name,
-    wd.version,
-    -- 执行统计
-    COUNT(wi.id) as total_executions,
-    SUM(CASE WHEN wi.status = 'completed' THEN 1 ELSE 0 END) as successful_executions,
-    SUM(CASE WHEN wi.status = 'failed' THEN 1 ELSE 0 END) as failed_executions,
-    SUM(CASE WHEN wi.status IN ('running', 'pending') THEN 1 ELSE 0 END) as active_executions,
-    -- 成功率
-    ROUND(
-        SUM(CASE WHEN wi.status = 'completed' THEN 1 ELSE 0 END) * 100.0 / COUNT(wi.id), 
-        2
-    ) as success_rate,
-    -- 平均执行时间
-    AVG(
-        CASE 
-            WHEN wi.completed_at IS NOT NULL AND wi.started_at IS NOT NULL 
-            THEN TIMESTAMPDIFF(MICROSECOND, wi.started_at, wi.completed_at) / 1000
-            ELSE NULL 
-        END
-    ) as avg_duration_ms,
-    -- 最近执行时间
-    MAX(wi.created_at) as last_execution_at
-FROM workflow_definitions wd
-LEFT JOIN workflow_instances wi ON wd.id = wi.definition_id
-WHERE wd.is_active = TRUE
-GROUP BY wd.id, wd.name, wd.version;
-
--- ============================================================================
--- 4. 数据清理和归档建议
--- ============================================================================
-
--- 清理过期执行历史的存储过程
-DELIMITER //
-CREATE PROCEDURE CleanupExecutionHistory(IN retention_days INT)
-BEGIN
-    DECLARE done INT DEFAULT FALSE;
-    DECLARE batch_size INT DEFAULT 1000;
-    DECLARE deleted_count INT DEFAULT 0;
-    
-    -- 删除超过保留期的执行历史
-    REPEAT
-        DELETE FROM execution_history 
-        WHERE created_at < DATE_SUB(NOW(), INTERVAL retention_days DAY)
-        LIMIT batch_size;
-        
-        SET deleted_count = ROW_COUNT();
-        
-        -- 避免长时间锁表
-        SELECT SLEEP(0.1);
-        
-    UNTIL deleted_count < batch_size END REPEAT;
-    
-    SELECT CONCAT('Cleaned up execution history older than ', retention_days, ' days') as result;
-END //
-DELIMITER ;
-
--- 归档完成的工作流实例的存储过程
-DELIMITER //
-CREATE PROCEDURE ArchiveCompletedWorkflows(IN retention_days INT)
-BEGIN
-    DECLARE done INT DEFAULT FALSE;
-    DECLARE batch_size INT DEFAULT 100;
-    DECLARE archived_count INT DEFAULT 0;
-    
-    -- 创建归档表（如果不存在）
-    CREATE TABLE IF NOT EXISTS workflow_instances_archive LIKE workflow_instances;
-    CREATE TABLE IF NOT EXISTS task_instances_archive LIKE task_instances;
-    
-    -- 归档完成的工作流实例
-    INSERT INTO workflow_instances_archive
-    SELECT * FROM workflow_instances 
-    WHERE status IN ('completed', 'failed', 'cancelled')
-    AND completed_at < DATE_SUB(NOW(), INTERVAL retention_days DAY)
-    LIMIT batch_size;
-    
-    SET archived_count = ROW_COUNT();
-    
-    IF archived_count > 0 THEN
-        -- 归档相关的任务实例
-        INSERT INTO task_instances_archive
-        SELECT ti.* FROM task_instances ti
-        INNER JOIN workflow_instances wi ON ti.workflow_instance_id = wi.id
-        WHERE wi.status IN ('completed', 'failed', 'cancelled')
-        AND wi.completed_at < DATE_SUB(NOW(), INTERVAL retention_days DAY);
-        
-        -- 删除原始数据
-        DELETE wi, ti FROM workflow_instances wi
-        LEFT JOIN task_instances ti ON ti.workflow_instance_id = wi.id
-        WHERE wi.status IN ('completed', 'failed', 'cancelled')
-        AND wi.completed_at < DATE_SUB(NOW(), INTERVAL retention_days DAY);
-    END IF;
-    
-    SELECT CONCAT('Archived ', archived_count, ' completed workflows older than ', retention_days, ' days') as result;
-END //
-DELIMITER ;
-
--- ============================================================================
--- 5. 监控和告警查询
--- ============================================================================
-
--- 查找长时间运行的工作流
-CREATE VIEW v_long_running_workflows AS
-SELECT 
-    wi.id,
-    wi.definition_id,
-    wd.name as definition_name,
-    wi.status,
-    wi.started_at,
-    TIMESTAMPDIFF(MINUTE, wi.started_at, NOW()) as running_minutes,
-    wi.correlation_id
-FROM workflow_instances wi
-LEFT JOIN workflow_definitions wd ON wi.definition_id = wd.id
-WHERE wi.status = 'running'
-AND wi.started_at < DATE_SUB(NOW(), INTERVAL 1 HOUR)
-ORDER BY wi.started_at ASC;
-
--- 查找失败率高的工作流定义
-CREATE VIEW v_high_failure_rate_workflows AS
-SELECT 
-    wd.id as definition_id,
-    wd.name as definition_name,
-    COUNT(wi.id) as total_executions,
-    SUM(CASE WHEN wi.status = 'failed' THEN 1 ELSE 0 END) as failed_executions,
-    ROUND(
-        SUM(CASE WHEN wi.status = 'failed' THEN 1 ELSE 0 END) * 100.0 / COUNT(wi.id), 
-        2
-    ) as failure_rate
-FROM workflow_definitions wd
-LEFT JOIN workflow_instances wi ON wd.id = wi.definition_id
-WHERE wi.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
-GROUP BY wd.id, wd.name
-HAVING COUNT(wi.id) >= 10 AND failure_rate > 20
-ORDER BY failure_rate DESC;
-
--- 查找资源消耗异常的任务
-CREATE VIEW v_resource_intensive_tasks AS
-SELECT 
-    ti.id,
-    ti.workflow_instance_id,
-    ti.name as task_name,
-    ti.executor_name,
-    TIMESTAMPDIFF(MICROSECOND, ti.started_at, ti.completed_at) / 1000 as duration_ms,
-    pm.memory_usage_mb,
-    pm.cpu_usage_percent
-FROM task_instances ti
-LEFT JOIN performance_metrics pm ON ti.id = pm.entity_id AND pm.metric_type = 'task'
-WHERE ti.completed_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
-AND (
-    TIMESTAMPDIFF(MICROSECOND, ti.started_at, ti.completed_at) / 1000 > 300000 -- 超过5分钟
-    OR pm.memory_usage_mb > 1024 -- 超过1GB内存
-    OR pm.cpu_usage_percent > 80 -- CPU使用率超过80%
-)
-ORDER BY duration_ms DESC;
+-- JSON字段查询优化提示：
+-- 1. 使用虚拟列为常用JSON路径创建索引
+-- 2. 避免在WHERE子句中直接使用JSON_EXTRACT，优先使用虚拟列
+-- 3. 对于复杂JSON查询，考虑将数据反规范化到单独列中

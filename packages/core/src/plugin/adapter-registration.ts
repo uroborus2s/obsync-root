@@ -354,13 +354,15 @@ async function discoverServiceAdapters(
  */
 async function registerSingleServiceAdapter<T>(
   adapter: ServiceAdapter,
-  pluginContext: PluginContainerContext<T>,
-  pluginName?: string,
-  debugEnabled: boolean = false
+  {
+    internalContainer,
+    rootContainer,
+    debugEnabled,
+    pluginName
+  }: PluginContainerContext<T>
 ): Promise<boolean> {
   try {
     const { adapterName, factory } = adapter;
-    const { internalContainer, rootContainer } = pluginContext;
     // 构建带命名空间的适配器名称：pluginNameAdapterName (camelCase)
     const namespacedAdapterName = pluginName
       ? `${pluginName}${adapterName.charAt(0).toUpperCase() + adapterName.slice(1)}`
@@ -403,13 +405,10 @@ async function registerSingleServiceAdapter<T>(
  * 自动发现并注册服务适配器
  */
 export async function registerServiceAdapters<T>(
-  pluginContext: PluginContainerContext<T>,
-  serviceConfig: ServiceConfig,
-  basePath?: string,
-  pluginName?: string,
-  debugEnabled: boolean = false
+  pluginContext: PluginContainerContext<T>
 ): Promise<void> {
-  if (!serviceConfig?.enabled) {
+  const { autoDIConfig, basePath, debugEnabled } = pluginContext;
+  if (!autoDIConfig.services?.enabled) {
     if (debugEnabled) {
       const logger = getLogger();
       logger.info('🔧 Service adapters registration skipped (disabled)');
@@ -417,11 +416,11 @@ export async function registerServiceAdapters<T>(
     return;
   }
 
-  const patterns = serviceConfig.patterns;
-  const discoveryBasePath = serviceConfig.baseDir
-    ? isAbsolute(serviceConfig.baseDir)
-      ? serviceConfig.baseDir
-      : resolve(basePath || process.cwd(), serviceConfig.baseDir)
+  const patterns = autoDIConfig.services.patterns;
+  const discoveryBasePath = autoDIConfig.services.baseDir
+    ? isAbsolute(autoDIConfig.services.baseDir)
+      ? autoDIConfig.services.baseDir
+      : resolve(basePath || process.cwd(), autoDIConfig.services.baseDir)
     : basePath || process.cwd();
 
   if (debugEnabled) {
@@ -472,9 +471,7 @@ export async function registerServiceAdapters<T>(
     for (const adapter of uniqueAdapters.values()) {
       const success = await registerSingleServiceAdapter(
         adapter,
-        pluginContext,
-        pluginName,
-        debugEnabled
+        pluginContext
       );
 
       if (success) {
