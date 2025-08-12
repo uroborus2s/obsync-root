@@ -26,14 +26,12 @@ import { Route as errors500RouteImport } from './routes/(errors)/500'
 import { Route as errors404RouteImport } from './routes/(errors)/404'
 import { Route as errors403RouteImport } from './routes/(errors)/403'
 import { Route as errors401RouteImport } from './routes/(errors)/401'
-import { Route as authSignUpRouteImport } from './routes/(auth)/sign-up'
-import { Route as authSignIn2RouteImport } from './routes/(auth)/sign-in-2'
-import { Route as authSignInRouteImport } from './routes/(auth)/sign-in'
-import { Route as authOtpRouteImport } from './routes/(auth)/otp'
-import { Route as authForgotPasswordRouteImport } from './routes/(auth)/forgot-password'
+import { Route as authCallbackRouteImport } from './routes/(auth)/callback'
 import { Route as ClerkAuthenticatedRouteRouteImport } from './routes/clerk/_authenticated/route'
 import { Route as ClerkauthRouteRouteImport } from './routes/clerk/(auth)/route'
+import { Route as AuthenticatedWorkflowsRouteRouteImport } from './routes/_authenticated/workflows/route'
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
+import { Route as AuthenticatedWorkflowsIndexRouteImport } from './routes/_authenticated/workflows/index'
 import { Route as AuthenticatedUsersIndexRouteImport } from './routes/_authenticated/users/index'
 import { Route as AuthenticatedTasksIndexRouteImport } from './routes/_authenticated/tasks/index'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
@@ -43,6 +41,8 @@ import { Route as AuthenticatedAppsIndexRouteImport } from './routes/_authentica
 import { Route as ClerkAuthenticatedUserManagementRouteImport } from './routes/clerk/_authenticated/user-management'
 import { Route as ClerkauthSignUpRouteImport } from './routes/clerk/(auth)/sign-up'
 import { Route as ClerkauthSignInRouteImport } from './routes/clerk/(auth)/sign-in'
+import { Route as AuthenticatedWorkflowsSchedulesRouteImport } from './routes/_authenticated/workflows/schedules'
+import { Route as AuthenticatedWorkflowsLogsRouteImport } from './routes/_authenticated/workflows/logs'
 import { Route as AuthenticatedTasksSyncRouteImport } from './routes/_authenticated/tasks/sync'
 import { Route as AuthenticatedTasksSettingsRouteImport } from './routes/_authenticated/tasks/settings'
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings/notifications'
@@ -137,29 +137,9 @@ const errors401Route = errors401RouteImport.update({
   path: '/401',
   getParentRoute: () => rootRouteImport,
 } as any)
-const authSignUpRoute = authSignUpRouteImport.update({
-  id: '/(auth)/sign-up',
-  path: '/sign-up',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const authSignIn2Route = authSignIn2RouteImport.update({
-  id: '/(auth)/sign-in-2',
-  path: '/sign-in-2',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const authSignInRoute = authSignInRouteImport.update({
-  id: '/(auth)/sign-in',
-  path: '/sign-in',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const authOtpRoute = authOtpRouteImport.update({
-  id: '/(auth)/otp',
-  path: '/otp',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const authForgotPasswordRoute = authForgotPasswordRouteImport.update({
-  id: '/(auth)/forgot-password',
-  path: '/forgot-password',
+const authCallbackRoute = authCallbackRouteImport.update({
+  id: '/(auth)/callback',
+  path: '/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ClerkAuthenticatedRouteRoute = ClerkAuthenticatedRouteRouteImport.update({
@@ -170,11 +150,23 @@ const ClerkauthRouteRoute = ClerkauthRouteRouteImport.update({
   id: '/(auth)',
   getParentRoute: () => ClerkRouteRoute,
 } as any)
+const AuthenticatedWorkflowsRouteRoute =
+  AuthenticatedWorkflowsRouteRouteImport.update({
+    id: '/workflows',
+    path: '/workflows',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedSettingsRouteRoute =
   AuthenticatedSettingsRouteRouteImport.update({
     id: '/settings',
     path: '/settings',
     getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedWorkflowsIndexRoute =
+  AuthenticatedWorkflowsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedWorkflowsRouteRoute,
   } as any)
 const AuthenticatedUsersIndexRoute = AuthenticatedUsersIndexRouteImport.update({
   id: '/users/',
@@ -224,6 +216,18 @@ const ClerkauthSignInRoute = ClerkauthSignInRouteImport.update({
   path: '/sign-in',
   getParentRoute: () => ClerkauthRouteRoute,
 } as any)
+const AuthenticatedWorkflowsSchedulesRoute =
+  AuthenticatedWorkflowsSchedulesRouteImport.update({
+    id: '/schedules',
+    path: '/schedules',
+    getParentRoute: () => AuthenticatedWorkflowsRouteRoute,
+  } as any)
+const AuthenticatedWorkflowsLogsRoute =
+  AuthenticatedWorkflowsLogsRouteImport.update({
+    id: '/logs',
+    path: '/logs',
+    getParentRoute: () => AuthenticatedWorkflowsRouteRoute,
+  } as any)
 const AuthenticatedTasksSyncRoute = AuthenticatedTasksSyncRouteImport.update({
   id: '/sync',
   path: '/sync',
@@ -275,12 +279,9 @@ const AuthenticatedCoursesScheduleRoute =
 export interface FileRoutesByFullPath {
   '/clerk': typeof ClerkAuthenticatedRouteRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
+  '/workflows': typeof AuthenticatedWorkflowsRouteRouteWithChildren
   '/clerk/': typeof ClerkauthRouteRouteWithChildren
-  '/forgot-password': typeof authForgotPasswordRoute
-  '/otp': typeof authOtpRoute
-  '/sign-in': typeof authSignInRoute
-  '/sign-in-2': typeof authSignIn2Route
-  '/sign-up': typeof authSignUpRoute
+  '/callback': typeof authCallbackRoute
   '/401': typeof errors401Route
   '/403': typeof errors403Route
   '/404': typeof errors404Route
@@ -304,6 +305,8 @@ export interface FileRoutesByFullPath {
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/tasks/settings': typeof AuthenticatedTasksSettingsRoute
   '/tasks/sync': typeof AuthenticatedTasksSyncRoute
+  '/workflows/logs': typeof AuthenticatedWorkflowsLogsRoute
+  '/workflows/schedules': typeof AuthenticatedWorkflowsSchedulesRoute
   '/clerk/sign-in': typeof ClerkauthSignInRoute
   '/clerk/sign-up': typeof ClerkauthSignUpRoute
   '/clerk/user-management': typeof ClerkAuthenticatedUserManagementRoute
@@ -313,14 +316,11 @@ export interface FileRoutesByFullPath {
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/tasks/': typeof AuthenticatedTasksIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
+  '/workflows/': typeof AuthenticatedWorkflowsIndexRoute
 }
 export interface FileRoutesByTo {
   '/clerk': typeof ClerkAuthenticatedRouteRouteWithChildren
-  '/forgot-password': typeof authForgotPasswordRoute
-  '/otp': typeof authOtpRoute
-  '/sign-in': typeof authSignInRoute
-  '/sign-in-2': typeof authSignIn2Route
-  '/sign-up': typeof authSignUpRoute
+  '/callback': typeof authCallbackRoute
   '/401': typeof errors401Route
   '/403': typeof errors403Route
   '/404': typeof errors404Route
@@ -343,6 +343,8 @@ export interface FileRoutesByTo {
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/tasks/settings': typeof AuthenticatedTasksSettingsRoute
   '/tasks/sync': typeof AuthenticatedTasksSyncRoute
+  '/workflows/logs': typeof AuthenticatedWorkflowsLogsRoute
+  '/workflows/schedules': typeof AuthenticatedWorkflowsSchedulesRoute
   '/clerk/sign-in': typeof ClerkauthSignInRoute
   '/clerk/sign-up': typeof ClerkauthSignUpRoute
   '/clerk/user-management': typeof ClerkAuthenticatedUserManagementRoute
@@ -352,19 +354,17 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/tasks': typeof AuthenticatedTasksIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
+  '/workflows': typeof AuthenticatedWorkflowsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/clerk': typeof ClerkRouteRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
+  '/_authenticated/workflows': typeof AuthenticatedWorkflowsRouteRouteWithChildren
   '/clerk/(auth)': typeof ClerkauthRouteRouteWithChildren
   '/clerk/_authenticated': typeof ClerkAuthenticatedRouteRouteWithChildren
-  '/(auth)/forgot-password': typeof authForgotPasswordRoute
-  '/(auth)/otp': typeof authOtpRoute
-  '/(auth)/sign-in': typeof authSignInRoute
-  '/(auth)/sign-in-2': typeof authSignIn2Route
-  '/(auth)/sign-up': typeof authSignUpRoute
+  '/(auth)/callback': typeof authCallbackRoute
   '/(errors)/401': typeof errors401Route
   '/(errors)/403': typeof errors403Route
   '/(errors)/404': typeof errors404Route
@@ -388,6 +388,8 @@ export interface FileRoutesById {
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/_authenticated/tasks/settings': typeof AuthenticatedTasksSettingsRoute
   '/_authenticated/tasks/sync': typeof AuthenticatedTasksSyncRoute
+  '/_authenticated/workflows/logs': typeof AuthenticatedWorkflowsLogsRoute
+  '/_authenticated/workflows/schedules': typeof AuthenticatedWorkflowsSchedulesRoute
   '/clerk/(auth)/sign-in': typeof ClerkauthSignInRoute
   '/clerk/(auth)/sign-up': typeof ClerkauthSignUpRoute
   '/clerk/_authenticated/user-management': typeof ClerkAuthenticatedUserManagementRoute
@@ -397,18 +399,16 @@ export interface FileRoutesById {
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/tasks/': typeof AuthenticatedTasksIndexRoute
   '/_authenticated/users/': typeof AuthenticatedUsersIndexRoute
+  '/_authenticated/workflows/': typeof AuthenticatedWorkflowsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/clerk'
     | '/settings'
+    | '/workflows'
     | '/clerk/'
-    | '/forgot-password'
-    | '/otp'
-    | '/sign-in'
-    | '/sign-in-2'
-    | '/sign-up'
+    | '/callback'
     | '/401'
     | '/403'
     | '/404'
@@ -432,6 +432,8 @@ export interface FileRouteTypes {
     | '/settings/notifications'
     | '/tasks/settings'
     | '/tasks/sync'
+    | '/workflows/logs'
+    | '/workflows/schedules'
     | '/clerk/sign-in'
     | '/clerk/sign-up'
     | '/clerk/user-management'
@@ -441,14 +443,11 @@ export interface FileRouteTypes {
     | '/settings/'
     | '/tasks/'
     | '/users'
+    | '/workflows/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/clerk'
-    | '/forgot-password'
-    | '/otp'
-    | '/sign-in'
-    | '/sign-in-2'
-    | '/sign-up'
+    | '/callback'
     | '/401'
     | '/403'
     | '/404'
@@ -471,6 +470,8 @@ export interface FileRouteTypes {
     | '/settings/notifications'
     | '/tasks/settings'
     | '/tasks/sync'
+    | '/workflows/logs'
+    | '/workflows/schedules'
     | '/clerk/sign-in'
     | '/clerk/sign-up'
     | '/clerk/user-management'
@@ -480,18 +481,16 @@ export interface FileRouteTypes {
     | '/settings'
     | '/tasks'
     | '/users'
+    | '/workflows'
   id:
     | '__root__'
     | '/_authenticated'
     | '/clerk'
     | '/_authenticated/settings'
+    | '/_authenticated/workflows'
     | '/clerk/(auth)'
     | '/clerk/_authenticated'
-    | '/(auth)/forgot-password'
-    | '/(auth)/otp'
-    | '/(auth)/sign-in'
-    | '/(auth)/sign-in-2'
-    | '/(auth)/sign-up'
+    | '/(auth)/callback'
     | '/(errors)/401'
     | '/(errors)/403'
     | '/(errors)/404'
@@ -515,6 +514,8 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/notifications'
     | '/_authenticated/tasks/settings'
     | '/_authenticated/tasks/sync'
+    | '/_authenticated/workflows/logs'
+    | '/_authenticated/workflows/schedules'
     | '/clerk/(auth)/sign-in'
     | '/clerk/(auth)/sign-up'
     | '/clerk/_authenticated/user-management'
@@ -524,16 +525,13 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/'
     | '/_authenticated/tasks/'
     | '/_authenticated/users/'
+    | '/_authenticated/workflows/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   ClerkRouteRoute: typeof ClerkRouteRouteWithChildren
-  authForgotPasswordRoute: typeof authForgotPasswordRoute
-  authOtpRoute: typeof authOtpRoute
-  authSignInRoute: typeof authSignInRoute
-  authSignIn2Route: typeof authSignIn2Route
-  authSignUpRoute: typeof authSignUpRoute
+  authCallbackRoute: typeof authCallbackRoute
   errors401Route: typeof errors401Route
   errors403Route: typeof errors403Route
   errors404Route: typeof errors404Route
@@ -662,39 +660,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof errors401RouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/(auth)/sign-up': {
-      id: '/(auth)/sign-up'
-      path: '/sign-up'
-      fullPath: '/sign-up'
-      preLoaderRoute: typeof authSignUpRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/(auth)/sign-in-2': {
-      id: '/(auth)/sign-in-2'
-      path: '/sign-in-2'
-      fullPath: '/sign-in-2'
-      preLoaderRoute: typeof authSignIn2RouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/(auth)/sign-in': {
-      id: '/(auth)/sign-in'
-      path: '/sign-in'
-      fullPath: '/sign-in'
-      preLoaderRoute: typeof authSignInRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/(auth)/otp': {
-      id: '/(auth)/otp'
-      path: '/otp'
-      fullPath: '/otp'
-      preLoaderRoute: typeof authOtpRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/(auth)/forgot-password': {
-      id: '/(auth)/forgot-password'
-      path: '/forgot-password'
-      fullPath: '/forgot-password'
-      preLoaderRoute: typeof authForgotPasswordRouteImport
+    '/(auth)/callback': {
+      id: '/(auth)/callback'
+      path: '/callback'
+      fullPath: '/callback'
+      preLoaderRoute: typeof authCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/clerk/_authenticated': {
@@ -711,12 +681,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClerkauthRouteRouteImport
       parentRoute: typeof ClerkRouteRoute
     }
+    '/_authenticated/workflows': {
+      id: '/_authenticated/workflows'
+      path: '/workflows'
+      fullPath: '/workflows'
+      preLoaderRoute: typeof AuthenticatedWorkflowsRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/settings': {
       id: '/_authenticated/settings'
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AuthenticatedSettingsRouteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/workflows/': {
+      id: '/_authenticated/workflows/'
+      path: '/'
+      fullPath: '/workflows/'
+      preLoaderRoute: typeof AuthenticatedWorkflowsIndexRouteImport
+      parentRoute: typeof AuthenticatedWorkflowsRouteRoute
     }
     '/_authenticated/users/': {
       id: '/_authenticated/users/'
@@ -780,6 +764,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/clerk/sign-in'
       preLoaderRoute: typeof ClerkauthSignInRouteImport
       parentRoute: typeof ClerkauthRouteRoute
+    }
+    '/_authenticated/workflows/schedules': {
+      id: '/_authenticated/workflows/schedules'
+      path: '/schedules'
+      fullPath: '/workflows/schedules'
+      preLoaderRoute: typeof AuthenticatedWorkflowsSchedulesRouteImport
+      parentRoute: typeof AuthenticatedWorkflowsRouteRoute
+    }
+    '/_authenticated/workflows/logs': {
+      id: '/_authenticated/workflows/logs'
+      path: '/logs'
+      fullPath: '/workflows/logs'
+      preLoaderRoute: typeof AuthenticatedWorkflowsLogsRouteImport
+      parentRoute: typeof AuthenticatedWorkflowsRouteRoute
     }
     '/_authenticated/tasks/sync': {
       id: '/_authenticated/tasks/sync'
@@ -863,6 +861,24 @@ const AuthenticatedSettingsRouteRouteWithChildren =
     AuthenticatedSettingsRouteRouteChildren,
   )
 
+interface AuthenticatedWorkflowsRouteRouteChildren {
+  AuthenticatedWorkflowsLogsRoute: typeof AuthenticatedWorkflowsLogsRoute
+  AuthenticatedWorkflowsSchedulesRoute: typeof AuthenticatedWorkflowsSchedulesRoute
+  AuthenticatedWorkflowsIndexRoute: typeof AuthenticatedWorkflowsIndexRoute
+}
+
+const AuthenticatedWorkflowsRouteRouteChildren: AuthenticatedWorkflowsRouteRouteChildren =
+  {
+    AuthenticatedWorkflowsLogsRoute: AuthenticatedWorkflowsLogsRoute,
+    AuthenticatedWorkflowsSchedulesRoute: AuthenticatedWorkflowsSchedulesRoute,
+    AuthenticatedWorkflowsIndexRoute: AuthenticatedWorkflowsIndexRoute,
+  }
+
+const AuthenticatedWorkflowsRouteRouteWithChildren =
+  AuthenticatedWorkflowsRouteRoute._addFileChildren(
+    AuthenticatedWorkflowsRouteRouteChildren,
+  )
+
 interface AuthenticatedCoursesRouteChildren {
   AuthenticatedCoursesScheduleRoute: typeof AuthenticatedCoursesScheduleRoute
   AuthenticatedCoursesSettingsRoute: typeof AuthenticatedCoursesSettingsRoute
@@ -893,6 +909,7 @@ const AuthenticatedTasksRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
+  AuthenticatedWorkflowsRouteRoute: typeof AuthenticatedWorkflowsRouteRouteWithChildren
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
   AuthenticatedAttendanceRoute: typeof AuthenticatedAttendanceRoute
   AuthenticatedBasicManagementRoute: typeof AuthenticatedBasicManagementRoute
@@ -911,6 +928,8 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
+  AuthenticatedWorkflowsRouteRoute:
+    AuthenticatedWorkflowsRouteRouteWithChildren,
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
   AuthenticatedAttendanceRoute: AuthenticatedAttendanceRoute,
   AuthenticatedBasicManagementRoute: AuthenticatedBasicManagementRoute,
@@ -976,11 +995,7 @@ const ClerkRouteRouteWithChildren = ClerkRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   ClerkRouteRoute: ClerkRouteRouteWithChildren,
-  authForgotPasswordRoute: authForgotPasswordRoute,
-  authOtpRoute: authOtpRoute,
-  authSignInRoute: authSignInRoute,
-  authSignIn2Route: authSignIn2Route,
-  authSignUpRoute: authSignUpRoute,
+  authCallbackRoute: authCallbackRoute,
   errors401Route: errors401Route,
   errors403Route: errors403Route,
   errors404Route: errors404Route,

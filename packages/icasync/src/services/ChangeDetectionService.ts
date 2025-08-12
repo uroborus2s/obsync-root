@@ -90,14 +90,10 @@ export default class ChangeDetectionService implements IChangeDetectionService {
         generateChangeReport: config.generateChangeReport
       });
 
-      // 简化实现：通过 CourseAggregationService 获取课程数据
+      // 简化实现：通过 CourseAggregationService 执行聚合获取课程数据
       // 实际应该比较不同时间点的数据快照
       const coursesResult =
-        await this.courseAggregationService.aggregateFullSemester({
-          xnxq,
-          batchSize: 1000,
-          onlyCheckInRequired: false
-        });
+        await this.courseAggregationService.executeAggregationAndSave(xnxq);
 
       if (coursesResult._tag === 'Left') {
         throw new Error(`获取课程数据失败: ${coursesResult.left}`);

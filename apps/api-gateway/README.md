@@ -1,314 +1,234 @@
-# Stratix API Gateway
+# @stratix/gateway - API网关服务
 
-基于 Stratix 框架构建的现代化、高性能 API 网关。
+基于Stratix框架的API网关服务，提供认证、授权、代理转发等功能，集成金山WPS开放平台OAuth认证。
 
-## 架构设计
+## 🎯 核心功能
 
-### 插件化架构
+### 1. WPS OAuth认证集成
+- 完整的OAuth 2.0认证流程
+- 与金山WPS开放平台API集成
+- 本地用户身份验证和类型识别
+- 支持学生和教师用户类型
 
-本项目充分利用 Stratix 框架的插件化架构和 Fastify 生态系统：
+### 2. 应用级自动依赖注入
+- 基于Stratix框架的新特性
+- SINGLETON生命周期的全局服务
+- 自动路由注册和服务发现
 
+### 3. 智能用户匹配
+- 多字段匹配算法（姓名、邮箱、手机号）
+- 学生信息表(`out_xsxx`)和教师信息表(`out_jsxx`)查询
+- 最佳匹配选择和权限验证
+
+## 🔐 完整的OAuth认证流程
+
+### 1. OAuth回调处理
 ```
-┌─────────────────────────────────────┐
-│        Stratix 配置驱动             │
-├─────────────────────────────────────┤
-│ stratix.config.ts                   │  ← 统一配置入口
-│ ├── @fastify/cors                   │  ← CORS 支持
-│ ├── @fastify/helmet                 │  ← 安全头
-│ ├── @fastify/rate-limit             │  ← 限流
-│ ├── @fastify/redis                  │  ← Redis 连接
-│ ├── @fastify/swagger                │  ← API 文档
-│ ├── @fastify/http-proxy             │  ← HTTP 代理 (核心)
-│ └── 自定义业务插件                  │  ← 认证、监控等
-└─────────────────────────────────────┘
+GET /api/auth/authorization?code=xxx&state=xxx
+```
+- 接收WPS开放平台的授权码和状态参数
+- 验证参数完整性和格式正确性
+
+### 2. Token交换
+- 调用WPS API: `https://open-xz.wps.cn/api/oauth2/access_token`
+- 使用授权码获取access_token
+- 处理API调用错误和网络异常
+
+### 3. 用户信息获取
+- 使用access_token获取WPS用户基本信息
+- 提取关键字段：用户ID、姓名、邮箱、手机号
+
+### 4. 本地用户匹配
+#### 学生用户匹配 (`out_xsxx`表)
+```sql
+SELECT * FROM out_xsxx WHERE 
+  xm = ? OR email = ? OR sjh = ?
+```
+- **关键字段**：姓名(xm)、学号(xh)、邮箱(email)、手机号(sjh)
+- **扩展信息**：学院(xymc)、专业(zymc)、班级(bjmc)、类型(lx)
+
+#### 教师用户匹配 (`out_jsxx`表)
+```sql
+SELECT * FROM out_jsxx WHERE 
+  xm = ? OR email = ? OR sjh = ?
+```
+- **关键字段**：姓名(xm)、工号(gh)、邮箱(email)、手机号(sjh)
+- **扩展信息**：单位(ssdwmc)、职称(zc)、学历(zgxl)
+
+### 5. JWT Token生成
+#### 学生用户Token载荷
+```json
+{
+  "userId": "1",
+  "username": "张三",
+  "userType": "student",
+  "studentNumber": "2021001",
+  "className": "软工2101班",
+  "majorName": "软件工程",
+  "collegeName": "计算机学院",
+  "studentType": "undergraduate",
+  "permissions": ["read", "student:profile", "student:courses"]
+}
 ```
 
-### 核心特性
+#### 教师用户Token载荷
+```json
+{
+  "userId": "1",
+  "username": "王教授",
+  "userType": "teacher",
+  "employeeNumber": "T001",
+  "departmentName": "计算机学院",
+  "title": "教授",
+  "education": "博士",
+  "permissions": ["read", "teacher:profile", "teacher:courses", "teacher:students"]
+}
+```
 
-1. **配置驱动**: 所有插件都在 `stratix.config.ts` 中统一配置
-2. **Fastify 生态**: 充分利用 Fastify 官方插件，避免重复造轮子
-3. **HTTP 代理**: 使用 `@fastify/http-proxy` 实现高性能请求转发
-4. **自动发现**: Stratix 自动发现和注册服务、控制器
-5. **类型安全**: 完整的 TypeScript 类型支持
+## 🏗️ 架构设计
 
-## 快速开始
+### 应用级服务 (SINGLETON)
+```
+src/
+├── services/
+│   ├── JWTService.ts          # JWT认证服务
+│   ├── WPSApiService.ts       # WPS API服务
+│   └── UserAuthService.ts     # 用户认证服务
+├── repositories/
+│   ├── StudentRepository.ts   # 学生数据仓库
+│   └── TeacherRepository.ts   # 教师数据仓库
+└── controllers/
+    ├── AuthController.ts      # 认证控制器
+    └── GatewayController.ts   # 网关管理控制器
+```
 
-### 环境要求
+### 插件级服务 (SCOPED)
+```
+src/plugin/
+└── gateway-proxy.ts          # 代理转发插件
+```
 
-- Node.js >= 22.0.0
-- pnpm >= 8.0.0
-- Redis (可选，用于缓存和限流)
+## 🔧 环境配置
 
-### 安装和启动
-
+### WPS开放平台配置
 ```bash
-# 1. 安装依赖
+# WPS API配置
+WPS_API_BASE_URL=https://open-xz.wps.cn
+WPS_CLIENT_ID=your-wps-client-id
+WPS_CLIENT_SECRET=your-wps-client-secret
+WPS_REDIRECT_URI=http://localhost:3000/api/auth/authorization
+```
+
+### 数据库配置
+```bash
+# 数据库连接
+DATABASE_HOST=localhost
+DATABASE_PORT=3306
+DATABASE_NAME=your_database_name
+DATABASE_USER=your_database_user
+DATABASE_PASSWORD=your_database_password
+```
+
+### JWT配置
+```bash
+# JWT认证
+JWT_SECRET=your-jwt-secret-key-here
+TOKEN_EXPIRY=1h
+COOKIE_NAME=wps_jwt_token
+```
+
+## 🧪 测试
+
+### 运行测试
+```bash
+# 单元测试
+pnpm test src/__tests__/unit/
+
+# 集成测试
+pnpm test src/__tests__/integration/
+
+# OAuth流程测试
+pnpm test src/__tests__/integration/oauth-flow.test.ts
+```
+
+### 测试覆盖
+- ✅ WPS API服务测试
+- ✅ 用户认证服务测试
+- ✅ Repository层测试
+- ✅ OAuth认证流程测试
+- ✅ JWT载荷生成测试
+- ✅ 错误处理测试
+
+## 🚀 部署
+
+### 1. 安装依赖
+```bash
 pnpm install
+```
 
-# 2. 复制环境配置
-cp .env.example .env.local
+### 2. 配置环境变量
+```bash
+cp .env.example .env
+# 编辑 .env 文件，配置WPS API和数据库连接
+```
 
-# 3. 编辑配置文件
-vim .env.local
-
-# 4. 启动开发服务器
+### 3. 构建和启动
+```bash
+# 开发模式
 pnpm dev
 
-# 或使用启动脚本
-chmod +x scripts/start-dev.sh
-./scripts/start-dev.sh
+# 生产构建
+pnpm build
+pnpm start
 ```
 
-### 配置说明
+## 📊 API端点
 
-#### 环境变量配置
+### 认证相关
+- `GET /api/auth/authorization` - OAuth回调处理
+- `GET /api/auth/verify` - 认证状态验证
+- `POST /api/auth/logout` - 用户登出
 
-主要环境变量在 `.env.local` 中配置：
-
-```bash
-# 应用基础配置
-NODE_ENV=development
-PORT=3000
-HOST=0.0.0.0
-
-# JWT 认证配置
-JWT_SECRET=your-secret-key
-JWT_REFRESH_SECRET=your-refresh-secret
-
-# Redis 配置
-REDIS_HOST=localhost
-REDIS_PORT=6379
-
-# 后端服务 URL
-USER_SERVICE_URL=http://localhost:3001
-ORDER_SERVICE_URL=http://localhost:3002
-PAYMENT_SERVICE_URL=http://localhost:3003
-```
-
-#### 插件配置
-
-在 `src/stratix.config.ts` 中配置所有插件：
-
-```typescript
-export default function createConfig(sensitiveConfig: Record<string, string>): StratixConfig {
-  return {
-    server: {
-      port: parseInt(process.env.PORT || '3000'),
-      host: process.env.HOST || '0.0.0.0'
-    },
-    
-    plugins: [
-      // CORS 支持
-      {
-        name: 'cors',
-        plugin: import('@fastify/cors'),
-        options: {
-          origin: process.env.CORS_ORIGIN?.split(',') || true,
-          credentials: true
-        }
-      },
-      
-      // HTTP 代理 (核心功能)
-      {
-        name: 'gateway-core',
-        plugin: gatewayCorePlugin,
-        options: {
-          routes: [
-            {
-              path: '/api/users/*',
-              target: sensitiveConfig.USER_SERVICE_URL,
-              middleware: ['auth', 'audit']
-            }
-          ]
-        }
-      }
-    ]
-  }
-}
-```
-
-## 核心功能
-
-### 1. HTTP 代理
-
-使用 `@fastify/http-proxy` 实现高性能的请求转发：
-
-- 支持多个后端服务
-- 自动负载均衡
-- WebSocket 支持
-- 请求头转换
-
-### 2. 认证授权
-
-- JWT 令牌验证
-- 基于角色的访问控制
-- 令牌刷新机制
-- 路径排除配置
-
-### 3. 限流保护
-
-使用 `@fastify/rate-limit` 实现多维度限流：
-
-- 全局限流
-- 用户级限流
-- IP 级限流
-- 路由级限流
-
-### 4. 监控观测
-
-- Prometheus 指标导出
-- 健康检查端点
-- 请求链路追踪
-- 结构化日志
-
-### 5. 安全防护
-
-- CORS 配置
-- 安全头设置
-- 熔断器保护
-- 系统压力监控
-
-## API 端点
+### 网关管理
+- `GET /api/gateway/status` - 网关状态
+- `GET /api/gateway/config` - 网关配置
+- `GET /api/gateway/metrics` - 性能指标
 
 ### 健康检查
+- `GET /health` - 基本健康检查
+- `GET /ready` - 就绪状态检查
+- `GET /live` - 存活状态检查
 
-- `GET /health` - 基础健康检查
-- `GET /health/detailed` - 详细健康状态
-- `GET /ready` - 就绪检查
-- `GET /status` - 系统状态
+## 🔒 安全特性
 
-### 监控指标
+1. **JWT Token安全**
+   - 使用强密钥签名
+   - 设置合理的过期时间
+   - 支持token刷新机制
 
-- `GET /metrics` - Prometheus 指标
-- `GET /metrics/json` - JSON 格式指标
+2. **Cookie安全**
+   - HTTP-only属性防止XSS
+   - Secure属性确保HTTPS传输
+   - SameSite属性防止CSRF
 
-### API 文档
+3. **API安全**
+   - 请求超时控制
+   - 错误信息脱敏
+   - 访问日志记录
 
-- `GET /docs` - Swagger UI 文档
+4. **数据库安全**
+   - 参数化查询防止SQL注入
+   - 连接池管理
+   - 敏感信息加密
 
-### 代理路由
-
-- `ANY /api/users/*` → 用户服务
-- `ANY /api/orders/*` → 订单服务
-- `POST /api/payments/*` → 支付服务
-
-## 开发指南
-
-### 添加新的代理路由
-
-在 `stratix.config.ts` 中添加路由配置：
-
-```typescript
-{
-  name: 'gateway-core',
-  plugin: gatewayCorePlugin,
-  options: {
-    routes: [
-      {
-        path: '/api/products/*',
-        target: 'http://product-service:3000',
-        middleware: ['auth'],
-        timeout: 5000,
-        retries: 3
-      }
-    ]
-  }
-}
-```
-
-### 添加新的 Fastify 插件
-
-直接在 `plugins` 数组中添加：
-
-```typescript
-{
-  name: 'my-plugin',
-  plugin: import('@fastify/my-plugin'),
-  options: {
-    // 插件配置
-  }
-}
-```
-
-### 自定义业务逻辑
-
-1. 在 `src/services/` 中创建服务类
-2. 在 `src/controllers/` 中创建控制器
-3. 在 `src/adapters/` 中创建适配器
-4. Stratix 会自动发现和注册这些组件
-
-## 测试
-
-```bash
-# 运行测试
-pnpm test
-
-# 测试配置
-node test-config.js
-
-# 代码检查
-pnpm lint
-
-# 格式化代码
-pnpm format
-```
-
-## 部署
-
-### Docker 部署
-
-```bash
-# 构建镜像
-docker build -t stratix-gateway .
-
-# 运行容器
-docker run -p 3000:3000 -e NODE_ENV=production stratix-gateway
-```
-
-### 生产环境配置
-
-1. 设置环境变量
-2. 配置 Redis 集群
-3. 设置负载均衡器
-4. 配置监控和告警
-
-## 性能特点
-
-- **高吞吐量**: > 10,000 RPS
-- **低延迟**: P99 < 100ms
-- **内存效率**: < 512MB 稳定运行
-- **快速启动**: < 5s 冷启动
-
-## 故障排除
-
-### 常见问题
-
-1. **插件加载失败**: 检查 `stratix.config.ts` 中的插件配置
-2. **代理连接失败**: 验证后端服务 URL 和网络连接
-3. **认证失败**: 检查 JWT 密钥配置
-4. **限流触发**: 调整限流配置或检查请求频率
-
-### 调试模式
-
-```bash
-# 启用调试日志
-LOG_LEVEL=debug pnpm dev
-
-# 查看详细错误信息
-NODE_ENV=development pnpm dev
-```
-
-## 贡献指南
+## 🤝 贡献
 
 1. Fork 项目
-2. 创建功能分支
-3. 提交更改
-4. 创建 Pull Request
+2. 创建功能分支 (`git checkout -b feature/amazing-feature`)
+3. 提交更改 (`git commit -m 'Add some amazing feature'`)
+4. 推送到分支 (`git push origin feature/amazing-feature`)
+5. 创建 Pull Request
 
-## 许可证
+## 📄 许可证
 
 MIT License
-
----
-
-**Stratix API Gateway** - 现代化、高性能的 API 网关解决方案 🚀

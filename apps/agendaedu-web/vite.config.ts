@@ -1,8 +1,8 @@
-import path from 'path'
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react-swc'
 import tailwindcss from '@tailwindcss/vite'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
+import react from '@vitejs/plugin-react-swc'
+import path from 'path'
+import { defineConfig } from 'vite'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -22,6 +22,16 @@ export default defineConfig({
       // fix loading all icon chunks in dev mode
       // https://github.com/tabler/tabler-icons/issues/1233
       '@tabler/icons-react': '@tabler/icons-react/dist/esm/icons/index.mjs',
+    },
+  },
+  esbuild: {
+    jsx: 'automatic',
+    jsxImportSource: 'react',
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      jsx: 'automatic',
+      jsxImportSource: 'react',
     },
   },
 })

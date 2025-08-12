@@ -1,15 +1,14 @@
 // @stratix/icasync 课程聚合服务
-// 负责将原始课程数据聚合为日程任务
+// 基于 SQL 的高效聚合策略重构版本
 
+import type { Logger } from '@stratix/core';
 import {
-  curry2,
   Either,
   eitherLeft as left,
   eitherRight as right
 } from '@stratix/utils/functional';
 import type { ICourseRawRepository } from '../repositories/CourseRawRepository.js';
 import type { IJuheRenwuRepository } from '../repositories/JuheRenwuRepository.js';
-import type { CourseRaw, JuheRenwu, NewJuheRenwu } from '../types/database.js';
 
 /**
  * 聚合配置接口
@@ -39,420 +38,172 @@ export interface AggregationResult {
 
 /**
  * 课程聚合服务接口
+ * 重构版本：简化为两个核心函数的高效聚合策略
  */
 export interface ICourseAggregationService {
   /**
-   * 全量聚合指定学期的课程数据
+   * 清空聚合表
+   * 专门负责清空 juhe_renwu 聚合表
    */
-  aggregateFullSemester(
-    config: AggregationConfig
-  ): Promise<Either<string, AggregationResult>>;
+  clearAggregationTable(): Promise<Either<string, number>>;
 
   /**
-   * 全量聚合前清理并重新聚合数据
-   * 先清空juhe_renwu表，然后从u_jw_kcb_cur表重新聚合数据
+   * 执行 SQL 聚合并写入聚合表
+   * 从 u_jw_kcb_cur 表聚合数据并写入 juhe_renwu 表
    */
-  fullAggregationWithClear(
-    config: AggregationConfig
-  ): Promise<Either<string, AggregationResult>>;
-
-  /**
-   * 增量聚合指定开课号的课程数据
-   */
-  aggregateIncremental(
-    kkh: string,
-    rq: string
-  ): Promise<Either<string, JuheRenwu[]>>;
-
-  /**
-   * 聚合单个开课号的所有课程
-   */
-  aggregateSingleCourse(
-    kkh: string,
+  executeAggregationAndSave(
     xnxq: string
-  ): Promise<Either<string, JuheRenwu[]>>;
+  ): Promise<Either<string, AggregationResult>>;
 
   /**
    * 验证聚合数据的完整性
    */
-  validateAggregation(
-    kkh: string,
-    xnxq: string
-  ): Promise<Either<string, boolean>>;
+  validateAggregation(xnxq: string): Promise<Either<string, boolean>>;
 }
 
 /**
  * 课程聚合服务实现
- * 使用函数式编程模式处理课程数据聚合
+ * 重构版本：基于 SQL 的高效聚合策略
  */
 export default class CourseAggregationService
   implements ICourseAggregationService
 {
   constructor(
     private readonly courseRawRepository: ICourseRawRepository,
-    private readonly juheRenwuRepository: IJuheRenwuRepository
+    private readonly juheRenwuRepository: IJuheRenwuRepository,
+    private readonly logger: Logger
   ) {}
 
   /**
-   * 全量聚合指定学期的课程数据
+   * 清空聚合表
+   * 专门负责清空 juhe_renwu 聚合表
    */
-  async aggregateFullSemester(
-    config: AggregationConfig
-  ): Promise<Either<string, AggregationResult>> {
+  async clearAggregationTable(): Promise<Either<string, number>> {
     try {
-      const { xnxq, onlyCheckInRequired = true, batchSize = 100 } = config;
+      const startTime = Date.now();
 
-      // 获取所有需要处理的开课号
-      const kkhsResult = await this.courseRawRepository.findDistinctKkh(xnxq);
-      if (!kkhsResult.success) {
-        return left(`Failed to get course codes: ${kkhsResult.error}`);
+      this.logger.info('开始清空聚合表');
+
+      const clearResult = await this.juheRenwuRepository.clearAllTasks();
+      if (!clearResult.success) {
+        return left(`清空聚合表失败: ${clearResult.error}`);
       }
 
-      const kkhs = kkhsResult.data;
+      const duration = Date.now() - startTime;
+      this.logger.info('清空聚合表完成', {
+        clearedCount: clearResult.data,
+        duration
+      });
+
+      return right(clearResult.data);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error('清空聚合表失败', { error: errorMessage });
+      return left(`清空聚合表失败: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * 执行 SQL 聚合并写入聚合表
+   * 从 u_jw_kcb_cur 表聚合数据并写入 juhe_renwu 表
+   */
+  async executeAggregationAndSave(
+    xnxq: string
+  ): Promise<Either<string, AggregationResult>> {
+    try {
+      const startTime = Date.now();
+
+      this.logger.info('开始执行 SQL 聚合并写入', { xnxq });
+
+      // 1. 执行优化的 SQL 聚合查询（只处理未处理的数据）
+      const aggregationResult =
+        await this.courseRawRepository.executeFullAggregationSql(xnxq);
+      if (!aggregationResult.success) {
+        return left(`SQL 聚合查询失败: ${aggregationResult.error}`);
+      }
+
+      const aggregatedData = aggregationResult.data;
+      this.logger.info('SQL 聚合查询完成', {
+        xnxq,
+        aggregatedCount: aggregatedData.length
+      });
+
+      // 2. 批量插入聚合数据到 juhe_renwu 表
+      const insertResult =
+        await this.juheRenwuRepository.insertAggregatedDataBatch(
+          aggregatedData
+        );
+      if (!insertResult.success) {
+        return left(`批量插入聚合数据失败: ${insertResult.error}`);
+      }
+
+      const duration = Date.now() - startTime;
       const result: AggregationResult = {
-        successCount: 0,
+        successCount: insertResult.data,
         failureCount: 0,
-        processedKkhs: [],
+        processedKkhs: [`聚合了 ${aggregatedData.length} 条数据`],
         errors: []
       };
 
-      // 使用函数式编程处理批次
-      const processBatch = async (kkhBatch: string[]) => {
-        const batchResults = await Promise.allSettled(
-          kkhBatch.map((kkh) => this.aggregateSingleCourse(kkh, xnxq))
-        );
-
-        return batchResults.map((result, index) => ({
-          kkh: kkhBatch[index],
-          result:
-            result.status === 'fulfilled'
-              ? result.value
-              : left('Promise rejected')
-        }));
-      };
-
-      // 分批处理
-      for (let i = 0; i < kkhs.length; i += batchSize) {
-        const batch = kkhs.slice(i, i + batchSize);
-        const batchResults = await processBatch(batch);
-
-        for (const { kkh, result: aggregationResult } of batchResults) {
-          result.processedKkhs.push(kkh);
-
-          if (aggregationResult._tag === 'Right') {
-            result.successCount++;
-          } else {
-            result.failureCount++;
-            result.errors.push(`${kkh}: ${aggregationResult.left}`);
-          }
-        }
-      }
+      this.logger.info('SQL 聚合并写入完成', {
+        xnxq,
+        successCount: result.successCount,
+        duration
+      });
 
       return right(result);
     } catch (error) {
-      return left(
-        `Aggregation failed: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-  }
-
-  /**
-   * 全量聚合前清理并重新聚合数据
-   * 先清空juhe_renwu表，然后从u_jw_kcb_cur表重新聚合数据
-   */
-  async fullAggregationWithClear(
-    config: AggregationConfig
-  ): Promise<Either<string, AggregationResult>> {
-    try {
-      const { xnxq } = config;
-
-      // 1. 先清空juhe_renwu表的所有数据
-      const clearResult = await this.juheRenwuRepository.clearAllTasks();
-      if (!clearResult.success) {
-        return left(`Failed to clear existing tasks: ${clearResult.error}`);
-      }
-
-      // 2. 从u_jw_kcb_cur表重新聚合数据
-      const aggregationResult = await this.aggregateFullSemester(config);
-      if (aggregationResult._tag === 'Left') {
-        return aggregationResult;
-      }
-
-      return right({
-        ...aggregationResult.right,
-        processedKkhs: [
-          `Cleared ${clearResult.data} existing tasks`,
-          ...aggregationResult.right.processedKkhs
-        ]
-      });
-    } catch (error) {
-      return left(
-        `Full aggregation with clear failed: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-  }
-
-  /**
-   * 增量聚合指定开课号的课程数据
-   */
-  async aggregateIncremental(
-    kkh: string,
-    rq: string
-  ): Promise<Either<string, JuheRenwu[]>> {
-    try {
-      // 先软删除现有的聚合数据
-      const deleteResult =
-        await this.juheRenwuRepository.softDeleteByKkhAndDate(kkh, rq);
-      if (!deleteResult.success) {
-        return left(
-          `Failed to soft delete existing data: ${deleteResult.error}`
-        );
-      }
-
-      // 获取指定日期的原始课程数据
-      const rawCoursesResult = await this.courseRawRepository.findByKkhAndDate(
-        kkh,
-        rq
-      );
-      if (!rawCoursesResult.success) {
-        return left(`Failed to get raw courses: ${rawCoursesResult.error}`);
-      }
-
-      const rawCourses = rawCoursesResult.data;
-      if (rawCourses.length === 0) {
-        return right([]);
-      }
-
-      // 聚合数据
-      const aggregatedTasks = await this.aggregateRawCourses(rawCourses);
-      if (aggregatedTasks._tag === 'Left') {
-        return aggregatedTasks;
-      }
-
-      // 保存聚合结果
-      const saveResult = await this.juheRenwuRepository.createTasksBatch(
-        aggregatedTasks.right
-      );
-      if (!saveResult.success) {
-        return left(`Failed to save aggregated tasks: ${saveResult.error}`);
-      }
-
-      return right(saveResult.data);
-    } catch (error) {
-      return left(
-        `Incremental aggregation failed: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-  }
-
-  /**
-   * 聚合单个开课号的所有课程
-   */
-  async aggregateSingleCourse(
-    kkh: string,
-    xnxq: string
-  ): Promise<Either<string, JuheRenwu[]>> {
-    try {
-      // 获取原始课程数据
-      const rawCoursesResult =
-        await this.courseRawRepository.findByKkhAndSemester(kkh, xnxq);
-      if (!rawCoursesResult.success) {
-        return left(`Failed to get raw courses: ${rawCoursesResult.error}`);
-      }
-
-      const rawCourses = rawCoursesResult.data;
-      if (rawCourses.length === 0) {
-        return right([]);
-      }
-
-      // 聚合数据
-      const aggregatedTasks = await this.aggregateRawCourses(rawCourses);
-      if (aggregatedTasks._tag === 'Left') {
-        return aggregatedTasks;
-      }
-
-      // 保存聚合结果
-      const saveResult = await this.juheRenwuRepository.createTasksBatch(
-        aggregatedTasks.right
-      );
-      if (!saveResult.success) {
-        return left(`Failed to save aggregated tasks: ${saveResult.error}`);
-      }
-
-      return right(saveResult.data);
-    } catch (error) {
-      return left(
-        `Single course aggregation failed: ${error instanceof Error ? error.message : String(error)}`
-      );
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error('SQL 聚合并写入失败', { xnxq, error: errorMessage });
+      return left(`SQL 聚合并写入失败: ${errorMessage}`);
     }
   }
 
   /**
    * 验证聚合数据的完整性
    */
-  async validateAggregation(
-    kkh: string,
-    xnxq: string
-  ): Promise<Either<string, boolean>> {
+  async validateAggregation(xnxq: string): Promise<Either<string, boolean>> {
     try {
+      this.logger.info('开始验证聚合数据完整性', { xnxq });
+
       // 获取原始数据统计
-      const rawCountResult =
-        await this.courseRawRepository.countByKkhAndSemester(kkh, xnxq);
+      const rawCountResult = await this.courseRawRepository.countByXnxq(xnxq);
       if (!rawCountResult.success) {
-        return left(`Failed to count raw courses: ${rawCountResult.error}`);
+        return left(`统计原始课程数据失败: ${rawCountResult.error}`);
       }
 
       // 获取聚合数据统计
       const aggregatedCountResult =
-        await this.juheRenwuRepository.countByKkh(kkh);
+        await this.juheRenwuRepository.countByXnxq(xnxq);
       if (!aggregatedCountResult.success) {
-        return left(
-          `Failed to count aggregated tasks: ${aggregatedCountResult.error}`
-        );
+        return left(`统计聚合任务数据失败: ${aggregatedCountResult.error}`);
       }
 
-      // 验证数据完整性（聚合后的数据应该少于或等于原始数据）
-      const isValid =
-        aggregatedCountResult.data <= rawCountResult.data &&
-        aggregatedCountResult.data > 0;
+      const rawCount = rawCountResult.data;
+      const aggregatedCount = aggregatedCountResult.data;
+
+      // 验证数据完整性
+      // 聚合后的数据应该少于原始数据（因为进行了合并）但不应该为0
+      const isValid = aggregatedCount > 0 && aggregatedCount <= rawCount;
+
+      this.logger.info('聚合数据完整性验证完成', {
+        xnxq,
+        rawCount,
+        aggregatedCount,
+        isValid
+      });
 
       return right(isValid);
     } catch (error) {
-      return left(
-        `Validation failed: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-  }
-
-  /**
-   * 聚合原始课程数据（私有方法）
-   * 实现课程数据的分组和合并逻辑
-   */
-  private async aggregateRawCourses(
-    rawCourses: CourseRaw[]
-  ): Promise<Either<string, NewJuheRenwu[]>> {
-    try {
-      // 使用函数式编程进行数据处理
-      const groupByKey = curry2(
-        (keyFn: (item: CourseRaw) => string, items: CourseRaw[]) => {
-          return items.reduce(
-            (groups, item) => {
-              const key = keyFn(item);
-              if (!groups[key]) {
-                groups[key] = [];
-              }
-              groups[key].push(item);
-              return groups;
-            },
-            {} as Record<string, CourseRaw[]>
-          );
-        }
-      );
-
-      // 创建分组键函数
-      const createGroupKey = (course: CourseRaw) => {
-        const jc = course.jc || 0;
-        return `${course.kkh}_${course.rq}_${jc < 5 ? 'am' : 'pm'}`;
-      };
-
-      // 过滤有效课程数据
-      const validCourses = rawCourses.filter(
-        (course: CourseRaw) => course.zt === 'add' || course.zt === 'update'
-      );
-
-      // 分组处理
-      const groupedCourses = groupByKey(createGroupKey)(validCourses);
-
-      // 转换为聚合任务
-      const aggregatedTasks: NewJuheRenwu[] = [];
-
-      for (const [groupKey, courses] of Object.entries(groupedCourses)) {
-        const aggregatedTask = this.createAggregatedTask(courses);
-        if (aggregatedTask._tag === 'Right') {
-          aggregatedTasks.push(aggregatedTask.right);
-        } else {
-          return left(
-            `Failed to create aggregated task for group ${groupKey}: ${aggregatedTask.left}`
-          );
-        }
-      }
-
-      return right(aggregatedTasks);
-    } catch (error) {
-      return left(
-        `Raw course aggregation failed: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-  }
-
-  /**
-   * 创建聚合任务（私有方法）
-   */
-  private createAggregatedTask(
-    courses: CourseRaw[]
-  ): Either<string, NewJuheRenwu> {
-    if (courses.length === 0) {
-      return left('No courses to aggregate');
-    }
-
-    const firstCourse = courses[0];
-
-    try {
-      // 聚合节次
-      const jcList = courses.map((c) => c.jc || 0).sort((a, b) => a - b);
-      const jcS = jcList.join('/');
-
-      // 聚合教室
-      const roomList = courses.map((c) => c.room || '无');
-      const roomS = [...new Set(roomList)].join('/');
-
-      // 聚合教师
-      const ghList = courses.map((c) => c.ghs).filter(Boolean);
-      const ghS = [...new Set(ghList)].join(',');
-
-      const xmList = courses.map((c) => c.xms).filter(Boolean);
-      const xmS = [...new Set(xmList)].join(',');
-
-      // 计算时间
-      const startTimes = courses
-        .map((c) => c.st)
-        .filter(Boolean)
-        .sort();
-      const endTimes = courses
-        .map((c) => c.ed)
-        .filter(Boolean)
-        .sort();
-      const sjF = startTimes[0];
-      const sjT = endTimes[endTimes.length - 1];
-
-      // 确定时间段
-      const firstJc = firstCourse.jc || 0;
-      const sjd = firstJc < 5 ? 'am' : 'pm';
-
-      const aggregatedTask: NewJuheRenwu = {
-        kkh: firstCourse.kkh,
-        xnxq: firstCourse.xnxq,
-        jxz: firstCourse.jxz,
-        zc: firstCourse.zc,
-        rq: (firstCourse.rq || '').substring(0, 10), // 只取日期部分
-        kcmc: firstCourse.kcmc,
-        sfdk: firstCourse.sfdk,
-        jc_s: jcS,
-        room_s: roomS,
-        gh_s: ghS,
-        xm_s: xmS,
-        lq: firstCourse.lq,
-        sj_f: sjF,
-        sj_t: sjT,
-        sjd,
-        gx_zt: '0' // 默认为未处理
-      };
-
-      return right(aggregatedTask);
-    } catch (error) {
-      return left(
-        `Task creation failed: ${error instanceof Error ? error.message : String(error)}`
-      );
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error('验证聚合数据完整性失败', {
+        xnxq,
+        error: errorMessage
+      });
+      return left(`验证聚合数据完整性失败: ${errorMessage}`);
     }
   }
 }

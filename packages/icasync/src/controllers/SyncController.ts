@@ -3,7 +3,6 @@
 
 import type { FastifyReply, FastifyRequest, Logger } from '@stratix/core';
 import { Controller, Delete, Get, Post } from '@stratix/core';
-import type { ICourseScheduleSyncService } from '../services/CourseScheduleSyncService.js';
 import type {
   ISyncWorkflowService,
   SyncWorkflowConfig,
@@ -16,6 +15,8 @@ import type {
 export interface FullSyncRequest {
   /** 学年学期 */
   xnxq: string;
+  /** 是否强制同步（忽略时间戳检查） */
+  forceSync?: boolean;
   /** 批处理大小 */
   batchSize?: number;
   /** 超时时间（毫秒） */
@@ -95,7 +96,6 @@ export interface ApiResponse<T = any> {
 export default class SyncController {
   constructor(
     private readonly syncWorkflowService: ISyncWorkflowService,
-    private readonly courseScheduleSyncService: ICourseScheduleSyncService,
     private readonly logger: Logger
   ) {}
 
@@ -179,7 +179,9 @@ export default class SyncController {
 
     try {
       this.logger.info('收到全量同步请求', {
+        requestBody: request.body,
         xnxq: request.body.xnxq,
+        forceSync: request.body.forceSync,
         batchSize: request.body.batchSize,
         timeout: request.body.timeout
       });
@@ -188,6 +190,7 @@ export default class SyncController {
       const config: SyncWorkflowConfig = {
         xnxq: request.body.xnxq,
         syncType: 'full',
+        forceSync: request.body.forceSync || false, // ✅ 添加forceSync参数
         batchSize: request.body.batchSize || 100,
         timeout: request.body.timeout || 1800000, // 30分钟
         maxConcurrency: request.body.maxConcurrency || 3,

@@ -1,7 +1,7 @@
 // @stratix/icasync 原始课程数据仓储
 import { Logger } from '@stratix/core';
 import type { DatabaseAPI, DatabaseResult } from '@stratix/database';
-import { QueryError } from '@stratix/database';
+import { QueryError, sql } from '@stratix/database';
 import type {
   CourseChange,
   CourseRaw,
@@ -88,16 +88,10 @@ export interface ICourseRawRepository {
   findConflictingCourses(): Promise<DatabaseResult<CourseRaw[]>>;
 
   // 原生 SQL 聚合操作
-  executeAggregationQuery(xnxq: string): Promise<DatabaseResult<any[]>>;
-  aggregateCourseDataWithSql(
-    xnxq: string,
-    juheRenwuRepository: any
-  ): Promise<DatabaseResult<{ count: number; aggregatedData: any[] }>>;
+  executeFullAggregationSql(xnxq: string): Promise<DatabaseResult<any[]>>;
 
-  // 事务化聚合操作
-  executeTransactionalAggregation(
-    xnxq: string
-  ): Promise<DatabaseResult<{ count: number; duration: number }>>;
+  // 增量聚合查询
+  findUnprocessedAggregatedTasks(): Promise<DatabaseResult<any[]>>;
 }
 
 /**
@@ -154,10 +148,33 @@ export default class CourseRawRepository
     this.validateKkh(kkh);
     this.validateXnxq(xnxq);
 
-    return await this.findMany(
-      (eb: any) => eb.and([eb('kkh', '=', kkh), eb('xnxq', '=', xnxq)]),
-      { orderBy: { field: 'zc', direction: 'asc' } }
-    );
+    try {
+      const operation = async (db: any) => {
+        return await db
+          .selectFrom(this.tableName)
+          .selectAll()
+          .where('kkh', '=', kkh)
+          .where('xnxq', '=', xnxq)
+          .orderBy('zc', 'asc')
+          .execute();
+      };
+
+      return await this.databaseApi.executeQuery(operation, {
+        connectionName: 'syncdb'
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logOperation('findByKkhAndXnxq失败', {
+        kkh,
+        xnxq,
+        error: errorMessage
+      });
+      return {
+        success: false,
+        error: QueryError.create(errorMessage)
+      };
+    }
   }
 
   /**
@@ -183,10 +200,31 @@ export default class CourseRawRepository
       throw new Error('Date cannot be empty');
     }
 
-    return await this.findMany(
-      (eb: any) => eb.and([eb('kkh', '=', kkh), eb('rq', 'like', `${rq}%`)]),
-      { orderBy: { field: 'st', direction: 'asc' } }
-    );
+    try {
+      const operation = async (db: any) => {
+        return await db
+          .selectFrom(this.tableName)
+          .selectAll()
+          .where('kkh', '=', kkh)
+          .where('rq', 'like', `${rq}%`)
+          .orderBy('st', 'asc')
+          .execute();
+      };
+
+      return await this.databaseApi.executeQuery(operation);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logOperation('findByKkhAndDate失败', {
+        kkh,
+        rq,
+        error: errorMessage
+      });
+      return {
+        success: false,
+        error: QueryError.create(errorMessage)
+      };
+    }
   }
 
   /**
@@ -272,10 +310,30 @@ export default class CourseRawRepository
   async findChangesByType(
     changeType: 'add' | 'update' | 'delete'
   ): Promise<DatabaseResult<CourseRaw[]>> {
-    return await this.findMany(
-      (eb: any) => eb.and([eb('zt', '=', changeType), eb('gx_zt', 'is', null)]),
-      { orderBy: { field: 'gx_sj', direction: 'desc' } }
-    );
+    try {
+      const operation = async (db: any) => {
+        return await db
+          .selectFrom(this.tableName)
+          .selectAll()
+          .where('zt', '=', changeType)
+          .where('gx_zt', 'is', null)
+          .orderBy('gx_sj', 'desc')
+          .execute();
+      };
+
+      return await this.databaseApi.executeQuery(operation);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logOperation('findChangesByType失败', {
+        changeType,
+        error: errorMessage
+      });
+      return {
+        success: false,
+        error: QueryError.create(errorMessage)
+      };
+    }
   }
 
   /**
@@ -284,11 +342,30 @@ export default class CourseRawRepository
   async findChangesAfterTime(
     timestamp: Date
   ): Promise<DatabaseResult<CourseRaw[]>> {
-    return await this.findMany(
-      (eb: any) =>
-        eb.and([eb('gx_sj', '>', timestamp), eb('gx_zt', 'is', null)]),
-      { orderBy: { field: 'gx_sj', direction: 'desc' } }
-    );
+    try {
+      const operation = async (db: any) => {
+        return await db
+          .selectFrom(this.tableName)
+          .selectAll()
+          .where('gx_sj', '>', timestamp)
+          .where('gx_zt', 'is', null)
+          .orderBy('gx_sj', 'desc')
+          .execute();
+      };
+
+      return await this.databaseApi.executeQuery(operation);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logOperation('findChangesAfterTime失败', {
+        timestamp,
+        error: errorMessage
+      });
+      return {
+        success: false,
+        error: QueryError.create(errorMessage)
+      };
+    }
   }
 
   /**
@@ -408,10 +485,31 @@ export default class CourseRawRepository
       throw new Error('Week and period cannot be empty');
     }
 
-    return await this.findMany(
-      (eb: any) => eb.and([eb('zc', '=', zc), eb('jc', '=', jc)]),
-      { orderBy: { field: 'kkh', direction: 'asc' } }
-    );
+    try {
+      const operation = async (db: any) => {
+        return await db
+          .selectFrom(this.tableName)
+          .selectAll()
+          .where('zc', '=', zc)
+          .where('jc', '=', jc)
+          .orderBy('kkh', 'asc')
+          .execute();
+      };
+
+      return await this.databaseApi.executeQuery(operation);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logOperation('findCoursesByTimeSlot失败', {
+        zc,
+        jc,
+        error: errorMessage
+      });
+      return {
+        success: false,
+        error: QueryError.create(errorMessage)
+      };
+    }
   }
 
   /**
@@ -427,94 +525,104 @@ export default class CourseRawRepository
       throw new Error('Date cannot be empty');
     }
 
-    return await this.findMany(
-      (eb: any) => eb.and([eb('kkh', '=', kkh), eb('rq', '=', rq)]),
-      { orderBy: { field: 'jc', direction: 'asc' } }
-    );
+    try {
+      const operation = async (db: any) => {
+        return await db
+          .selectFrom(this.tableName)
+          .selectAll()
+          .where('kkh', '=', kkh)
+          .where('rq', '=', rq)
+          .orderBy('jc', 'asc')
+          .execute();
+      };
+
+      return await this.databaseApi.executeQuery(operation);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logOperation('findCoursesForAggregation失败', {
+        kkh,
+        rq,
+        error: errorMessage
+      });
+      return {
+        success: false,
+        error: QueryError.create(errorMessage)
+      };
+    }
   }
 
   /**
-   * 执行原生 SQL 聚合查询
-   * 使用数据库层面的 GROUP BY 和聚合函数来提升性能
+   * 执行全量聚合 SQL 查询
+   * 使用原生 SQL 一次性聚合所有课程数据
    */
-  async executeAggregationQuery(xnxq: string): Promise<DatabaseResult<any[]>> {
+  async executeFullAggregationSql(
+    xnxq: string
+  ): Promise<DatabaseResult<any[]>> {
     this.validateXnxq(xnxq);
 
     try {
-      // 使用 BaseRepository 的 advancedQuery 方法执行 Kysely 聚合查询
-      const result = await this.advancedQuery(async (db) => {
-        // 使用 Kysely 的查询构建器进行聚合查询
-        return await (db as any)
-          .selectFrom('u_jw_kcb_cur')
-          .select([
-            'kkh',
-            'xnxq',
-            'kcmc',
-            'rq',
-            'ghs',
-            'room',
-            'zc',
-            // 使用 SQL 函数进行聚合
-            (eb: any) => eb.fn.min('jc').as('jc_min'),
-            (eb: any) => eb.fn.max('jc').as('jc_max'),
-            (eb: any) => eb.fn.count('*').as('course_count'),
-            // 计算时间段
-            (eb: any) =>
-              eb
-                .case()
-                .when(eb.fn.min('jc'), '<=', 2)
-                .then('上午')
-                .when(eb.fn.min('jc'), '<=', 4)
-                .then('下午')
-                .else('晚上')
-                .end()
-                .as('sjd'),
-            // 聚合开始和结束时间
-            (eb: any) => eb.fn.min('st').as('sj_f'),
-            (eb: any) => eb.fn.max('et').as('sj_z'),
-            // 其他聚合字段 - 使用 MySQL 的 GROUP_CONCAT
-            (eb: any) =>
-              eb
-                .fn('GROUP_CONCAT', [
-                  eb.ref('jc'),
-                  eb.lit(' ORDER BY '),
-                  eb.ref('jc')
-                ])
-                .as('jc_list'),
-            (eb: any) =>
-              eb
-                .fn('GROUP_CONCAT', [
-                  eb.ref('st'),
-                  eb.lit(' ORDER BY '),
-                  eb.ref('jc')
-                ])
-                .as('st_list'),
-            (eb: any) =>
-              eb
-                .fn('GROUP_CONCAT', [
-                  eb.ref('et'),
-                  eb.lit(' ORDER BY '),
-                  eb.ref('jc')
-                ])
-                .as('et_list')
-          ])
-          .where('xnxq', '=', xnxq)
-          .where('gx_zt', 'is', null)
-          .groupBy(['kkh', 'rq', 'ghs', 'room', 'zc'])
-          .having((eb: any) => eb.fn.count('*'), '>', 0)
-          .orderBy(['rq', 'sj_f'])
-          .execute();
+      this.logOperation('开始执行全量聚合SQL', { xnxq });
+
+      const operation = async (db: any) => {
+        // 使用 Kysely sql 模板字符串执行聚合查询
+        const query = sql`
+          SELECT
+            kkh,
+            xnxq,
+            jxz,
+            zc,
+            LEFT(rq, 10) as rq,
+            kcmc,
+            sfdk,
+            GROUP_CONCAT(jc ORDER BY jc SEPARATOR '/') as jc_s,
+            GROUP_CONCAT(IFNULL(room, '无') ORDER BY jc SEPARATOR '/') as room_s,
+            GROUP_CONCAT(DISTINCT ghs) as gh_s,
+            GROUP_CONCAT(DISTINCT xms) as xm_s,
+            SUBSTRING_INDEX(GROUP_CONCAT(lq ORDER BY st), ',', 1) as lq,
+            SUBSTRING_INDEX(GROUP_CONCAT(st ORDER BY st), ',', 1) as sj_f,
+            SUBSTRING_INDEX(GROUP_CONCAT(ed ORDER BY ed DESC), ',', 1) as sj_t,
+            'am' as sjd
+          FROM u_jw_kcb_cur
+          WHERE xnxq = ${xnxq} AND gx_zt IS NULL AND jc < 5
+          GROUP BY kkh, xnxq, jxz, zc, LEFT(rq, 10), kcmc, sfdk
+          UNION
+          SELECT
+            kkh,
+            xnxq,
+            jxz,
+            zc,
+            LEFT(rq, 10) as rq,
+            kcmc,
+            sfdk,
+            GROUP_CONCAT(jc ORDER BY jc SEPARATOR '/') as jc_s,
+            GROUP_CONCAT(IFNULL(room, '无') ORDER BY jc SEPARATOR '/') as room_s,
+            GROUP_CONCAT(DISTINCT ghs) as gh_s,
+            GROUP_CONCAT(DISTINCT xms) as xm_s,
+            SUBSTRING_INDEX(GROUP_CONCAT(lq ORDER BY st), ',', 1) as lq,
+            SUBSTRING_INDEX(GROUP_CONCAT(st ORDER BY st), ',', 1) as sj_f,
+            SUBSTRING_INDEX(GROUP_CONCAT(ed ORDER BY ed DESC), ',', 1) as sj_t,
+            'pm' as sjd
+          FROM u_jw_kcb_cur
+          WHERE xnxq = ${xnxq} AND gx_zt IS NULL AND jc >= 5
+          GROUP BY kkh, xnxq, jxz, zc, LEFT(rq, 10), kcmc, sfdk
+          ORDER BY kkh, rq, sjd
+        `;
+
+        const results = await query.execute(db);
+        return results.rows;
+      };
+
+      const result = await this.databaseApi.executeQuery(operation, {
+        connectionName: 'syncdb'
       });
 
       if (result.success) {
-        this.logOperation('执行聚合查询', {
+        this.logOperation('执行全量聚合查询完成', {
           xnxq,
           aggregatedCount: result.data.length
         });
-        return {
-          success: true,
-          data: result.data
-        };
+        return result;
       } else {
         return {
           success: false,
@@ -524,124 +632,39 @@ export default class CourseRawRepository
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.logOperation('聚合查询失败', { xnxq, error: errorMessage });
+      this.logOperation('全量聚合查询失败', { xnxq, error: errorMessage });
       return {
         success: false,
-        error: QueryError.create(`聚合查询失败: ${errorMessage}`)
+        error: QueryError.create(`全量聚合查询失败: ${errorMessage}`)
       };
     }
   }
 
   /**
-   * 执行完整的课程数据聚合操作
-   * 包括 SQL 聚合查询、数据转换和批量插入到聚合任务表
-   * Repository 层负责所有数据访问逻辑
+   * 查找未处理的聚合任务
+   * 用于增量聚合模式
    */
-  async aggregateCourseDataWithSql(
-    xnxq: string,
-    juheRenwuRepository: any
-  ): Promise<DatabaseResult<{ count: number; aggregatedData: any[] }>> {
-    this.validateXnxq(xnxq);
-
+  async findUnprocessedAggregatedTasks(): Promise<DatabaseResult<any[]>> {
     try {
-      // 1. 执行原生 SQL 聚合查询
-      const aggregationResult = await this.executeAggregationQuery(xnxq);
-
-      if (!aggregationResult.success) {
-        return {
-          success: false,
-          error: aggregationResult.error
-        };
-      }
-
-      const aggregatedCourses = aggregationResult.data;
-      this.logOperation('SQL 聚合查询完成', {
-        xnxq,
-        aggregatedCount: aggregatedCourses.length
-      });
-
-      // 2. 转换聚合结果为 JuheRenwu 格式并批量插入
-      const insertResults = [];
-      let insertedCount = 0;
-
-      for (const course of aggregatedCourses) {
-        try {
-          // 转换为 JuheRenwu 格式
-          const juheRenwuData = this.transformToJuheRenwuFormat(course);
-
-          const result = await juheRenwuRepository.create(juheRenwuData);
-          if (result.success) {
-            insertedCount++;
-            insertResults.push(result.data);
-          } else {
-            this.logOperation('插入聚合数据失败', {
-              course: course.kkh,
-              error: result.error
-            });
-          }
-        } catch (error) {
-          const errorMessage =
-            error instanceof Error ? error.message : String(error);
-          this.logOperation('转换聚合数据失败', {
-            course: course.kkh,
-            error: errorMessage
-          });
-        }
-      }
-
-      this.logOperation('批量插入聚合数据完成', {
-        xnxq,
-        totalAggregated: aggregatedCourses.length,
-        successfullyInserted: insertedCount
+      // 暂时返回空数组，因为这个方法需要查询 juhe_renwu 表
+      // 应该在 JuheRenwuRepository 中实现
+      this.logOperation('查找未处理聚合任务', {
+        unprocessedCount: 0
       });
 
       return {
         success: true,
-        data: {
-          count: insertedCount,
-          aggregatedData: insertResults
-        }
+        data: [] as any[]
       };
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.logOperation('聚合课程数据失败', { xnxq, error: errorMessage });
+      this.logOperation('查找未处理聚合任务失败', { error: errorMessage });
       return {
         success: false,
-        error: QueryError.create(`聚合课程数据失败: ${errorMessage}`)
+        error: QueryError.create(`查找未处理聚合任务失败: ${errorMessage}`)
       };
     }
-  }
-
-  /**
-   * 转换聚合查询结果为 JuheRenwu 格式
-   * Repository 层负责数据格式转换逻辑
-   */
-  private transformToJuheRenwuFormat(course: any): any {
-    return {
-      kkh: course.kkh,
-      xnxq: course.xnxq,
-      kcmc: course.kcmc,
-      rq: course.rq,
-      ghs: course.ghs,
-      room: course.room,
-      zc: course.zc,
-      jc: course.jc_min, // 使用最小节次
-      jc_s: course.jc_min,
-      jc_z: course.jc_max,
-      sjd: course.sjd,
-      sj_f: course.sj_f,
-      sj_z: course.sj_z,
-      lq: null,
-      gx_sj: new Date().toISOString(),
-      gx_zt: '0', // 未处理状态
-      sfdk: '0',
-      // 扩展字段：保存聚合统计信息
-      course_count: course.course_count,
-      jc_list: course.jc_list,
-      st_list: course.st_list,
-      et_list: course.et_list
-    };
   }
 
   /**
@@ -672,8 +695,8 @@ export default class CourseRawRepository
     this.validateKkh(kkh);
     this.validateXnxq(xnxq);
 
-    return await this.count((eb: any) =>
-      eb.and([eb('kkh', '=', kkh), eb('xnxq', '=', xnxq)])
+    return await this.count((qb: any) =>
+      qb.where('kkh', '=', kkh).where('xnxq', '=', xnxq)
     );
   }
 
@@ -690,8 +713,8 @@ export default class CourseRawRepository
   async countByChangeType(
     changeType: 'add' | 'update' | 'delete'
   ): Promise<DatabaseResult<number>> {
-    return await this.count((eb: any) =>
-      eb.and([eb('zt', '=', changeType), eb('gx_zt', 'is', null)])
+    return await this.count((qb: any) =>
+      qb.where('zt', '=', changeType).where('gx_zt', 'is', null)
     );
   }
 

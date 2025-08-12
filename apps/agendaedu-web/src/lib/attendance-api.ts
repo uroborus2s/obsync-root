@@ -24,36 +24,8 @@ export class AttendanceApiService {
   private baseUrl: string
 
   constructor(baseUrl?: string) {
-    this.baseUrl =
-      baseUrl ||
-      (typeof window !== 'undefined'
-        ? this.getApiBaseUrl()
-        : 'http://localhost:8090')
-  }
-
-  /**
-   * 根据当前环境获取API基础URL
-   */
-  private getApiBaseUrl(): string {
-    const origin = window.location.origin
-    const hostname = window.location.hostname
-
-    // 生产环境：如果在chat.whzhsc.cn域名下
-    if (hostname.includes('whzhsc.cn')) {
-      // 尝试多种可能的API地址
-      // 1. 同域名同端口的api路径
-      // 2. 同域名8090端口
-      // 优先尝试同域名的api路径
-      return origin
-    }
-
-    // 开发环境：本地开发时的端口转换
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return origin.replace(':5173', ':8090')
-    }
-
-    // 默认情况
-    return 'http://localhost:8090'
+    // 统一使用kwps.jlufe.edu.cn的API地址
+    this.baseUrl = baseUrl || 'https://kwps.jlufe.edu.cn'
   }
 
   /**
@@ -96,42 +68,25 @@ export class AttendanceApiService {
   }
 
   /**
-   * 处理401未授权响应 - 直接重定向到WPS授权页面
+   * 处理401未授权响应 - 使用统一的认证管理器重定向到WPS授权页面
    */
   private handleUnauthorized(): void {
-    const currentUrl = window.location.href
-    sessionStorage.setItem('auth_redirect_url', currentUrl)
+    // 动态导入认证管理器以避免循环依赖
+    import('./gateway-auth-manager')
+      .then(({ authManager }) => {
+        // 保存当前页面URL，授权后返回
+        const currentUrl = window.location.href
 
-    const authUrl = this.buildWpsAuthUrl()
-    window.location.href = authUrl
-  }
-
-  /**
-   * 构造WPS授权URL
-   */
-  private buildWpsAuthUrl(): string {
-    const clientId = 'AK20250614WBSGPX' // 使用配置的应用ID
-    const redirectUri = encodeURIComponent(
-      `${window.location.origin}/web/auth/callback`
-    )
-    const scope = 'kso.user_base.read'
-    const state = encodeURIComponent(
-      JSON.stringify({
-        type: 'web',
-        timestamp: Date.now(),
-        returnUrl: window.location.href,
+        // 使用统一的认证管理器进行重定向
+        authManager.redirectToAuth(currentUrl)
       })
-    )
-
-    const params = new URLSearchParams({
-      client_id: clientId,
-      response_type: 'code',
-      redirect_uri: redirectUri,
-      scope: scope,
-      state: state,
-    })
-
-    return `https://openapi.wps.cn/oauth2/auth?${params.toString()}`
+      .catch((error) => {
+        console.error('Failed to load auth manager:', error)
+        // 降级处理：直接使用配置文件的重定向方法
+        import('@/config/wps-auth-config').then(({ redirectToWpsAuth }) => {
+          redirectToWpsAuth(window.location.href)
+        })
+      })
   }
 
   // ========== 新的数据查询接口 ==========

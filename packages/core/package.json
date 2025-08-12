@@ -1,6 +1,6 @@
 {
   "name": "@stratix/core",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "一个轻量级的Node.js应用框架，基于Fastify构建",
   "type": "module",
   "main": "dist/index.js",
@@ -42,7 +42,7 @@
     "fastify-plugin": "^5.0.1",
     "js-yaml": "^4.1.0",
     "minimist": "^1.2.8",
-    "pino": "^9.6.0",
+    "pino": "9.7.0",
     "pino-roll": "^1.0.0",
     "reflect-metadata": "^0.2.2",
     "@stratix/utils": "workspace:*"

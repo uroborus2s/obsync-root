@@ -1,1 +1,0 @@
-{"version":3,"file":"wps-auth-provider.d.ts","sourceRoot":"","sources":["wps-auth-provider.tsx"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,SAAS,EAAE,MAAM,OAAO,CAAA;AAItC,UAAU,oBAAoB;IAC5B,QAAQ,EAAE,SAAS,CAAA;CACpB;AAED,wBAAgB,eAAe,CAAC,EAAE,QAAQ,EAAE,EAAE,oBAAoB,+BASjE"}

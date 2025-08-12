@@ -8,9 +8,9 @@ import type { Logger } from '@stratix/core';
 import type { DatabaseAPI, DatabaseResult } from '@stratix/database';
 import type { QueryOptions } from '../types/common.js';
 import type {
-  NewWorkflowDefinition,
-  WorkflowDefinition,
-  WorkflowDefinitionUpdate
+  NewWorkflowDefinitionTable,
+  WorkflowDefinitionTable,
+  WorkflowDefinitionTableUpdate
 } from '../types/database.js';
 import { BaseTasksRepository } from './base/BaseTasksRepository.js';
 
@@ -27,7 +27,7 @@ export interface IWorkflowDefinitionRepository {
   findByNameAndVersion(
     name: string,
     version: string
-  ): Promise<DatabaseResult<WorkflowDefinition | null>>;
+  ): Promise<DatabaseResult<WorkflowDefinitionTable | null>>;
 
   /**
    * 根据名称查找活跃版本的工作流定义
@@ -36,7 +36,7 @@ export interface IWorkflowDefinitionRepository {
    */
   findActiveByName(
     name: string
-  ): Promise<DatabaseResult<WorkflowDefinition | null>>;
+  ): Promise<DatabaseResult<WorkflowDefinitionTable | null>>;
 
   /**
    * 根据名称查找所有版本的工作流定义
@@ -47,7 +47,7 @@ export interface IWorkflowDefinitionRepository {
   findAllVersionsByName(
     name: string,
     options?: QueryOptions
-  ): Promise<DatabaseResult<WorkflowDefinition[]>>;
+  ): Promise<DatabaseResult<WorkflowDefinitionTable[]>>;
 
   /**
    * 根据分类查找工作流定义
@@ -58,7 +58,7 @@ export interface IWorkflowDefinitionRepository {
   findByCategory(
     category: string,
     options?: QueryOptions
-  ): Promise<DatabaseResult<WorkflowDefinition[]>>;
+  ): Promise<DatabaseResult<WorkflowDefinitionTable[]>>;
 
   /**
    * 根据标签查找工作流定义
@@ -69,7 +69,7 @@ export interface IWorkflowDefinitionRepository {
   findByTags(
     tags: string[],
     options?: QueryOptions
-  ): Promise<DatabaseResult<WorkflowDefinition[]>>;
+  ): Promise<DatabaseResult<WorkflowDefinitionTable[]>>;
 
   /**
    * 根据状态查找工作流定义
@@ -78,9 +78,9 @@ export interface IWorkflowDefinitionRepository {
    * @returns 工作流定义列表
    */
   findByStatus(
-    status: string,
+    status: 'draft' | 'active' | 'deprecated' | 'archived',
     options?: QueryOptions
-  ): Promise<DatabaseResult<WorkflowDefinition[]>>;
+  ): Promise<DatabaseResult<WorkflowDefinitionTable[]>>;
 
   /**
    * 搜索工作流定义
@@ -91,7 +91,7 @@ export interface IWorkflowDefinitionRepository {
   search(
     keyword: string,
     options?: QueryOptions
-  ): Promise<DatabaseResult<WorkflowDefinition[]>>;
+  ): Promise<DatabaseResult<WorkflowDefinitionTable[]>>;
 
   /**
    * 设置活跃版本
@@ -126,9 +126,9 @@ export interface IWorkflowDefinitionRepository {
 export default class WorkflowDefinitionRepository
   extends BaseTasksRepository<
     'workflow_definitions',
-    WorkflowDefinition,
-    NewWorkflowDefinition,
-    WorkflowDefinitionUpdate
+    WorkflowDefinitionTable,
+    NewWorkflowDefinitionTable,
+    WorkflowDefinitionTableUpdate
   >
   implements IWorkflowDefinitionRepository
 {
@@ -144,25 +144,25 @@ export default class WorkflowDefinitionRepository
   async findByNameAndVersion(
     name: string,
     version: string
-  ): Promise<DatabaseResult<WorkflowDefinition | null>> {
+  ): Promise<DatabaseResult<WorkflowDefinitionTable | null>> {
     return await this.findOneNullable((qb: any) =>
-      qb.where('name', name).where('version', version)
+      qb.where('name', '=', name).where('version', '=', version)
     );
   }
 
   async findActiveByName(
     name: string
-  ): Promise<DatabaseResult<WorkflowDefinition | null>> {
+  ): Promise<DatabaseResult<WorkflowDefinitionTable | null>> {
     return await this.findOneNullable((qb: any) =>
-      qb.where('name', name).where('is_active', true)
+      qb.where('name', '=', name).where('is_active', '=', true)
     );
   }
 
   async findAllVersionsByName(
     name: string,
     options?: QueryOptions
-  ): Promise<DatabaseResult<WorkflowDefinition[]>> {
-    return await this.findMany((qb: any) => qb.where('name', name), {
+  ): Promise<DatabaseResult<WorkflowDefinitionTable[]>> {
+    return await this.findMany((qb: any) => qb.where('name', '=', name), {
       orderBy: {
         field: options?.sort?.field || 'version',
         direction: options?.sort?.order || 'desc'
@@ -173,14 +173,16 @@ export default class WorkflowDefinitionRepository
   async findByCategory(
     category: string,
     _options?: QueryOptions
-  ): Promise<DatabaseResult<WorkflowDefinition[]>> {
-    return await this.findMany((qb: any) => qb.where('category', category));
+  ): Promise<DatabaseResult<WorkflowDefinitionTable[]>> {
+    return await this.findMany((qb: any) =>
+      qb.where('category', '=', category)
+    );
   }
 
   async findByTags(
     tags: string[],
     _options?: QueryOptions
-  ): Promise<DatabaseResult<WorkflowDefinition[]>> {
+  ): Promise<DatabaseResult<WorkflowDefinitionTable[]>> {
     return await this.findMany((qb: any) => {
       tags.forEach((tag) => {
         qb = qb.whereRaw('JSON_CONTAINS(tags, ?)', [`"${tag}"`]);
@@ -190,16 +192,16 @@ export default class WorkflowDefinitionRepository
   }
 
   async findByStatus(
-    status: string,
+    status: 'draft' | 'active' | 'deprecated' | 'archived',
     _options?: QueryOptions
-  ): Promise<DatabaseResult<WorkflowDefinition[]>> {
+  ): Promise<DatabaseResult<WorkflowDefinitionTable[]>> {
     return await this.findMany(this.queryByStatus(status));
   }
 
   async search(
     keyword: string,
     _options?: QueryOptions
-  ): Promise<DatabaseResult<WorkflowDefinition[]>> {
+  ): Promise<DatabaseResult<WorkflowDefinitionTable[]>> {
     return await this.findMany((qb: any) =>
       qb.where(function (this: any) {
         this.where('name', 'like', `%${keyword}%`)
@@ -215,19 +217,19 @@ export default class WorkflowDefinitionRepository
   ): Promise<DatabaseResult<boolean>> {
     try {
       // 将所有同名工作流设置为非活跃
-      await this.updateMany((qb: any) => qb.where('name', name), {
+      await this.updateMany((qb: any) => qb.where('name', '=', name), {
         is_active: false,
         updated_at: new Date()
-      } as WorkflowDefinitionUpdate);
+      } as WorkflowDefinitionTableUpdate);
 
       // 设置指定版本为活跃
       const updateResult = await this.updateMany(
-        (qb: any) => qb.where('name', name).where('version', version),
+        (qb: any) => qb.where('name', '=', name).where('version', '=', version),
         {
           is_active: true,
           status: 'active',
           updated_at: new Date()
-        } as WorkflowDefinitionUpdate
+        } as WorkflowDefinitionTableUpdate
       );
 
       return {
@@ -259,16 +261,16 @@ export default class WorkflowDefinitionRepository
 
       // 简化统计实现
       const activeCountResult = await this.count((qb: any) =>
-        qb.where('status', 'active')
+        qb.where('status', '=', 'active')
       );
       const draftCountResult = await this.count((qb: any) =>
-        qb.where('status', 'draft')
+        qb.where('status', '=', 'draft')
       );
       const deprecatedCountResult = await this.count((qb: any) =>
-        qb.where('status', 'deprecated')
+        qb.where('status', '=', 'deprecated')
       );
       const archivedCountResult = await this.count((qb: any) =>
-        qb.where('status', 'archived')
+        qb.where('status', '=', 'archived')
       );
 
       return {

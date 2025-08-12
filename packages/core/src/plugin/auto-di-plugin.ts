@@ -43,7 +43,8 @@ const DEFAULT_AUTO_DI_CONFIG: AutoDIConfig = {
     patterns: [
       'controllers/*.{ts,js}',
       'services/*.{ts,js}',
-      'repositories/*.{ts,js}'
+      'repositories/*.{ts,js}',
+      'executors/*.{ts,js}'
     ]
   },
   routing: {

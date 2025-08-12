@@ -8,6 +8,7 @@ import type {
   ExecutionResult,
   TaskExecutor
 } from '@stratix/tasks';
+import type { IJuheRenwuRepository } from '../repositories/JuheRenwuRepository.js';
 import type { ICalendarSyncService } from '../services/CalendarSyncService.js';
 import type { ICourseAggregationService } from '../services/CourseAggregationService.js';
 
@@ -57,6 +58,7 @@ export default class CalendarCreationProcessor implements TaskExecutor {
   constructor(
     private calendarSyncService: ICalendarSyncService,
     private courseAggregationService: ICourseAggregationService,
+    private juheRenwuRepository: IJuheRenwuRepository,
     private logger: Logger
   ) {}
 
@@ -167,23 +169,19 @@ export default class CalendarCreationProcessor implements TaskExecutor {
     const errors: string[] = [];
 
     try {
-      // 1. 通过 CourseAggregationService 获取待处理的课程
-      this.logger.info('开始聚合课程数据', { xnxq: config.xnxq });
+      // 1. 从聚合表获取不重复的课程列表
+      this.logger.info('开始从聚合表获取课程数据', { xnxq: config.xnxq });
 
-      const aggregationResult =
-        await this.courseAggregationService.aggregateFullSemester({
-          xnxq: config.xnxq,
-          batchSize
-        });
-
-      if (aggregationResult._tag === 'Left') {
-        throw new Error(`获取待处理课程失败: ${aggregationResult.left}`);
+      const distinctCoursesResult =
+        await this.juheRenwuRepository.findDistinctCourses(config.xnxq);
+      if (!distinctCoursesResult.success) {
+        throw new Error(`获取不重复课程失败: ${distinctCoursesResult.error}`);
       }
 
-      const { processedKkhs } = aggregationResult.right;
-      processedCount = processedKkhs.length;
+      const distinctCourses = distinctCoursesResult.data;
+      processedCount = distinctCourses.length;
 
-      if (processedKkhs.length === 0) {
+      if (distinctCourses.length === 0) {
         this.logger.info('没有待处理的日历创建任务', { xnxq: config.xnxq });
         return {
           processedCount: 0,
@@ -193,16 +191,39 @@ export default class CalendarCreationProcessor implements TaskExecutor {
         };
       }
 
+      this.logger.info('获取到课程数据', {
+        xnxq: config.xnxq,
+        distinctCourseCount: distinctCourses.length
+      });
+
+      // 2. 获取用于日历创建的详细课程数据
+      const coursesForCalendarResult =
+        await this.juheRenwuRepository.findCoursesForCalendarCreation(
+          config.xnxq
+        );
+      if (!coursesForCalendarResult.success) {
+        throw new Error(
+          `获取日历创建课程数据失败: ${coursesForCalendarResult.error}`
+        );
+      }
+
+      const coursesForCalendar = coursesForCalendarResult.data;
+      this.logger.info('获取到详细课程数据', {
+        xnxq: config.xnxq,
+        totalCourseEvents: coursesForCalendar.length
+      });
+
+      // 3. 通过 CalendarSyncService 批量创建日历
       this.logger.info('开始批量创建日历', {
         xnxq: config.xnxq,
-        courseCount: processedKkhs.length,
+        courseCount: distinctCourses.length,
+        eventCount: coursesForCalendar.length,
         batchSize
       });
 
-      // 2. 通过 CalendarSyncService 批量创建日历
       const calendarResult =
         await this.calendarSyncService.createCourseCalendarsBatch(
-          processedKkhs,
+          distinctCourses,
           config.xnxq,
           {
             batchSize,
@@ -266,6 +287,11 @@ export default class CalendarCreationProcessor implements TaskExecutor {
 
       // 检查 CourseAggregationService 是否可用
       if (!this.courseAggregationService) {
+        return 'unhealthy';
+      }
+
+      // 检查 JuheRenwuRepository 是否可用
+      if (!this.juheRenwuRepository) {
         return 'unhealthy';
       }
 

@@ -1,6 +1,6 @@
 {
   "name": "@stratix/was-v7",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "Stratix framework common utility functions",
   "main": "dist/index.js",
   "types": "dist/types/index.d.ts",

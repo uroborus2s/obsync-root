@@ -21,18 +21,9 @@
 - ✅ `getTaskExecutor` 装饰器方法
 - ✅ 依赖注入容器集成
 
-### 2. 执行器管理 (`src/services/executor/`)
-- ✅ **ExecutorRegistryService**: 执行器注册表服务
-  - 执行器注册、获取、列表、注销
-  - 执行器域管理
-  - 健康检查
-  - 统计信息
-- ✅ **ExecutorFactoryService**: 执行器工厂服务
-  - 内置执行器创建 (HTTP, Script, Email, Delay, Log)
-  - 批量执行器创建
-  - 配置验证
 
-### 3. 工作流引擎 (`src/services/workflow/`)
+
+### 2. 工作流引擎 (`src/services/workflow/`)
 - ✅ **WorkflowEngineService**: 工作流引擎
   - 工作流启动、暂停、恢复、取消
   - 状态管理
@@ -45,15 +36,9 @@
   - 定义验证
   - 统计信息
 
-### 4. 任务调度 (`src/services/task/`)
-- ✅ **TaskSchedulerService**: 任务调度器
-  - 优先级队列
-  - 并发控制
-  - 重试机制
-  - 任务状态管理
-  - 统计监控
 
-### 5. 内置执行器
+
+### 3. 内置执行器
 - ✅ **HTTP 执行器**: HTTP 请求执行
 - ✅ **脚本执行器**: JavaScript 脚本执行
 - ✅ **邮件执行器**: 邮件发送（模拟）
@@ -174,26 +159,7 @@ const status = await engine.getWorkflowStatus(instance.id.toString());
 console.log(`工作流状态: ${status}`);
 ```
 
-### 4. 任务调度
 
-```typescript
-import { TaskSchedulerService } from '@stratix/tasks';
-
-const scheduler = new TaskSchedulerService(registry, 10); // 最大并发数
-await scheduler.start();
-
-// 调度任务
-const task = await scheduler.scheduleTask({
-  id: 'myTask',
-  name: '我的任务',
-  executor: 'myExecutor',
-  config: { data: 'test' },
-  priority: 'high'
-}, { input: 'data' });
-
-// 监控任务
-const taskStatus = await scheduler.getTaskStatus(task.id);
-```
 
 ## 🧪 测试
 
@@ -227,19 +193,12 @@ packages/tasks/
 │   │   ├── executor.ts
 │   │   └── index.ts
 │   ├── services/                   # 业务服务
-│   │   ├── executor/              # 执行器相关
-│   │   │   ├── ExecutorRegistryService.ts
-│   │   │   └── ExecutorFactoryService.ts
 │   │   ├── workflow/              # 工作流相关
 │   │   │   ├── WorkflowEngine.ts
 │   │   │   └── WorkflowDefinitionService.ts
-│   │   ├── task/                  # 任务相关
-│   │   │   └── TaskScheduler.ts
 │   │   └── index.ts
 │   ├── __tests__/                 # 测试文件
-│   │   ├── plugin.test.ts
-│   │   ├── workflow-engine.test.ts
-│   │   └── integration.test.ts
+│   │   └── plugin.test.ts
 │   └── utils/                     # 工具函数
 ├── examples/                      # 使用示例
 │   └── basic-usage.ts

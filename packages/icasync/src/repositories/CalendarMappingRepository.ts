@@ -58,6 +58,8 @@ export interface ICalendarMappingRepository {
 
   // 清理操作
   deleteByXnxq(xnxq: string): Promise<DatabaseResult<number>>;
+  deleteByCalendarId(calendarId: string): Promise<DatabaseResult<boolean>>;
+  markAsDeleted(calendarId: string): Promise<DatabaseResult<boolean>>;
 }
 
 /**
@@ -140,8 +142,8 @@ export default class CalendarMappingRepository
     return await DatabaseErrorHandler.execute(async () => {
       this.validateKkh(kkh);
 
-      const result = await this.findOneNullable((eb: any) =>
-        eb.and([eb('kkh', '=', kkh), eb('is_deleted', '=', false)])
+      const result = await this.findOneNullable((qb: any) =>
+        qb.where('kkh', '=', kkh).where('is_deleted', '=', false)
       );
 
       return result.success ? result.data : null;
@@ -160,12 +162,11 @@ export default class CalendarMappingRepository
 
       this.validateXnxq(xnxq);
 
-      const result = await this.findOneNullable((eb: any) =>
-        eb.and([
-          eb('kkh', '=', kkh),
-          eb('xnxq', '=', xnxq),
-          eb('is_deleted', '=', false)
-        ])
+      const result = await this.findOneNullable((qb: any) =>
+        qb
+          .where('kkh', '=', kkh)
+          .where('xnxq', '=', xnxq)
+          .where('is_deleted', '=', false)
       );
 
       return result.success ? result.data : null;
@@ -180,8 +181,8 @@ export default class CalendarMappingRepository
   ): Promise<DatabaseResult<CalendarMapping | null>> {
     this.validateCalendarId(calendarId);
 
-    return await this.findOneNullable((eb: any) =>
-      eb.and([eb('calendar_id', '=', calendarId), eb('is_deleted', '=', false)])
+    return await this.findOneNullable((qb: any) =>
+      qb.where('calendar_id', '=', calendarId).where('is_deleted', '=', false)
     );
   }
 
@@ -191,8 +192,8 @@ export default class CalendarMappingRepository
   async findByXnxq(xnxq: string): Promise<DatabaseResult<CalendarMapping[]>> {
     this.validateXnxq(xnxq);
 
-    return await this.findMany((eb: any) =>
-      eb.and([eb('xnxq', '=', xnxq), eb('is_deleted', '=', false)])
+    return await this.findMany((qb: any) =>
+      qb.where('xnxq', '=', xnxq).where('is_deleted', '=', false)
     );
   }
 
@@ -218,8 +219,8 @@ export default class CalendarMappingRepository
   async countByXnxq(xnxq: string): Promise<DatabaseResult<number>> {
     this.validateXnxq(xnxq);
 
-    return await this.count((eb: any) =>
-      eb.and([eb('xnxq', '=', xnxq), eb('is_deleted', '=', false)])
+    return await this.count((qb: any) =>
+      qb.where('xnxq', '=', xnxq).where('is_deleted', '=', false)
     );
   }
 
@@ -263,8 +264,57 @@ export default class CalendarMappingRepository
 
     // 简化实现：由于当前表结构没有 status 字段，我们先返回基于 xnxq 的查询
     // TODO: 当表结构更新后，可以添加状态过滤
-    return await this.findMany((eb: any) =>
-      eb.and([eb('xnxq', '=', xnxq), eb('is_deleted', '=', false)])
-    );
+    let query = (qb: any) =>
+      qb.where('xnxq', '=', xnxq).where('is_deleted', '=', false);
+
+    if (limit && limit > 0) {
+      query = (qb: any) =>
+        qb
+          .where('xnxq', '=', xnxq)
+          .where('is_deleted', '=', false)
+          .limit(limit);
+    }
+
+    return await this.findMany(query);
+  }
+
+  /**
+   * 根据日历ID删除映射记录（软删除）
+   */
+  async deleteByCalendarId(
+    calendarId: string
+  ): Promise<DatabaseResult<boolean>> {
+    return await DatabaseErrorHandler.execute(async () => {
+      this.validateCalendarId(calendarId);
+
+      const mapping = await this.findByCalendarId(calendarId);
+      if (!mapping.success || !mapping.data) {
+        return false; // 记录不存在，认为删除成功
+      }
+
+      const deleteResult = await this.delete(mapping.data.id);
+      return deleteResult.success && deleteResult.data;
+    });
+  }
+
+  /**
+   * 标记日历为已删除状态
+   */
+  async markAsDeleted(calendarId: string): Promise<DatabaseResult<boolean>> {
+    return await DatabaseErrorHandler.execute(async () => {
+      this.validateCalendarId(calendarId);
+
+      const mapping = await this.findByCalendarId(calendarId);
+      if (!mapping.success || !mapping.data) {
+        return false; // 记录不存在
+      }
+
+      const updateResult = await this.updateNullable(mapping.data.id, {
+        is_deleted: true,
+        deleted_at: new Date().toISOString()
+      });
+
+      return updateResult.success && updateResult.data !== null;
+    });
   }
 }

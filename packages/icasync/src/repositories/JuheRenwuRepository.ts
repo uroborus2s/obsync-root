@@ -1,6 +1,7 @@
 // @stratix/icasync 聚合任务仓储
 import { Logger } from '@stratix/core';
 import type { DatabaseAPI, DatabaseResult } from '@stratix/database';
+import { QueryError, sql } from '@stratix/database';
 import type {
   JuheRenwu,
   JuheRenwuUpdate,
@@ -76,6 +77,7 @@ export interface IJuheRenwuRepository {
 
   // 统计查询
   countByKkh(kkh: string): Promise<DatabaseResult<number>>;
+  countByXnxq(xnxq: string): Promise<DatabaseResult<number>>;
   countByGxZt(gxZt: string): Promise<DatabaseResult<number>>;
   countByDateRange(
     startDate: string,
@@ -94,6 +96,17 @@ export interface IJuheRenwuRepository {
   deleteSoftDeletedTasks(): Promise<DatabaseResult<number>>;
   deleteOldTasks(daysOld: number): Promise<DatabaseResult<number>>;
   clearAllTasks(): Promise<DatabaseResult<number>>;
+
+  // SQL 聚合操作
+  insertAggregatedDataBatch(
+    aggregatedData: any[]
+  ): Promise<DatabaseResult<number>>;
+
+  // 课程获取方法
+  findDistinctCourses(xnxq: string): Promise<DatabaseResult<string[]>>;
+  findCoursesForCalendarCreation(
+    xnxq: string
+  ): Promise<DatabaseResult<JuheRenwu[]>>;
 }
 
 /**
@@ -429,6 +442,15 @@ export default class JuheRenwuRepository
   }
 
   /**
+   * 统计指定学年学期的任务数量
+   */
+  async countByXnxq(xnxq: string): Promise<DatabaseResult<number>> {
+    this.validateXnxq(xnxq);
+
+    return await this.count((qb: any) => qb.where('xnxq', '=', xnxq));
+  }
+
+  /**
    * 统计指定状态的任务数量
    */
   async countByGxZt(gxZt: string): Promise<DatabaseResult<number>> {
@@ -565,18 +587,114 @@ export default class JuheRenwuRepository
   /**
    * 清空所有聚合任务
    * 用于全量同步前的数据清理
+   * 使用 TRUNCATE TABLE 快速清空表并重置自增ID
    */
   async clearAllTasks(): Promise<DatabaseResult<number>> {
     this.logOperation('clearAll', {});
 
     const operation = async (db: any) => {
-      const result = await db.deleteFrom(this.tableName).execute();
-      return Number(result.numDeletedRows || 0);
+      // 先获取当前表的行数（可选，用于日志记录）
+      const countResult = await db
+        .selectFrom(this.tableName)
+        .select(db.fn.count('id').as('total'))
+        .executeTakeFirst();
+
+      const rowCount = Number(countResult?.total || 0);
+
+      // 使用 TRUNCATE TABLE 快速清空表
+      // 优势：比 DELETE 更快，重置自增ID，释放表空间
+      await sql`TRUNCATE TABLE juhe_renwu`.execute(db);
+
+      this.logger.info(`Truncated table juhe_renwu`, {
+        previousRowCount: rowCount,
+        operation: 'TRUNCATE'
+      });
+
+      return rowCount; // 返回清空前的行数
     };
 
     return await this.databaseApi.executeQuery(operation, {
-      readonly: false
+      connectionName: 'syncdb'
     });
+  }
+
+  /**
+   * 批量插入聚合数据
+   * 直接从 SQL 聚合结果插入到 juhe_renwu 表
+   */
+  async insertAggregatedDataBatch(
+    aggregatedData: any[]
+  ): Promise<DatabaseResult<number>> {
+    if (!aggregatedData || aggregatedData.length === 0) {
+      return {
+        success: true,
+        data: 0
+      };
+    }
+
+    try {
+      const operation = async (db: any) => {
+        // 转换聚合数据为 NewJuheRenwu 格式，并处理日期格式
+        const juheRenwuData = aggregatedData.map((item) => {
+          // 确保日期格式正确（只保留前10位：YYYY-MM-DD）
+          let formattedDate = item.rq;
+          if (formattedDate && formattedDate.length > 10) {
+            formattedDate = formattedDate.substring(0, 10);
+          }
+
+          return {
+            kkh: item.kkh,
+            xnxq: item.xnxq,
+            jxz: item.jxz,
+            zc: item.zc,
+            rq: formattedDate,
+            kcmc: item.kcmc,
+            sfdk: item.sfdk || '0',
+            jc_s: item.jc_s,
+            room_s: item.room_s,
+            gh_s: item.gh_s,
+            xm_s: item.xm_s,
+            lq: item.lq,
+            sj_f: item.sj_f,
+            sj_t: item.sj_t,
+            sjd: item.sjd,
+            gx_zt: '0' // 默认为未处理
+          };
+        });
+
+        const result = await db
+          .insertInto(this.tableName)
+          .values(juheRenwuData)
+          .execute();
+
+        return Number(result.numInsertedRows || juheRenwuData.length);
+      };
+
+      const result = await this.databaseApi.executeQuery(operation, {
+        readonly: false,
+        connectionName: 'syncdb'
+      });
+
+      if (result.success) {
+        this.logOperation('批量插入聚合数据', {
+          insertedCount: result.data,
+          totalData: aggregatedData.length
+        });
+      }
+
+      return result;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logOperation('批量插入聚合数据失败', {
+        error: errorMessage,
+        dataCount: aggregatedData.length
+      });
+      return {
+        success: false,
+        error: QueryError.create(errorMessage)
+      };
+    }
   }
 
   /**
@@ -596,6 +714,96 @@ export default class JuheRenwuRepository
         .execute();
     };
 
-    return await this.databaseApi.executeQuery(operation);
+    return await this.databaseApi.executeQuery(operation, {
+      connectionName: 'syncdb'
+    });
+  }
+
+  /**
+   * 获取指定学期的所有不重复课程号
+   * 用于日历创建时统计课程数量
+   */
+  async findDistinctCourses(xnxq: string): Promise<DatabaseResult<string[]>> {
+    this.validateXnxq(xnxq);
+    this.logOperation('findDistinctCourses', { xnxq });
+
+    try {
+      const result = await this.findByXnxq(xnxq);
+      if (!result.success) {
+        return result as any;
+      }
+
+      // 手动去重，过滤掉null值
+      const distinctKkhs = [
+        ...new Set(
+          result.data
+            .map((task) => task.kkh)
+            .filter((kkh): kkh is string => kkh !== null)
+        )
+      ];
+
+      this.logOperation('findDistinctCourses完成', {
+        xnxq,
+        distinctCount: distinctKkhs.length,
+        totalTasks: result.data.length
+      });
+
+      return {
+        success: true,
+        data: distinctKkhs
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logOperation('findDistinctCourses失败', {
+        xnxq,
+        error: errorMessage
+      });
+      return {
+        success: false,
+        error: QueryError.create(errorMessage)
+      };
+    }
+  }
+
+  /**
+   * 获取用于日历创建的课程数据
+   * 只返回未处理的聚合任务（gx_zt = '0' 或 NULL）
+   */
+  async findCoursesForCalendarCreation(
+    xnxq: string
+  ): Promise<DatabaseResult<JuheRenwu[]>> {
+    this.validateXnxq(xnxq);
+    this.logOperation('findCoursesForCalendarCreation', { xnxq });
+
+    const operation = async (db: any) => {
+      return await db
+        .selectFrom(this.tableName)
+        .selectAll()
+        .where('xnxq', '=', xnxq)
+        .where((eb: any) =>
+          eb.or([
+            eb('gx_zt', '=', '0'), // 未处理
+            eb('gx_zt', 'is', null) // 空值
+          ])
+        )
+        .orderBy('kkh', 'asc')
+        .orderBy('rq', 'asc')
+        .orderBy('sj_f', 'asc')
+        .execute();
+    };
+
+    const result = await this.databaseApi.executeQuery(operation, {
+      connectionName: 'syncdb'
+    });
+
+    if (result.success) {
+      this.logOperation('findCoursesForCalendarCreation完成', {
+        xnxq,
+        courseCount: result.data.length
+      });
+    }
+
+    return result;
   }
 }

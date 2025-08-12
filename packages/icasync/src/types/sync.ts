@@ -8,7 +8,8 @@ export enum SyncStatus {
   IN_PROGRESS = 'in_progress',
   COMPLETED = 'completed',
   FAILED = 'failed',
-  CANCELLED = 'cancelled'
+  CANCELLED = 'cancelled',
+  SKIPPED = 'skipped'    // 因冲突或其他原因跳过执行
 }
 
 /**

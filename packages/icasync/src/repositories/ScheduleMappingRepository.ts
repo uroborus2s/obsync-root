@@ -103,8 +103,8 @@ export default class ScheduleMappingRepository
       throw new Error('Invalid juhe_renwu_id');
     }
 
-    return await this.findOneNullable((eb: any) =>
-      eb('juhe_renwu_id', '=', juheRenwuId)
+    return await this.findOneNullable((qb: any) =>
+      qb.where('juhe_renwu_id', '=', juheRenwuId)
     );
   }
 
@@ -116,8 +116,8 @@ export default class ScheduleMappingRepository
   ): Promise<DatabaseResult<ScheduleMapping | null>> {
     this.validateScheduleId(scheduleId);
 
-    return await this.findOneNullable((eb: any) =>
-      eb('schedule_id', '=', scheduleId)
+    return await this.findOneNullable((qb: any) =>
+      qb.where('schedule_id', '=', scheduleId)
     );
   }
 
@@ -160,10 +160,13 @@ export default class ScheduleMappingRepository
       throw new Error(`Invalid sync status: ${status}`);
     }
 
-    return await this.findMany((qb: any) => qb.where('sync_status', '=', status), {
-      orderBy: 'created_at',
-      order: 'desc'
-    });
+    return await this.findMany(
+      (qb: any) => qb.where('sync_status', '=', status),
+      {
+        orderBy: 'created_at',
+        order: 'desc'
+      }
+    );
   }
 
   /**
@@ -315,7 +318,9 @@ export default class ScheduleMappingRepository
   async countByCalendarId(calendarId: string): Promise<DatabaseResult<number>> {
     this.validateCalendarId(calendarId);
 
-    return await this.count((qb: any) => qb.where('calendar_id', '=', calendarId));
+    return await this.count((qb: any) =>
+      qb.where('calendar_id', '=', calendarId)
+    );
   }
 
   /**
@@ -348,8 +353,8 @@ export default class ScheduleMappingRepository
   ): Promise<DatabaseResult<number>> {
     this.validateCalendarId(calendarId);
 
-    return await this.deleteMany((eb: any) =>
-      eb('calendar_id', '=', calendarId)
+    return await this.deleteMany((qb: any) =>
+      qb.where('calendar_id', '=', calendarId)
     );
   }
 
@@ -357,8 +362,8 @@ export default class ScheduleMappingRepository
    * 删除软删除状态的日程映射
    */
   async deleteSoftDeletedSchedules(): Promise<DatabaseResult<number>> {
-    return await this.deleteMany((eb: any) =>
-      eb('sync_status', '=', 'deleted')
+    return await this.deleteMany((qb: any) =>
+      qb.where('sync_status', '=', 'deleted')
     );
   }
 

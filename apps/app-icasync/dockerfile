@@ -1,0 +1,70 @@
+# API Gateway 独立项目 Dockerfile - 多阶段构建
+FROM --platform=$BUILDPLATFORM node:22-alpine AS builder
+WORKDIR /app
+
+# 安装必要的系统依赖
+RUN apk add --no-cache wget
+
+# 安装 pnpm
+RUN npm install -g pnpm
+
+# 复制 package.json 和相关配置文件
+COPY package.json tsconfig.json .npmrc ./
+
+# 配置 pnpm 使用腾讯云镜像
+RUN pnpm config set registry http://mirrors.cloud.tencent.com/npm/
+
+# 安装依赖 (会优先使用 .npmrc 中的私有仓库配置)
+RUN pnpm install
+
+# 复制源代码
+COPY src ./src
+
+# 构建应用
+RUN pnpm run build
+
+# 生产运行阶段
+FROM node:22-alpine AS runner
+WORKDIR /app
+
+# 安装必要的系统依赖
+RUN apk add --no-cache wget curl
+
+# 设置环境变量
+ENV NODE_ENV=production
+ENV PORT=8090
+ENV HOST=0.0.0.0
+
+# 创建非root用户
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 appuser
+
+# 安装 pnpm
+RUN npm install -g pnpm
+
+# 配置 npm 腾讯云加速器
+RUN pnpm config set registry http://mirrors.cloud.tencent.com/npm/
+
+# 复制 package.json 和 .npmrc
+COPY --chown=appuser:nodejs package.json ./
+COPY --chown=appuser:nodejs .npmrc ./
+
+# 安装生产依赖
+RUN pnpm install --prod && \
+    pnpm store prune
+
+# 复制构建产物
+COPY --from=builder --chown=appuser:nodejs /app/dist ./dist
+
+# 切换到非root用户
+USER appuser
+
+# 暴露端口
+EXPOSE 8090
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8090/health || exit 1
+
+# 启动命令
+CMD ["node", "dist/index.js"]

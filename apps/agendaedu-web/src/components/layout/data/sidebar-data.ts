@@ -20,7 +20,7 @@ export const sidebarData: SidebarData = {
   },
   teams: [
     {
-      name: '课程打卡系统',
+      name: '课程签到系统',
       logo: Command,
       plan: '管理后台',
     },

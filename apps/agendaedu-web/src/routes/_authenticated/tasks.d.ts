@@ -1,3 +1,0 @@
-import { createFileRoute } from "@tanstack/react-router"
-export declare const Route: import("@tanstack/router-core").Route<any, "/tasks", "/tasks", "/_authenticated/tasks", "/_authenticated/tasks", undefined, import("@tanstack/react-router").ResolveParams<"/tasks">, import("@tanstack/react-router").AnyContext, import("@tanstack/react-router").AnyContext, import("@tanstack/react-router").AnyContext, {}, undefined, unknown, unknown>;
-//# sourceMappingURL=tasks.d.ts.map

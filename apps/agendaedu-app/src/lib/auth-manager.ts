@@ -27,7 +27,7 @@ export class WpsAuthManager {
   constructor(config: WpsAuthConfig) {
     this.config = {
       baseUrl: 'https://openapi.wps.cn',
-      authUrl: 'https://openapi.wps.cn/oauth2/auth',
+      authUrl: 'https://openapi.wps.cn/oauthapi/v2/authorize',
       tokenUrl: '/oauthapi/v3/user/token',
       ...config
     };

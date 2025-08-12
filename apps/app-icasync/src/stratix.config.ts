@@ -18,9 +18,7 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
   // 从敏感配置中提取各种配置
   const databaseConfig = sensitiveConfig.databases || {};
   const webConfig = sensitiveConfig.web || {};
-  const loggerConfig = sensitiveConfig.logger || {};
 
-  console.log(stratixDatabasePlugin);
   return {
     // 服务器配置
     server: {
@@ -52,7 +50,7 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
               type: 'mysql' as const,
               host: databaseConfig.syncdb?.host || 'localhost',
               port: databaseConfig.syncdb?.port || 3306,
-              database: databaseConfig.syncdb?.database || 'icasync',
+              database: databaseConfig.syncdb?.database || 'syncdb',
               username:
                 databaseConfig.syncdb?.user ||
                 databaseConfig.syncdb?.username ||
@@ -83,9 +81,12 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
           retryAttempts: 3, // 重试次数
           retryDelay: 1000, // 重试延迟(ms)
           enableMetrics: true, // 启用性能指标
-          debug: process.env.NODE_ENV === 'development'
-        },
-        prefix: '/api/tasks'
+          debug: process.env.NODE_ENV === 'development',
+          recovery: {
+            enabled: true,
+            autoStart: true
+          }
+        }
       },
       {
         name: '@stratix/icasync',
@@ -100,8 +101,7 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
           maxConcurrency: 5, // 最大并发数
           retryCount: 3, // 重试次数
           debug: process.env.NODE_ENV === 'development'
-        },
-        prefix: '/api/icasync'
+        }
       }
     ],
 

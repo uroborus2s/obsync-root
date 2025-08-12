@@ -27,6 +27,17 @@ async function icasync(
   options: IcasyncPluginOptions
 ): Promise<void> {
   fastify.log.info('Initializing @stratix/icasync plugin...');
+
+  // 注册ICAsync特定的服务
+  // 这些服务会通过自动发现机制被注册，但我们在这里记录日志
+  fastify.log.info('ICAsync services will be auto-discovered and registered:', {
+    services: [
+      'ICAsyncSyncHistoryService',
+      'SyncExecutionRuleEngine',
+      'ICAsyncMutexManager'
+    ]
+  });
+
   fastify.log.info('@stratix/icasync plugin initialized successfully');
 }
 
@@ -41,21 +52,7 @@ async function icasync(
 const stratixIcasyncPlugin = withRegisterAutoDI(icasync, {
   // 自动发现配置
   discovery: {
-    patterns: [
-      'repositories/**/*.{ts,js}',
-      'services/**/*.{ts,js}',
-      'controllers/**/*.{ts,js}'
-    ]
-  },
-  // 服务注册配置
-  services: {
-    enabled: true,
-    patterns: [
-      'repositories/**/*.{ts,js}',
-      'services/**/*.{ts,js}',
-      'controllers/**/*.{ts,js}'
-    ],
-    baseDir: undefined // 使用插件目录
+    patterns: []
   },
   // 路由配置
   routing: {
@@ -77,3 +74,5 @@ const stratixIcasyncPlugin = withRegisterAutoDI(icasync, {
 export default stratixIcasyncPlugin;
 
 export type { default as FullSyncAdapter } from './adapters/full-sync.adapter.js';
+export type { default as IncrementalSyncAdapter } from './adapters/incremental-sync.adapter.js';
+export type { default as UserSyncAdapter } from './adapters/user-sync.adapter.js';

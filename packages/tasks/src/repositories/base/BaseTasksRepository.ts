@@ -77,17 +77,30 @@ export abstract class BaseTasksRepository<
 
   /**
    * 便捷方法：findOne 返回 T | null 类型
+   * 支持两种参数格式：
+   * 1. 简单的filter对象：{ field: value }
+   * 2. 查询构建函数：(qb) => qb.where(...)
    */
-  async findOneNullable(filter: any): Promise<DatabaseResult<T | null>> {
-    // 将简单的filter对象转换为WhereExpression
-    const whereExpression = (qb: any) => {
-      if (!filter) return qb;
+  async findOneNullable(
+    filter: any | ((qb: any) => any)
+  ): Promise<DatabaseResult<T | null>> {
+    let whereExpression: (qb: any) => any;
 
-      Object.entries(filter).forEach(([key, value]) => {
-        qb = qb.where(key, '=', value);
-      });
-      return qb;
-    };
+    // 判断参数类型
+    if (typeof filter === 'function') {
+      // 如果是函数，直接使用
+      whereExpression = filter;
+    } else {
+      // 如果是对象，转换为WhereExpression
+      whereExpression = (qb: any) => {
+        if (!filter) return qb;
+
+        Object.entries(filter).forEach(([key, value]) => {
+          qb = qb.where(key, '=', value);
+        });
+        return qb;
+      };
+    }
 
     const result = await this.findOne(whereExpression);
     if (result.success) {
@@ -134,9 +147,9 @@ export abstract class BaseTasksRepository<
    */
   protected queryByStatus(status: string | string[]) {
     if (Array.isArray(status)) {
-      return (qb: any) => qb.whereIn('status', status);
+      return (qb: any) => qb.where('status', 'in', status);
     }
-    return (qb: any) => qb.where('status', status);
+    return (qb: any) => qb.where('status', '=', status);
   }
 
   /**

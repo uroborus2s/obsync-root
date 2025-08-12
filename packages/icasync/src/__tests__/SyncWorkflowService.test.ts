@@ -1,43 +1,15 @@
 // @stratix/icasync SyncWorkflowService 测试
 // 测试同步工作流服务的核心功能
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SyncWorkflowService } from '../services/SyncWorkflowService.js';
-import type { ICourseAggregationService } from '../services/CourseAggregationService.js';
-import type { ICalendarSyncService } from '../services/CalendarSyncService.js';
-import type { ICourseScheduleSyncService } from '../services/CourseScheduleSyncService.js';
 
 describe('SyncWorkflowService', () => {
   let syncWorkflowService: SyncWorkflowService;
-  let mockCourseAggregationService: ICourseAggregationService;
-  let mockCalendarSyncService: ICalendarSyncService;
-  let mockCourseScheduleSyncService: ICourseScheduleSyncService;
   let mockLogger: any;
   let mockTasksWorkflow: any;
 
   beforeEach(() => {
-    // 创建模拟对象
-    mockCourseAggregationService = {
-      aggregateCourseData: vi.fn(),
-      processIncrementalChanges: vi.fn()
-    } as any;
-
-    mockCalendarSyncService = {
-      createCourseCalendar: vi.fn(),
-      deleteCourseCalendar: vi.fn(),
-      createCourseCalendarsBatch: vi.fn(),
-      addCalendarParticipants: vi.fn(),
-      removeCalendarParticipants: vi.fn(),
-      syncCalendarParticipants: vi.fn(),
-      createCourseSchedules: vi.fn(),
-      deleteCourseSchedules: vi.fn()
-    } as any;
-
-    mockCourseScheduleSyncService = {
-      syncCourseSchedules: vi.fn(),
-      deleteCourseSchedules: vi.fn()
-    } as any;
-
     mockLogger = {
       info: vi.fn(),
       warn: vi.fn(),
@@ -54,9 +26,6 @@ describe('SyncWorkflowService', () => {
 
     // 创建服务实例
     syncWorkflowService = new SyncWorkflowService(
-      mockCourseAggregationService,
-      mockCalendarSyncService,
-      mockCourseScheduleSyncService,
       mockLogger,
       mockTasksWorkflow
     );
@@ -85,15 +54,16 @@ describe('SyncWorkflowService', () => {
       });
 
       // 模拟工作流状态监控
-      mockTasksWorkflow.getWorkflowStatus = vi.fn()
+      mockTasksWorkflow.getWorkflowStatus = vi
+        .fn()
         .mockResolvedValueOnce({
           success: true,
           data: { status: 'running', progress: 50 }
         })
         .mockResolvedValueOnce({
           success: true,
-          data: { 
-            status: 'completed', 
+          data: {
+            status: 'completed',
             totalTasks: 4,
             completedTasks: 4,
             failedTasks: 0,
@@ -116,7 +86,9 @@ describe('SyncWorkflowService', () => {
       expect(mockTasksWorkflow.createWorkflow).toHaveBeenCalledWith(
         expect.objectContaining({
           name: expect.stringContaining('全量同步-2024-2025-1'),
-          description: expect.stringContaining('学年学期 2024-2025-1 的课表全量同步工作流'),
+          description: expect.stringContaining(
+            '学年学期 2024-2025-1 的课表全量同步工作流'
+          ),
           tasks: expect.arrayContaining([
             expect.objectContaining({ name: 'course-data-aggregation' }),
             expect.objectContaining({ name: 'calendar-creation-batch' }),
@@ -213,15 +185,16 @@ describe('SyncWorkflowService', () => {
       });
 
       // 模拟工作流状态监控
-      mockTasksWorkflow.getWorkflowStatus = vi.fn()
+      mockTasksWorkflow.getWorkflowStatus = vi
+        .fn()
         .mockResolvedValueOnce({
           success: true,
           data: { status: 'running', progress: 30 }
         })
         .mockResolvedValueOnce({
           success: true,
-          data: { 
-            status: 'completed', 
+          data: {
+            status: 'completed',
             totalTasks: 6,
             completedTasks: 6,
             failedTasks: 0,
@@ -230,7 +203,8 @@ describe('SyncWorkflowService', () => {
         });
 
       // 执行测试
-      const result = await syncWorkflowService.executeIncrementalSyncWorkflow(config);
+      const result =
+        await syncWorkflowService.executeIncrementalSyncWorkflow(config);
 
       // 验证结果
       expect(result.status).toBe('completed');
@@ -243,7 +217,9 @@ describe('SyncWorkflowService', () => {
       expect(mockTasksWorkflow.createWorkflow).toHaveBeenCalledWith(
         expect.objectContaining({
           name: expect.stringContaining('增量同步-2024-2025-1'),
-          description: expect.stringContaining('学年学期 2024-2025-1 的课表增量同步工作流'),
+          description: expect.stringContaining(
+            '学年学期 2024-2025-1 的课表增量同步工作流'
+          ),
           tasks: expect.arrayContaining([
             expect.objectContaining({ name: 'incremental-data-detection' }),
             expect.objectContaining({ name: 'schedule-deletion' }),
@@ -276,7 +252,8 @@ describe('SyncWorkflowService', () => {
       });
 
       // 执行测试
-      const result = await syncWorkflowService.executeIncrementalSyncWorkflow(config);
+      const result =
+        await syncWorkflowService.executeIncrementalSyncWorkflow(config);
 
       // 验证结果
       expect(result.status).toBe('failed');

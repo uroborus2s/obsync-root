@@ -21,6 +21,7 @@ import type {
 } from '../types/index.js';
 import { decryptConfig } from '../utils/crypto.js';
 import { ErrorUtils } from '../utils/error-utils.js';
+import { performApplicationAutoDI } from './application-auto-di.js';
 
 /**
  * 启动阶段
@@ -136,13 +137,17 @@ export class ApplicationBootstrap {
       const container = await this.setupContainer(config);
 
       // 6. 初始化 Fastify（所有应用类型都需要，用于插件系统）
-      const fastifyInstance = await this.initializeFastify(config);
-
-      // 7. 🎯 注册应用级 Fastify 钩子
-      fastifyInstance.decorate('diContainer', container);
+      const fastifyInstance = await this.initializeFastify(config, container);
 
       // 8. 加载插件
       await this.loadPlugins(config, fastifyInstance);
+
+      // 8.1 🎯 执行应用级自动依赖注入（包括路由注册）
+      await this.performApplicationLevelAutoDI(
+        config,
+        container,
+        fastifyInstance
+      );
 
       // 9. 启动应用（根据应用类型选择启动方式）
       await this.startApplication(fastifyInstance, config, appType);
@@ -578,11 +583,52 @@ export class ApplicationBootstrap {
     this.logger?.debug('Container setup completed');
     return this.rootContainer;
   }
+
+  /**
+   * 执行应用级自动依赖注入
+   */
+  private async performApplicationLevelAutoDI(
+    config: StratixConfig,
+    container: AwilixContainer,
+    fastifyInstance: FastifyInstance
+  ): Promise<void> {
+    // 🎯 执行应用级自动依赖注入
+    if (config.applicationAutoDI?.enabled !== false) {
+      try {
+        const autoDIResult = await performApplicationAutoDI(
+          container,
+          config.applicationAutoDI,
+          undefined, // appRootPath - 使用自动检测
+          fastifyInstance
+        );
+
+        if (autoDIResult.success && autoDIResult.moduleCount > 0) {
+          this.logger?.info(
+            `✅ Application-level auto DI completed: ${autoDIResult.moduleCount} modules registered`,
+            {
+              modules: autoDIResult.registeredModules
+            }
+          );
+        }
+
+        if (!autoDIResult.success && autoDIResult.error) {
+          this.logger?.warn(
+            `⚠️ Application-level auto DI failed: ${autoDIResult.error}`
+          );
+        }
+      } catch (error) {
+        this.logger?.error('❌ Application-level auto DI failed:', error);
+        // 不抛出错误，允许应用继续启动
+      }
+    }
+  }
+
   /**
    * 初始化 Fastify
    */
   private async initializeFastify(
-    config: StratixConfig
+    config: StratixConfig,
+    container: AwilixContainer
   ): Promise<FastifyInstance> {
     this.updateStatus(BootstrapPhase.FASTIFY_INIT);
     // 构建 Fastify 选项 - 确保使用统一的日志器
@@ -598,6 +644,9 @@ export class ApplicationBootstrap {
     // 保存 Fastify 实例引用，用于后续清理
     this.fastifyInstance = fastifyInstance;
 
+    // 🎯 注册应用级 Fastify 钩子
+    fastifyInstance.decorate('diContainer', container);
+
     fastifyInstance.addHook('onError', (error) => {
       console.log(error);
     });
@@ -605,7 +654,7 @@ export class ApplicationBootstrap {
     this.setupErrorHandling(fastifyInstance);
 
     // 设置请求上下文
-    this.setupRequestContext(fastifyInstance);
+    this.setupRequestContext(fastifyInstance, container);
 
     this.logger?.debug('Fastify initialization completed');
     return fastifyInstance;
@@ -648,30 +697,34 @@ export class ApplicationBootstrap {
   /**
    * 设置请求上下文
    */
-  private setupRequestContext(fastify: FastifyInstance): void {
-    if (!this.rootContainer) return;
+  private setupRequestContext(
+    fastify: FastifyInstance,
+    container: AwilixContainer
+  ): void {
+    if (!container) return;
 
     // 为每个请求创建作用域
     fastify.addHook('onRequest', async (request, _reply) => {
       const requestId = `req_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 
       // 创建请求作用域
-      const requestScope = this.rootContainer!.createScope();
-
-      // 注册请求特定信息
-      requestScope.register('requestId', asValue(requestId));
-      requestScope.register('request', asValue(request));
+      const requestScope = container.createScope();
 
       // 将请求作用域附加到请求对象
-      (request as any).container = requestScope;
+      (request as any).diScope = requestScope;
       (request as any).requestId = requestId;
     });
 
-    // 清理请求作用域
+    // 🔧 修复：在请求结束时清理作用域容器
     fastify.addHook('onResponse', async (request, _reply) => {
-      const requestScope = (request as any).container;
-      if (requestScope && typeof requestScope.dispose === 'function') {
-        await requestScope.dispose();
+      try {
+        const requestScope = (request as any).diScope;
+        if (requestScope && typeof requestScope.dispose === 'function') {
+          await requestScope.dispose();
+          (request as any).diScope = null;
+        }
+      } catch (error) {
+        this.logger?.error('Failed to dispose request scope container:', error);
       }
     });
   }

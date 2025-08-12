@@ -1,14 +1,14 @@
 // @stratix/icasync 集成测试
 // 测试插件的整体集成功能
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 describe('Icasync Plugin Integration', () => {
   describe('插件加载和配置', () => {
     it('应该能够正确导入插件', async () => {
       // 测试插件导入
       const { default: icasyncPlugin } = await import('../index.js');
-      
+
       expect(icasyncPlugin).toBeDefined();
       expect(typeof icasyncPlugin).toBe('function');
     });
@@ -16,20 +16,18 @@ describe('Icasync Plugin Integration', () => {
     it('应该能够导入所有必要的类型', async () => {
       // 测试类型导入
       const types = await import('../index.js');
-      
+
       // 验证主要类型存在
       expect(types).toHaveProperty('ICalendarSyncService');
       expect(types).toHaveProperty('ISyncWorkflowService');
-      expect(types).toHaveProperty('ICourseScheduleSyncService');
-      expect(types).toHaveProperty('WpsCalendarAdapter');
-      expect(types).toHaveProperty('WpsScheduleAdapter');
+      expect(types).toHaveProperty('FullSyncAdapter');
     });
   });
 
   describe('Repository层集成', () => {
     it('应该能够导入所有Repository接口', async () => {
       const types = await import('../index.js');
-      
+
       // 验证Repository接口存在
       expect(types).toHaveProperty('IJuheRenwuRepository');
       expect(types).toHaveProperty('IStudentCourseRepository');
@@ -42,8 +40,10 @@ describe('Icasync Plugin Integration', () => {
   describe('Service层集成', () => {
     it('应该能够创建CalendarSyncService实例', async () => {
       // 这个测试需要模拟所有依赖
-      const { CalendarSyncService } = await import('../services/CalendarSyncService.js');
-      
+      const { CalendarSyncService } = await import(
+        '../services/CalendarSyncService.js'
+      );
+
       // 创建模拟依赖
       const mockDependencies = {
         calendarMappingRepository: {},
@@ -52,7 +52,12 @@ describe('Icasync Plugin Integration', () => {
         studentCourseRepository: {},
         studentRepository: {},
         teacherRepository: {},
-        logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+        logger: {
+          info: vi.fn(),
+          warn: vi.fn(),
+          error: vi.fn(),
+          debug: vi.fn()
+        },
         tasksWorkflow: {},
         wasV7Calendar: {},
         wasV7Schedule: {}
@@ -75,22 +80,23 @@ describe('Icasync Plugin Integration', () => {
     });
 
     it('应该能够创建SyncWorkflowService实例', async () => {
-      const { SyncWorkflowService } = await import('../services/SyncWorkflowService.js');
-      
+      const { SyncWorkflowService } = await import(
+        '../services/SyncWorkflowService.js'
+      );
+
       // 创建模拟依赖
       const mockDependencies = {
-        courseAggregationService: {},
-        calendarSyncService: {},
-        courseScheduleSyncService: {},
-        logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+        logger: {
+          info: vi.fn(),
+          warn: vi.fn(),
+          error: vi.fn(),
+          debug: vi.fn()
+        },
         tasksWorkflow: {}
       };
 
       expect(() => {
         new SyncWorkflowService(
-          mockDependencies.courseAggregationService as any,
-          mockDependencies.calendarSyncService as any,
-          mockDependencies.courseScheduleSyncService as any,
           mockDependencies.logger as any,
           mockDependencies.tasksWorkflow as any
         );
@@ -100,8 +106,10 @@ describe('Icasync Plugin Integration', () => {
 
   describe('Controller层集成', () => {
     it('应该能够导入SyncController', async () => {
-      const { default: SyncController } = await import('../controllers/SyncController.js');
-      
+      const { default: SyncController } = await import(
+        '../controllers/SyncController.js'
+      );
+
       expect(SyncController).toBeDefined();
       expect(typeof SyncController).toBe('function');
     });
@@ -110,7 +118,7 @@ describe('Icasync Plugin Integration', () => {
   describe('类型定义集成', () => {
     it('应该能够导入数据库类型', async () => {
       const types = await import('../types/database.js');
-      
+
       // 验证主要数据库类型存在
       expect(types).toHaveProperty('CalendarMapping');
       expect(types).toHaveProperty('CalendarParticipant');
@@ -121,7 +129,7 @@ describe('Icasync Plugin Integration', () => {
 
     it('应该能够导入同步类型', async () => {
       const types = await import('../types/sync.js');
-      
+
       // 验证同步相关类型存在
       expect(types).toHaveProperty('SyncConfig');
       expect(types).toHaveProperty('SyncStatus');
@@ -130,8 +138,10 @@ describe('Icasync Plugin Integration', () => {
 
   describe('错误处理集成', () => {
     it('应该能够处理服务层错误', async () => {
-      const { CalendarSyncService } = await import('../services/CalendarSyncService.js');
-      
+      const { CalendarSyncService } = await import(
+        '../services/CalendarSyncService.js'
+      );
+
       // 创建一个会抛出错误的模拟服务
       const mockCalendarMappingRepository = {
         findByKkhAndXnxq: vi.fn().mockRejectedValue(new Error('数据库连接失败'))
@@ -139,14 +149,23 @@ describe('Icasync Plugin Integration', () => {
 
       const service = new CalendarSyncService(
         mockCalendarMappingRepository as any,
-        {} as any, {} as any, {} as any, {} as any, {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
         { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as any,
-        {} as any, {} as any, {} as any
+        {} as any,
+        {} as any,
+        {} as any
       );
 
       // 测试错误处理
-      const result = await service.createCourseCalendar('TEST001', '2024-2025-1');
-      
+      const result = await service.createCourseCalendar(
+        'TEST001',
+        '2024-2025-1'
+      );
+
       expect(result.successCount).toBe(0);
       expect(result.failedCount).toBe(1);
       expect(result.errors.length).toBeGreaterThan(0);

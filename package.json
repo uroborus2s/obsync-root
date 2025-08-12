@@ -21,7 +21,7 @@
     "@microsoft/api-extractor": "^7.52.5",
     "@tsconfig/recommended": "^1.0.8",
     "@types/fs-extra": "^11.0.4",
-    "@types/node": "^22.15.17",
+    "@types/node": "^22.16.5",
     "@types/pg": "^8.15.2",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
@@ -46,7 +46,7 @@
     "rimraf": "^6.0.1",
     "tsx": "^4.19.4",
     "turbo": "^2.5.0",
-    "typescript": "5.8.3",
+    "typescript": "^5.8.3",
     "vitest": "^3.1.2"
   },
   "engines": {

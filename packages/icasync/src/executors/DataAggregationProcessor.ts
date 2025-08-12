@@ -16,8 +16,8 @@ import type { ICourseAggregationService } from '../services/CourseAggregationSer
 export interface DataAggregationConfig {
   xnxq: string; // 学年学期
   batchSize?: number; // 批处理大小
-  clearExisting?: boolean; // 是否清理现有数据
-  incrementalMode?: boolean; // 是否增量模式
+  syncType?: 'full' | 'Increment'; // 是否清理现有数据
+  forceSync?: boolean; // 是否增量模式
 }
 
 /**
@@ -51,7 +51,7 @@ export interface DataAggregationResult {
 export default class DataAggregationProcessor implements TaskExecutor {
   readonly name = 'dataAggregationProcessor';
   readonly description = '数据聚合处理器';
-  readonly version = '2.0.0';
+  readonly version = '3.0.0';
 
   constructor(
     private courseAggregationService: ICourseAggregationService,
@@ -68,8 +68,8 @@ export default class DataAggregationProcessor implements TaskExecutor {
     this.logger.info('开始执行数据聚合任务', {
       xnxq: config.xnxq,
       batchSize: config.batchSize,
-      clearExisting: config.clearExisting,
-      incrementalMode: config.incrementalMode
+      syncType: config.syncType,
+      forceSync: config.forceSync
     });
 
     try {
@@ -149,7 +149,6 @@ export default class DataAggregationProcessor implements TaskExecutor {
   private async performDataAggregation(
     config: DataAggregationConfig
   ): Promise<DataAggregationResult> {
-    const batchSize = config.batchSize || 1000;
     let processedRecords = 0;
     let aggregatedCourses = 0;
     let createdTasks = 0;
@@ -159,54 +158,37 @@ export default class DataAggregationProcessor implements TaskExecutor {
     try {
       this.logger.info('开始数据聚合', {
         xnxq: config.xnxq,
-        incrementalMode: config.incrementalMode || false
+        syncType: config.syncType || false
       });
 
-      // 根据模式选择聚合方法
-      if (config.incrementalMode) {
-        // 增量聚合
-        this.logger.info('执行增量数据聚合', { xnxq: config.xnxq });
-
-        const aggregationResult =
-          await this.courseAggregationService.aggregateFullSemester({
-            xnxq: config.xnxq,
-            batchSize
-          });
-
-        if (aggregationResult._tag === 'Left') {
-          throw new Error(`增量聚合失败: ${aggregationResult.left}`);
+      if (config.syncType === 'full') {
+        // 先清空聚合表
+        const clearResult =
+          await this.courseAggregationService.clearAggregationTable();
+        if (clearResult._tag === 'Left') {
+          throw new Error(`清空聚合表失败: ${clearResult.left}`);
         }
-
-        const result = aggregationResult.right;
-        processedRecords = result.processedKkhs.length;
-        aggregatedCourses = result.successCount;
-        createdTasks = result.successCount;
-      } else {
-        // 全量聚合（清理后重新聚合）
-        this.logger.info('执行全量数据聚合', {
-          xnxq: config.xnxq,
-          clearExisting: config.clearExisting
+        this.logger.info('聚合表清空完成', {
+          clearedCount: clearResult.right
         });
-
-        const aggregationResult = config.clearExisting
-          ? await this.courseAggregationService.fullAggregationWithClear({
-              xnxq: config.xnxq,
-              batchSize
-            })
-          : await this.courseAggregationService.aggregateFullSemester({
-              xnxq: config.xnxq,
-              batchSize
-            });
-
-        if (aggregationResult._tag === 'Left') {
-          throw new Error(`全量聚合失败: ${aggregationResult.left}`);
-        }
-
-        const result = aggregationResult.right;
-        processedRecords = result.processedKkhs.length;
-        aggregatedCourses = result.successCount;
-        createdTasks = result.successCount;
       }
+
+      /// 增量聚合模式：直接执行聚合并写入（不清空表）
+      this.logger.info('执行增量数据聚合', { xnxq: config.xnxq });
+
+      const aggregationResult =
+        await this.courseAggregationService.executeAggregationAndSave(
+          config.xnxq
+        );
+
+      if (aggregationResult._tag === 'Left') {
+        throw new Error(`增量聚合失败: ${aggregationResult.left}`);
+      }
+
+      const result = aggregationResult.right;
+      processedRecords = result.processedKkhs.length;
+      aggregatedCourses = result.successCount;
+      createdTasks = result.successCount;
 
       this.logger.info('数据聚合完成', {
         xnxq: config.xnxq,

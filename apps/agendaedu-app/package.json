@@ -1,5 +1,5 @@
 {
-  "name": "@agendaedu/app",
+  "name": "@wps/agendaedu-app",
   "private": true,
   "version": "0.0.2",
   "type": "module",

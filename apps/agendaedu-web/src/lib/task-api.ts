@@ -60,36 +60,8 @@ export class TaskApiService {
   private baseUrl: string
 
   constructor(baseUrl?: string) {
-    this.baseUrl =
-      baseUrl ||
-      (typeof window !== 'undefined'
-        ? this.getApiBaseUrl()
-        : 'http://localhost:8090')
-  }
-
-  /**
-   * 根据当前环境获取API基础URL
-   */
-  private getApiBaseUrl(): string {
-    const origin = window.location.origin
-    const hostname = window.location.hostname
-
-    // 生产环境：如果在chat.whzhsc.cn域名下
-    if (hostname.includes('whzhsc.cn')) {
-      // 尝试多种可能的API地址
-      // 1. 同域名同端口的api路径
-      // 2. 同域名8090端口
-      // 优先尝试同域名的api路径
-      return origin
-    }
-
-    // 开发环境：本地开发时的端口转换
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return origin.replace(':5173', ':8090')
-    }
-
-    // 默认情况
-    return 'http://localhost:8090'
+    // 统一使用kwps.jlufe.edu.cn的API地址
+    this.baseUrl = baseUrl || 'https://kwps.jlufe.edu.cn'
   }
 
   /**
@@ -133,46 +105,37 @@ export class TaskApiService {
   }
 
   /**
-   * 处理401未授权响应 - 直接重定向到WPS授权页面
+   * 处理401未授权响应 - 使用统一的认证管理器重定向到WPS授权页面
    */
   private handleUnauthorized(): void {
-    // 保存当前页面URL，授权后返回
-    const currentUrl = window.location.href
-    sessionStorage.setItem('auth_redirect_url', currentUrl)
 
-    // 构造WPS授权URL并重定向
-    const authUrl = this.buildWpsAuthUrl()
+    // 动态导入认证管理器以避免循环依赖
+    import('./gateway-auth-manager')
+      .then(({ authManager }) => {
+        console.log('✅ TaskApiService: 成功加载认证管理器')
+        // 保存当前页面URL，授权后返回
+        const currentUrl = window.location.href
+        console.log(
+          '🔄 TaskApiService: 准备重定向到WPS授权页面，返回URL:',
+          currentUrl
+        )
 
-    // 直接重定向到WPS授权页面
-    window.location.href = authUrl
-  }
-
-  /**
-   * 构造WPS授权URL
-   */
-  private buildWpsAuthUrl(): string {
-    const clientId = 'AK20250614WBSGPX' // 使用配置的应用ID
-    const redirectUri = encodeURIComponent(
-      `${window.location.origin}/web/auth/callback`
-    )
-    const scope = 'kso.user_base.read' // Web端权限范围
-    const state = encodeURIComponent(
-      JSON.stringify({
-        type: 'web',
-        timestamp: Date.now(),
-        returnUrl: window.location.href,
+        // 使用统一的认证管理器进行重定向
+        authManager.redirectToAuth(currentUrl)
       })
-    )
-
-    const params = new URLSearchParams({
-      client_id: clientId,
-      response_type: 'code',
-      redirect_uri: redirectUri,
-      scope: scope,
-      state: state,
-    })
-
-    return `https://openapi.wps.cn/oauth2/auth?${params.toString()}`
+      .catch((error) => {
+        console.error('❌ TaskApiService: 加载认证管理器失败:', error)
+        // 降级处理：直接使用配置文件的重定向方法
+        console.log('🔄 TaskApiService: 使用降级方案，直接调用WPS认证配置')
+        import('@/config/wps-auth-config')
+          .then(({ redirectToWpsAuth }) => {
+            console.log('✅ TaskApiService: 成功加载WPS认证配置，开始重定向')
+            redirectToWpsAuth(window.location.href)
+          })
+          .catch((configError) => {
+            console.error('❌ TaskApiService: 降级方案也失败了:', configError)
+          })
+      })
   }
 
   // ========== 新增：树形任务接口 ==========

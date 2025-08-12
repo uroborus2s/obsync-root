@@ -565,6 +565,39 @@ export abstract class BaseRepository<
   }
 
   /**
+   * 处理 JSON 字段序列化
+   */
+  protected processJsonFields(data: any): any {
+    if (!data || typeof data !== 'object') {
+      return data;
+    }
+
+    const processed = { ...data };
+
+    // 遍历所有字段，将对象类型的字段序列化为 JSON 字符串
+    for (const [key, value] of Object.entries(processed)) {
+      if (value !== null && value !== undefined && typeof value === 'object') {
+        // 如果是 Date 对象，保持不变
+        if (value instanceof Date) {
+          continue;
+        }
+        // 其他对象类型（包括数组）序列化为 JSON 字符串
+        try {
+          processed[key] = JSON.stringify(value);
+        } catch (error) {
+          this.logger.warn(`Failed to serialize field ${key}`, {
+            error,
+            value
+          });
+          // 序列化失败时保持原值
+        }
+      }
+    }
+
+    return processed;
+  }
+
+  /**
    * 创建单条记录
    */
   async create(data: CreateT): Promise<DatabaseResult<T>> {
@@ -575,10 +608,25 @@ export abstract class BaseRepository<
     }
 
     return await DatabaseErrorHandler.execute(async () => {
-      const result = await (this.writeConnection as any)
+      // 处理 JSON 字段序列化
+      const processedData = this.processJsonFields(data);
+
+      // 构建查询
+      const query = (this.writeConnection as any)
         .insertInto(this.tableName)
-        .values(data as any)
-        .executeTakeFirstOrThrow();
+        .values(processedData as any);
+
+      // 打印 SQL 用于调试
+      const compiledQuery = query.compile();
+      this.logger.debug('Executing CREATE SQL', {
+        tableName: this.tableName,
+        sql: compiledQuery.sql,
+        parameters: compiledQuery.parameters,
+        originalData: data,
+        processedData: processedData
+      });
+
+      const result = await query.executeTakeFirstOrThrow();
 
       this.logOperation('create', { tableName: this.tableName, data });
 
@@ -599,18 +647,31 @@ export abstract class BaseRepository<
       }
     }
 
-    const operation = (db: Kysely<DB>) =>
-      db
-        .insertInto(this.tableName)
-        .values(data as any)
-        .execute()
-        .then((results) => {
-          this.logOperation('createMany', {
-            tableName: this.tableName,
-            count: data.length
-          });
-          return results as T[];
+    const operation = (db: Kysely<DB>) => {
+      // 处理所有数据的 JSON 字段序列化
+      const processedData = data.map((item) => this.processJsonFields(item));
+
+      const query = db.insertInto(this.tableName).values(processedData as any);
+
+      // 打印 SQL 用于调试
+      const compiledQuery = query.compile();
+      this.logger.debug('Executing CREATE MANY SQL', {
+        tableName: this.tableName,
+        sql: compiledQuery.sql,
+        parameters: compiledQuery.parameters,
+        dataCount: data.length,
+        firstOriginalItem: data[0],
+        firstProcessedItem: processedData[0]
+      });
+
+      return query.execute().then((results) => {
+        this.logOperation('createMany', {
+          tableName: this.tableName,
+          count: data.length
         });
+        return results as T[];
+      });
+    };
 
     return await this.databaseApi.executeQuery(operation, {
       readonly: false
@@ -631,11 +692,27 @@ export abstract class BaseRepository<
     }
 
     return await DatabaseErrorHandler.execute(async () => {
-      const result = await (this.writeConnection as any)
+      // 处理 JSON 字段序列化
+      const processedData = this.processJsonFields(data);
+
+      // 构建更新查询
+      const query = (this.writeConnection as any)
         .updateTable(this.tableName)
-        .set(data)
-        .where(this.primaryKey, '=', id)
-        .executeTakeFirst();
+        .set(processedData)
+        .where(this.primaryKey, '=', id);
+
+      // 打印 SQL 用于调试
+      const compiledQuery = query.compile();
+      this.logger.debug('Executing UPDATE SQL', {
+        tableName: this.tableName,
+        sql: compiledQuery.sql,
+        parameters: compiledQuery.parameters,
+        id,
+        originalData: data,
+        processedData: processedData
+      });
+
+      const result = await query.executeTakeFirst();
 
       this.logOperation('update', {
         tableName: this.tableName,
@@ -671,8 +748,23 @@ export abstract class BaseRepository<
     }
 
     const operation = async (db: Kysely<DB>) => {
-      const updateQuery = (db as any).updateTable(this.tableName).set(data);
+      // 处理 JSON 字段序列化
+      const processedData = this.processJsonFields(data);
+
+      const updateQuery = (db as any)
+        .updateTable(this.tableName)
+        .set(processedData);
       const finalQuery = criteria(updateQuery);
+
+      // 打印 SQL 用于调试
+      const compiledQuery = finalQuery.compile();
+      this.logger.debug('Executing UPDATE MANY SQL', {
+        tableName: this.tableName,
+        sql: compiledQuery.sql,
+        parameters: compiledQuery.parameters,
+        originalData: data,
+        processedData: processedData
+      });
 
       const result = await finalQuery.execute();
       return Number((result as any).numUpdatedRows || 0);
@@ -856,7 +948,7 @@ export abstract class BaseRepository<
       data: data ? this.sanitizeLogData(data) : undefined
     };
 
-    this.logger.info(`Repository operation: ${operation}`, logData);
+    this.logger.debug(`Repository operation: ${operation}`, logData);
   }
 
   /**

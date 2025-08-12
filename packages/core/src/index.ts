@@ -5,6 +5,9 @@
 export { Stratix } from './stratix.js';
 export * from './types/index.js';
 
+// Bootstrap 功能
+export * from './bootstrap/index.js';
+
 // 工具模块
 export { NamingConvention } from './utils/index.js';
 
@@ -84,6 +87,27 @@ export {
   type ServiceAdapterClass,
   type ServiceConfig
 } from './plugin/index.js';
+
+// 应用级功能模块 - 引导和生命周期
+export {
+  // 应用级错误处理
+  ApplicationErrorHandler,
+  ApplicationErrorType,
+  createApplicationLifecycleManager,
+  DEFAULT_APPLICATION_AUTO_DI_CONFIG,
+  // 应用级模块发现和处理
+  discoverAndProcessApplicationModules,
+  // 应用级自动依赖注入
+  performApplicationAutoDI,
+  safeExecute,
+  type ApplicationAutoDIConfig,
+  type ApplicationErrorDetails,
+  type ApplicationModuleProcessingConfig,
+  type ApplicationModuleProcessingResult,
+  type ApplicationModuleRegistrationResult,
+  type ErrorHandlingStrategy
+  // 注意：ConventionBasedLifecycleManager等已在plugin模块中导出
+} from './bootstrap/index.js';
 
 export { default as fp } from 'fastify-plugin';
 

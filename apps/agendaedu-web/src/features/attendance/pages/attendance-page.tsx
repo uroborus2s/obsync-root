@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ApiTest } from '@/components/api-test'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { Search } from '@/components/search'
@@ -51,9 +50,7 @@ export function AttendancePage() {
             <StatsAttendanceTab />
           </TabsContent>
 
-          <TabsContent value='api-test' className='mt-6'>
-            <ApiTest />
-          </TabsContent>
+          <TabsContent value='api-test' className='mt-6'></TabsContent>
         </Tabs>
       </Main>
     </div>
