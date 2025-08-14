@@ -160,6 +160,8 @@ export interface LifecycleHooks {
   beforeStart?: () => Promise<void> | void;
   /** 应用启动后执行，在所有插件注册完成后，fastify.listen() 之前 */
   afterStart?: (fastify: FastifyInstance) => Promise<void> | void;
+  /** 应用创建fastify实例后 */
+  afterFastifyCreated?: (fastify: FastifyInstance) => Promise<void> | void;
 }
 
 /**

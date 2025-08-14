@@ -8,7 +8,7 @@ import type { FastifyReply, FastifyRequest, Logger } from '@stratix/core';
 import { Controller, Get, Post } from '@stratix/core';
 import type JWTService from '../services/JWTService.js';
 import UserAuthService, {
-  type AuthenticatedUser
+  type ExtendedAuthenticatedUser
 } from '../services/UserAuthService.js';
 import WPSApiService from '../services/WPSApiService.js';
 
@@ -293,6 +293,63 @@ export default class AuthController {
   }
 
   /**
+   * 刷新JWT token
+   */
+  @Post('/api/auth/refresh')
+  async refreshToken(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      // 从请求中提取当前token
+      const currentToken = this.jwtService.extractTokenFromRequest(request);
+
+      if (!currentToken) {
+        return reply.code(401).send({
+          success: false,
+          error: 'NO_TOKEN',
+          message: '未找到认证token'
+        });
+      }
+
+      // 检查token是否即将过期
+      if (!this.jwtService.isTokenExpiringSoon(currentToken)) {
+        return reply.send({
+          success: true,
+          message: 'Token尚未到期，无需刷新',
+          refreshed: false
+        });
+      }
+
+      // 刷新token
+      const refreshResult = this.jwtService.refreshToken(currentToken);
+
+      if (!refreshResult.success) {
+        return reply.code(401).send({
+          success: false,
+          error: 'REFRESH_FAILED',
+          message: refreshResult.error || 'Token刷新失败'
+        });
+      }
+
+      // 设置新的认证cookie
+      await this.setAuthCookie(reply, refreshResult.newToken!);
+
+      this.logger.info('Token refreshed successfully');
+
+      return reply.send({
+        success: true,
+        message: 'Token刷新成功',
+        refreshed: true
+      });
+    } catch (error) {
+      this.logger.error('Token refresh failed:', error);
+      return reply.code(500).send({
+        success: false,
+        error: 'REFRESH_ERROR',
+        message: 'Token刷新失败'
+      });
+    }
+  }
+
+  /**
    * 设置认证cookie
    */
   private async setAuthCookie(
@@ -353,7 +410,7 @@ export default class AuthController {
    * 创建增强的JWT载荷
    * 包含用户类型和详细信息
    */
-  private createEnhancedJWTPayload(user: AuthenticatedUser) {
+  private createEnhancedJWTPayload(user: ExtendedAuthenticatedUser) {
     const basePayload = {
       userId: user.id,
       username: user.name,
@@ -401,20 +458,5 @@ export default class AuthController {
     }
 
     return basePayload;
-  }
-
-  /**
-   * 交换授权码获取用户信息（已废弃，使用WPS API服务）
-   * @deprecated 使用 WPSApiService 和 UserAuthService 替代
-   */
-  private async exchangeCodeForUserInfo(
-    code: string,
-    authType: string
-  ): Promise<any> {
-    this.logger.warn('exchangeCodeForUserInfo method is deprecated', {
-      code,
-      authType
-    });
-    return null;
   }
 }

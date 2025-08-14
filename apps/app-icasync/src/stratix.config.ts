@@ -1,10 +1,12 @@
 // @wps/app-icasync Stratix 框架配置文件
 // 基于 @stratix/core 的现代化应用配置
 
-import type { StratixConfig } from '@stratix/core';
+import underPressure from '@fastify/under-pressure';
+import type { FastifyInstance, StratixConfig } from '@stratix/core';
 import stratixDatabasePlugin from '@stratix/database';
 import icasyncPlugin from '@stratix/icasync';
 import tasksPlugin from '@stratix/tasks';
+import { isDevelopment } from '@stratix/utils/environment';
 import wasV7Plugin from '@stratix/was-v7';
 
 /**
@@ -22,7 +24,7 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
   return {
     // 服务器配置
     server: {
-      port: webConfig.port || '3000',
+      port: webConfig.port || '3001',
       host: webConfig.host || '0.0.0.0'
     },
 
@@ -81,7 +83,7 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
           retryAttempts: 3, // 重试次数
           retryDelay: 1000, // 重试延迟(ms)
           enableMetrics: true, // 启用性能指标
-          debug: process.env.NODE_ENV === 'development',
+          debug: isDevelopment(),
           recovery: {
             enabled: true,
             autoStart: true
@@ -100,16 +102,36 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
           timeout: 1800000, // 默认超时时间(30分钟)
           maxConcurrency: 5, // 最大并发数
           retryCount: 3, // 重试次数
-          debug: process.env.NODE_ENV === 'development'
+          debug: isDevelopment()
+        }
+      },
+      {
+        name: 'under-pressure',
+        plugin: underPressure,
+        options: {
+          maxEventLoopDelay: 500, // 500ms，更早发现问题
+          maxHeapUsedBytes: 900 * 1024 * 1024, // 650MB
+          maxRssBytes: 1100 * 1024 * 1024, // 850MB
+          maxEventLoopUtilization: 0.95, // 95%
+          message: 'Service under pressure',
+          retryAfter: 50,
+          exposeStatusRoute: {
+            routeOpts: { logLevel: 'silent' },
+            url: '/health'
+          },
+          // 🔧 新增：集成的健康检查功能
+          healthCheck: async (fastifyInstance: FastifyInstance) => {
+            try {
+              const dataApi =
+                fastifyInstance.diContainer.resolve('databaseApi');
+              const db1 = await dataApi.healthCheck('default');
+              return db1.success && db1.data;
+            } catch (error) {
+              return false;
+            }
+          }
         }
       }
-    ],
-
-    // 生命周期钩子
-    hooks: {
-      onClose: async () => {
-        console.log('🛑 Shutting down WPS ICA-Sync Application...');
-      }
-    }
+    ]
   } as any;
 };

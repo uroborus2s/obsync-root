@@ -1,1024 +1,600 @@
 /**
- * 工作流实例服务
+ * 工作流实例管理服务实现
  *
- * 负责工作流实例的完整生命周期管理
+ * 实现工作流实例的核心业务逻辑
+ * 版本: v3.0.0-refactored
  */
 
-import type { Logger } from '@stratix/core';
-import type { IWorkflowInstanceRepository } from '../repositories/WorkflowInstanceRepository.js';
+import type { AwilixContainer, Logger } from '@stratix/core';
+import { RESOLVER } from '@stratix/core';
 import type {
-  NewWorkflowInstanceTable,
-  WorkflowInstancesTable
-} from '../types/database.js';
-import type { WorkflowInstance, WorkflowStatus } from '../types/workflow.js';
+  IExecutionLockRepository,
+  INodeInstanceRepository,
+  IWorkflowDefinitionRepository,
+  IWorkflowInstanceRepository,
+  IWorkflowInstanceService
+} from '../interfaces/index.js';
+import type {
+  NodeInstance,
+  NodeType,
+  PaginationOptions,
+  QueryFilters,
+  ServiceResult,
+  WorkflowInstance,
+  WorkflowInstanceStatus,
+  WorkflowOptions
+} from '../types/business.js';
 
 /**
- * 服务结果类型
- */
-export interface ServiceResult<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  errorCode?: string;
-}
-
-/**
- * 工作流实例查询选项
- */
-export interface WorkflowInstanceQueryOptions {
-  status?: WorkflowStatus | WorkflowStatus[];
-  workflowDefinitionId?: number;
-  businessKey?: string;
-  mutexKey?: string;
-  assignedEngineId?: string;
-  priority?: number;
-  startDate?: Date;
-  endDate?: Date;
-  limit?: number;
-  offset?: number;
-}
-
-/**
- * 工作流实例服务接口
- */
-export interface IWorkflowInstanceService {
-  /**
-   * 创建工作流实例
-   */
-  createInstance(
-    data: NewWorkflowInstanceTable
-  ): Promise<ServiceResult<WorkflowInstance>>;
-
-  /**
-   * 根据ID获取工作流实例
-   */
-  getInstanceById(id: number): Promise<ServiceResult<WorkflowInstance | null>>;
-
-  /**
-   * 根据外部ID获取工作流实例
-   */
-  getInstanceByExternalId(
-    externalId: string
-  ): Promise<ServiceResult<WorkflowInstance | null>>;
-
-  /**
-   * 更新工作流实例状态
-   */
-  updateInstanceStatus(
-    id: number,
-    status: WorkflowStatus,
-    additionalData?: Partial<WorkflowInstance>
-  ): Promise<ServiceResult<boolean>>;
-
-  /**
-   * 查询工作流实例列表
-   */
-  queryInstances(
-    options: WorkflowInstanceQueryOptions
-  ): Promise<ServiceResult<WorkflowInstance[]>>;
-
-  /**
-   * 删除工作流实例
-   */
-  deleteInstance(id: number): Promise<ServiceResult<boolean>>;
-
-  /**
-   * 获取实例统计信息
-   */
-  getInstanceStatistics(workflowDefinitionId?: number): Promise<
-    ServiceResult<{
-      total: number;
-      pending: number;
-      running: number;
-      completed: number;
-      failed: number;
-      cancelled: number;
-    }>
-  >;
-
-  /**
-   * 更新实例心跳
-   */
-  updateHeartbeat(id: number, ownerId: string): Promise<ServiceResult<boolean>>;
-
-  /**
-   * 获取可恢复的实例
-   */
-  getRecoverableInstances(
-    heartbeatTimeoutSeconds?: number
-  ): Promise<ServiceResult<WorkflowInstance[]>>;
-
-  /**
-   * 终止工作流实例
-   */
-  terminateInstance(
-    instanceId: string,
-    reason?: string
-  ): Promise<ServiceResult<boolean>>;
-
-  /**
-   * 暂停工作流实例
-   */
-  pauseInstance(instanceId: string): Promise<ServiceResult<boolean>>;
-
-  /**
-   * 恢复工作流实例
-   */
-  resumeInstance(instanceId: string): Promise<ServiceResult<boolean>>;
-
-  /**
-   * 执行工作流实例
-   */
-  executeInstance(instanceId: string): Promise<ServiceResult<boolean>>;
-
-  /**
-   * 验证实例是否可以执行指定操作
-   */
-  canExecuteInstance(instanceId: string): Promise<ServiceResult<boolean>>;
-
-  /**
-   * 验证实例状态转换是否有效
-   */
-  validateStatusTransition(
-    instanceId: string,
-    targetStatus: WorkflowStatus
-  ): Promise<ServiceResult<boolean>>;
-
-  /**
-   * 使用统一过滤器查询工作流实例列表
-   */
-  queryInstancesWithFilters(filters: any): Promise<ServiceResult<any>>;
-}
-
-/**
- * 工作流实例服务实现
+ * 工作流实例管理服务实现
  */
 export default class WorkflowInstanceService
   implements IWorkflowInstanceService
 {
+  /**
+   * Stratix框架依赖注入配置
+   */
+  static [RESOLVER] = {
+    injector: (container: AwilixContainer) => {
+      return {
+        workflowDefinitionRepository: container.resolve(
+          'workflowDefinitionRepository'
+        ),
+        workflowInstanceRepository: container.resolve(
+          'workflowInstanceRepository'
+        ),
+        nodeInstanceRepository: container.resolve('nodeInstanceRepository'),
+        executionLockRepository: container.resolve('executionLockRepository'),
+        logger: container.resolve('logger')
+      };
+    }
+  };
+
   constructor(
+    private readonly workflowDefinitionRepository: IWorkflowDefinitionRepository,
     private readonly workflowInstanceRepository: IWorkflowInstanceRepository,
+    private readonly nodeInstanceRepository: INodeInstanceRepository,
+    private readonly executionLockRepository: IExecutionLockRepository,
     private readonly logger: Logger
   ) {}
 
   /**
-   * 映射数据库记录到工作流实例
+   * 获取或创建工作流实例
+   *
+   * 如果是创建工作流实例：
+   * 1. 检查实例锁：根据实例type检查是否有运行中或中断的实例
+   * 2. 检查业务实例锁：根据参数判断是否有已执行的实例锁（检查所有实例）
+   * 3. 执行其他检查点验证
+   * 4. 创建工作流实例并写入数据库，返回工作流实例
+   *
+   * 如果是恢复工作流实例：
+   * 1. 查找中断的工作流实例
+   * 2. 如果存在则修改工作流状态为执行中，并返回工作流实例
    */
-  private mapTableToWorkflowInstance = (
-    tableRow: WorkflowInstancesTable
-  ): WorkflowInstance => {
-    const result: WorkflowInstance = {
-      id: tableRow.id,
-      workflowDefinitionId: tableRow.workflow_definition_id,
-      name: tableRow.name,
-      status: tableRow.status as any,
-      retryCount: tableRow.retry_count,
-      maxRetries: tableRow.max_retries,
-      priority: tableRow.priority,
-      createdAt: tableRow.created_at,
-      updatedAt: tableRow.updated_at
-    };
-
-    // 添加可选字段
-    if (tableRow.external_id) result.externalId = tableRow.external_id;
-    if (tableRow.input_data) result.inputData = tableRow.input_data;
-    if (tableRow.output_data) result.outputData = tableRow.output_data;
-    if (tableRow.context_data) result.contextData = tableRow.context_data;
-    if (tableRow.business_key) result.businessKey = tableRow.business_key;
-    if (tableRow.mutex_key) result.mutexKey = tableRow.mutex_key;
-    if (tableRow.started_at) result.startedAt = tableRow.started_at;
-    if (tableRow.completed_at) result.completedAt = tableRow.completed_at;
-    if (tableRow.paused_at) result.pausedAt = tableRow.paused_at;
-    if (tableRow.error_message) result.errorMessage = tableRow.error_message;
-    if (tableRow.error_details) result.errorDetails = tableRow.error_details;
-    if (tableRow.scheduled_at) result.scheduledAt = tableRow.scheduled_at;
-    if (tableRow.current_node_id)
-      result.currentNodeId = tableRow.current_node_id;
-    if (tableRow.completed_nodes)
-      result.completedNodes = tableRow.completed_nodes;
-    if (tableRow.failed_nodes) result.failedNodes = tableRow.failed_nodes;
-    if (tableRow.lock_owner) result.lockOwner = tableRow.lock_owner;
-    if (tableRow.lock_acquired_at)
-      result.lockAcquiredAt = tableRow.lock_acquired_at;
-    if (tableRow.last_heartbeat) result.lastHeartbeat = tableRow.last_heartbeat;
-    if (tableRow.assigned_engine_id)
-      result.assignedEngineId = tableRow.assigned_engine_id;
-    if (tableRow.assignment_strategy)
-      result.assignmentStrategy = tableRow.assignment_strategy;
-    if (tableRow.created_by) result.createdBy = tableRow.created_by;
-
-    return result;
-  };
-
-  /**
-   * 创建工作流实例
-   */
-  async createInstance(
-    data: NewWorkflowInstanceTable
+  async getWorkflowInstance(
+    definitionsId: string,
+    opts: WorkflowOptions
   ): Promise<ServiceResult<WorkflowInstance>> {
     try {
-      this.logger.info('创建工作流实例', {
-        workflowDefinitionId: data.workflow_definition_id,
-        name: data.name
+      this.logger.info('Getting workflow instance', { definitionsId, opts });
+
+      // 如果是恢复模式，查找中断的实例
+      if (opts.resume) {
+        return await this.resumeInterruptedInstance(definitionsId, opts);
+      }
+
+      // 创建新实例模式
+      return await this.createNewInstance(definitionsId, opts);
+    } catch (error) {
+      this.logger.error('Failed to get workflow instance', {
+        error,
+        definitionsId,
+        opts
       });
+      return {
+        success: false,
+        error: 'Failed to get workflow instance',
+        errorDetails: error
+      };
+    }
+  }
 
-      // 验证必需字段
-      if (!data.workflow_definition_id) {
+  /**
+   * 恢复中断的实例
+   */
+  private async resumeInterruptedInstance(
+    definitionsId: string,
+    opts: WorkflowOptions
+  ): Promise<ServiceResult<WorkflowInstance>> {
+    // 查找中断的工作流实例
+    const interruptedResult =
+      await this.workflowInstanceRepository.findInterruptedInstances();
+    if (!interruptedResult.success) {
+      return {
+        success: false,
+        error: 'Failed to find interrupted instances',
+        errorDetails: interruptedResult.error
+      };
+    }
+
+    // 查找匹配的中断实例
+    const matchedInstance = interruptedResult.data?.find(
+      (instance) =>
+        instance.workflow_definition_id.toString() === definitionsId &&
+        (opts.businessKey ? instance.business_key === opts.businessKey : true)
+    );
+
+    if (!matchedInstance) {
+      return {
+        success: false,
+        error: 'No interrupted instance found for resume'
+      };
+    }
+
+    // 修改工作流状态为执行中
+    const updateResult = await this.workflowInstanceRepository.updateStatus(
+      matchedInstance.id,
+      'running'
+    );
+
+    if (!updateResult.success) {
+      return {
+        success: false,
+        error: 'Failed to update instance status to running',
+        errorDetails: updateResult.error
+      };
+    }
+
+    // 返回工作流实例
+    const instanceResult = await this.workflowInstanceRepository.findById(
+      matchedInstance.id
+    );
+    if (!instanceResult.success) {
+      return {
+        success: false,
+        error: 'Failed to retrieve updated instance',
+        errorDetails: instanceResult.error
+      };
+    }
+
+    return {
+      success: true,
+      data: this.mapToBusinessModel(instanceResult.data!)
+    };
+  }
+
+  /**
+   * 创建新实例
+   */
+  private async createNewInstance(
+    definitionsId: string,
+    opts: WorkflowOptions
+  ): Promise<ServiceResult<WorkflowInstance>> {
+    // 1. 获取工作流定义
+    const definitionResult = await this.workflowDefinitionRepository.findById(
+      parseInt(definitionsId)
+    );
+    if (!definitionResult.success) {
+      return {
+        success: false,
+        error: `Workflow definition not found: ${definitionsId}`,
+        errorDetails: definitionResult.error
+      };
+    }
+
+    const definition = definitionResult.data!;
+    const instanceType = opts.contextData?.instanceType || definition.name;
+
+    // 2. 检查实例锁：根据实例type检查是否有运行中或中断的实例
+    const instanceLockResult =
+      await this.workflowInstanceRepository.checkInstanceLock(instanceType);
+    if (!instanceLockResult.success) {
+      return {
+        success: false,
+        error: 'Failed to check instance lock',
+        errorDetails: instanceLockResult.error
+      };
+    }
+
+    if (instanceLockResult.data && instanceLockResult.data.length > 0) {
+      return {
+        success: false,
+        error: `Instance lock conflict: ${instanceType} has running or interrupted instances`
+      };
+    }
+
+    // 3. 检查业务实例锁：根据参数判断是否有已执行的实例锁
+    if (opts.businessKey) {
+      const businessLockResult =
+        await this.workflowInstanceRepository.checkBusinessInstanceLock(
+          opts.businessKey
+        );
+      if (!businessLockResult.success) {
         return {
           success: false,
-          error: '工作流定义ID是必需的',
-          errorCode: 'MISSING_WORKFLOW_DEFINITION_ID'
+          error: 'Failed to check business instance lock',
+          errorDetails: businessLockResult.error
         };
       }
 
-      if (!data.name) {
+      if (businessLockResult.data && businessLockResult.data.length > 0) {
         return {
           success: false,
-          error: '实例名称是必需的',
-          errorCode: 'MISSING_INSTANCE_NAME'
+          error: `Business instance lock conflict: ${opts.businessKey} already has executed instances`
         };
       }
+    }
 
-      // 检查外部ID唯一性
-      if (data.external_id) {
-        const existingResult =
-          await this.workflowInstanceRepository.findByExternalId(
-            data.external_id
-          );
-        if (existingResult.success && existingResult.data) {
+    // 4. 执行检查点验证
+    if (opts.checkpointFunctions) {
+      for (const [checkpointName, checkpointFn] of Object.entries(
+        opts.checkpointFunctions
+      )) {
+        try {
+          const checkResult = await checkpointFn(opts.contextData || {});
+          if (!checkResult) {
+            return {
+              success: false,
+              error: `Checkpoint validation failed: ${checkpointName}`
+            };
+          }
+        } catch (error) {
           return {
             success: false,
-            error: `外部ID已存在: ${data.external_id}`,
-            errorCode: 'DUPLICATE_EXTERNAL_ID'
+            error: `Checkpoint execution failed: ${checkpointName}`,
+            errorDetails: error
           };
         }
       }
+    }
 
-      // 创建实例
-      const createResult = await this.workflowInstanceRepository.create(data);
+    // 5. 创建工作流实例并写入数据库
+    const newInstance = {
+      workflow_definition_id: definition.id,
+      name: `${definition.name}-${Date.now()}`,
+      external_id: opts.contextData?.externalId || null,
+      status: 'pending' as const,
+      instance_type: instanceType,
+      input_data: opts.inputData || null,
+      output_data: null,
+      context_data: opts.contextData || null,
+      business_key: opts.businessKey || null,
+      mutex_key: opts.mutexKey || null,
+      started_at: null,
+      completed_at: null,
+      interrupted_at: null,
+      error_message: null,
+      error_details: null,
+      retry_count: 0,
+      max_retries: definition.max_retries,
+      current_node_id: null,
+      checkpoint_data: null,
+      created_by: opts.contextData?.createdBy || null
+    };
+
+    const createResult =
+      await this.workflowInstanceRepository.create(newInstance);
+    if (!createResult.success) {
+      return {
+        success: false,
+        error: 'Failed to create workflow instance',
+        errorDetails: createResult.error
+      };
+    }
+
+    return {
+      success: true,
+      data: this.mapToBusinessModel(createResult.data!)
+    };
+  }
+
+  /**
+   * 获取下一个执行节点
+   *
+   * 1. 检查下一个节点的定义配置
+   * 2. 从数据库根据实例id和节点类型定义检查节点实例是否存在
+   * 3. 如果节点实例存在，直接返回
+   * 4. 如果节点实例不存在，根据节点定义创建并保存到数据库
+   * 5. 返回节点实例
+   */
+  async getNextNode(
+    node: NodeInstance
+  ): Promise<ServiceResult<NodeInstance | null>> {
+    try {
+      this.logger.info('Getting next node', {
+        currentNodeId: node.nodeId,
+        workflowInstanceId: node.workflowInstanceId
+      });
+
+      // 1. 获取工作流定义以确定下一个节点
+      const instanceResult = await this.workflowInstanceRepository.findById(
+        node.workflowInstanceId
+      );
+      if (!instanceResult.success) {
+        return {
+          success: false,
+          error: 'Failed to get workflow instance',
+          errorDetails: instanceResult.error
+        };
+      }
+
+      const instance = instanceResult.data!;
+      const definitionResult = await this.workflowDefinitionRepository.findById(
+        instance.workflow_definition_id
+      );
+      if (!definitionResult.success) {
+        return {
+          success: false,
+          error: 'Failed to get workflow definition',
+          errorDetails: definitionResult.error
+        };
+      }
+
+      const definition = definitionResult.data!;
+      const workflowDef = definition.definition;
+
+      // 2. 根据当前节点找到下一个节点定义
+      const nextNodeDef = this.findNextNodeDefinition(workflowDef, node.nodeId);
+      if (!nextNodeDef) {
+        // 没有下一个节点，工作流结束
+        return {
+          success: true,
+          data: null
+        };
+      }
+
+      // 3. 检查节点实例是否已存在
+      const existingNodeResult =
+        await this.nodeInstanceRepository.findByWorkflowAndNodeId(
+          node.workflowInstanceId,
+          nextNodeDef.id
+        );
+
+      if (existingNodeResult.success && existingNodeResult.data) {
+        // 节点实例已存在，直接返回
+        return {
+          success: true,
+          data: this.mapNodeToBusinessModel(existingNodeResult.data)
+        };
+      }
+
+      // 4. 创建新的节点实例
+      const newNodeInstance = {
+        workflow_instance_id: node.workflowInstanceId,
+        node_id: nextNodeDef.id,
+        node_name: nextNodeDef.name || nextNodeDef.id,
+        node_type: this.mapNodeType(nextNodeDef.type),
+        executor: nextNodeDef.executor || null,
+        executor_config: nextNodeDef.config || null,
+        status: 'pending' as const,
+        input_data: null,
+        output_data: null,
+        error_message: null,
+        error_details: null,
+        started_at: null,
+        completed_at: null,
+        duration_ms: null,
+        retry_count: 0,
+        max_retries: nextNodeDef.maxRetries || 3,
+        parent_node_id: null,
+        child_index: null,
+        loop_progress: null,
+        loop_total_count: null,
+        loop_completed_count: 0,
+        parallel_group_id: null,
+        parallel_index: null
+      };
+
+      const createResult =
+        await this.nodeInstanceRepository.create(newNodeInstance);
       if (!createResult.success) {
         return {
           success: false,
-          error: `创建工作流实例失败: ${createResult.error}`,
-          errorCode: 'CREATE_FAILED'
-        };
-      }
-
-      this.logger.info('工作流实例创建成功', {
-        instanceId: createResult.data.id,
-        name: data.name
-      });
-
-      return {
-        success: true,
-        data: this.mapTableToWorkflowInstance(createResult.data)
-      };
-    } catch (error) {
-      this.logger.error('创建工作流实例异常', { error, data });
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-        errorCode: 'UNEXPECTED_ERROR'
-      };
-    }
-  }
-
-  /**
-   * 根据ID获取工作流实例
-   */
-  async getInstanceById(
-    id: number
-  ): Promise<ServiceResult<WorkflowInstance | null>> {
-    try {
-      const result = await this.workflowInstanceRepository.findByIdNullable(id);
-
-      if (!result.success) {
-        return {
-          success: false,
-          error: `查询工作流实例失败: ${result.error}`,
-          errorCode: 'QUERY_FAILED'
-        };
-      }
-
-      if (!result.data) {
-        return {
-          success: false,
-          error: `工作流实例不存在: ${id}`,
-          errorCode: 'INSTANCE_NOT_FOUND'
+          error: 'Failed to create node instance',
+          errorDetails: createResult.error
         };
       }
 
       return {
         success: true,
-        data: result.data ? this.mapTableToWorkflowInstance(result.data) : null
+        data: this.mapNodeToBusinessModel(createResult.data!)
       };
     } catch (error) {
-      this.logger.error('获取工作流实例异常', { error, id });
+      this.logger.error('Failed to get next node', { error, node });
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error),
-        errorCode: 'UNEXPECTED_ERROR'
+        error: 'Failed to get next node',
+        errorDetails: error
       };
     }
   }
 
-  /**
-   * 根据外部ID获取工作流实例
-   */
-  async getInstanceByExternalId(
-    externalId: string
-  ): Promise<ServiceResult<WorkflowInstance | null>> {
-    try {
-      const result =
-        await this.workflowInstanceRepository.findByExternalId(externalId);
-
-      if (!result.success) {
-        return {
-          success: false,
-          error: `查询工作流实例失败: ${result.error}`,
-          errorCode: 'QUERY_FAILED'
-        };
-      }
-
-      if (!result.data) {
-        return {
-          success: false,
-          error: `工作流实例不存在: ${externalId}`,
-          errorCode: 'INSTANCE_NOT_FOUND'
-        };
-      }
-
-      return {
-        success: true,
-        data: result.data ? this.mapTableToWorkflowInstance(result.data) : null
-      };
-    } catch (error) {
-      this.logger.error('获取工作流实例异常', { error, externalId });
+  // 其他方法的简化实现...
+  async getById(id: number): Promise<ServiceResult<WorkflowInstance>> {
+    const result = await this.workflowInstanceRepository.findById(id);
+    if (!result.success) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error),
-        errorCode: 'UNEXPECTED_ERROR'
+        error:
+          typeof result.error === 'string' ? result.error : 'Database error',
+        errorDetails: result.error
       };
     }
+    return {
+      success: true,
+      data: this.mapToBusinessModel(result.data!)
+    };
   }
 
-  /**
-   * 更新工作流实例状态
-   */
-  async updateInstanceStatus(
+  async updateStatus(
     id: number,
-    status: WorkflowStatus,
-    additionalData?: Partial<WorkflowInstance>
+    status: string,
+    errorMessage?: string,
+    errorDetails?: any
   ): Promise<ServiceResult<boolean>> {
-    try {
-      this.logger.info('更新工作流实例状态', { id, status });
+    const result = await this.workflowInstanceRepository.updateStatus(
+      id,
+      status as WorkflowInstanceStatus,
+      errorMessage,
+      errorDetails
+    );
 
-      // 构建更新数据
-      const updateData: any = {
-        status,
-        updated_at: new Date(),
-        ...additionalData
-      };
-
-      // 根据状态设置时间戳
-      if (status === 'running' && !updateData.started_at) {
-        updateData.started_at = new Date();
-      } else if (
-        ['completed', 'failed', 'cancelled'].includes(status) &&
-        !updateData.completed_at
-      ) {
-        updateData.completed_at = new Date();
-      } else if (status === 'paused' && !updateData.paused_at) {
-        updateData.paused_at = new Date();
-      }
-
-      const result = await this.workflowInstanceRepository.updateStatus(
-        id,
-        status,
-        additionalData
-      );
-
-      if (!result.success) {
-        return {
-          success: false,
-          error: `更新工作流实例状态失败: ${result.error}`,
-          errorCode: 'UPDATE_FAILED'
-        };
-      }
-
-      this.logger.info('工作流实例状态更新成功', { id, status });
-
-      return {
-        success: true,
-        data: true
-      };
-    } catch (error) {
-      this.logger.error('更新工作流实例状态异常', { error, id, status });
+    if (!result.success) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error),
-        errorCode: 'UNEXPECTED_ERROR'
+        error:
+          typeof result.error === 'string' ? result.error : 'Database error',
+        errorDetails: result.error
       };
     }
+
+    return result;
   }
 
-  /**
-   * 查询工作流实例列表
-   */
-  async queryInstances(
-    options: WorkflowInstanceQueryOptions
-  ): Promise<ServiceResult<WorkflowInstance[]>> {
-    try {
-      this.logger.debug('查询工作流实例列表', { options });
-
-      // 构建查询条件
-      const queryOptions: any = {
-        limit: options.limit || 100,
-        offset: options.offset || 0
-      };
-
-      // 添加过滤条件
-      if (options.status) {
-        queryOptions.status = options.status;
-      }
-      if (options.workflowDefinitionId) {
-        queryOptions.workflowDefinitionId = options.workflowDefinitionId;
-      }
-      if (options.businessKey) {
-        queryOptions.businessKey = options.businessKey;
-      }
-      if (options.assignedEngineId) {
-        queryOptions.assignedEngineId = options.assignedEngineId;
-      }
-      if (options.startDate || options.endDate) {
-        queryOptions.dateRange = {
-          start: options.startDate,
-          end: options.endDate
-        };
-      }
-
-      // 使用findByStatus方法进行查询
-      let result;
-      if (options.status) {
-        result = await this.workflowInstanceRepository.findByStatus(
-          options.status,
-          queryOptions
-        );
-      } else {
-        // 如果没有状态过滤，使用findByWorkflowDefinitionId或其他方法
-        if (options.workflowDefinitionId) {
-          result =
-            await this.workflowInstanceRepository.findByWorkflowDefinitionId(
-              options.workflowDefinitionId,
-              queryOptions
-            );
-        } else {
-          // 暂时返回空数组，实际应该实现通用查询方法
-          result = { success: true, data: [] };
-        }
-      }
-
-      if (!result.success) {
-        return {
-          success: false,
-          error: `查询工作流实例列表失败: ${result.error}`,
-          errorCode: 'QUERY_FAILED'
-        };
-      }
-
-      return {
-        success: true,
-        data: (result.data || []).map(this.mapTableToWorkflowInstance)
-      };
-    } catch (error) {
-      this.logger.error('查询工作流实例列表异常', { error, options });
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-        errorCode: 'UNEXPECTED_ERROR'
-      };
-    }
-  }
-
-  /**
-   * 删除工作流实例
-   */
-  async deleteInstance(id: number): Promise<ServiceResult<boolean>> {
-    try {
-      this.logger.info('删除工作流实例', { id });
-
-      // 使用updateStatus将状态设置为已删除，而不是物理删除
-      const result = await this.workflowInstanceRepository.updateStatus(
-        id,
-        'cancelled'
-      );
-
-      if (!result.success) {
-        return {
-          success: false,
-          error: `删除工作流实例失败: ${result.error}`,
-          errorCode: 'DELETE_FAILED'
-        };
-      }
-
-      this.logger.info('工作流实例删除成功', { id });
-
-      return {
-        success: true,
-        data: true
-      };
-    } catch (error) {
-      this.logger.error('删除工作流实例异常', { error, id });
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-        errorCode: 'UNEXPECTED_ERROR'
-      };
-    }
-  }
-
-  /**
-   * 获取实例统计信息
-   */
-  async getInstanceStatistics(workflowDefinitionId?: number): Promise<
-    ServiceResult<{
-      total: number;
-      pending: number;
-      running: number;
-      completed: number;
-      failed: number;
-      cancelled: number;
-    }>
-  > {
-    try {
-      this.logger.debug('获取实例统计信息', { workflowDefinitionId });
-
-      // 这里需要Repository支持统计查询
-      // 暂时返回模拟数据，实际实现需要Repository方法支持
-      const stats = {
-        total: 0,
-        pending: 0,
-        running: 0,
-        completed: 0,
-        failed: 0,
-        cancelled: 0
-      };
-
-      return {
-        success: true,
-        data: stats
-      };
-    } catch (error) {
-      this.logger.error('获取实例统计信息异常', {
-        error,
-        workflowDefinitionId
-      });
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-        errorCode: 'UNEXPECTED_ERROR'
-      };
-    }
-  }
-
-  /**
-   * 更新实例心跳
-   */
-  async updateHeartbeat(
+  async updateCurrentNode(
     id: number,
-    ownerId: string
+    nodeId: string,
+    checkpointData?: any
   ): Promise<ServiceResult<boolean>> {
-    try {
-      const updateData = {
-        last_heartbeat: new Date(),
-        lock_owner: ownerId,
-        updated_at: new Date()
-      };
+    const result = await this.workflowInstanceRepository.updateCurrentNode(
+      id,
+      nodeId,
+      checkpointData
+    );
 
-      const result = await this.workflowInstanceRepository.updateStatus(
-        id,
-        'running',
-        updateData
-      );
-
-      if (!result.success) {
-        return {
-          success: false,
-          error: `更新心跳失败: ${result.error}`,
-          errorCode: 'HEARTBEAT_UPDATE_FAILED'
-        };
-      }
-
-      return {
-        success: true,
-        data: true
-      };
-    } catch (error) {
-      this.logger.error('更新心跳异常', { error, id, ownerId });
+    if (!result.success) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error),
-        errorCode: 'UNEXPECTED_ERROR'
+        error:
+          typeof result.error === 'string' ? result.error : 'Database error',
+        errorDetails: result.error
       };
     }
+
+    return result;
   }
 
-  /**
-   * 获取可恢复的实例
-   */
-  async getRecoverableInstances(
-    heartbeatTimeoutSeconds: number = 300
+  async findMany(
+    filters?: QueryFilters,
+    pagination?: PaginationOptions
   ): Promise<ServiceResult<WorkflowInstance[]>> {
-    try {
-      const timeoutMinutes = Math.ceil(heartbeatTimeoutSeconds / 60);
-
-      // 使用Repository的findStaleInstances方法
-      const result =
-        await this.workflowInstanceRepository.findStaleInstances(
-          timeoutMinutes
-        );
-
-      if (!result.success) {
-        return {
-          success: false,
-          error: `获取可恢复实例失败: ${result.error}`,
-          errorCode: 'QUERY_FAILED'
-        };
-      }
-
-      return {
-        success: true,
-        data: (result.data || []).map(this.mapTableToWorkflowInstance)
-      };
-    } catch (error) {
-      this.logger.error('获取可恢复实例异常', {
-        error,
-        heartbeatTimeoutSeconds
-      });
+    const result = await this.workflowInstanceRepository.findMany(
+      filters,
+      pagination
+    );
+    if (!result.success) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error),
-        errorCode: 'UNEXPECTED_ERROR'
+        error:
+          typeof result.error === 'string' ? result.error : 'Database error',
+        errorDetails: result.error
       };
     }
+    return {
+      success: true,
+      data: result.data!.map((item) => this.mapToBusinessModel(item))
+    };
   }
 
-  /**
-   * 终止工作流实例
-   */
-  async terminateInstance(
-    instanceId: string,
-    reason?: string
-  ): Promise<ServiceResult<boolean>> {
-    try {
-      this.logger.info('终止工作流实例', { instanceId, reason });
-
-      // 1. 获取实例信息
-      const instance = await this.getInstanceById(Number(instanceId));
-      if (!instance.success || !instance.data) {
-        return {
-          success: false,
-          error: '工作流实例不存在',
-          errorCode: 'INSTANCE_NOT_FOUND'
-        };
-      }
-
-      // 2. 业务规则验证
-      if (instance.data.status === 'completed') {
-        return {
-          success: false,
-          error: '已完成的工作流无法终止',
-          errorCode: 'INVALID_STATUS_TRANSITION'
-        };
-      }
-
-      if (instance.data.status === 'failed') {
-        return {
-          success: false,
-          error: '工作流已处于失败状态',
-          errorCode: 'ALREADY_FAILED'
-        };
-      }
-
-      // 3. 状态更新
-      const updateResult = await this.workflowInstanceRepository.updateStatus(
-        Number(instanceId),
-        'failed',
-        {
-          completed_at: new Date(), // 使用completed_at记录终止时间
-          error_message: reason || '手动终止',
-          updated_at: new Date()
-        }
-      );
-
-      if (!updateResult.success) {
-        return {
-          success: false,
-          error: '状态更新失败',
-          errorCode: 'UPDATE_FAILED'
-        };
-      }
-
-      this.logger.info('工作流实例终止成功', { instanceId });
-      return {
-        success: true,
-        data: true
-      };
-    } catch (error) {
-      this.logger.error('终止工作流实例失败', { instanceId, error });
+  async findInterruptedInstances(): Promise<ServiceResult<WorkflowInstance[]>> {
+    const result =
+      await this.workflowInstanceRepository.findInterruptedInstances();
+    if (!result.success) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error),
-        errorCode: 'UNEXPECTED_ERROR'
+        error:
+          typeof result.error === 'string' ? result.error : 'Database error',
+        errorDetails: result.error
       };
     }
+    return {
+      success: true,
+      data: result.data!.map((item) => this.mapToBusinessModel(item))
+    };
   }
 
-  /**
-   * 暂停工作流实例
-   */
-  async pauseInstance(instanceId: string): Promise<ServiceResult<boolean>> {
-    try {
-      this.logger.info('暂停工作流实例', { instanceId });
-
-      // 1. 验证状态转换
-      const canPause = await this.validateStatusTransition(
-        instanceId,
-        'paused'
-      );
-      if (!canPause.success) {
-        return canPause;
-      }
-
-      // 2. 更新状态
-      const updateResult = await this.workflowInstanceRepository.updateStatus(
-        Number(instanceId),
-        'paused',
-        {
-          paused_at: new Date(),
-          updated_at: new Date()
-        }
-      );
-
-      if (!updateResult.success) {
-        return {
-          success: false,
-          error: '暂停工作流失败',
-          errorCode: 'UPDATE_FAILED'
-        };
-      }
-
-      this.logger.info('工作流实例暂停成功', { instanceId });
-      return {
-        success: true,
-        data: true
-      };
-    } catch (error) {
-      this.logger.error('暂停工作流实例失败', { instanceId, error });
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-        errorCode: 'UNEXPECTED_ERROR'
-      };
-    }
+  // 辅助方法
+  private mapToBusinessModel(dbModel: any): WorkflowInstance {
+    return {
+      id: dbModel.id,
+      workflowDefinitionId: dbModel.workflow_definition_id,
+      name: dbModel.name,
+      externalId: dbModel.external_id,
+      status: dbModel.status,
+      instanceType: dbModel.instance_type,
+      inputData: dbModel.input_data,
+      outputData: dbModel.output_data,
+      contextData: dbModel.context_data,
+      businessKey: dbModel.business_key,
+      mutexKey: dbModel.mutex_key,
+      startedAt: dbModel.started_at,
+      completedAt: dbModel.completed_at,
+      interruptedAt: dbModel.interrupted_at,
+      errorMessage: dbModel.error_message,
+      errorDetails: dbModel.error_details,
+      retryCount: dbModel.retry_count,
+      maxRetries: dbModel.max_retries,
+      currentNodeId: dbModel.current_node_id,
+      checkpointData: dbModel.checkpoint_data,
+      createdBy: dbModel.created_by,
+      createdAt: dbModel.created_at,
+      updatedAt: dbModel.updated_at
+    };
   }
 
-  /**
-   * 恢复工作流实例
-   */
-  async resumeInstance(instanceId: string): Promise<ServiceResult<boolean>> {
-    try {
-      this.logger.info('恢复工作流实例', { instanceId });
-
-      // 1. 验证状态转换
-      const canResume = await this.validateStatusTransition(
-        instanceId,
-        'running'
-      );
-      if (!canResume.success) {
-        return canResume;
-      }
-
-      // 2. 更新状态
-      const updateResult = await this.workflowInstanceRepository.updateStatus(
-        Number(instanceId),
-        'running',
-        {
-          paused_at: null,
-          updated_at: new Date()
-        }
-      );
-
-      if (!updateResult.success) {
-        return {
-          success: false,
-          error: '恢复工作流失败',
-          errorCode: 'UPDATE_FAILED'
-        };
-      }
-
-      this.logger.info('工作流实例恢复成功', { instanceId });
-      return {
-        success: true,
-        data: true
-      };
-    } catch (error) {
-      this.logger.error('恢复工作流实例失败', { instanceId, error });
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-        errorCode: 'UNEXPECTED_ERROR'
-      };
-    }
+  private mapNodeToBusinessModel(dbModel: any): NodeInstance {
+    return {
+      id: dbModel.id,
+      workflowInstanceId: dbModel.workflow_instance_id,
+      nodeId: dbModel.node_id,
+      nodeName: dbModel.node_name,
+      nodeType: dbModel.node_type,
+      executor: dbModel.executor,
+      executorConfig: dbModel.executor_config,
+      status: dbModel.status,
+      inputData: dbModel.input_data,
+      outputData: dbModel.output_data,
+      errorMessage: dbModel.error_message,
+      errorDetails: dbModel.error_details,
+      startedAt: dbModel.started_at,
+      completedAt: dbModel.completed_at,
+      durationMs: dbModel.duration_ms,
+      retryCount: dbModel.retry_count,
+      maxRetries: dbModel.max_retries,
+      parentNodeId: dbModel.parent_node_id,
+      childIndex: dbModel.child_index,
+      loopProgress: dbModel.loop_progress,
+      loopTotalCount: dbModel.loop_total_count,
+      loopCompletedCount: dbModel.loop_completed_count,
+      parallelGroupId: dbModel.parallel_group_id,
+      parallelIndex: dbModel.parallel_index,
+      createdAt: dbModel.created_at,
+      updatedAt: dbModel.updated_at
+    };
   }
 
-  /**
-   * 执行工作流实例
-   */
-  async executeInstance(instanceId: string): Promise<ServiceResult<boolean>> {
-    try {
-      this.logger.info('执行工作流实例', { instanceId });
-
-      // 1. 验证是否可以执行
-      const canExecute = await this.canExecuteInstance(instanceId);
-      if (!canExecute.success) {
-        return canExecute;
-      }
-
-      // 2. 更新状态为运行中
-      const updateResult = await this.workflowInstanceRepository.updateStatus(
-        Number(instanceId),
-        'running',
-        {
-          started_at: new Date(),
-          updated_at: new Date()
-        }
-      );
-
-      if (!updateResult.success) {
-        return {
-          success: false,
-          error: '执行工作流失败',
-          errorCode: 'UPDATE_FAILED'
-        };
-      }
-
-      this.logger.info('工作流实例执行成功', { instanceId });
-      return {
-        success: true,
-        data: true
-      };
-    } catch (error) {
-      this.logger.error('执行工作流实例失败', { instanceId, error });
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-        errorCode: 'UNEXPECTED_ERROR'
-      };
-    }
+  private findNextNodeDefinition(workflowDef: any, currentNodeId: string): any {
+    // 简化的下一个节点查找逻辑
+    // 实际实现需要根据工作流定义的结构来确定
+    const nodes = workflowDef.nodes || [];
+    const currentIndex = nodes.findIndex(
+      (node: any) => node.id === currentNodeId
+    );
+    return currentIndex >= 0 && currentIndex < nodes.length - 1
+      ? nodes[currentIndex + 1]
+      : null;
   }
 
-  /**
-   * 验证实例是否可以执行指定操作
-   */
-  async canExecuteInstance(
-    instanceId: string
-  ): Promise<ServiceResult<boolean>> {
-    try {
-      // 获取实例信息
-      const instance = await this.getInstanceById(Number(instanceId));
-      if (!instance.success || !instance.data) {
-        return {
-          success: false,
-          error: '工作流实例不存在',
-          errorCode: 'INSTANCE_NOT_FOUND'
-        };
-      }
-
-      // 检查状态是否允许执行
-      if (instance.data.status === 'running') {
-        return {
-          success: false,
-          error: '工作流实例已在运行中',
-          errorCode: 'INSTANCE_ALREADY_RUNNING'
-        };
-      }
-
-      if (instance.data.status === 'completed') {
-        return {
-          success: false,
-          error: '工作流实例已完成，无法重新执行',
-          errorCode: 'INSTANCE_ALREADY_COMPLETED'
-        };
-      }
-
-      return {
-        success: true,
-        data: true
-      };
-    } catch (error) {
-      this.logger.error('验证实例执行权限失败', { instanceId, error });
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-        errorCode: 'UNEXPECTED_ERROR'
-      };
-    }
-  }
-
-  /**
-   * 验证实例状态转换是否有效
-   */
-  async validateStatusTransition(
-    instanceId: string,
-    targetStatus: WorkflowStatus
-  ): Promise<ServiceResult<boolean>> {
-    try {
-      // 获取当前实例状态
-      const instance = await this.getInstanceById(Number(instanceId));
-      if (!instance.success || !instance.data) {
-        return {
-          success: false,
-          error: '工作流实例不存在',
-          errorCode: 'INSTANCE_NOT_FOUND'
-        };
-      }
-
-      const currentStatus = instance.data.status;
-
-      // 定义有效的状态转换规则
-      const validTransitions: Record<WorkflowStatus, WorkflowStatus[]> = {
-        pending: ['running', 'cancelled'],
-        running: ['paused', 'completed', 'failed', 'cancelled', 'timeout'],
-        paused: ['running', 'cancelled'],
-        completed: [], // 已完成的实例不能转换到其他状态
-        failed: ['pending'], // 失败的实例可以重新启动
-        cancelled: ['pending'], // 已取消的实例可以重新启动
-        timeout: ['pending'] // 超时的实例可以重新启动
-      };
-
-      const allowedTransitions =
-        validTransitions[currentStatus as WorkflowStatus] || [];
-
-      if (!allowedTransitions.includes(targetStatus)) {
-        return {
-          success: false,
-          error: `无效的状态转换：从 ${currentStatus} 到 ${targetStatus}`,
-          errorCode: 'INVALID_STATUS_TRANSITION'
-        };
-      }
-
-      return {
-        success: true,
-        data: true
-      };
-    } catch (error) {
-      this.logger.error('验证状态转换失败', {
-        instanceId,
-        targetStatus,
-        error
-      });
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-        errorCode: 'UNEXPECTED_ERROR'
-      };
-    }
-  }
-
-  /**
-   * 使用统一过滤器查询工作流实例列表
-   */
-  async queryInstancesWithFilters(filters: any): Promise<ServiceResult<any>> {
-    try {
-      this.logger.debug('使用统一过滤器查询工作流实例列表', { filters });
-
-      // 直接调用仓储层的统一查询方法
-      const result =
-        await this.workflowInstanceRepository.findWithFilters(filters);
-
-      if (!result.success) {
-        return {
-          success: false,
-          error: `查询工作流实例列表失败: ${result.error}`,
-          errorCode: 'QUERY_FAILED'
-        };
-      }
-
-      return {
-        success: true,
-        data: result.data
-      };
-    } catch (error) {
-      this.logger.error('使用统一过滤器查询工作流实例列表异常', {
-        error,
-        filters
-      });
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-        errorCode: 'UNEXPECTED_ERROR'
-      };
+  private mapNodeType(type: string): NodeType {
+    switch (type) {
+      case 'loop':
+        return 'loop';
+      case 'parallel':
+        return 'parallel';
+      case 'subprocess':
+        return 'subprocess';
+      default:
+        return 'simple';
     }
   }
 }

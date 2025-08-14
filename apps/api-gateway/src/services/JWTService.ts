@@ -4,64 +4,14 @@
  * 使用SINGLETON生命周期，全局共享
  */
 
+import { AwilixContainer, RESOLVER, type Logger } from '@stratix/core';
 import jwt from 'jsonwebtoken';
-import type { Logger } from '@stratix/core';
-
-/**
- * JWT Token 载荷
- */
-export interface JWTPayload {
-  /** 用户ID */
-  userId: string;
-  /** 用户名 */
-  username?: string;
-  /** 用户邮箱 */
-  email?: string;
-  /** 用户角色 */
-  roles?: string[];
-  /** 权限列表 */
-  permissions?: string[];
-  /** 发布时间 */
-  iat?: number;
-  /** 过期时间 */
-  exp?: number;
-  /** 发布者 */
-  iss?: string;
-  /** 受众 */
-  aud?: string;
-}
-
-/**
- * Token 验证结果
- */
-export interface TokenValidationResult {
-  /** 是否有效 */
-  valid: boolean;
-  /** 解析后的载荷 */
-  payload?: JWTPayload;
-  /** 错误信息 */
-  error?: string;
-  /** 错误类型 */
-  errorType?: 'EXPIRED' | 'INVALID' | 'MALFORMED' | 'MISSING';
-}
-
-/**
- * 认证配置
- */
-export interface AuthConfig {
-  /** JWT 密钥 */
-  jwtSecret: string;
-  /** Token 过期时间 */
-  tokenExpiry?: string;
-  /** 刷新Token过期时间 */
-  refreshTokenExpiry?: string;
-  /** Cookie 名称 */
-  cookieName?: string;
-  /** 白名单路径 */
-  excludePaths?: string[];
-  /** 是否启用认证 */
-  enabled?: boolean;
-}
+import type {
+  AuthConfig,
+  JWTPayload,
+  TokenValidationResult,
+  UserIdentity
+} from '../types/gateway.js';
 
 export interface IJWTService {
   /**
@@ -88,32 +38,57 @@ export interface IJWTService {
    * 创建JWT载荷
    */
   createPayload(userInfo: any): JWTPayload;
+
+  /**
+   * 检查token是否即将过期（剩余有效期少于7天）
+   */
+  isTokenExpiringSoon(token: string): boolean;
+
+  /**
+   * 刷新JWT token
+   */
+  refreshToken(token: string): {
+    success: boolean;
+    newToken?: string;
+    error?: string;
+  };
+
+  /**
+   * 获取配置信息
+   */
+  getConfig(): AuthConfig;
+
+  /**
+   * 从JWT token中提取用户身份信息
+   */
+  extractUserIdentity(token: string): {
+    success: boolean;
+    identity?: UserIdentity;
+    error?: string;
+  };
 }
 
 export default class JWTService implements IJWTService {
-  private readonly secret: string;
   private readonly defaultOptions: jwt.SignOptions;
-  private readonly config: AuthConfig;
 
-  constructor(logger: Logger) {
-    // 从环境变量或配置中获取JWT配置
-    this.config = {
-      jwtSecret: process.env.JWT_SECRET || 'fallback-secret-key',
-      tokenExpiry: process.env.TOKEN_EXPIRY || '1h',
-      refreshTokenExpiry: process.env.REFRESH_TOKEN_EXPIRY || '7d',
-      cookieName: process.env.COOKIE_NAME || 'wps_jwt_token',
-      excludePaths: ['/health', '/metrics', '/docs', '/api/auth/*'],
-      enabled: process.env.AUTH_ENABLED !== 'false'
-    };
+  static [RESOLVER] = {
+    injector: (container: AwilixContainer) => {
+      const orgOptions = container.resolve('options');
+      return { options: orgOptions.jwt || {} };
+    }
+  };
 
-    this.secret = this.config.jwtSecret;
+  constructor(
+    private logger: Logger,
+    private options: AuthConfig
+  ) {
     this.defaultOptions = {
-      expiresIn: this.config.tokenExpiry || '1h',
+      expiresIn: this.options.tokenExpiry || '29d',
       issuer: 'stratix-gateway',
       audience: 'stratix-app'
     } as jwt.SignOptions;
 
-    logger.info('✅ JWTService initialized with application-level DI');
+    this.logger.info('✅ JWTService initialized with application-level DI');
   }
 
   /**
@@ -122,7 +97,7 @@ export default class JWTService implements IJWTService {
   generateToken(payload: JWTPayload, options?: jwt.SignOptions): string {
     try {
       const signOptions = { ...this.defaultOptions, ...options };
-      const token = jwt.sign(payload, this.secret, signOptions);
+      const token = jwt.sign(payload, this.options.jwtSecret, signOptions);
       return token;
     } catch (error) {
       throw new Error('Token generation failed');
@@ -142,8 +117,8 @@ export default class JWTService implements IJWTService {
         };
       }
 
-      const payload = jwt.verify(token, this.secret) as JWTPayload;
-      
+      const payload = jwt.verify(token, this.options.jwtSecret) as JWTPayload;
+
       return {
         valid: true,
         payload
@@ -194,7 +169,7 @@ export default class JWTService implements IJWTService {
       }
 
       // 2. 尝试从Cookie获取
-      const cookieName = this.config.cookieName || 'wps_jwt_token';
+      const cookieName = this.options.cookieName || 'wps_jwt_token';
       const cookieToken = request.cookies?.[cookieName];
       if (cookieToken) {
         return cookieToken;
@@ -207,9 +182,9 @@ export default class JWTService implements IJWTService {
   }
 
   /**
-   * 检查token是否即将过期
+   * 检查token是否即将过期（剩余有效期少于7天）
    */
-  isTokenExpiringSoon(token: string, thresholdMinutes: number = 5): boolean {
+  isTokenExpiringSoon(token: string): boolean {
     try {
       const decoded = this.decodeToken(token);
       if (!decoded || !decoded.exp) {
@@ -217,9 +192,9 @@ export default class JWTService implements IJWTService {
       }
 
       const now = Math.floor(Date.now() / 1000);
-      const threshold = thresholdMinutes * 60;
-      
-      return (decoded.exp - now) <= threshold;
+      const sevenDaysInSeconds = 7 * 24 * 60 * 60; // 7天的秒数
+
+      return decoded.exp - now <= sevenDaysInSeconds;
     } catch (error) {
       return false;
     }
@@ -239,9 +214,114 @@ export default class JWTService implements IJWTService {
   }
 
   /**
+   * 刷新JWT token
+   */
+  refreshToken(token: string): {
+    success: boolean;
+    newToken?: string;
+    error?: string;
+  } {
+    try {
+      // 验证当前token
+      const validationResult = this.verifyToken(token);
+
+      if (!validationResult.valid) {
+        return {
+          success: false,
+          error: validationResult.error || 'Invalid token'
+        };
+      }
+
+      // 获取原有载荷
+      const payload = validationResult.payload!;
+
+      // 创建新的载荷（移除时间相关字段，让JWT库重新生成）
+      const newPayload: JWTPayload = {
+        userId: payload.userId,
+        username: payload.username,
+        userName: payload.userName,
+        userType: payload.userType,
+        userNumber: payload.userNumber,
+        email: payload.email,
+        phone: payload.phone,
+        collegeName: payload.collegeName,
+        majorName: payload.majorName,
+        className: payload.className,
+        roles: payload.roles,
+        permissions: payload.permissions
+      };
+
+      // 生成新token
+      const newToken = this.generateToken(newPayload);
+
+      return {
+        success: true,
+        newToken
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Token refresh failed'
+      };
+    }
+  }
+
+  /**
    * 获取认证配置
    */
   getConfig(): AuthConfig {
-    return { ...this.config };
+    return { ...this.options };
+  }
+
+  /**
+   * 从JWT token中提取用户身份信息
+   */
+  extractUserIdentity(token: string): {
+    success: boolean;
+    identity?: UserIdentity;
+    error?: string;
+  } {
+    try {
+      // 验证token有效性
+      const validationResult = this.verifyToken(token);
+
+      if (!validationResult.valid || !validationResult.payload) {
+        return {
+          success: false,
+          error: validationResult.error || 'Invalid token'
+        };
+      }
+
+      const payload = validationResult.payload;
+
+      // 构造用户身份信息
+      const identity: UserIdentity = {
+        userId: payload.userId,
+        username: payload.username || payload.userName,
+        userType: payload.userType,
+        userNumber: payload.userNumber,
+        email: payload.email,
+        phone: payload.phone,
+        collegeName: payload.collegeName,
+        majorName: payload.majorName,
+        className: payload.className,
+        roles: payload.roles || [],
+        permissions: payload.permissions || [],
+        timestamp: Math.floor(Date.now() / 1000)
+      };
+
+      return {
+        success: true,
+        identity
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to extract user identity'
+      };
+    }
   }
 }

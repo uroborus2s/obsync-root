@@ -7,30 +7,13 @@ import type { Logger } from '@stratix/core';
 import type { IStudentRepository } from '../repositories/StudentRepository.js';
 import type { ITeacherRepository } from '../repositories/TeacherRepository.js';
 import type { StudentInfo, TeacherInfo } from '../types/database.js';
+import type { AuthenticatedUser } from '../types/gateway.js';
 import type { WPSUserInfo } from './WPSApiService.js';
 
 /**
- * 认证用户信息
+ * 扩展的认证用户信息（包含数据库信息）
  */
-export interface AuthenticatedUser {
-  /** 用户ID */
-  id: string;
-  /** 姓名 */
-  name: string;
-  /** 用户类型 */
-  userType: 'student' | 'teacher';
-  /** 学号（学生）或工号（教师） */
-  userNumber: string;
-  /** 邮箱 */
-  email?: string;
-  /** 手机号 */
-  phone?: string;
-  /** 学院名称（学生）或部门名称（教师） */
-  collegeName?: string;
-  /** 专业名称（仅学生） */
-  majorName?: string;
-  /** 班级名称（仅学生） */
-  className?: string;
+export interface ExtendedAuthenticatedUser extends AuthenticatedUser {
   /** 学生信息（如果是学生） */
   studentInfo?: StudentInfo;
   /** 教师信息（如果是教师） */
@@ -44,7 +27,7 @@ export interface UserMatchResult {
   /** 是否匹配成功 */
   matched: boolean;
   /** 匹配的用户信息 */
-  user?: AuthenticatedUser;
+  user?: ExtendedAuthenticatedUser;
   /** 匹配类型 */
   matchType?: 'exact' | 'partial' | 'none';
   /** 匹配的字段 */
@@ -188,7 +171,7 @@ export default class UserAuthService implements IUserAuthService {
       //   };
       // }
 
-      const authenticatedUser: AuthenticatedUser = {
+      const authenticatedUser: ExtendedAuthenticatedUser = {
         id: student.id,
         name: student.xm || '',
         userType: 'student',
@@ -257,7 +240,7 @@ export default class UserAuthService implements IUserAuthService {
       //   };
       // }
 
-      const authenticatedUser: AuthenticatedUser = {
+      const authenticatedUser: ExtendedAuthenticatedUser = {
         id: teacher.id,
         name: teacher.xm || '',
         userType: 'teacher',

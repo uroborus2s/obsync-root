@@ -647,9 +647,6 @@ export class ApplicationBootstrap {
     // 🎯 注册应用级 Fastify 钩子
     fastifyInstance.decorate('diContainer', container);
 
-    fastifyInstance.addHook('onError', (error) => {
-      console.log(error);
-    });
     // 设置错误处理
     this.setupErrorHandling(fastifyInstance);
 
@@ -657,6 +654,9 @@ export class ApplicationBootstrap {
     this.setupRequestContext(fastifyInstance, container);
 
     this.logger?.debug('Fastify initialization completed');
+    if (config.hooks?.afterFastifyCreated) {
+      await config.hooks.afterFastifyCreated(fastifyInstance);
+    }
     return fastifyInstance;
   }
 

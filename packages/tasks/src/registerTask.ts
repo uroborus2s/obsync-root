@@ -1,5 +1,132 @@
 import type { Logger } from '@stratix/core';
-import type { TaskExecutor } from './types/executor.js';
+import type { Schema } from 'ajv';
+
+/**
+ * 执行结果
+ */
+export interface ExecutionResult {
+  /** 是否成功 */
+  success: boolean;
+  /** 输出数据 */
+  data?: any;
+  /** 错误信息 */
+  error?: string;
+  /** 错误详情 */
+  errorDetails?: any;
+  /** 执行时长（毫秒） */
+  duration?: number;
+  /** 是否需要重试 */
+  shouldRetry?: boolean;
+  /** 重试延迟（毫秒） */
+  retryDelay?: number;
+  /** 执行日志 */
+  logs?: ExecutionLog[];
+}
+
+/**
+ * 验证结果
+ */
+export interface ValidationResult {
+  /** 是否有效 */
+  valid: boolean;
+  /** 错误信息 */
+  errors?: string[];
+  /** 警告信息 */
+  warnings?: string[];
+}
+
+/**
+ * 执行日志
+ */
+export interface ExecutionLog {
+  /** 日志级别 */
+  level: 'debug' | 'info' | 'warn' | 'error';
+  /** 日志消息 */
+  message: string;
+  /** 时间戳 */
+  timestamp: Date;
+  /** 额外数据 */
+  data?: any;
+}
+
+/**
+ * 执行上下文
+ */
+export interface ExecutionContext {
+  /** 任务ID */
+  taskId: number;
+  /** 工作流实例ID */
+  workflowInstanceId: number;
+  /** 节点配置 */
+  config: Record<string, any>;
+  /** 输入数据 */
+  inputs: Record<string, any>;
+  /** 工作流上下文 */
+  context: Record<string, any>;
+  /** 日志记录器 */
+  logger: {
+    debug: (message: string, ...args: any[]) => void;
+    info: (message: string, ...args: any[]) => void;
+    warn: (message: string, ...args: any[]) => void;
+    error: (message: string, ...args: any[]) => void;
+  };
+  /** 取消信号 */
+  signal?: AbortSignal;
+  /** 进度回调 */
+  onProgress?: (progress: number, message?: string) => void;
+}
+
+/**
+ * 执行器健康状态
+ */
+export type HealthStatus = 'healthy' | 'unhealthy' | 'unknown';
+
+/**
+ * 任务执行器接口
+ */
+export interface TaskExecutor {
+  /** 执行器名称 */
+  readonly name: string;
+  /** 执行器描述 */
+  readonly description?: string;
+  /** 配置参数的JSON Schema */
+  readonly configSchema?: Schema;
+  /** 执行器版本 */
+  readonly version?: string;
+  /** 执行器标签 */
+  readonly tags?: string[];
+
+  /**
+   * 执行任务
+   * @param context 执行上下文
+   * @returns 执行结果
+   */
+  execute(context: ExecutionContext): Promise<ExecutionResult>;
+
+  /**
+   * 验证配置（可选）
+   * @param config 配置对象
+   * @returns 验证结果
+   */
+  validateConfig?(config: any): ValidationResult;
+
+  /**
+   * 健康检查（可选）
+   * @returns 健康状态
+   */
+  healthCheck?(): Promise<HealthStatus>;
+
+  /**
+   * 初始化执行器（可选）
+   * @param config 初始化配置
+   */
+  initialize?(config?: any): Promise<void>;
+
+  /**
+   * 销毁执行器（可选）
+   */
+  destroy?(): Promise<void>;
+}
 
 /**
  * 全局执行器注册表

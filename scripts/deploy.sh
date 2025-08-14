@@ -23,7 +23,7 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SERVER_1_HOST="jlufe_12.6"
 SERVER_1_USER="ubuntu"
 SERVER_2_HOST="jlufe_10.128"
-SERVER_2_USER="ubutu"  # 注意：这里使用用户修改的值
+SERVER_2_USER="ubuntu"  # 注意：这里使用用户修改的值
 
 # 部署模式标志
 NGINX_ONLY=false
@@ -111,8 +111,8 @@ check_files() {
     log_info "检查部署文件..."
 
     local nginx_files=(
-        "configs/nginx-production.conf"
-        "configs/nginx-backup-server.conf"
+        "nginx/server-1-nginx.conf"
+        "nginx/server-2-nginx.conf"
     )
 
     local ssl_files=(
@@ -226,8 +226,8 @@ deploy_ssl_only() {
     log_step "仅更新 $server_name SSL证书..."
 
     # 检查SSL证书文件
-    local cert_file="$SCRIPT_DIR/nginx/STAR_jlufe_edu_cn.pem"
-    local key_file="$SCRIPT_DIR/nginx/STAR_jlufe_edu_cn.key"
+    local cert_file="$SCRIPT_DIR/deploy/nginx/STAR_jlufe_edu_cn.pem"
+    local key_file="$SCRIPT_DIR/deploy/nginx/STAR_jlufe_edu_cn.key"
 
     if [ ! -f "$cert_file" ] || [ ! -f "$key_file" ]; then
         log_error "SSL证书文件不存在"
@@ -295,7 +295,7 @@ deploy_docker_only() {
     log_step "仅更新 $server_name Docker配置..."
 
     # 检查docker-compose文件
-    local compose_file="$SCRIPT_DIR/docker-compose.yml"
+    local compose_file="$SCRIPT_DIR/deploy/docker-compose.yml"
     if [ ! -f "$compose_file" ]; then
         log_error "Docker Compose文件不存在: $compose_file"
         return 1
@@ -320,7 +320,7 @@ deploy_docker_only() {
         cd /opt/obsync
 
         # 验证配置文件语法
-        if sudo docker-compose config > /dev/null; then
+        if sudo docker compose config > /dev/null; then
             echo '✅ Docker Compose配置语法正确'
         else
             echo '❌ Docker Compose配置语法错误'

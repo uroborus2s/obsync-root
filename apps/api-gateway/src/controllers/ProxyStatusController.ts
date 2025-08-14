@@ -21,216 +21,49 @@ export default class ProxyStatusController {
   }
 
   /**
-   * 获取代理状态
+   * 获取代理指标信息
    */
-  @Get('/proxy/status')
-  async getProxyStatus(request: FastifyRequest, reply: FastifyReply) {
+  @Get('/api/gateway/metrics')
+  async getProxyMetrics(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const status = {
-        initialized: true,
-        services: [
-          {
-            name: 'tasks',
-            prefix: '/api/tasks',
-            upstream: `${process.env.TASKS_SERVICE_PROTOCOL || 'http'}://${process.env.TASKS_SERVICE_HOST || 'localhost'}:${process.env.TASKS_SERVICE_PORT || '3001'}`,
-            status: 'active',
-            timeout: parseInt(process.env.TASKS_SERVICE_TIMEOUT || '30000'),
-            retries: parseInt(process.env.TASKS_SERVICE_RETRIES || '3')
-          }
-        ],
-        environment: {
-          NODE_ENV: process.env.NODE_ENV || 'development',
-          TASKS_SERVICE_HOST: process.env.TASKS_SERVICE_HOST || 'localhost',
-          TASKS_SERVICE_PORT: process.env.TASKS_SERVICE_PORT || '3001',
-          TASKS_SERVICE_PROTOCOL: process.env.TASKS_SERVICE_PROTOCOL || 'http'
+      const metrics = request.server.memoryUsage();
+
+      // 转换为可读格式
+      const readableMetrics = {
+        // 事件循环延迟（毫秒，保留两位小数）
+        eventLoopDelay: {
+          value: parseFloat(metrics.eventLoopDelay.toFixed(2)),
+          unit: 'ms'
         },
-        configuration: {
-          enableRequestLogging: process.env.ENABLE_REQUEST_LOGGING === 'true',
-          enableResponseLogging: process.env.ENABLE_RESPONSE_LOGGING === 'true',
-          proxyTimeout: process.env.PROXY_TIMEOUT || '30000',
-          proxyRetries: process.env.PROXY_RETRIES || '3'
+        // 事件循环利用率（百分比，保留两位小数）
+        eventLoopUtilized: {
+          value: parseFloat((metrics.eventLoopUtilized * 100).toFixed(2)),
+          unit: '%'
         },
+        // 内存使用（字节转换为 MB，保留两位小数）
+        rss: {
+          value: parseFloat((metrics.rssBytes / (1024 * 1024)).toFixed(2)),
+          unit: 'MB',
+          description: '进程总内存占用（Resident Set Size）'
+        },
+        heapUsed: {
+          value: parseFloat((metrics.heapUsed / (1024 * 1024)).toFixed(2)),
+          unit: 'MB',
+          description: '已使用的堆内存'
+        },
+        // 添加时间戳便于监控
         timestamp: new Date().toISOString()
       };
 
       return reply.send({
         success: true,
-        data: status
+        data: readableMetrics
       });
     } catch (error) {
-      this.logger.error('Failed to get proxy status', error);
+      this.logger.error('Failed to get proxy metrics', error);
       return reply.code(500).send({
         success: false,
-        error: 'Failed to get proxy status',
-        message: error instanceof Error ? error.message : String(error)
-      });
-    }
-  }
-
-  /**
-   * 获取已注册的服务列表
-   */
-  @Get('/proxy/services')
-  async getRegisteredServices(request: FastifyRequest, reply: FastifyReply) {
-    try {
-      const services = [
-        {
-          name: 'tasks',
-          prefix: '/api/tasks',
-          upstream: `${process.env.TASKS_SERVICE_PROTOCOL || 'http'}://${process.env.TASKS_SERVICE_HOST || 'localhost'}:${process.env.TASKS_SERVICE_PORT || '3001'}`,
-          requireAuth: true,
-          timeout: parseInt(process.env.TASKS_SERVICE_TIMEOUT || '30000'),
-          retries: parseInt(process.env.TASKS_SERVICE_RETRIES || '3'),
-          httpMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-          status: 'active'
-        }
-      ];
-
-      return reply.send({
-        success: true,
-        data: {
-          services,
-          count: services.length,
-          timestamp: new Date().toISOString()
-        }
-      });
-    } catch (error) {
-      this.logger.error('Failed to get registered services', error);
-      return reply.code(500).send({
-        success: false,
-        error: 'Failed to get registered services',
-        message: error instanceof Error ? error.message : String(error)
-      });
-    }
-  }
-
-  /**
-   * 获取特定服务的配置
-   */
-  @Get('/services/:serviceName/config')
-  async getServiceConfig(request: FastifyRequest, reply: FastifyReply) {
-    try {
-      const { serviceName } = request.params as { serviceName: string };
-
-      if (serviceName === 'tasks') {
-        const config = {
-          name: 'tasks',
-          prefix: '/api/tasks',
-          upstream: `${process.env.TASKS_SERVICE_PROTOCOL || 'http'}://${process.env.TASKS_SERVICE_HOST || 'localhost'}:${process.env.TASKS_SERVICE_PORT || '3001'}`,
-          requireAuth: true,
-          timeout: parseInt(process.env.TASKS_SERVICE_TIMEOUT || '30000'),
-          retries: parseInt(process.env.TASKS_SERVICE_RETRIES || '3'),
-          httpMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-          rewritePrefix: '/api/tasks',
-          headers: {
-            'x-forwarded-by': 'stratix-gateway',
-            'x-service-version': '1.0.0'
-          }
-        };
-
-        return reply.send({
-          success: true,
-          data: config
-        });
-      }
-
-      return reply.code(404).send({
-        success: false,
-        error: 'SERVICE_NOT_FOUND',
-        message: `Service '${serviceName}' not found`
-      });
-    } catch (error) {
-      this.logger.error('Failed to get service config', error);
-      return reply.code(500).send({
-        success: false,
-        error: 'Failed to get service config',
-        message: error instanceof Error ? error.message : String(error)
-      });
-    }
-  }
-
-  /**
-   * 获取服务健康状态
-   */
-  @Get('/proxy/health')
-  async getServicesHealth(request: FastifyRequest, reply: FastifyReply) {
-    try {
-      const healthResults: Record<string, any> = {};
-
-      // Tasks服务健康检查
-      const tasksUpstream = `${process.env.TASKS_SERVICE_PROTOCOL || 'http'}://${process.env.TASKS_SERVICE_HOST || 'localhost'}:${process.env.TASKS_SERVICE_PORT || '3001'}`;
-
-      healthResults['tasks'] = {
-        status: 'unknown',
-        upstream: tasksUpstream,
-        lastCheck: new Date().toISOString(),
-        message:
-          'Health check not implemented yet - use direct service health endpoints'
-      };
-
-      return reply.send({
-        success: true,
-        data: {
-          services: healthResults,
-          timestamp: new Date().toISOString()
-        }
-      });
-    } catch (error) {
-      this.logger.error('Failed to check services health', error);
-      return reply.code(500).send({
-        success: false,
-        error: 'Failed to check services health',
-        message: error instanceof Error ? error.message : String(error)
-      });
-    }
-  }
-
-  /**
-   * 获取代理配置信息
-   */
-  @Get('/proxy/config')
-  async getProxyConfig(request: FastifyRequest, reply: FastifyReply) {
-    try {
-      const config = {
-        proxy: {
-          timeout: parseInt(process.env.PROXY_TIMEOUT || '30000'),
-          retries: parseInt(process.env.PROXY_RETRIES || '3'),
-          enableRequestLogging: process.env.ENABLE_REQUEST_LOGGING === 'true',
-          enableResponseLogging: process.env.ENABLE_RESPONSE_LOGGING === 'true'
-        },
-        services: {
-          tasks: {
-            host: process.env.TASKS_SERVICE_HOST || 'localhost',
-            port: parseInt(process.env.TASKS_SERVICE_PORT || '3001'),
-            protocol: process.env.TASKS_SERVICE_PROTOCOL || 'http',
-            timeout: parseInt(process.env.TASKS_SERVICE_TIMEOUT || '30000'),
-            retries: parseInt(process.env.TASKS_SERVICE_RETRIES || '3')
-          }
-        },
-        authentication: {
-          enabled: true,
-          whitelistPaths: [
-            '/health',
-            '/metrics',
-            '/status',
-            '/docs',
-            '/swagger',
-            '/api/auth/*'
-          ]
-        },
-        environment: process.env.NODE_ENV || 'development',
-        timestamp: new Date().toISOString()
-      };
-
-      return reply.send({
-        success: true,
-        data: config
-      });
-    } catch (error) {
-      this.logger.error('Failed to get proxy config', error);
-      return reply.code(500).send({
-        success: false,
-        error: 'Failed to get proxy config',
+        error: 'Failed to get proxy metrics',
         message: error instanceof Error ? error.message : String(error)
       });
     }

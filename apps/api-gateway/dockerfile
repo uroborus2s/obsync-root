@@ -62,9 +62,5 @@ USER appuser
 # 暴露端口
 EXPOSE 8090
 
-# 🔧 优化健康检查配置
-HEALTHCHECK --interval=30s --timeout=20s --start-period=60s --retries=5 \
-    CMD curl -f --connect-timeout 5 --max-time 15 http://localhost:8090/health/simple || exit 1
-
 # 启动命令
 CMD ["node", "dist/index.js"]

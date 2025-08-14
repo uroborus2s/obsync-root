@@ -4,50 +4,10 @@
  * 包含认证、监控、健康检查等完整功能测试
  */
 
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('Proxy Functionality (直接在stratix.config.ts中配置)', () => {
   describe('Auth Utils', () => {
-    it('should extract token from Authorization header', async () => {
-      const { extractTokenFromRequest } = await import('../utils/authUtils.js');
-
-      const mockRequest = {
-        headers: {
-          authorization: 'Bearer test-token-123'
-        },
-        cookies: {}
-      } as any;
-
-      const token = extractTokenFromRequest(mockRequest);
-      expect(token).toBe('test-token-123');
-    });
-
-    it('should extract token from Cookie', async () => {
-      const { extractTokenFromRequest } = await import('../utils/authUtils.js');
-
-      const mockRequest = {
-        headers: {},
-        cookies: {
-          wps_jwt_token: 'cookie-token-456'
-        }
-      } as any;
-
-      const token = extractTokenFromRequest(mockRequest);
-      expect(token).toBe('cookie-token-456');
-    });
-
-    it('should return null when no token found', async () => {
-      const { extractTokenFromRequest } = await import('../utils/authUtils.js');
-
-      const mockRequest = {
-        headers: {},
-        cookies: {}
-      } as any;
-
-      const token = extractTokenFromRequest(mockRequest);
-      expect(token).toBeNull();
-    });
-
     it('should check whitelisted paths correctly', async () => {
       const { isWhitelistedPath } = await import('../utils/authUtils.js');
 
@@ -59,89 +19,73 @@ describe('Proxy Functionality (直接在stratix.config.ts中配置)', () => {
     });
   });
 
-  describe('Request Headers Rewriter', () => {
-    it('should add user information to headers', async () => {
-      const { createRequestHeadersRewriter } = await import(
-        '../utils/authUtils.js'
-      );
+  describe('JWT Service Token Extraction', () => {
+    it('should extract token from Authorization header via JWTService', async () => {
+      // 模拟JWTService
+      const JWTService = (await import('../services/JWTService.js')).default;
+      const mockOptions = {
+        jwtSecret: 'test-secret',
+        cookieName: 'wps_jwt_token'
+      };
+      const mockLogger = { info: vi.fn(), debug: vi.fn(), error: vi.fn() };
 
-      const rewriter = createRequestHeadersRewriter();
+      const jwtService = new JWTService(mockLogger as any, mockOptions as any);
+
       const mockRequest = {
-        user: {
-          id: 'user123',
-          name: '张三',
-          userType: 'student',
-          userNumber: '2021001',
-          email: 'zhangsan@example.com',
-          collegeName: '计算机学院'
+        headers: {
+          authorization: 'Bearer test-token-123'
+        },
+        cookies: {}
+      } as any;
+
+      const token = jwtService.extractTokenFromRequest(mockRequest);
+      expect(token).toBe('test-token-123');
+    });
+
+    it('should extract token from Cookie via JWTService', async () => {
+      const JWTService = (await import('../services/JWTService.js')).default;
+      const mockOptions = {
+        jwtSecret: 'test-secret',
+        cookieName: 'wps_jwt_token'
+      };
+      const mockLogger = { info: vi.fn(), debug: vi.fn(), error: vi.fn() };
+
+      const jwtService = new JWTService(mockLogger as any, mockOptions as any);
+
+      const mockRequest = {
+        headers: {},
+        cookies: {
+          wps_jwt_token: 'cookie-token-456'
         }
-      };
+      } as any;
 
-      const originalHeaders = {
-        'content-type': 'application/json'
-      };
-
-      const newHeaders = rewriter(mockRequest, originalHeaders);
-
-      expect(newHeaders['x-user-id']).toBe('user123');
-      expect(newHeaders['x-user-name']).toBe(encodeURIComponent('张三'));
-      expect(newHeaders['x-user-type']).toBe('student');
-      expect(newHeaders['x-user-number']).toBe('2021001');
-      expect(newHeaders['x-user-email']).toBe('zhangsan@example.com');
-      expect(newHeaders['x-user-college']).toBe(
-        encodeURIComponent('计算机学院')
-      );
-      expect(newHeaders['x-gateway']).toBe('stratix-gateway');
-      expect(newHeaders['x-gateway-timestamp']).toBeDefined();
-      expect(newHeaders['x-request-id']).toBeDefined();
+      const token = jwtService.extractTokenFromRequest(mockRequest);
+      expect(token).toBe('cookie-token-456');
     });
 
-    it('should preserve original headers', async () => {
-      const { createRequestHeadersRewriter } = await import(
-        '../utils/authUtils.js'
-      );
-
-      const rewriter = createRequestHeadersRewriter();
-      const mockRequest = {};
-
-      const originalHeaders = {
-        'content-type': 'application/json',
-        'user-agent': 'test-agent'
+    it('should return null when no token found via JWTService', async () => {
+      const JWTService = (await import('../services/JWTService.js')).default;
+      const mockOptions = {
+        jwtSecret: 'test-secret',
+        cookieName: 'wps_jwt_token'
       };
+      const mockLogger = { info: vi.fn(), debug: vi.fn(), error: vi.fn() };
 
-      const newHeaders = rewriter(mockRequest, originalHeaders);
+      const jwtService = new JWTService(mockLogger as any, mockOptions as any);
 
-      expect(newHeaders['content-type']).toBe('application/json');
-      expect(newHeaders['user-agent']).toBe('test-agent');
-      expect(newHeaders['x-gateway']).toBe('stratix-gateway');
+      const mockRequest = {
+        headers: {},
+        cookies: {}
+      } as any;
+
+      const token = jwtService.extractTokenFromRequest(mockRequest);
+      expect(token).toBeNull();
     });
   });
 
-  describe('JWT Token Verification', () => {
-    beforeAll(() => {
-      // 设置测试用的JWT密钥
-      process.env.JWT_SECRET = 'test-secret-key';
-    });
+  // 请求头重写功能已移除，因为在实际代理逻辑中未被使用
 
-    it('should return invalid for empty token', async () => {
-      const { verifyJWTToken } = await import('../utils/authUtils.js');
-
-      const result = verifyJWTToken('');
-      expect(result.valid).toBe(false);
-      expect(result.error).toBe('Token is missing');
-    });
-
-    it('should return invalid for malformed token', async () => {
-      const { verifyJWTToken } = await import('../utils/authUtils.js');
-
-      const result = verifyJWTToken('invalid-token');
-      expect(result.valid).toBe(false);
-      expect(result.error).toBe('Malformed token');
-    });
-
-    // 注意：这里需要一个有效的JWT token来测试成功情况
-    // 在实际项目中，你可能需要使用jwt库来生成测试token
-  });
+  // JWT验证功能现在由JWTService处理，相关测试已移至JWTService的测试文件中
 
   describe('Proxy Status Controller', () => {
     it('should return proxy status', async () => {
@@ -370,61 +314,7 @@ describe('Proxy Functionality (直接在stratix.config.ts中配置)', () => {
     });
   });
 
-  describe('Health Check Manager', () => {
-    let healthCheckManager: any;
-
-    beforeEach(async () => {
-      const { HealthCheckManager } = await import('../utils/healthCheck.js');
-      healthCheckManager = new HealthCheckManager();
-    });
-
-    afterEach(() => {
-      healthCheckManager.shutdown();
-    });
-
-    it('should register a service for health checking', () => {
-      const config = {
-        name: 'health-test-service',
-        url: 'http://localhost:3001/health',
-        timeout: 5000,
-        interval: 30000,
-        retries: 3
-      };
-
-      healthCheckManager.registerService(config);
-      const health = healthCheckManager.getServiceHealth('health-test-service');
-
-      expect(health).toBeDefined();
-      expect(health.name).toBe('health-test-service');
-      expect(health.status).toBe('unknown');
-    });
-
-    it('should get all services health', () => {
-      const config1 = {
-        name: 'service1',
-        url: 'http://localhost:3001/health',
-        timeout: 5000,
-        interval: 30000,
-        retries: 3
-      };
-
-      const config2 = {
-        name: 'service2',
-        url: 'http://localhost:3002/health',
-        timeout: 5000,
-        interval: 30000,
-        retries: 3
-      };
-
-      healthCheckManager.registerService(config1);
-      healthCheckManager.registerService(config2);
-
-      const allHealth = healthCheckManager.getAllServicesHealth();
-      expect(allHealth).toHaveLength(2);
-      expect(allHealth.map((h) => h.name)).toContain('service1');
-      expect(allHealth.map((h) => h.name)).toContain('service2');
-    });
-  });
+  // 健康检查功能现在由@fastify/under-pressure统一管理，相关测试已移至集成测试中
 
   describe('Metrics Collection', () => {
     beforeEach(() => {

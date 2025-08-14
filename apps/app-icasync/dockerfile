@@ -30,11 +30,6 @@ WORKDIR /app
 # 安装必要的系统依赖
 RUN apk add --no-cache wget curl
 
-# 设置环境变量
-ENV NODE_ENV=production
-ENV PORT=8090
-ENV HOST=0.0.0.0
-
 # 创建非root用户
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 appuser
@@ -60,11 +55,7 @@ COPY --from=builder --chown=appuser:nodejs /app/dist ./dist
 USER appuser
 
 # 暴露端口
-EXPOSE 8090
-
-# 健康检查
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8090/health || exit 1
+EXPOSE 3000
 
 # 启动命令
 CMD ["node", "dist/index.js"]

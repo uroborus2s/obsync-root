@@ -27,7 +27,7 @@ services:
       NODE_ENV: production
       TZ: Asia/Shanghai
       # 加密配置
-      STRATIX_SENSITIVE_CONFIG: 196004d6817f606f1fdddc365b0613f8.5ce49e5498027df2cbfaf53615dd8906.ASGZPs/d65964f88Y5yPH8rep1BgAn71ODytci9CeO9koBY9/oM0wFlsuTgLsYTohzEv9FIUnA+lYZg6sYywBwAlG3xPF2nX+dA0UI9169fUHU2JdzhYQyBmO8xrydmmWcGEX/8gwHNKR2J+/bRMhdrfpX7mkgy+iL4CSxJRHIKXf+MxKCkoQeCBUFX83/m2RqeE323nEELPv0KzNoMbfOqi4nCe5sronvKq5U2xn1yv3Je7iWju1vT2lkSsuJQc87djq802o0/IV4h4aGm+ZoPf0Gk0qwxdgcZ93o4eAasg554prZiEc+DYdTEDkLI/sK2JK/OBA36WPqhz05ON5D+iCQ/f0Qj5lxVneP864a1/9ARBrP8fnsrdlGShXzYMYxFtnaEKGNMX/AGxn5DdXkdFASmId9EAl9qW
+      STRATIX_SENSITIVE_CONFIG: cd3dbc1f86eaa90f39df24e897d71ff9.541c3c9884b438595b5c1e691ff74cac.pHFEmc+pm/JhHNizRAA9fuObMVELO/tUYU9BPyZRG5JmzQmbqeRaoIhfJwcBfoBGkfo4kFZ0zm8fsY3JfZ2M7U/wueZia6iG8nMwxr54o7CMyHzV5CMSQnZW0Ose/pCBbQnacWlvruXLAwCydmObY92ZIByiQYiWVXvo/rDFdtJW3b3kS60d/ULpYuKXyMYJftgGDLjVf9bWp38KNijh5x5R7zMr8HzBEHmU+hNgCpKneZNjZD5Zi+i3TsRMRVAzos/Idyo7m3IlpJ19hWem5/w73dHFO8j6eNkPkk16Vah4WtaNApMt7Ww/hw2Hh6XBg5Nscw7wKkMtQ6PsrxmB/Cqpv1vMj/+SECjj1HUjTbxVamt5eq1JQC3yiUXnImZHO7s1GcchjD8G61G17wrBYDugTtZUCBWe2DvPbjUFwwz2h6K8nEYG7fVseEc1t3mAf6qx+5P5GFI/Zjh3iFTIqCY6A2AY/dyinUlB/4puI09Cy/6OzvEEpD4oWoj8TTnPEbH8reI9amf7kZ1VsDkN5ulUKp0J002ja1agDdmucB/PqfJi+eRm4FIBAWRbrbNM/OGd3wZw4NXAOp6/PSe83PrrxuWi1FW4IceqyqRsLAyaGPYk01yY7AIerfdd3iCNMILZziS9ZkV5kdQP91ZFIWHenarjAAPlztoC302+i7EmIUUIYhT3MVizyvIgY9k21HBVvZpTajgTSq2CdtTBsDYi06L/jDxvBhJIlvFFqjXt8m7LYA==
     networks:
       obsync-network:
         ipv4_address: 172.20.0.20
@@ -35,7 +35,7 @@ services:
       - app_logs:/app/logs
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8090/health"]
-      interval: 30s
+      interval: 300s
       timeout: 10s
       retries: 3
       start_period: 60s
@@ -51,7 +51,7 @@ services:
       driver: "json-file"
       options:
         max-size: "100m"
-        max-file: "5"
+        max-file: "20"
   # ICA Link 签到服务 - 端口 3002
   # app-icalink:
   #   image: g-rrng9518-docker.pkg.coding.net/obsync/sync/app-icalink:latest
@@ -103,16 +103,10 @@ services:
     container_name: obsync-app-icasync-s1
     restart: unless-stopped
     ports:
-      - "3001:3001"
+      - "3001:3000"
     environment:
       NODE_ENV: production
       TZ: Asia/Shanghai
-      PORT: 3001
-      HOST: 0.0.0.0
-      # 服务发现配置
-      SERVER_ROLE: primary
-      SERVER_ID: server-1
-      CLUSTER_MODE: enabled
       # 加密配置
       STRATIX_SENSITIVE_CONFIG: 6283f1710fdf494a9defc58560ea73c6.93ec2eb8c0d556622ce7d996a22d7af4.nZOuz9zQlGZC/MqjAiWtn0eepIp6PhhMV2Z35usDfOoI+GQqINqBKAGDQ4DxxrzSHHC/Ug5E9+V910dmuQM70dodKlBzY6mNdxDR3l1Xvxhg9Z4sX3hy70xwp4tiDoT2gSTf1q18QwcXaRw1ijSldyfz8yRJrbnuKZksHUWvYtwu91eNcxTJJPqAnUsGBTr8WZYlKSbz90EQP8BaeKidwmHjTA7FbAZDL410PSR97t5IwOmPgtvHOA+xkjvenFjW7YwGPzrvVOUm7dLlU2/Rx7WQo4UyCEMEHg9YWAwtaPE3geKUCj0XsP1kh78hhbH7+GtsS+PEzmpB0fflU0ORqUFZn09RhNAvVU3tunYHAoK5AiNQMZofRtb1tUV8WLsIkW4XZUij0z0NhNNPZas55CrmvIlGEz4s/s2LwfIZwz58v5215upmnjap438NL0bqH0w6Rdye45p49ZY3KM1fW3qYHglDVnL4J+xx3WpQBzhRUqHEijTb46vDWSkkeUHTu2HhH06CfCoBAR7Z+OYfX3q7y7GvpA7qoMEM16zFOiYP4ls0ErCV7KPKj6GPtSkFY9mYjNhagryT67do/oDPO8lYo1TlYPKqO7cqqblmBv0MIr08QeLOD1StuxKfYNeyqOQIhQECMbB90LzqeBBDVNLXsxt9TlJNwXTZCCniHTKQKg==
     networks:
@@ -120,57 +114,16 @@ services:
         ipv4_address: 172.20.0.22
     volumes:
       - app_logs:/app/logs
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    depends_on:
-      api-gateway:
-        condition: service_healthy
     deploy:
       resources:
         limits:
-          cpus: '1.5'
-          memory: 1.5G
+          cpus: '2.0'
+          memory: 4G
         reservations:
-          cpus: '0.3'
-          memory: 256M
+          cpus: '1'
+          memory: 2G
     logging:
       driver: "json-file"
       options:
         max-size: "100m"
-        max-file: "5"
-
-  # Nginx 负载均衡器
-  
-  # # 监控和日志收集服务 (可选)
-  # watchtower:
-  #   image: containrrr/watchtower:latest
-  #   container_name: obsync-watchtower-s1
-  #   restart: unless-stopped
-  #   environment:
-  #     TZ: Asia/Shanghai
-  #     WATCHTOWER_CLEANUP: "true"
-  #     WATCHTOWER_POLL_INTERVAL: 3600
-  #     WATCHTOWER_INCLUDE_STOPPED: "true"
-  #     WATCHTOWER_REVIVE_STOPPED: "false"
-  #   volumes:
-  #     - /var/run/docker.sock:/var/run/docker.sock:ro
-  #   networks:
-  #     obsync-network:
-  #       ipv4_address: 172.20.0.30
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         cpus: '0.5'
-  #         memory: 256M
-  #       reservations:
-  #         cpus: '0.1'
-  #         memory: 64M
-  #   logging:
-  #     driver: "json-file"
-  #     options:
-  #       max-size: "50m"
-  #       max-file: "3"
+        max-file: "20"

@@ -3,7 +3,7 @@
  * 负责与金山WPS开放平台的API交互
  */
 
-import type { Logger } from '@stratix/core';
+import { AwilixContainer, RESOLVER, type Logger } from '@stratix/core';
 
 /**
  * WPS API响应接口
@@ -69,6 +69,16 @@ export interface WPSApiError {
   error_code?: number;
 }
 
+export interface WPSConfig {
+  baseUrl: string;
+  appid: string;
+  appkey: string;
+}
+
+/**
+ * WPS API服务接口
+ */
+
 export interface IWPSApiService {
   /**
    * 使用授权码获取访问令牌
@@ -82,24 +92,26 @@ export interface IWPSApiService {
 }
 
 export default class WPSApiService implements IWPSApiService {
-  private readonly baseUrl: string;
-  private readonly appid: string;
-  private readonly appkey: string;
+  static [RESOLVER] = {
+    injector: (container: AwilixContainer) => {
+      const orgOptions = container.resolve('options');
+      return {
+        options: orgOptions.wps || {}
+      };
+    }
+  };
 
-  constructor(private logger: Logger) {
-    // 从环境变量获取WPS API配置
-    this.baseUrl = process.env.WPS_API_BASE_URL || 'https://openapi.wps.cn';
-    this.appid = process.env.WPS_CLIENT_ID || 'AK20250614WBSGPX';
-    this.appkey =
-      process.env.WPS_CLIENT_SECRET || '8f36473839cc5c5c30bb9a0b5b2167d7';
-
-    if (!this.appid || !this.appkey) {
+  constructor(
+    private logger: Logger,
+    private options: WPSConfig
+  ) {
+    if (!this.options.appid || !this.options.appkey) {
       this.logger.warn('WPS API credentials not configured properly');
     }
 
     this.logger.info('✅ WPSApiService initialized', {
-      baseUrl: this.baseUrl,
-      appid: this.appid ? '***' : 'not set'
+      baseUrl: this.options.baseUrl,
+      appid: this.options.appid ? '***' : 'not set'
     });
   }
 
@@ -114,12 +126,12 @@ export default class WPSApiService implements IWPSApiService {
 
       // 构建GET请求的URL，参数放在query中
       const params = new URLSearchParams({
-        appid: this.appid,
-        appkey: this.appkey,
+        appid: this.options.appid,
+        appkey: this.options.appkey,
         code: code
       });
 
-      const url = `${this.baseUrl}/oauthapi/v2/token?${params.toString()}`;
+      const url = `${this.options.baseUrl}/oauthapi/v2/token?${params.toString()}`;
 
       const response = await fetch(url, {
         method: 'GET',
@@ -182,10 +194,10 @@ export default class WPSApiService implements IWPSApiService {
       // 构建GET请求的URL，参数放在query中
       const params = new URLSearchParams({
         access_token: accessToken,
-        appid: this.appid
+        appid: this.options.appid
       });
 
-      const url = `${this.baseUrl}/oauthapi/v3/user?${params.toString()}`;
+      const url = `${this.options.baseUrl}/oauthapi/v3/user?${params.toString()}`;
 
       const response = await fetch(url, {
         method: 'GET',

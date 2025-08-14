@@ -8,7 +8,11 @@ import { MetadataManager } from '../decorators/metadata.js';
 import { getLogger } from '../logger/index.js';
 import { registerControllerRoutes } from '../plugin/controller-registration.js';
 import { ConventionBasedLifecycleManager } from '../plugin/lifecycle-manager.js';
-import { ApplicationErrorHandler, ApplicationErrorType, safeExecute } from './application-error-handler.js';
+import {
+  ApplicationErrorHandler,
+  ApplicationErrorType,
+  safeExecute
+} from './application-error-handler.js';
 
 /**
  * 应用级模块处理结果
@@ -173,7 +177,10 @@ export async function discoverAndProcessApplicationModules(
       const constructor = instance.constructor as new (...args: any[]) => any;
       result.statistics.classModules++;
       result.statistics.totalModules++;
-
+      if (!constructor) {
+        result.statistics.skippedModules++;
+        continue;
+      }
       // 检查装饰器元数据
       const isController = MetadataManager.isController(
         constructor || instance

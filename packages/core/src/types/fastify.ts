@@ -16,20 +16,14 @@ declare module 'fastify' {
   }
 
   interface FastifyRequest {
-    /** 请求上下文 */
-    context: Record<string, any>;
-
     /** 请求ID */
     requestId: string;
-
-    /** 请求开始时间 */
-    startTime: number;
 
     /**
      * DI 容器
      * @returns Awilix 容器实例
      */
-    diContainer: AwilixContainer;
+    diScope: AwilixContainer;
   }
 
   interface FastifyReply {
@@ -37,28 +31,13 @@ declare module 'fastify' {
      * DI 容器
      * @returns Awilix 容器实例
      */
-    diContainer: AwilixContainer;
+    diScope: AwilixContainer;
 
     /**
      * 获取响应时间
      * @returns 响应时间（毫秒）
      */
     getResponseTime(): number;
-
-    /**
-     * 设置请求上下文
-     * @param key 上下文键
-     * @param value 上下文值
-     * @returns FastifyReply 实例（支持链式调用）
-     */
-    setContext(key: string, value: any): this;
-
-    /**
-     * 获取请求上下文
-     * @param key 上下文键，如果不提供则返回整个上下文对象
-     * @returns 上下文值或整个上下文对象
-     */
-    getContext(key?: string): any;
   }
 }
 

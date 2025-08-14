@@ -1,37 +1,38 @@
 /**
  * @stratix/tasks - 工作流任务管理插件
  *
- * 基于 Stratix 框架的企业级工作流任务管理系统
- * 支持流程定义与实例分离、动态并行任务生成、中断恢复机制
+ * 基于 Stratix 框架的函数式编程模式重构的工作流任务管理系统
+ * 支持工作流定义与实例分离、动态节点生成、中断恢复机制
+ * 版本: v3.0.0-refactored
  */
 
 import type { FastifyInstance, FastifyPluginOptions } from '@stratix/core';
 import { asFunction, Lifetime, withRegisterAutoDI } from '@stratix/core';
-import { deepMerge } from '@stratix/utils/data';
 import { isDevelopment } from '@stratix/utils/environment';
 import { registerTaskExecutor } from './registerTask.js';
-import type { AutoRecoveryConfig } from './services/AutoRecoveryService.js';
-import type { ConcurrencyConfig } from './services/ConcurrencyControlManager.js';
-import { LockRenewalConfig } from './services/WorkflowLockManager.js';
-import type { DistributedSchedulingConfig } from './types/distributed.js';
+
 // 导出核心类型
+export * from './interfaces/index.js';
 export * from './types/index.js';
 
-// 导出服务类
-export { default as WorkflowDefinitionService } from './services/WorkflowDefinitionService.js';
-export { default as WorkflowEngineService } from './services/WorkflowEngineService.js';
+// 导出新架构的服务类
+export { default as ExecutionLockService } from './services/ExecutionLockService.js';
+export { default as NodeExecutionService } from './services/NodeExecutionService.js';
+export { default as WorkflowExecutionService } from './services/WorkflowExecutionService.js';
 export { default as WorkflowInstanceService } from './services/WorkflowInstanceService.js';
-export { WorkflowMaintenanceService } from './services/WorkflowMaintenanceService.js';
-export { default as WorkflowMonitoringService } from './services/WorkflowMonitoringService.js';
-export { default as WorkflowTaskNodeService } from './services/WorkflowTaskNodeService.js';
-export { default as WorkflowValidationService } from './services/WorkflowValidationService.js';
 
-// 导出分布式和恢复服务
-export { defaultAutoRecoveryConfig } from './services/AutoRecoveryService.js';
-export { default as DistributedScheduler } from './services/DistributedScheduler.js';
+// 导出仓储类
+export { default as ExecutionLockRepository } from './repositories/ExecutionLockRepository.js';
+export { default as ExecutionLogRepository } from './repositories/ExecutionLogRepository.js';
+export { default as NodeInstanceRepository } from './repositories/NodeInstanceRepository.js';
+export { default as WorkflowDefinitionRepository } from './repositories/WorkflowDefinitionRepository.js';
+export { default as WorkflowInstanceRepository } from './repositories/WorkflowInstanceRepository.js';
 
-// 导出插件注册函数
-export { getExecutor, registerTaskExecutor } from './registerTask.js';
+// 导出适配器类
+export { default as TasksWorkflowAdapter } from './adapters/TasksWorkflowAdapter.js';
+
+// 导出调度器服务
+export { default as SchedulerService } from './services/SchedulerService.js';
 
 /**
  * 插件配置接口
@@ -59,30 +60,6 @@ export interface TasksPluginOptions extends FastifyPluginOptions {
       maxRetries?: number;
       /** 重试延迟（毫秒） */
       retryDelay?: number;
-      /** 是否启用详细日志 */
-      enableVerboseLogging?: boolean;
-      /** 执行器标签 */
-      tags?: string[];
-      /** 执行器版本 */
-      version?: string;
-      /** 健康检查配置 */
-      healthCheck?: {
-        enabled?: boolean;
-        interval?: number;
-        timeout?: number;
-      };
-      /** 监控配置 */
-      monitoring?: {
-        enabled?: boolean;
-        metricsCollection?: boolean;
-        performanceTracking?: boolean;
-      };
-      /** 错误处理配置 */
-      errorHandling?: {
-        strategy?: 'retry' | 'fail' | 'ignore';
-        logErrors?: boolean;
-        notifyOnFailure?: boolean;
-      };
     };
   };
 
@@ -95,9 +72,6 @@ export interface TasksPluginOptions extends FastifyPluginOptions {
     /** 最大并发任务数 */
     maxConcurrency?: number;
   };
-
-  /** 并发控制配置 */
-  concurrency?: Partial<ConcurrencyConfig>;
 
   /** 监控配置 */
   monitoring?: {
@@ -119,16 +93,25 @@ export interface TasksPluginOptions extends FastifyPluginOptions {
     docs?: boolean;
   };
 
-  /** 分布式配置 */
-  distributed?: DistributedSchedulingConfig & {
-    /** 是否启用分布式模式 */
-    enabled?: boolean;
-    /** 锁管理器配置 */
-    lockManager?: LockRenewalConfig;
+  /** 执行锁配置 */
+  executionLock?: {
+    /** 默认锁超时时间（毫秒） */
+    defaultTimeout?: number;
+    /** 锁续期间隔（毫秒） */
+    renewalInterval?: number;
+    /** 过期锁清理间隔（毫秒） */
+    cleanupInterval?: number;
   };
 
-  /** 恢复配置 */
-  recovery?: Partial<AutoRecoveryConfig>;
+  /** 中断恢复配置 */
+  recovery?: {
+    /** 是否启用自动恢复 */
+    enabled?: boolean;
+    /** 恢复检查间隔（毫秒） */
+    checkInterval?: number;
+    /** 最大恢复尝试次数 */
+    maxAttempts?: number;
+  };
 }
 
 /**
@@ -174,9 +157,11 @@ export interface TasksPluginOptions extends FastifyPluginOptions {
  */
 async function tasks(
   fastify: FastifyInstance,
-  _options: TasksPluginOptions
+  options: TasksPluginOptions
 ): Promise<void> {
   fastify.log.info('🚀 @stratix/tasks plugin initializing...');
+
+  // 处理配置
 
   try {
     fastify.diContainer.register({
@@ -186,6 +171,7 @@ async function tasks(
     });
     // 将注册函数添加到 fastify 实例上，供其他插件使用
     fastify.decorate('registerTaskExecutor', registerTaskExecutor);
+    // API路由注册已移除 - 由具体应用层负责路由注册
 
     fastify.log.info('✅ @stratix/tasks plugin initialized successfully');
   } catch (error) {
@@ -347,11 +333,14 @@ function processPluginParameters<T = TasksPluginOptions>(options: T): T {
     }
   };
 
-  // 使用 deepMerge 进行深度合并
+  // 简单的配置合并
   // 配置优先级：用户配置 > 默认配置
-  const processedOptions = deepMerge(defaultConfig, options);
+  const processedOptions = {
+    ...defaultConfig,
+    ...options
+  };
 
-  return processedOptions;
+  return processedOptions as T;
 }
 
 /**
@@ -432,11 +421,3 @@ export const pluginMetadata = {
   license: 'MIT',
   dependencies: ['@stratix/core', '@stratix/database', '@stratix/utils']
 };
-
-/**
- * 导出默认执行器参数配置
- * 供其他模块和执行器使用
- */
-export { DEFAULT_EXECUTOR_PARAMETERS };
-
-export type { IStratixTasksAdapter } from './types/workflow.js';

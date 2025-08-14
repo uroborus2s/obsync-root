@@ -2,7 +2,7 @@
 // 负责在应用启动时自动扫描和加载应用级的模块到root container
 
 import { isDevelopment } from '@stratix/utils/environment';
-import { InjectionMode, type AwilixContainer } from 'awilix';
+import { asValue, InjectionMode, type AwilixContainer } from 'awilix';
 import type { FastifyInstance } from 'fastify';
 import { resolve } from 'node:path';
 import { getLogger } from '../logger/index.js';
@@ -36,6 +36,7 @@ export interface ApplicationAutoDIConfig {
   };
   /** 是否启用调试模式 */
   debug?: boolean;
+  options?: Record<string, unknown>;
 }
 
 /**
@@ -108,6 +109,8 @@ export async function performApplicationAutoDI(
       registeredModules: []
     };
   }
+
+  rootContainer.register('options', asValue(finalConfig.options || {}));
 
   const resolvedAppRootPath = resolveAppRootPath(
     finalConfig.appRootPath || appRootPath

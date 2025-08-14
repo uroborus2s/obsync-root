@@ -6,14 +6,33 @@
 
 import type { Logger } from '@stratix/core';
 import type { DatabaseAPI, DatabaseResult } from '@stratix/database';
-import type { PaginatedResult, QueryOptions } from '../types/common.js';
+import type { WorkflowInstanceStatus } from '../types/business.js';
 import type {
   NewWorkflowInstanceTable,
   WorkflowInstanceTable,
   WorkflowInstanceTableUpdate
 } from '../types/database.js';
-import type { WorkflowStatus } from '../types/workflow.js';
 import { BaseTasksRepository } from './base/BaseTasksRepository.js';
+
+// 临时类型定义，用于兼容性
+interface QueryOptions {
+  limit?: number;
+  offset?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+interface PaginatedResult<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
+type WorkflowStatus = WorkflowInstanceStatus;
 
 /**
  * 工作流实例查询选项
@@ -369,8 +388,8 @@ export default class WorkflowInstanceRepository
       updateData.started_at = new Date();
     } else if (status === 'completed' && !additionalData?.completed_at) {
       updateData.completed_at = new Date();
-    } else if (status === 'paused' && !additionalData?.paused_at) {
-      updateData.paused_at = new Date();
+    } else if (status === 'interrupted' && !additionalData?.interrupted_at) {
+      updateData.interrupted_at = new Date();
     }
 
     return await this.updateNullable(id, updateData);
@@ -494,6 +513,7 @@ export default class WorkflowInstanceRepository
         name: data.name,
         external_id: data.external_id,
         status: data.status,
+        instance_type: data.instance_type || 'default',
         input_data: data.input_data ? JSON.stringify(data.input_data) : null,
         output_data: data.output_data ? JSON.stringify(data.output_data) : null,
         context_data: data.context_data
@@ -501,31 +521,19 @@ export default class WorkflowInstanceRepository
           : '{}',
         started_at: data.started_at,
         completed_at: data.completed_at,
-        paused_at: data.paused_at,
+        interrupted_at: data.interrupted_at,
         error_message: data.error_message,
         error_details: data.error_details
           ? JSON.stringify(data.error_details)
           : null,
-        retry_count: data.retry_count,
-        max_retries: data.max_retries,
-        priority: data.priority,
-        scheduled_at: data.scheduled_at,
+        retry_count: data.retry_count || 0,
+        max_retries: data.max_retries || 3,
         current_node_id: data.current_node_id,
-        completed_nodes: data.completed_nodes
-          ? JSON.stringify(data.completed_nodes)
+        checkpoint_data: data.checkpoint_data
+          ? JSON.stringify(data.checkpoint_data)
           : null,
-        failed_nodes: data.failed_nodes
-          ? JSON.stringify(data.failed_nodes)
-          : null,
-        lock_owner: data.lock_owner,
-        lock_acquired_at: data.lock_acquired_at,
-        last_heartbeat: data.last_heartbeat,
         business_key: data.business_key,
         mutex_key: data.mutex_key,
-        assigned_engine_id: data.assigned_engine_id,
-        assignment_strategy: data.assignment_strategy,
-        created_at: now,
-        updated_at: now,
         created_by: data.created_by
       };
 
@@ -538,30 +546,21 @@ export default class WorkflowInstanceRepository
             name: insertData.name,
             external_id: insertData.external_id,
             status: insertData.status,
+            instance_type: insertData.instance_type,
             input_data: insertData.input_data,
             output_data: insertData.output_data,
             context_data: insertData.context_data,
+            business_key: insertData.business_key,
+            mutex_key: insertData.mutex_key,
             started_at: insertData.started_at,
             completed_at: insertData.completed_at,
-            paused_at: insertData.paused_at,
+            interrupted_at: insertData.interrupted_at,
             error_message: insertData.error_message,
             error_details: insertData.error_details,
             retry_count: insertData.retry_count,
             max_retries: insertData.max_retries,
-            priority: insertData.priority,
-            scheduled_at: insertData.scheduled_at,
             current_node_id: insertData.current_node_id,
-            completed_nodes: insertData.completed_nodes,
-            failed_nodes: insertData.failed_nodes,
-            lock_owner: insertData.lock_owner,
-            lock_acquired_at: insertData.lock_acquired_at,
-            last_heartbeat: insertData.last_heartbeat,
-            business_key: insertData.business_key,
-            mutex_key: insertData.mutex_key,
-            assigned_engine_id: insertData.assigned_engine_id,
-            assignment_strategy: insertData.assignment_strategy,
-            created_at: insertData.created_at,
-            updated_at: insertData.updated_at,
+            checkpoint_data: insertData.checkpoint_data,
             created_by: insertData.created_by
           })
           .executeTakeFirst();
@@ -717,10 +716,10 @@ export default class WorkflowInstanceRepository
         const hasPrev = page > 1;
 
         const paginatedResult: PaginatedResult<WorkflowInstanceTable> = {
-          data: data as WorkflowInstanceTable[],
+          items: data as WorkflowInstanceTable[],
           total,
           page,
-          limit: pageSize,
+          pageSize,
           totalPages,
           hasNext,
           hasPrev

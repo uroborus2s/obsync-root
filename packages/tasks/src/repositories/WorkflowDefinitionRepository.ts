@@ -1,124 +1,24 @@
 /**
- * 工作流定义仓储
+ * 工作流定义仓储实现
  *
- * 提供工作流定义的数据访问方法
+ * 继承BaseRepository，实现工作流定义的数据访问
+ * 版本: v3.0.0-refactored
  */
 
 import type { Logger } from '@stratix/core';
-import type { DatabaseAPI, DatabaseResult } from '@stratix/database';
-import type { QueryOptions } from '../types/common.js';
+import type {
+  DatabaseAPI,
+  DatabaseResult,
+  PaginationOptions
+} from '@stratix/database';
+import { DatabaseErrorHandler, QueryError } from '@stratix/database';
+import type { IWorkflowDefinitionRepository } from '../interfaces/repositories.js';
 import type {
   NewWorkflowDefinitionTable,
   WorkflowDefinitionTable,
   WorkflowDefinitionTableUpdate
 } from '../types/database.js';
 import { BaseTasksRepository } from './base/BaseTasksRepository.js';
-
-/**
- * 工作流定义仓储接口
- */
-export interface IWorkflowDefinitionRepository {
-  /**
-   * 根据名称和版本查找工作流定义
-   * @param name 工作流名称
-   * @param version 版本号
-   * @returns 工作流定义或null
-   */
-  findByNameAndVersion(
-    name: string,
-    version: string
-  ): Promise<DatabaseResult<WorkflowDefinitionTable | null>>;
-
-  /**
-   * 根据名称查找活跃版本的工作流定义
-   * @param name 工作流名称
-   * @returns 工作流定义或null
-   */
-  findActiveByName(
-    name: string
-  ): Promise<DatabaseResult<WorkflowDefinitionTable | null>>;
-
-  /**
-   * 根据名称查找所有版本的工作流定义
-   * @param name 工作流名称
-   * @param options 查询选项
-   * @returns 工作流定义列表
-   */
-  findAllVersionsByName(
-    name: string,
-    options?: QueryOptions
-  ): Promise<DatabaseResult<WorkflowDefinitionTable[]>>;
-
-  /**
-   * 根据分类查找工作流定义
-   * @param category 分类
-   * @param options 查询选项
-   * @returns 工作流定义列表
-   */
-  findByCategory(
-    category: string,
-    options?: QueryOptions
-  ): Promise<DatabaseResult<WorkflowDefinitionTable[]>>;
-
-  /**
-   * 根据标签查找工作流定义
-   * @param tags 标签列表
-   * @param options 查询选项
-   * @returns 工作流定义列表
-   */
-  findByTags(
-    tags: string[],
-    options?: QueryOptions
-  ): Promise<DatabaseResult<WorkflowDefinitionTable[]>>;
-
-  /**
-   * 根据状态查找工作流定义
-   * @param status 状态
-   * @param options 查询选项
-   * @returns 工作流定义列表
-   */
-  findByStatus(
-    status: 'draft' | 'active' | 'deprecated' | 'archived',
-    options?: QueryOptions
-  ): Promise<DatabaseResult<WorkflowDefinitionTable[]>>;
-
-  /**
-   * 搜索工作流定义
-   * @param keyword 关键词
-   * @param options 查询选项
-   * @returns 工作流定义列表
-   */
-  search(
-    keyword: string,
-    options?: QueryOptions
-  ): Promise<DatabaseResult<WorkflowDefinitionTable[]>>;
-
-  /**
-   * 设置活跃版本
-   * @param name 工作流名称
-   * @param version 版本号
-   * @returns 是否成功
-   */
-  setActiveVersion(
-    name: string,
-    version: string
-  ): Promise<DatabaseResult<boolean>>;
-
-  /**
-   * 获取工作流统计信息
-   * @returns 统计信息
-   */
-  getStatistics(): Promise<
-    DatabaseResult<{
-      totalCount: number;
-      activeCount: number;
-      draftCount: number;
-      deprecatedCount: number;
-      archivedCount: number;
-      categoryDistribution: Record<string, number>;
-    }>
-  >;
-}
 
 /**
  * 工作流定义仓储实现
@@ -135,164 +35,233 @@ export default class WorkflowDefinitionRepository
   protected readonly tableName = 'workflow_definitions' as const;
 
   constructor(
-    protected readonly databaseApi: DatabaseAPI,
-    protected readonly logger: Logger
+    protected databaseApi: DatabaseAPI,
+    protected logger: Logger
   ) {
     super();
   }
 
+  /**
+   * 实现接口要求的findById方法 - 使用组合模式避免类型冲突
+   */
+  async findById(
+    id: number
+  ): Promise<DatabaseResult<WorkflowDefinitionTable | null>> {
+    return await DatabaseErrorHandler.execute(async () => {
+      const result = await super.findById(id);
+      if (!result.success) {
+        throw QueryError.create(`Failed to find workflow definition: ${id}`);
+      }
+
+      return this.convertOptionToNull(result.data);
+    }, 'findById');
+  }
+
+  /**
+   * 类型转换工具方法：Option<T> -> T | null
+   */
+  private convertOptionToNull<T>(optionData: any): T | null {
+    if (optionData && typeof optionData === 'object' && 'some' in optionData) {
+      return optionData.some ? optionData.value : null;
+    }
+    return optionData as T | null;
+  }
+
+  /**
+   * 根据名称和版本查找工作流定义
+   */
   async findByNameAndVersion(
     name: string,
     version: string
-  ): Promise<DatabaseResult<WorkflowDefinitionTable | null>> {
-    return await this.findOneNullable((qb: any) =>
-      qb.where('name', '=', name).where('version', '=', version)
-    );
+  ): Promise<DatabaseResult<WorkflowDefinitionTable>> {
+    return await DatabaseErrorHandler.execute(async () => {
+      const whereExpression = (qb: any) =>
+        qb.where('name', '=', name).where('version', '=', version);
+
+      const result = await this.findOneNullable(whereExpression);
+      if (!result.success || !result.data) {
+        throw QueryError.create(
+          `Workflow definition not found: ${name}@${version}`
+        );
+      }
+
+      return result.data;
+    }, 'findByNameAndVersion');
   }
 
+  /**
+   * 查找活跃的工作流定义
+   */
   async findActiveByName(
     name: string
-  ): Promise<DatabaseResult<WorkflowDefinitionTable | null>> {
-    return await this.findOneNullable((qb: any) =>
-      qb.where('name', '=', name).where('is_active', '=', true)
-    );
-  }
+  ): Promise<DatabaseResult<WorkflowDefinitionTable>> {
+    return await DatabaseErrorHandler.execute(async () => {
+      const whereExpression = (qb: any) =>
+        qb
+          .where('name', '=', name)
+          .where('is_active', '=', true)
+          .where('status', '=', 'active');
 
-  async findAllVersionsByName(
-    name: string,
-    options?: QueryOptions
-  ): Promise<DatabaseResult<WorkflowDefinitionTable[]>> {
-    return await this.findMany((qb: any) => qb.where('name', '=', name), {
-      orderBy: {
-        field: options?.sort?.field || 'version',
-        direction: options?.sort?.order || 'desc'
+      const result = await this.findOneNullable(whereExpression);
+      if (!result.success || !result.data) {
+        throw QueryError.create(
+          `Active workflow definition not found: ${name}`
+        );
       }
-    });
+
+      return result.data;
+    }, 'findActiveByName');
   }
 
-  async findByCategory(
-    category: string,
-    _options?: QueryOptions
+  /**
+   * 实现接口要求的findMany方法 - 委托给业务方法避免类型冲突
+   */
+  async findMany(
+    filters?: {
+      status?: string;
+      category?: string;
+      isActive?: boolean;
+    },
+    pagination?: PaginationOptions
   ): Promise<DatabaseResult<WorkflowDefinitionTable[]>> {
-    return await this.findMany((qb: any) =>
-      qb.where('category', '=', category)
-    );
+    return this.findManyWithFilters(filters, pagination);
   }
 
-  async findByTags(
-    tags: string[],
-    _options?: QueryOptions
+  /**
+   * 查询工作流定义列表
+   */
+  async findManyWithFilters(
+    filters?: {
+      status?: string;
+      category?: string;
+      isActive?: boolean;
+    },
+    pagination?: PaginationOptions
   ): Promise<DatabaseResult<WorkflowDefinitionTable[]>> {
-    return await this.findMany((qb: any) => {
-      tags.forEach((tag) => {
-        qb = qb.whereRaw('JSON_CONTAINS(tags, ?)', [`"${tag}"`]);
-      });
-      return qb;
-    });
-  }
-
-  async findByStatus(
-    status: 'draft' | 'active' | 'deprecated' | 'archived',
-    _options?: QueryOptions
-  ): Promise<DatabaseResult<WorkflowDefinitionTable[]>> {
-    return await this.findMany(this.queryByStatus(status));
-  }
-
-  async search(
-    keyword: string,
-    _options?: QueryOptions
-  ): Promise<DatabaseResult<WorkflowDefinitionTable[]>> {
-    return await this.findMany((qb: any) =>
-      qb.where(function (this: any) {
-        this.where('name', 'like', `%${keyword}%`)
-          .orWhere('description', 'like', `%${keyword}%`)
-          .orWhereRaw('JSON_CONTAINS(tags, ?)', [`"${keyword}"`]);
-      })
-    );
-  }
-
-  async setActiveVersion(
-    name: string,
-    version: string
-  ): Promise<DatabaseResult<boolean>> {
-    try {
-      // 将所有同名工作流设置为非活跃
-      await this.updateMany((qb: any) => qb.where('name', '=', name), {
-        is_active: false,
-        updated_at: new Date()
-      } as WorkflowDefinitionTableUpdate);
-
-      // 设置指定版本为活跃
-      const updateResult = await this.updateMany(
-        (qb: any) => qb.where('name', '=', name).where('version', '=', version),
-        {
-          is_active: true,
-          status: 'active',
-          updated_at: new Date()
-        } as WorkflowDefinitionTableUpdate
-      );
-
-      return {
-        success: true,
-        data: updateResult.success && updateResult.data > 0
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error as any
-      };
-    }
-  }
-
-  async getStatistics(): Promise<
-    DatabaseResult<{
-      totalCount: number;
-      activeCount: number;
-      draftCount: number;
-      deprecatedCount: number;
-      archivedCount: number;
-      categoryDistribution: Record<string, number>;
-    }>
-  > {
-    try {
-      // 获取总数
-      const totalCountResult = await this.count();
-      const totalCount = totalCountResult.success ? totalCountResult.data : 0;
-
-      // 简化统计实现
-      const activeCountResult = await this.count((qb: any) =>
-        qb.where('status', '=', 'active')
-      );
-      const draftCountResult = await this.count((qb: any) =>
-        qb.where('status', '=', 'draft')
-      );
-      const deprecatedCountResult = await this.count((qb: any) =>
-        qb.where('status', '=', 'deprecated')
-      );
-      const archivedCountResult = await this.count((qb: any) =>
-        qb.where('status', '=', 'archived')
-      );
-
-      return {
-        success: true,
-        data: {
-          totalCount,
-          activeCount: activeCountResult.success ? activeCountResult.data : 0,
-          draftCount: draftCountResult.success ? draftCountResult.data : 0,
-          deprecatedCount: deprecatedCountResult.success
-            ? deprecatedCountResult.data
-            : 0,
-          archivedCount: archivedCountResult.success
-            ? archivedCountResult.data
-            : 0,
-          categoryDistribution: {} // 简化实现，后续可以扩展
+    return await DatabaseErrorHandler.execute(async () => {
+      const whereExpression = (qb: any) => {
+        if (filters?.status) {
+          qb = qb.where('status', '=', filters.status);
         }
+        if (filters?.category) {
+          qb = qb.where('category', '=', filters.category);
+        }
+        if (filters?.isActive !== undefined) {
+          qb = qb.where('is_active', '=', filters.isActive);
+        }
+        return qb;
       };
-    } catch (error) {
-      return {
-        success: false,
-        error: error as any
+
+      const options = {
+        orderBy: [{ field: 'created_at', direction: 'desc' as const }],
+        ...(pagination && {
+          limit: pagination.pageSize,
+          offset: (pagination.page - 1) * pagination.pageSize
+        })
       };
-    }
+
+      const result = await super.findMany(whereExpression, options);
+      if (!result.success) {
+        throw QueryError.create('Failed to find workflow definitions');
+      }
+
+      return result.data;
+    }, 'findMany');
+  }
+
+  /**
+   * 创建工作流定义
+   */
+  async create(
+    definition: NewWorkflowDefinitionTable
+  ): Promise<DatabaseResult<WorkflowDefinitionTable>> {
+    return await DatabaseErrorHandler.execute(async () => {
+      // 检查名称和版本是否已存在
+      const existingResult = await this.findByNameAndVersion(
+        definition.name,
+        definition.version
+      );
+      if (existingResult.success) {
+        throw QueryError.create(
+          `Workflow definition already exists: ${definition.name}@${definition.version}`
+        );
+      }
+
+      // 如果设置为活跃版本，需要先将同名的其他版本设置为非活跃
+      if (definition.is_active) {
+        const whereExpression = (qb: any) =>
+          qb.where('name', '=', definition.name).where('is_active', '=', true);
+
+        await this.updateMany(whereExpression, { is_active: false });
+      }
+
+      const result = await super.create(definition);
+      if (!result.success) {
+        throw QueryError.create('Failed to create workflow definition');
+      }
+
+      return result.data;
+    }, 'create');
+  }
+
+  /**
+   * 实现接口要求的update方法 - 委托给业务方法避免类型冲突
+   */
+  async update(
+    id: number,
+    updates: WorkflowDefinitionTableUpdate
+  ): Promise<DatabaseResult<WorkflowDefinitionTable | null>> {
+    return this.updateWorkflowDefinition(id, updates);
+  }
+
+  /**
+   * 更新工作流定义
+   */
+  async updateWorkflowDefinition(
+    id: number,
+    updates: WorkflowDefinitionTableUpdate
+  ): Promise<DatabaseResult<WorkflowDefinitionTable | null>> {
+    return await DatabaseErrorHandler.execute(async () => {
+      // 如果设置为活跃版本，需要先将同名的其他版本设置为非活跃
+      if (updates.is_active) {
+        const current = await this.findById(id);
+        if (current.success && current.data) {
+          const currentData = current.data;
+          const whereExpression = (qb: any) =>
+            qb
+              .where('name', '=', currentData.name)
+              .where('is_active', '=', true)
+              .where('id', '!=', id);
+
+          await this.updateMany(whereExpression, { is_active: false });
+        }
+      }
+
+      const updateData = {
+        ...updates,
+        updated_at: new Date()
+      };
+
+      const result = await super.update(id, updateData);
+      if (!result.success) {
+        throw QueryError.create(`Failed to update workflow definition: ${id}`);
+      }
+
+      return this.convertOptionToNull(result.data);
+    }, 'update');
+  }
+
+  /**
+   * 删除工作流定义
+   */
+  async delete(id: number): Promise<DatabaseResult<boolean>> {
+    return await DatabaseErrorHandler.execute(async () => {
+      const result = await super.delete(id);
+      if (!result.success) {
+        throw QueryError.create(`Failed to delete workflow definition: ${id}`);
+      }
+
+      return result.data;
+    }, 'delete');
   }
 }
