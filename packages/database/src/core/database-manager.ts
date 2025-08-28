@@ -1,7 +1,7 @@
 // @stratix/database 增强数据库管理器
 // 基于新的双层生命周期架构和简化的5个核心生命周期阶段
 
-import { RESOLVER } from '@stratix/core';
+import { Logger, RESOLVER } from '@stratix/core';
 import { isDevelopment } from '@stratix/utils/environment';
 import {
   eitherLeft,
@@ -78,7 +78,8 @@ export default class DatabaseManager {
    */
   constructor(
     private config: DatabaseConfig,
-    private connectionFactory: ConnectionFactory
+    private connectionFactory: ConnectionFactory,
+    private logger: Logger
   ) {
     this.debugEnabled = isDevelopment();
 
@@ -111,7 +112,7 @@ export default class DatabaseManager {
         message,
         ...context
       };
-      console.log(`🔧 ${JSON.stringify(logEntry)}`);
+      this.logger.info(`🔧 ${JSON.stringify(logEntry)}`);
     }
   }
 
@@ -149,7 +150,7 @@ export default class DatabaseManager {
         : undefined,
       ...context
     };
-    console.error(`❌ ${JSON.stringify(logEntry)}`);
+    this.logger.error(`❌ ${JSON.stringify(logEntry)}`);
   }
 
   /**
@@ -170,7 +171,7 @@ export default class DatabaseManager {
         duration: `${duration}ms`,
         ...context
       };
-      console.log(`⚡ ${JSON.stringify(logEntry)}`);
+      this.logger.info(`⚡ ${JSON.stringify(logEntry)}`);
     }
   }
 
@@ -201,7 +202,7 @@ export default class DatabaseManager {
    */
   async validateEnvironment(): Promise<void> {
     if (this.debugEnabled) {
-      console.log(
+      this.logger.info(
         '🔍 EnhancedDatabaseManager: Starting environment validation...'
       );
     }
@@ -220,13 +221,13 @@ export default class DatabaseManager {
       await this.checkSystemResources();
 
       if (this.debugEnabled) {
-        console.log(
+        this.logger.info(
           '✅ EnhancedDatabaseManager: Environment validation completed'
         );
       }
     } catch (error) {
       const errorMessage = `Database environment validation failed: ${error instanceof Error ? error.message : String(error)}`;
-      console.error('❌ EnhancedDatabaseManager:', errorMessage);
+      this.logger.error('❌ EnhancedDatabaseManager:', errorMessage);
       throw new Error(errorMessage);
     }
   }
@@ -244,14 +245,14 @@ export default class DatabaseManager {
       this.log('Connection factory initialized');
     } catch (error) {
       const errorMessage = `Connection factory initialization failed: ${error instanceof Error ? error.message : String(error)}`;
-      console.error('❌ EnhancedDatabaseManager:', errorMessage);
+      this.logger.error('❌ EnhancedDatabaseManager:', errorMessage);
       throw new Error(errorMessage);
     }
   }
 
   async initializeConnection(): Promise<void> {
     if (this.debugEnabled) {
-      console.log(
+      this.logger.info(
         '🚀 EnhancedDatabaseManager: Starting connection pre-creation...'
       );
     }
@@ -275,7 +276,7 @@ export default class DatabaseManager {
       this.preCreationStatus.connectionCount = this.connections.size;
 
       if (this.debugEnabled) {
-        console.log(
+        this.logger.info(
           `✅ EnhancedDatabaseManager: ${this.connections.size} connections pre-created in ${this.preCreationStatus.duration}ms`
         );
       }
@@ -286,7 +287,7 @@ export default class DatabaseManager {
       this.preCreationStatus.errors.push(
         error instanceof Error ? error.message : String(error)
       );
-      console.error(
+      this.logger.error(
         '❌ EnhancedDatabaseManager: Connection pre-creation failed:',
         error
       );
@@ -300,7 +301,7 @@ export default class DatabaseManager {
    */
   async onClose(): Promise<void> {
     if (this.debugEnabled) {
-      console.log(
+      this.logger.info(
         '🔄 EnhancedDatabaseManager: Starting graceful connection shutdown...'
       );
     }
@@ -315,11 +316,11 @@ export default class DatabaseManager {
           try {
             await connection.destroy();
             if (this.debugEnabled) {
-              console.log(`✅ Connection ${name} closed successfully`);
+              this.logger.info(`✅ Connection ${name} closed successfully`);
             }
             return { name, success: true };
           } catch (error) {
-            console.error(`❌ Failed to close connection ${name}:`, error);
+            this.logger.error(`❌ Failed to close connection ${name}:`, error);
             return {
               name,
               success: false,
@@ -341,12 +342,12 @@ export default class DatabaseManager {
       this.connectionCreationPromises.clear();
 
       if (this.debugEnabled) {
-        console.log(
+        this.logger.info(
           `✅ EnhancedDatabaseManager: ${successCount}/${results.length} connections closed successfully`
         );
       }
     } catch (error) {
-      console.error(
+      this.logger.error(
         '❌ EnhancedDatabaseManager: Error during connection shutdown:',
         error
       );
@@ -359,7 +360,7 @@ export default class DatabaseManager {
    */
   async handleDatabaseError(error: Error, context?: any): Promise<void> {
     if (this.debugEnabled) {
-      console.error(
+      this.logger.error(
         '💥 EnhancedDatabaseManager: Database error occurred:',
         error
       );
@@ -372,7 +373,7 @@ export default class DatabaseManager {
       // 检查是否是连接相关错误
       if (this.isConnectionError(error)) {
         if (this.debugEnabled) {
-          console.log(
+          this.logger.info(
             '🔄 EnhancedDatabaseManager: Attempting connection recovery...'
           );
         }
@@ -382,12 +383,12 @@ export default class DatabaseManager {
 
         if (recoveryResult.success) {
           if (this.debugEnabled) {
-            console.log(
+            this.logger.info(
               '✅ EnhancedDatabaseManager: Connection recovery successful'
             );
           }
         } else {
-          console.error(
+          this.logger.error(
             '❌ EnhancedDatabaseManager: Connection recovery failed:',
             recoveryResult.error
           );
@@ -397,7 +398,7 @@ export default class DatabaseManager {
       // 检查是否需要触发断路器
       await this.checkCircuitBreaker(error);
     } catch (recoveryError) {
-      console.error(
+      this.logger.error(
         '❌ EnhancedDatabaseManager: Error recovery failed:',
         recoveryError
       );
@@ -508,11 +509,11 @@ export default class DatabaseManager {
 
     if (freeMemoryMB < 50) {
       // 至少需要50MB可用内存
-      console.warn(`⚠️ Low memory available: ${freeMemoryMB}MB`);
+      this.logger.warn(`⚠️ Low memory available: ${freeMemoryMB}MB`);
     }
 
     if (this.debugEnabled) {
-      console.log(
+      this.logger.info(
         `📊 Memory usage: ${Math.round(memoryUsage.heapUsed / 1024 / 1024)}MB used, ${freeMemoryMB}MB free`
       );
     }
@@ -533,7 +534,7 @@ export default class DatabaseManager {
       }));
 
       if (this.debugEnabled) {
-        console.log(
+        this.logger.info(
           `🔧 Pre-creating ${configs.length} database connections...`
         );
       }
@@ -567,13 +568,15 @@ export default class DatabaseManager {
           });
 
           if (this.debugEnabled) {
-            console.log(`✅ Connection '${name}' created in ${duration}ms`);
+            this.logger.info(
+              `✅ Connection '${name}' created in ${duration}ms`
+            );
           }
 
           return { name, success: true, duration };
         } catch (error) {
           const duration = Date.now() - startTime;
-          console.error(`❌ Failed to create connection '${name}':`, error);
+          this.logger.error(`❌ Failed to create connection '${name}':`, error);
 
           this.healthStatus.set(name, false);
 
@@ -641,7 +644,7 @@ export default class DatabaseManager {
     };
 
     if (this.debugEnabled) {
-      console.log('📊 Recording error metrics:', errorInfo);
+      this.logger.info('📊 Recording error metrics:', errorInfo);
     }
 
     // 更新连接统计中的错误计数
@@ -719,7 +722,7 @@ export default class DatabaseManager {
           this.recoveryStatus.backoffMs *
           Math.pow(2, this.recoveryStatus.attemptCount - 1);
         if (this.debugEnabled) {
-          console.log(
+          this.logger.info(
             `⏳ Waiting ${backoffTime}ms before recovery attempt ${this.recoveryStatus.attemptCount}`
           );
         }
@@ -737,7 +740,7 @@ export default class DatabaseManager {
       }
 
       if (this.debugEnabled) {
-        console.log(
+        this.logger.info(
           `🔄 Attempting to recover ${failedConnections.length} failed connections`
         );
       }
@@ -762,7 +765,7 @@ export default class DatabaseManager {
             try {
               await oldConnection.destroy();
             } catch (closeError) {
-              console.warn(
+              this.logger.warn(
                 `Warning: Failed to close old connection ${name}:`,
                 closeError
               );
@@ -774,12 +777,12 @@ export default class DatabaseManager {
           this.healthStatus.set(name, true);
 
           if (this.debugEnabled) {
-            console.log(`✅ Connection ${name} recovered successfully`);
+            this.logger.info(`✅ Connection ${name} recovered successfully`);
           }
 
           return { name, success: true };
         } catch (recoveryError) {
-          console.error(
+          this.logger.error(
             `❌ Failed to recover connection ${name}:`,
             recoveryError
           );
@@ -806,7 +809,7 @@ export default class DatabaseManager {
         this.recoveryStatus.attemptCount = 0;
 
         if (this.debugEnabled) {
-          console.log(
+          this.logger.info(
             `✅ Successfully recovered ${successfulRecoveries}/${failedConnections.length} connections`
           );
         }

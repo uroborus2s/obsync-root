@@ -123,10 +123,9 @@ export default class StudentRepository
       throw new Error('Student number list cannot be empty');
     }
 
-    return await this.findMany((eb: any) => eb('xh', 'in', xhList), {
-      orderBy: 'xh',
-      order: 'asc'
-    });
+    return await this.findMany((eb: any) =>
+      eb('xh', 'in', xhList).orderBy('xh', 'asc')
+    );
   }
 
   /**
@@ -137,10 +136,9 @@ export default class StudentRepository
       throw new Error('Class code cannot be empty');
     }
 
-    return await this.findMany((eb: any) => eb('bjdm', '=', bjdm), {
-      orderBy: 'xh',
-      order: 'asc'
-    });
+    return await this.findMany((eb: any) =>
+      eb('bjdm', '=', bjdm).orderBy('xh', 'asc')
+    );
   }
 
   /**
@@ -151,10 +149,9 @@ export default class StudentRepository
       throw new Error('Major code cannot be empty');
     }
 
-    return await this.findMany((eb: any) => eb('zydm', '=', zydm), {
-      orderBy: 'bjdm',
-      order: 'asc'
-    });
+    return await this.findMany((eb: any) =>
+      eb('zydm', '=', zydm).orderBy('xh', 'asc')
+    );
   }
 
   /**
@@ -165,10 +162,9 @@ export default class StudentRepository
       throw new Error('College code cannot be empty');
     }
 
-    return await this.findMany((eb: any) => eb('xydm', '=', xydm), {
-      orderBy: 'zydm',
-      order: 'asc'
-    });
+    return await this.findMany((eb: any) =>
+      eb('xydm', '=', xydm).orderBy('xh', 'asc')
+    );
   }
 
   /**
@@ -179,10 +175,9 @@ export default class StudentRepository
       throw new Error('Grade cannot be empty');
     }
 
-    return await this.findMany((eb: any) => eb('sznj', '=', sznj), {
-      orderBy: 'xydm',
-      order: 'asc'
-    });
+    return await this.findMany((eb: any) =>
+      eb('sznj', '=', sznj).orderBy('xh', 'asc')
+    );
   }
 
   /**
@@ -193,10 +188,9 @@ export default class StudentRepository
       throw new Error('Student type must be 1 (undergraduate) or 2 (graduate)');
     }
 
-    return await this.findMany((eb: any) => eb('lx', '=', lx), {
-      orderBy: 'xydm',
-      order: 'asc'
-    });
+    return await this.findMany((eb: any) =>
+      eb.where('lx', '=', lx).orderBy('xh', 'asc')
+    );
   }
 
   /**
@@ -207,33 +201,30 @@ export default class StudentRepository
       throw new Error('Status cannot be empty');
     }
 
-    return await this.findMany((eb: any) => eb('zt', '=', zt), {
-      orderBy: 'update_time',
-      order: 'desc'
-    });
+    return await this.findMany((eb: any) =>
+      eb.where('zt', '=', zt).orderBy('update_time', 'desc')
+    );
   }
 
   /**
    * 查找未处理的变更
    */
   async findUnprocessedChanges(): Promise<DatabaseResult<StudentInfo[]>> {
-    return await this.findMany((eb: any) => eb('zt', 'is not', null), {
-      orderBy: 'update_time',
-      order: 'desc'
-    });
+    return await this.findMany((eb: any) =>
+      eb.where('zt', 'is not', null).orderBy('update_time', 'desc')
+    );
   }
 
   /**
    * 查找需要同步的学生（状态不为空且不为processed）
    */
   async findStudentsForSync(): Promise<DatabaseResult<StudentInfo[]>> {
-    return await this.findMany(
-      (eb: any) =>
-        eb.and([eb('zt', 'is not', null), eb('zt', '!=', 'processed')]),
-      {
-        orderBy: 'update_time',
-        order: 'desc'
-      }
+    return await this.findMany((eb: any) =>
+      eb
+        .where((eb: any) =>
+          eb.and([eb('zt', 'is not', null), eb('zt', '!=', 'processed')])
+        )
+        .orderBy('update_time', 'desc')
     );
   }
 
@@ -248,16 +239,15 @@ export default class StudentRepository
       throw new Error('Start time must be before end time');
     }
 
-    return await this.findMany(
-      (eb: any) =>
-        eb.and([
-          eb('update_time', '>=', startTime),
-          eb('update_time', '<=', endTime)
-        ]),
-      {
-        orderBy: 'update_time',
-        order: 'desc'
-      }
+    return await this.findMany((eb: any) =>
+      eb
+        .where((eb: any) =>
+          eb.and([
+            eb('update_time', '>=', startTime),
+            eb('update_time', '<=', endTime)
+          ])
+        )
+        .orderBy('update_time', 'desc')
     );
   }
 
@@ -267,10 +257,9 @@ export default class StudentRepository
   async findChangesAfterTime(
     timestamp: Date
   ): Promise<DatabaseResult<StudentInfo[]>> {
-    return await this.findMany((eb: any) => eb('update_time', '>', timestamp), {
-      orderBy: 'update_time',
-      order: 'desc'
-    });
+    return await this.findMany((eb: any) =>
+      eb.where('update_time', '>', timestamp).orderBy('update_time', 'desc')
+    );
   }
 
   /**
@@ -285,7 +274,12 @@ export default class StudentRepository
 
     // 验证每个学生数据
     for (const student of students) {
-      this.validateRequired(student, ['xh', 'xm']);
+      const requiredFields = ['xh', 'xm'];
+      for (const field of requiredFields) {
+        if (!student[field as keyof NewStudentInfo]) {
+          throw new Error(`Required field '${field}' is missing in student data`);
+        }
+      }
 
       if (!student.xh) {
         throw new Error('Student number cannot be empty');
@@ -556,16 +550,18 @@ export default class StudentRepository
 
     const searchPattern = `%${keyword}%`;
 
-    return await this.findMany(
-      (eb: any) =>
-        eb.or([
-          eb('xh', 'like', searchPattern),
-          eb('xm', 'like', searchPattern),
-          eb('bjmc', 'like', searchPattern),
-          eb('xymc', 'like', searchPattern),
-          eb('zymc', 'like', searchPattern)
-        ]),
-      { orderBy: 'xh', order: 'asc' }
+    return await this.findMany((eb: any) =>
+      eb
+        .where((eb: any) =>
+          eb.or([
+            eb('xh', 'like', searchPattern),
+            eb('xm', 'like', searchPattern),
+            eb('bjmc', 'like', searchPattern),
+            eb('xymc', 'like', searchPattern),
+            eb('zymc', 'like', searchPattern)
+          ])
+        )
+        .orderBy('xh', 'asc')
     );
   }
 
@@ -577,10 +573,9 @@ export default class StudentRepository
       throw new Error('Name cannot be empty');
     }
 
-    return await this.findMany((eb: any) => eb('xm', 'like', `%${name}%`), {
-      orderBy: 'xh',
-      order: 'asc'
-    });
+    return await this.findMany((eb: any) =>
+      eb.where('xm', 'like', `%${name}%`).orderBy('xh', 'asc')
+    );
   }
 
   /**
@@ -591,10 +586,9 @@ export default class StudentRepository
       throw new Error('Phone cannot be empty');
     }
 
-    return await this.findMany((eb: any) => eb('sjh', 'like', `%${phone}%`), {
-      orderBy: 'xh',
-      order: 'asc'
-    });
+    return await this.findMany((eb: any) =>
+      eb.where('sjh', 'like', `%${phone}%`).orderBy('xh', 'asc')
+    );
   }
 
   /**
@@ -605,10 +599,9 @@ export default class StudentRepository
       throw new Error('Email cannot be empty');
     }
 
-    return await this.findMany((eb: any) => eb('email', 'like', `%${email}%`), {
-      orderBy: 'xh',
-      order: 'asc'
-    });
+    return await this.findMany((eb: any) =>
+      eb.where('email', 'like', `%${email}%`).orderBy('xh', 'asc')
+    );
   }
 
   /**
@@ -616,7 +609,12 @@ export default class StudentRepository
    */
   async create(data: NewStudentInfo): Promise<DatabaseResult<StudentInfo>> {
     // 验证必需字段
-    this.validateRequired(data, ['xh', 'xm']);
+    const requiredFields = ['xh', 'xm'];
+    for (const field of requiredFields) {
+      if (!data[field as keyof NewStudentInfo]) {
+        throw new Error(`Required field '${field}' is missing`);
+      }
+    }
 
     // 验证数据格式
     const validationResult = await this.validateStudentData(

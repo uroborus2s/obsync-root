@@ -419,6 +419,49 @@ export interface GetUserByExIdParams {
 }
 
 /**
+ * 根据外部用户ID列表查询用户信息请求参数
+ */
+export interface GetUsersByExUserIdsParams {
+  /** 外部用户ID列表 */
+  ex_user_ids: string[];
+  /** 用户状态列表，可选值：active(正常)、notactive(未激活)、disabled(禁用)、dimission(离职) */
+  status?: ('active' | 'notactive' | 'disabled' | 'dimission')[];
+}
+
+/**
+ * 根据外部用户ID列表查询用户信息响应
+ */
+export interface GetUsersByExUserIdsResponse {
+  items: UserInfoExtended[];
+}
+
+/**
+ * 扩展的用户信息（包含更多字段）
+ */
+export interface UserInfoExtended {
+  /** 头像 */
+  avatar: string;
+  /** 创建时间 */
+  ctime: number;
+  /** 邮箱 */
+  email: string;
+  /** 外部身份源ID */
+  ex_user_id: string;
+  /** 用户ID，自动生成 */
+  id: string;
+  /** 手机号码 */
+  phone: string;
+  /** 用户角色：super-admin(超级管理员)、admin(普通管理员)、normal(普通用户) */
+  role: 'super-admin' | 'admin' | 'normal';
+  /** 用户状态：active(正常)、notactive(未激活)、disabled(禁用)、dimission(离职) */
+  status: 'active' | 'notactive' | 'disabled' | 'dimission';
+  /** 职务信息 */
+  title: string;
+  /** 用户名称 */
+  user_name: string;
+}
+
+/**
  * 批量修改用户在部门中排序值请求参数
  */
 export interface BatchUpdateUserOrderParams {

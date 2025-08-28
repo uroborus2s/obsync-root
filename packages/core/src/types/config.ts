@@ -162,6 +162,11 @@ export interface LifecycleHooks {
   afterStart?: (fastify: FastifyInstance) => Promise<void> | void;
   /** 应用创建fastify实例后 */
   afterFastifyCreated?: (fastify: FastifyInstance) => Promise<void> | void;
+
+  /** 应用关闭前执行，在fastify.close()之前 */
+  beforeClose?: (fastify: FastifyInstance) => Promise<void> | void;
+  /** 应用关闭后执行，在fastify.close()之后 */
+  afterClose?: (fastify: FastifyInstance) => Promise<void> | void;
 }
 
 /**

@@ -308,32 +308,70 @@ export class AttendanceApiService {
   async getOverallStats(
     params?: Partial<AttendanceQueryParams>
   ): Promise<ApiResponse<AttendanceStats>> {
-    return this.getAttendanceStats({
-      xnxq: params?.xnxq,
-      start_date: params?.start_date,
-      end_date: params?.end_date,
-    })
+    const queryString = new URLSearchParams()
+
+    if (params) {
+      if (params.xnxq) queryString.append('xnxq', params.xnxq)
+      if (params.start_date) queryString.append('start_date', params.start_date)
+      if (params.end_date) queryString.append('end_date', params.end_date)
+    }
+
+    const endpoint = `/api/icalink/v1/attendance/overall-stats${queryString.toString() ? `?${queryString.toString()}` : ''}`
+    return this.makeRequest<ApiResponse<AttendanceStats>>(endpoint)
   }
 
   /**
    * 获取班级考勤排名（兼容现有代码）
    */
-  async getClassAttendanceRanking(_params: {
+  async getClassAttendanceRanking(params: {
     xnxq?: string
     kkh?: string
     bjmc?: string
     limit?: number
   }): Promise<ApiResponse<StudentPersonalStats[]>> {
-    throw new Error('班级考勤排名功能需要后端实现专门接口')
+    const queryString = new URLSearchParams()
+
+    if (params.xnxq) queryString.append('xnxq', params.xnxq)
+    if (params.bjmc) queryString.append('bjmc', params.bjmc)
+    if (params.limit) queryString.append('limit', params.limit.toString())
+
+    const endpoint = `/api/icalink/v1/attendance/class-ranking${queryString.toString() ? `?${queryString.toString()}` : ''}`
+    return this.makeRequest<ApiResponse<StudentPersonalStats[]>>(endpoint)
   }
 
   /**
    * 导出考勤数据（兼容现有代码）
    */
   async exportAttendanceData(
-    _params: AttendanceQueryParams & { format?: 'xlsx' | 'csv' }
+    params: AttendanceQueryParams & { format?: 'xlsx' | 'csv' }
   ): Promise<Blob> {
-    throw new Error('考勤数据导出功能需要后端实现专门接口')
+    const queryString = new URLSearchParams()
+
+    if (params.xnxq) queryString.append('xnxq', params.xnxq)
+    if (params.start_date) queryString.append('start_date', params.start_date)
+    if (params.end_date) queryString.append('end_date', params.end_date)
+    if (params.format) queryString.append('format', params.format)
+
+    const url = `${this.baseUrl}/api/icalink/v1/attendance/export${queryString.toString() ? `?${queryString.toString()}` : ''}`
+    
+    const response = await fetch(url, {
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+
+    // 处理401未授权错误
+    if (response.status === 401) {
+      this.handleUnauthorized()
+      throw new Error('需要重新授权')
+    }
+
+    if (!response.ok) {
+      throw new Error(`导出失败: ${response.status} ${response.statusText}`)
+    }
+
+    return await response.blob()
   }
 
   /**
@@ -356,4 +394,4 @@ export class AttendanceApiService {
 }
 
 // 导出单例实例
-export const attendanceApi = new AttendanceApiService()
+export const attendanceApi = new AttendanceApiService('http://localhost:8090')

@@ -92,6 +92,52 @@ export default class ExecutionLogRepository
   }
 
   /**
+   * 根据ID查找日志 - 为接口提供的专用方法
+   */
+  async findLogById(id: number): Promise<DatabaseResult<WorkflowExecutionLog>> {
+    return await DatabaseErrorHandler.execute(async () => {
+      this.logger.debug('Finding log by ID', { id });
+
+      const result = await super.findById(id);
+      if (!result.success) {
+        throw QueryError.create('Failed to find log by ID');
+      }
+
+      if (!result.data.some) {
+        throw QueryError.create('Log not found');
+      }
+
+      return result.data.value;
+    }, 'find log by ID');
+  }
+
+  /**
+   * 查找所有日志 - 为接口提供的专用方法
+   */
+  async findAllLogs(
+    pagination?: PaginationOptions
+  ): Promise<DatabaseResult<WorkflowExecutionLog[]>> {
+    return await DatabaseErrorHandler.execute(async () => {
+      this.logger.debug('Finding all logs', { pagination });
+
+      const options = {
+        orderBy: [{ field: 'timestamp', direction: 'desc' as const }],
+        ...(pagination && {
+          limit: pagination.pageSize,
+          offset: (pagination.page - 1) * pagination.pageSize
+        })
+      };
+
+      const result = await this.findMany(() => true, options);
+      if (!result.success) {
+        throw QueryError.create('Failed to find all logs');
+      }
+
+      return result.data;
+    }, 'find all logs');
+  }
+
+  /**
    * 根据工作流实例ID查找日志
    */
   async findByWorkflowInstanceId(

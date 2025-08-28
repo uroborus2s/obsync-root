@@ -111,7 +111,7 @@ export default class TeacherRepository
       throw new Error('Teacher number cannot be empty');
     }
 
-    return await this.findOneNullable((eb: any) => eb('gh', '=', gh));
+    return await this.findOneNullable((eb: any) => eb.where('gh', '=', gh));
   }
 
   /**
@@ -122,10 +122,9 @@ export default class TeacherRepository
       throw new Error('Teacher number list cannot be empty');
     }
 
-    return await this.findMany((eb: any) => eb('gh', 'in', ghList), {
-      orderBy: 'gh',
-      order: 'asc'
-    });
+    return await this.findMany((eb: any) =>
+      eb.where('gh', 'in', ghList).orderBy('gh', 'asc')
+    );
   }
 
   /**
@@ -138,10 +137,9 @@ export default class TeacherRepository
       throw new Error('Department code cannot be empty');
     }
 
-    return await this.findMany((eb: any) => eb('ssdwdm', '=', ssdwdm), {
-      orderBy: 'gh',
-      order: 'asc'
-    });
+    return await this.findMany((eb: any) =>
+      eb.where('ssdwdm', '=', ssdwdm).orderBy('gh', 'asc')
+    );
   }
 
   /**
@@ -152,10 +150,9 @@ export default class TeacherRepository
       throw new Error('Title cannot be empty');
     }
 
-    return await this.findMany((eb: any) => eb('zc', '=', zc), {
-      orderBy: 'ssdwdm',
-      order: 'asc'
-    });
+    return await this.findMany((eb: any) =>
+      eb.where('zc', '=', zc).orderBy('gh', 'asc')
+    );
   }
 
   /**
@@ -166,10 +163,7 @@ export default class TeacherRepository
       throw new Error('Degree cannot be empty');
     }
 
-    return await this.findMany((eb: any) => eb('zgxw', '=', zgxw), {
-      orderBy: 'ssdwdm',
-      order: 'asc'
-    });
+    return await this.findMany((eb: any) => eb.where('zgxw', '=', zgxw));
   }
 
   /**
@@ -180,10 +174,7 @@ export default class TeacherRepository
       throw new Error('Education cannot be empty');
     }
 
-    return await this.findMany((eb: any) => eb('zgxl', '=', zgxl), {
-      orderBy: 'ssdwdm',
-      order: 'asc'
-    });
+    return await this.findMany((eb: any) => eb.where('zgxl', '=', zgxl));
   }
 
   /**
@@ -194,33 +185,22 @@ export default class TeacherRepository
       throw new Error('Status cannot be empty');
     }
 
-    return await this.findMany((eb: any) => eb('zt', '=', zt), {
-      orderBy: 'update_time',
-      order: 'desc'
-    });
+    return await this.findMany((eb: any) => eb.where('zt', '=', zt));
   }
 
   /**
    * 查找未处理的变更
    */
   async findUnprocessedChanges(): Promise<DatabaseResult<TeacherInfo[]>> {
-    return await this.findMany((eb: any) => eb('zt', 'is not', null), {
-      orderBy: 'update_time',
-      order: 'desc'
-    });
+    return await this.findMany((eb: any) => eb.where('zt', 'is not', null));
   }
 
   /**
    * 查找需要同步的教师（状态不为空且不为processed）
    */
   async findTeachersForSync(): Promise<DatabaseResult<TeacherInfo[]>> {
-    return await this.findMany(
-      (eb: any) =>
-        eb.and([eb('zt', 'is not', null), eb('zt', '!=', 'processed')]),
-      {
-        orderBy: 'update_time',
-        order: 'desc'
-      }
+    return await this.findMany((eb: any) =>
+      eb.and([eb('zt', 'is not', null), eb('zt', '!=', 'processed')])
     );
   }
 
@@ -235,16 +215,10 @@ export default class TeacherRepository
       throw new Error('Start time must be before end time');
     }
 
-    return await this.findMany(
-      (eb: any) =>
-        eb.and([
-          eb('update_time', '>=', startTime),
-          eb('update_time', '<=', endTime)
-        ]),
-      {
-        orderBy: 'update_time',
-        order: 'desc'
-      }
+    return await this.findMany((eb: any) =>
+      eb
+        .where('update_time', '>=', startTime)
+        .where('update_time', '<=', endTime)
     );
   }
 
@@ -254,10 +228,9 @@ export default class TeacherRepository
   async findChangesAfterTime(
     timestamp: Date
   ): Promise<DatabaseResult<TeacherInfo[]>> {
-    return await this.findMany((eb: any) => eb('update_time', '>', timestamp), {
-      orderBy: 'update_time',
-      order: 'desc'
-    });
+    return await this.findMany((eb: any) =>
+      eb.where('update_time', '>', timestamp)
+    );
   }
 
   /**
@@ -272,7 +245,12 @@ export default class TeacherRepository
 
     // 验证每个教师数据
     for (const teacher of teachers) {
-      this.validateRequired(teacher, ['gh', 'xm']);
+      const requiredFields = ['gh', 'xm'];
+      for (const field of requiredFields) {
+        if (!teacher[field as keyof NewTeacherInfo]) {
+          throw new Error(`Required field '${field}' is missing in teacher data`);
+        }
+      }
 
       if (!teacher.gh) {
         throw new Error('Teacher number cannot be empty');
@@ -352,7 +330,7 @@ export default class TeacherRepository
       throw new Error('Department code cannot be empty');
     }
 
-    return await this.count((eb) => eb('ssdwdm', '=', ssdwdm));
+    return await this.count((eb) => eb.where('ssdwdm', '=', ssdwdm));
   }
 
   /**
@@ -363,7 +341,7 @@ export default class TeacherRepository
       throw new Error('Title cannot be empty');
     }
 
-    return await this.count((eb) => eb('zc', '=', zc));
+    return await this.count((eb) => eb.where('zc', '=', zc));
   }
 
   /**
@@ -374,7 +352,7 @@ export default class TeacherRepository
       throw new Error('Degree cannot be empty');
     }
 
-    return await this.count((eb) => eb('zgxw', '=', zgxw));
+    return await this.count((eb) => eb.where('zgxw', '=', zgxw));
   }
 
   /**
@@ -385,7 +363,7 @@ export default class TeacherRepository
       throw new Error('Education cannot be empty');
     }
 
-    return await this.count((eb) => eb('zgxl', '=', zgxl));
+    return await this.count((eb) => eb.where('zgxl', '=', zgxl));
   }
 
   /**
@@ -396,14 +374,14 @@ export default class TeacherRepository
       throw new Error('Status cannot be empty');
     }
 
-    return await this.count((eb) => eb('zt', '=', zt));
+    return await this.count((eb) => eb.where('zt', '=', zt));
   }
 
   /**
    * 统计未处理变更的数量
    */
   async countUnprocessedChanges(): Promise<DatabaseResult<number>> {
-    return await this.count((eb) => eb('zt', 'is not', null));
+    return await this.count((eb) => eb.where('zt', 'is not', null));
   }
 
   /**
@@ -508,15 +486,13 @@ export default class TeacherRepository
 
     const searchPattern = `%${keyword}%`;
 
-    return await this.findMany(
-      (eb: any) =>
-        eb.or([
-          eb('gh', 'like', searchPattern),
-          eb('xm', 'like', searchPattern),
-          eb('ssdwmc', 'like', searchPattern),
-          eb('zc', 'like', searchPattern)
-        ]),
-      { orderBy: 'gh', order: 'asc' }
+    return await this.findMany((eb: any) =>
+      eb.or([
+        eb('gh', 'like', searchPattern),
+        eb('xm', 'like', searchPattern),
+        eb('ssdwmc', 'like', searchPattern),
+        eb('zc', 'like', searchPattern)
+      ])
     );
   }
 
@@ -528,10 +504,7 @@ export default class TeacherRepository
       throw new Error('Name cannot be empty');
     }
 
-    return await this.findMany((eb: any) => eb('xm', 'like', `%${name}%`), {
-      orderBy: 'gh',
-      order: 'asc'
-    });
+    return await this.findMany((eb: any) => eb('xm', 'like', `%${name}%`));
   }
 
   /**
@@ -542,10 +515,9 @@ export default class TeacherRepository
       throw new Error('Phone cannot be empty');
     }
 
-    return await this.findMany((eb: any) => eb('sjh', 'like', `%${phone}%`), {
-      orderBy: 'gh',
-      order: 'asc'
-    });
+    return await this.findMany((eb: any) =>
+      eb.where('sjh', 'like', `%${phone}%`)
+    );
   }
 
   /**
@@ -556,10 +528,9 @@ export default class TeacherRepository
       throw new Error('Email cannot be empty');
     }
 
-    return await this.findMany((eb: any) => eb('email', 'like', `%${email}%`), {
-      orderBy: 'gh',
-      order: 'asc'
-    });
+    return await this.findMany((eb: any) =>
+      eb.where('email', 'like', `%${email}%`)
+    );
   }
 
   /**
@@ -567,7 +538,12 @@ export default class TeacherRepository
    */
   async create(data: NewTeacherInfo): Promise<DatabaseResult<TeacherInfo>> {
     // 验证必需字段
-    this.validateRequired(data, ['gh', 'xm']);
+    const requiredFields = ['gh', 'xm'];
+    for (const field of requiredFields) {
+      if (!data[field as keyof NewTeacherInfo]) {
+        throw new Error(`Required field '${field}' is missing`);
+      }
+    }
 
     // 转换数据类型以进行验证
     const validationData: Partial<TeacherInfo> = {

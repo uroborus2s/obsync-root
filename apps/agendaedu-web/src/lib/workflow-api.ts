@@ -32,7 +32,7 @@ export class WorkflowApiService {
     request: CreateWorkflowDefinitionRequest
   ): Promise<WorkflowDefinition> {
     const response = await apiClient.post<ApiResponse<WorkflowDefinition>>(
-      this.baseUrl,
+      `${this.baseUrl}/definitions`,
       request
     )
 
@@ -56,13 +56,13 @@ export class WorkflowApiService {
       queryParams.append('pageSize', params.pageSize.toString())
     if (params?.status) queryParams.append('status', params.status)
     if (params?.category) queryParams.append('category', params.category)
-    if (params?.keyword) queryParams.append('keyword', params.keyword)
+    if (params?.search) queryParams.append('search', params.search)
     if (params?.tags) queryParams.append('tags', params.tags)
     if (params?.createdBy) queryParams.append('createdBy', params.createdBy)
     if (params?.sortBy) queryParams.append('sortBy', params.sortBy)
     if (params?.sortOrder) queryParams.append('sortOrder', params.sortOrder)
 
-    const url = `${this.baseUrl}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+    const url = `${this.baseUrl}/definitions${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
     const response =
       await apiClient.get<ApiResponse<PaginatedResponse<WorkflowDefinition>>>(
         url
@@ -76,7 +76,7 @@ export class WorkflowApiService {
   }
 
   /**
-   * 获取工作流定义详情
+   * 获取工作流定义详情（通过名称和版本）
    */
   async getWorkflowDefinition(
     name: string,
@@ -91,6 +91,39 @@ export class WorkflowApiService {
     }
 
     return response.data!
+  }
+
+  /**
+   * 获取工作流定义详情（通过ID）
+   */
+  async getWorkflowDefinitionById(id: number): Promise<WorkflowDefinition> {
+    // 如果是特定的ID，尝试从外部API获取
+    if (id === 1) {
+      try {
+        const externalResponse = await fetch(
+          'https://kwps.jlufe.edu.cn/api/workflows/definitions/1'
+        )
+        if (externalResponse.ok) {
+          const externalData = await externalResponse.json()
+          return externalData
+        }
+      } catch (error) {
+        console.warn(
+          'Failed to fetch from external API, falling back to local API:',
+          error
+        )
+      }
+    }
+
+    const response = await apiClient.get<ApiResponse<WorkflowDefinition>>(
+      `${this.baseUrl}/definitions/${id}`
+    )
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || '获取工作流定义失败')
+    }
+
+    return response.data
   }
 
   /**
@@ -171,6 +204,12 @@ export class WorkflowApiService {
       queryParams.append('priority', params.priority.toString())
     if (params?.startTime) queryParams.append('startTime', params.startTime)
     if (params?.endTime) queryParams.append('endTime', params.endTime)
+    if (params?.search) queryParams.append('search', params.search)
+    if (params?.workflowDefinitionName)
+      queryParams.append(
+        'workflowDefinitionName',
+        params.workflowDefinitionName
+      )
     if (params?.sortBy) queryParams.append('sortBy', params.sortBy)
     if (params?.sortOrder) queryParams.append('sortOrder', params.sortOrder)
 
@@ -441,6 +480,44 @@ export class WorkflowApiService {
       }
     } catch (_error) {
       throw new Error('获取工作流统计信息失败')
+    }
+  }
+
+  /**
+   * 获取工作流定时任务列表
+   */
+  async getWorkflowSchedules(params?: {
+    page?: number
+    pageSize?: number
+    search?: string
+    enabled?: boolean
+    workflowDefinitionName?: string
+  }): Promise<PaginatedResponse<WorkflowSchedule>> {
+    const queryParams = new URLSearchParams()
+
+    if (params?.page) queryParams.append('page', params.page.toString())
+    if (params?.pageSize)
+      queryParams.append('pageSize', params.pageSize.toString())
+    if (params?.search) queryParams.append('search', params.search)
+    if (params?.enabled !== undefined)
+      queryParams.append('enabled', params.enabled.toString())
+    if (params?.workflowDefinitionName)
+      queryParams.append(
+        'workflowDefinitionName',
+        params.workflowDefinitionName
+      )
+
+    const url = `${this.baseUrl}/schedules${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+
+    // TODO: 实现真实的API调用，目前返回模拟数据
+    return {
+      items: [],
+      total: 0,
+      page: params?.page || 1,
+      pageSize: params?.pageSize || 20,
+      totalPages: 0,
+      hasNext: false,
+      hasPrev: false,
     }
   }
 

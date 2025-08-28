@@ -1,31 +1,32 @@
 {
   "extends": "@tsconfig/recommended/tsconfig.json",
   "compilerOptions": {
-    "target": "ES2022",
+    "target": "ESNext",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "esModuleInterop": true,
-    "strict": true,
     "baseUrl": ".",
     "outDir": "dist",
     "sourceMap": true,
     "declaration": true,
     "declarationMap": true,
-    "rootDir": "src",
-    "skipLibCheck": true,
+    "rootDir": "./src",
+    "declarationDir": "dist/types",
     "allowSyntheticDefaultImports": true,
-    "paths": {
-      "@stratix/core": ["../../packages/core/src"],
-      "@stratix/web": ["../../packages/web/src"],
-      "@stratix/utils": ["../../packages/utils/src"],
-      "@stratix/was-v7": ["../../packages/was_v7/src"],
-      "@stratix/queue": ["../../packages/queue/src"],
-      "@stratix/tasks": ["../../packages/tasks/src"],
-      "@stratix/tasks-api": ["../../packages/tasks-api/src"],
-      "@stratix/queue-api": ["../../packages/queue-api/src"],
-      "@stratix/icalink": ["../../packages/icalink/src"]
-    }
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "strictNullChecks": true,
+    "strict": true
   },
-  "include": ["src/**/*", "tests/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*"],
+  "exclude": [
+    "node_modules/",
+    "dist/",
+    "build/",
+    "*/.*/",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/__tests__/**/*",
+    "vitest.config.ts"
+  ]
 }

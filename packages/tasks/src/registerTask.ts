@@ -1,5 +1,6 @@
 import type { Logger } from '@stratix/core';
 import type { Schema } from 'ajv';
+import { ExecutionContext } from './types/workflow.js';
 
 /**
  * 执行结果
@@ -47,33 +48,6 @@ export interface ExecutionLog {
   timestamp: Date;
   /** 额外数据 */
   data?: any;
-}
-
-/**
- * 执行上下文
- */
-export interface ExecutionContext {
-  /** 任务ID */
-  taskId: number;
-  /** 工作流实例ID */
-  workflowInstanceId: number;
-  /** 节点配置 */
-  config: Record<string, any>;
-  /** 输入数据 */
-  inputs: Record<string, any>;
-  /** 工作流上下文 */
-  context: Record<string, any>;
-  /** 日志记录器 */
-  logger: {
-    debug: (message: string, ...args: any[]) => void;
-    info: (message: string, ...args: any[]) => void;
-    warn: (message: string, ...args: any[]) => void;
-    error: (message: string, ...args: any[]) => void;
-  };
-  /** 取消信号 */
-  signal?: AbortSignal;
-  /** 进度回调 */
-  onProgress?: (progress: number, message?: string) => void;
 }
 
 /**
@@ -152,7 +126,7 @@ export const registerTaskExecutor =
     }
 
     // 验证执行器基本属性
-    if (!executor.name || !executor.description || !executor.version) {
+    if (!executor.name) {
       throw new Error(
         'Executor must have name, description, and version properties'
       );

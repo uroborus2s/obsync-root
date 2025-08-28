@@ -161,10 +161,19 @@ export default class JWTService implements IJWTService {
    */
   extractTokenFromRequest(request: any): string | null {
     try {
+      // 添加调试日志
+      this.logger.debug('Extracting token from request', {
+        hasAuthHeader: !!request.headers?.authorization,
+        hasCookies: !!request.cookies,
+        cookieKeys: request.cookies ? Object.keys(request.cookies) : [],
+        userAgent: request.headers?.['user-agent']?.substring(0, 50)
+      });
+
       // 1. 尝试从Authorization header获取
       const authHeader = request.headers?.authorization;
       if (authHeader && authHeader.startsWith('Bearer ')) {
         const token = authHeader.substring(7);
+        this.logger.debug('Token extracted from Authorization header');
         return token;
       }
 
@@ -172,11 +181,30 @@ export default class JWTService implements IJWTService {
       const cookieName = this.options.cookieName || 'wps_jwt_token';
       const cookieToken = request.cookies?.[cookieName];
       if (cookieToken) {
+        this.logger.debug('Token extracted from cookie', { cookieName });
+
+        // 如果cookie是签名的，需要验证签名
+        if (
+          request.unsignCookie &&
+          typeof request.unsignCookie === 'function'
+        ) {
+          const unsignResult = request.unsignCookie(cookieToken);
+          if (unsignResult.valid) {
+            this.logger.debug('Signed cookie verified successfully');
+            return unsignResult.value;
+          } else {
+            this.logger.warn('Invalid signed cookie detected', { cookieName });
+            return null;
+          }
+        }
+
         return cookieToken;
       }
 
+      this.logger.debug('No token found in request');
       return null;
     } catch (error) {
+      this.logger.error('Error extracting token from request', error);
       return null;
     }
   }

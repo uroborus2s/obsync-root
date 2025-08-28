@@ -127,10 +127,9 @@ export default class ScheduleMappingRepository
   async findByKkh(kkh: string): Promise<DatabaseResult<ScheduleMapping[]>> {
     this.validateKkh(kkh);
 
-    return await this.findMany((qb: any) => qb.where('kkh', '=', kkh), {
-      orderBy: 'created_at',
-      order: 'desc'
-    });
+    return await this.findMany((qb: any) =>
+      qb.where('kkh', '=', kkh).orderBy('created_at', 'desc')
+    );
   }
 
   /**
@@ -141,12 +140,8 @@ export default class ScheduleMappingRepository
   ): Promise<DatabaseResult<ScheduleMapping[]>> {
     this.validateCalendarId(calendarId);
 
-    return await this.findMany(
-      (qb: any) => qb.where('calendar_id', '=', calendarId),
-      {
-        orderBy: 'created_at',
-        order: 'desc'
-      }
+    return await this.findMany((qb: any) =>
+      qb.where('calendar_id', '=', calendarId).orderBy('created_at', 'desc')
     );
   }
 
@@ -160,12 +155,8 @@ export default class ScheduleMappingRepository
       throw new Error(`Invalid sync status: ${status}`);
     }
 
-    return await this.findMany(
-      (qb: any) => qb.where('sync_status', '=', status),
-      {
-        orderBy: 'created_at',
-        order: 'desc'
-      }
+    return await this.findMany((qb: any) =>
+      qb.where('sync_status', '=', status).orderBy('created_at', 'desc')
     );
   }
 
@@ -181,12 +172,17 @@ export default class ScheduleMappingRepository
 
     // 验证每个映射数据
     for (const mapping of mappings) {
-      this.validateRequired(mapping, [
+      const requiredFields = [
         'juhe_renwu_id',
         'kkh',
         'calendar_id',
         'schedule_id'
-      ]);
+      ];
+      for (const field of requiredFields) {
+        if (!mapping[field as keyof NewScheduleMapping]) {
+          throw new Error(`Required field '${field}' is missing in schedule mapping`);
+        }
+      }
 
       if (mapping.juhe_renwu_id <= 0) {
         throw new Error('Invalid juhe_renwu_id');
@@ -388,12 +384,17 @@ export default class ScheduleMappingRepository
     data: NewScheduleMapping
   ): Promise<DatabaseResult<ScheduleMapping>> {
     // 验证必需字段
-    this.validateRequired(data, [
+    const requiredFields = [
       'juhe_renwu_id',
       'kkh',
       'calendar_id',
       'schedule_id'
-    ]);
+    ];
+    for (const field of requiredFields) {
+      if (!data[field as keyof NewScheduleMapping]) {
+        throw new Error(`Required field '${field}' is missing`);
+      }
+    }
 
     // 验证字段格式
     if (data.juhe_renwu_id <= 0) {

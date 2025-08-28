@@ -46,12 +46,71 @@ interface WorkflowDefinitionsTableProps {
   onViewDefinition?: (definition: WorkflowDefinition) => void
   onEditDefinition?: (definition: WorkflowDefinition) => void
   onStartWorkflow?: (definition: WorkflowDefinition) => void
+  // 可选的查询参数，如果不提供则使用默认值
+  searchTerm?: string
+  statusFilter?: string
+  categoryFilter?: string
+  page?: number
+  pageSize?: number
+}
+
+// 状态相关的辅助函数
+function getStatusLabel(status?: string): string {
+  switch (status) {
+    case 'active':
+      return '活跃'
+    case 'draft':
+      return '草稿'
+    case 'deprecated':
+      return '已弃用'
+    case 'archived':
+      return '已归档'
+    default:
+      return '未知'
+  }
+}
+
+function getStatusVariant(
+  status?: string
+): 'default' | 'secondary' | 'destructive' | 'outline' {
+  switch (status) {
+    case 'active':
+      return 'default'
+    case 'draft':
+      return 'outline'
+    case 'deprecated':
+      return 'secondary'
+    case 'archived':
+      return 'secondary'
+    default:
+      return 'secondary'
+  }
+}
+
+function getStatusClassName(status?: string): string {
+  switch (status) {
+    case 'active':
+      return 'bg-green-100 text-green-800'
+    case 'draft':
+      return 'bg-blue-100 text-blue-800'
+    case 'deprecated':
+      return 'bg-orange-100 text-orange-800'
+    case 'archived':
+      return 'bg-gray-100 text-gray-800'
+    default:
+      return ''
+  }
 }
 
 export function WorkflowDefinitionsTable({
   onViewDefinition,
   onEditDefinition,
   onStartWorkflow,
+  searchTerm,
+  statusFilter,
+  categoryFilter,
+  page = 1,
+  pageSize = 50,
 }: WorkflowDefinitionsTableProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [definitionToDelete, setDefinitionToDelete] =
@@ -60,9 +119,27 @@ export function WorkflowDefinitionsTable({
 
   // 获取工作流定义列表
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['workflow-definitions'],
+    queryKey: [
+      'workflow-definitions',
+      searchTerm,
+      statusFilter,
+      categoryFilter,
+      page,
+      pageSize,
+    ],
     queryFn: () =>
-      workflowApi.getWorkflowDefinitions({ page: 1, pageSize: 50 }),
+      workflowApi.getWorkflowDefinitions({
+        page,
+        pageSize,
+        search: searchTerm || undefined,
+        status: (statusFilter || undefined) as
+          | 'active'
+          | 'draft'
+          | 'deprecated'
+          | 'archived'
+          | undefined,
+        category: categoryFilter || undefined,
+      }),
   })
 
   // 删除工作流定义
@@ -163,12 +240,10 @@ export function WorkflowDefinitionsTable({
                   </TableCell>
                   <TableCell>
                     <Badge
-                      variant={definition.enabled ? 'default' : 'secondary'}
-                      className={
-                        definition.enabled ? 'bg-green-100 text-green-800' : ''
-                      }
+                      variant={getStatusVariant(definition.status)}
+                      className={getStatusClassName(definition.status)}
                     >
-                      {definition.enabled ? '已启用' : '已禁用'}
+                      {getStatusLabel(definition.status)}
                     </Badge>
                   </TableCell>
                   <TableCell>

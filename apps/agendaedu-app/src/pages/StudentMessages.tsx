@@ -236,7 +236,7 @@ export function StudentMessages() {
   ) => {
     try {
       // 直接使用图片接口URL，浏览器会自动处理图片加载
-      const imageUrl = `/api/attendance/attachments/${attachmentId}/image`;
+      const imageUrl = `/api/icalink/v1/attendance/attachments/${attachmentId}/image`;
       setSelectedImage({
         url: imageUrl,
         name: fileName

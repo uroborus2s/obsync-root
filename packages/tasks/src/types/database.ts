@@ -5,6 +5,8 @@
  * 版本: v3.0.0-refactored
  */
 
+import type { WorkflowDefinitionData } from './workflow.js';
+
 /**
  * 工作流定义表
  */
@@ -14,9 +16,11 @@ export interface WorkflowDefinitionsTable {
   version: string;
   display_name: string | null;
   description: string | null;
-  definition: any; // JSON类型
+  /** 工作流定义结构（JSON类型，具体结构见 WorkflowDefinitionStructure） */
+  definition: WorkflowDefinitionData;
   category: string | null;
-  tags: any | null; // JSON数组
+  /** 标签数组（JSON类型） */
+  tags: string[] | null;
   status: 'draft' | 'active' | 'deprecated' | 'archived';
   is_active: boolean;
   timeout_seconds: number | null;
@@ -75,49 +79,55 @@ export interface WorkflowInstancesTable {
 }
 
 /**
- * 节点实例表
+ * 节点实例表（统一后的结构）
  */
 export interface WorkflowNodeInstancesTable {
+  // === 实例标识 ===
   id: number;
   workflow_instance_id: number;
+
+  // === 节点标识 ===
   node_id: string;
   node_name: string;
-  node_type: 'simple' | 'loop' | 'parallel' | 'subprocess';
+  node_description: string | null; // 新增：节点描述
+  node_type: 'simple' | 'task' | 'loop' | 'parallel' | 'subprocess'; // 扩展：支持 task 类型
+
+  // === 执行配置 ===
   executor: string | null;
-  executor_config: any | null; // JSON类型
+  input_data: any | null; // JSON类型 - 统一的输入数据源
+  timeout_seconds: number | null; // 新增：超时时间
+  max_retries: number;
+  retry_delay_seconds: number | null; // 新增：重试延迟
+  execution_condition: string | null; // 新增：条件表达式
+
+  // === 执行状态 ===
   status: 'pending' | 'running' | 'completed' | 'failed' | 'failed_retry';
-
-  // 输入输出数据
-  input_data: any | null; // JSON类型
-  output_data: any | null; // JSON类型
-
-  // 错误信息
-  error_message: string | null;
-  error_details: any | null; // JSON类型
-
-  // 执行时间
   started_at: Date | null;
   completed_at: Date | null;
   duration_ms: number | null;
 
-  // 重试配置
-  retry_count: number;
-  max_retries: number;
+  // === 执行结果 ===
+  output_data: any | null; // JSON类型
+  error_message: string | null;
+  error_details: any | null; // JSON类型
 
-  // 层次结构（用于循环、并行等复杂节点）
+  // === 重试控制 ===
+  retry_count: number;
+
+  // === 层次结构（用于循环、并行等复杂节点） ===
   parent_node_id: number | null;
   child_index: number | null;
 
-  // 循环节点特有字段
+  // === 循环节点特有字段 ===
   loop_progress: any | null; // JSON类型
   loop_total_count: number | null;
   loop_completed_count: number;
 
-  // 并行节点特有字段
+  // === 并行节点特有字段 ===
   parallel_group_id: string | null;
   parallel_index: number | null;
 
-  // 创建信息
+  // === 审计字段 ===
   created_at: Date;
   updated_at: Date;
 }
@@ -151,6 +161,42 @@ export interface WorkflowExecutionLogsTable {
 }
 
 /**
+ * 定时任务配置表 (重构为执行器模式)
+ */
+export interface WorkflowSchedulesTable {
+  id: number;
+  name: string;
+  executor_name: string;
+  workflow_definition_id: number | null; // 兼容性保留
+  cron_expression: string;
+  timezone: string;
+  enabled: boolean;
+  input_data: any | null; // JSON类型 - 统一的输入数据源
+  context_data: any | null; // JSON类型
+  business_key: string | null;
+  mutex_key: string | null;
+  created_at: Date;
+  updated_at: Date;
+  created_by: string | null;
+}
+
+/**
+ * 定时任务执行历史表
+ */
+export interface WorkflowScheduleExecutionsTable {
+  id: number;
+  schedule_id: number;
+  workflow_instance_id: number | null;
+  status: 'success' | 'failed' | 'timeout' | 'running';
+  started_at: Date;
+  completed_at: Date | null;
+  duration_ms: number | null;
+  error_message: string | null;
+  trigger_time: Date;
+  created_at: Date;
+}
+
+/**
  * Tasks数据库接口
  */
 export interface TasksDatabase {
@@ -159,6 +205,8 @@ export interface TasksDatabase {
   workflow_node_instances: WorkflowNodeInstancesTable;
   workflow_execution_locks: WorkflowExecutionLocksTable;
   workflow_execution_logs: WorkflowExecutionLogsTable;
+  workflow_schedules: WorkflowSchedulesTable;
+  workflow_schedule_executions: WorkflowScheduleExecutionsTable;
 }
 
 // 导出便捷类型别名 - 使用明确的数据库表类型名称避免与业务接口冲突
@@ -202,6 +250,24 @@ export type WorkflowExecutionLog = WorkflowExecutionLogsTable;
 export type NewWorkflowExecutionLog = Omit<WorkflowExecutionLogsTable, 'id'>;
 export type WorkflowExecutionLogUpdate = Partial<
   Omit<WorkflowExecutionLogsTable, 'id'>
+>;
+
+export type WorkflowSchedule = WorkflowSchedulesTable;
+export type NewWorkflowSchedule = Omit<
+  WorkflowSchedulesTable,
+  'id' | 'created_at' | 'updated_at'
+>;
+export type WorkflowScheduleUpdate = Partial<
+  Omit<WorkflowSchedulesTable, 'id' | 'created_at'>
+>;
+
+export type WorkflowScheduleExecution = WorkflowScheduleExecutionsTable;
+export type NewWorkflowScheduleExecution = Omit<
+  WorkflowScheduleExecutionsTable,
+  'id' | 'created_at'
+>;
+export type WorkflowScheduleExecutionUpdate = Partial<
+  Omit<WorkflowScheduleExecutionsTable, 'id' | 'created_at'>
 >;
 
 // 向后兼容的类型别名

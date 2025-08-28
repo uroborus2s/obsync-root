@@ -258,6 +258,7 @@ export class MySQLDialect extends BaseDialect {
       password: baseConfig.password,
       ssl: baseConfig.ssl,
       connectionLimit: poolConfig.max,
+      idleTimeout: poolConfig.idleTimeoutMillis,
       // MySQL特定选项
       charset: baseConfig.charset || 'utf8mb4',
       timezone: baseConfig.timezone || 'local',

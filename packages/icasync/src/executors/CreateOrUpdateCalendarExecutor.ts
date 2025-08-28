@@ -8,60 +8,43 @@ import type {
   ExecutionResult,
   TaskExecutor
 } from '@stratix/tasks';
+import type { WpsCalendarAdapter } from '@stratix/was-v7';
 import type { ICalendarMappingRepository } from '../repositories/CalendarMappingRepository.js';
-import type { ICalendarSyncService } from '../services/CalendarSyncService.js';
+import type { NewCalendarMapping } from '../types/database.js';
 
 /**
  * 创建或更新日历配置接口
  */
 export interface CreateOrUpdateCalendarConfig {
-  /** 开课号 */
-  kkh: string;
-  /** 日历名称（可选，如果不提供则从课程信息生成） */
-  name?: string;
   /** 学年学期 */
   xnxq: string;
-  /** 是否强制更新（删除现有日历重新创建） */
-  forceUpdate?: boolean;
-  /** 日历数据（可选的额外数据） */
-  calendarData?: {
-    description?: string;
-    timeZone?: string;
-    metadata?: Record<string, any>;
-  };
-  /** 同步配置 */
-  syncConfig?: {
-    batchSize?: number;
-    timeout?: number;
-    retryCount?: number;
-  };
+  /** 课程名称 */
+  kcmc: string;
+  /** 开课号 */
+  kkh: string;
+  /** 日历ID */
+  calendarId: string;
+  /** 日历描述（可选） */
+  description?: string;
+  /** 时区（可选，默认为Asia/Shanghai） */
+  timeZone?: string;
+  /** 额外的元数据（可选） */
+  metadata?: Record<string, any>;
 }
 
 /**
  * 创建或更新日历结果接口
  */
 export interface CreateOrUpdateCalendarResult {
-  /** 是否成功 */
-  success: boolean;
   /** 日历ID */
-  calendarId?: string;
-  /** 日历名称 */
-  calendarName?: string;
-  /** 开课号 */
-  kkh: string;
-  /** 学年学期 */
-  xnxq: string;
-  /** 操作类型：created | updated | skipped */
-  operation: 'created' | 'updated' | 'skipped';
-  /** 是否为新创建的日历 */
-  isNewCalendar: boolean;
+  calendarId: string;
+  /** 操作类型：created | skipped */
+  operation: 'created' | 'skipped';
   /** 错误信息 */
   error?: string;
   /** 详细信息 */
   details?: {
     existingCalendarId?: string;
-    participantCount?: number;
-    scheduleCount?: number;
     metadata?: Record<string, any>;
   };
   /** 执行时长(ms) */
@@ -92,160 +75,175 @@ export default class CreateOrUpdateCalendarExecutor implements TaskExecutor {
   readonly version = '1.0.0';
 
   constructor(
-    private calendarSyncService: ICalendarSyncService,
+    private wasV7ApiCalendar: WpsCalendarAdapter,
     private calendarMappingRepository: ICalendarMappingRepository,
     private logger: Logger
   ) {}
 
   /**
-   * 执行创建或更新日历任务
+   * 执行创建日历任务
    */
   async execute(context: ExecutionContext): Promise<ExecutionResult> {
     const startTime = Date.now();
     const config = context.config as CreateOrUpdateCalendarConfig;
 
-    // 验证配置
-    const validationResult = this.validateConfig(config);
-    if (!validationResult.valid) {
-      return {
-        success: false,
-        error: validationResult.error,
-        duration: Date.now() - startTime
-      };
-    }
-
-    const { kkh, xnxq, forceUpdate = false, calendarData, syncConfig } = config;
-
     try {
-      this.logger.info(
-        `开始创建或更新日历，开课号: ${kkh}, 学年学期: ${xnxq}, 强制更新: ${forceUpdate}`
-      );
+      // 1. 验证输入参数
+      const validationResult = this.validateInputParameters(config);
+      if (!validationResult.valid) {
+        return {
+          success: false,
+          error: validationResult.error,
+          duration: Date.now() - startTime
+        };
+      }
 
-      // 1. 检查现有日历
-      const existingCalendar = await this.checkExistingCalendar(kkh, xnxq);
+      const {
+        kcmc,
+        kkh,
+        description,
+        xnxq,
+        timeZone = 'Asia/Shanghai',
+        metadata
+      } = config;
 
-      let result: CreateOrUpdateCalendarResult;
+      this.logger.info(`开始创建日历，课程名称: ${kcmc}, 开课号: ${kkh}`);
 
-      if (existingCalendar && !forceUpdate) {
-        // 存在日历且不强制更新，返回现有日历信息
-        result = {
-          success: true,
-          calendarId: existingCalendar.calendar_id,
-          calendarName: existingCalendar.calendar_name || undefined,
-          kkh,
-          xnxq,
+      // 2. 检查是否已存在日历映射
+      const existingMapping = await this.checkExistingMapping(kkh);
+      if (existingMapping) {
+        const result: CreateOrUpdateCalendarResult = {
+          calendarId: existingMapping.calendar_id,
           operation: 'skipped',
-          isNewCalendar: false,
           details: {
-            existingCalendarId: existingCalendar.calendar_id,
-            metadata: existingCalendar.metadata
-              ? typeof existingCalendar.metadata === 'string'
-                ? JSON.parse(existingCalendar.metadata)
-                : existingCalendar.metadata
+            existingCalendarId: existingMapping.calendar_id,
+            metadata: existingMapping.metadata
+              ? typeof existingMapping.metadata === 'string'
+                ? JSON.parse(existingMapping.metadata)
+                : existingMapping.metadata
               : undefined
           },
           duration: Date.now() - startTime
         };
 
         this.logger.info(
-          `日历已存在，跳过创建，日历ID: ${existingCalendar.calendar_id}`
-        );
-      } else {
-        // 创建或重新创建日历
-        const operation = existingCalendar ? 'updated' : 'created';
-
-        // 调用日历同步服务创建日历
-        const syncResult = await this.calendarSyncService.createCourseCalendar(
-          kkh,
-          xnxq,
-          syncConfig
+          `日历已存在，跳过创建，日历ID: ${existingMapping.calendar_id}`
         );
 
-        if (
-          syncResult.successCount > 0 &&
-          syncResult.createdCalendarIds.length > 0
-        ) {
-          const createdCalendarId = syncResult.createdCalendarIds[0];
-
-          result = {
-            success: true,
-            calendarId: createdCalendarId,
-            calendarName: config.name || `课程日历 (${kkh})`,
-            kkh,
-            xnxq,
-            operation,
-            isNewCalendar: !existingCalendar,
-            details: {
-              existingCalendarId: existingCalendar?.calendar_id,
-              metadata: {
-                created_by: 'createOrUpdateCalendar_executor',
-                force_update: forceUpdate,
-                sync_config: syncConfig
-              }
-            },
-            duration: Date.now() - startTime
-          };
-
-          this.logger.info(
-            `日历${operation === 'created' ? '创建' : '更新'}成功，日历ID: ${createdCalendarId}`
-          );
-        } else {
-          // 创建失败
-          const errorMessage =
-            syncResult.errors.length > 0
-              ? syncResult.errors.join(', ')
-              : '未知错误';
-
-          result = {
-            success: false,
-            kkh,
-            xnxq,
-            operation: existingCalendar ? 'updated' : 'created',
-            isNewCalendar: false,
-            error: `日历创建失败: ${errorMessage}`,
-            duration: Date.now() - startTime
-          };
-
-          this.logger.error(
-            `日历创建失败，开课号: ${kkh}, 错误: ${errorMessage}`
-          );
-        }
+        return {
+          success: true,
+          data: result,
+          duration: result.duration
+        };
       }
 
+      // 3. 调用WPS API创建日历
+      const calendarParams = {
+        summary: `${kcmc}`
+      };
+
+      this.logger.debug('调用WPS API创建日历', calendarParams);
+      const calendar =
+        await this.wasV7ApiCalendar.createCalendar(calendarParams);
+
+      this.logger.info(
+        `WPS日历创建成功，ID: ${calendar.id}, 名称: ${calendar.summary}`
+      );
+
+      // 4. 保存映射关系到数据库
+      const mappingData: NewCalendarMapping = {
+        kkh,
+        xnxq: xnxq, // 暂时为空，可以后续扩展
+        calendar_id: calendar.id,
+        calendar_name: calendar.summary,
+        is_deleted: false,
+        metadata: JSON.stringify({
+          course_name: kcmc,
+          description: description || `课程: ${kcmc}\n开课号: ${kkh}`,
+          time_zone: timeZone,
+          created_by: 'createOrUpdateCalendar_executor',
+          created_at: new Date().toISOString(),
+          ...metadata
+        })
+      };
+
+      const saveResult =
+        await this.calendarMappingRepository.create(mappingData);
+      if (!saveResult.success) {
+        this.logger.error('保存日历映射失败', {
+          kkh,
+          calendarId: calendar.id,
+          error: saveResult.error
+        });
+
+        // 尝试删除已创建的日历
+        try {
+          await this.wasV7ApiCalendar.deleteCalendar({
+            calendar_id: calendar.id
+          });
+          this.logger.info('已回滚删除创建的日历', { calendarId: calendar.id });
+        } catch (deleteError) {
+          this.logger.warn('回滚删除日历失败', {
+            calendarId: calendar.id,
+            deleteError
+          });
+        }
+
+        return {
+          success: false,
+          error: `保存日历映射失败: ${saveResult.error}`,
+          duration: Date.now() - startTime
+        };
+      }
+
+      this.logger.info('日历映射保存成功', {
+        kkh,
+        calendarId: calendar.id,
+        mappingId: saveResult.data!.id
+      });
+
+      // 5. 返回成功结果
+      const result: CreateOrUpdateCalendarResult = {
+        calendarId: calendar.id,
+        operation: 'created',
+        details: {
+          metadata: {
+            course_name: kcmc,
+            created_by: 'createOrUpdateCalendar_executor',
+            mapping_id: saveResult.data!.id,
+            ...metadata
+          }
+        },
+        duration: Date.now() - startTime
+      };
+
+      this.logger.info(`日历创建完成，日历ID: ${calendar.id}`);
+
       return {
-        success: result.success,
+        success: true,
         data: result,
-        error: result.error,
         duration: result.duration
       };
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.logger.error(`创建或更新日历执行器异常，开课号: ${kkh}`, error);
-
-      const result: CreateOrUpdateCalendarResult = {
-        success: false,
-        kkh,
-        xnxq,
-        operation: 'created',
-        isNewCalendar: false,
-        error: `执行器异常: ${errorMessage}`,
-        duration: Date.now() - startTime
-      };
+      this.logger.error('执行创建日历任务失败', {
+        config,
+        error: errorMessage
+      });
 
       return {
         success: false,
-        data: result,
-        error: errorMessage,
+        error: `执行失败: ${errorMessage}`,
         duration: Date.now() - startTime
       };
     }
   }
 
   /**
-   * 验证配置参数
+   * 验证输入参数
    */
-  validateConfig(config: CreateOrUpdateCalendarConfig): {
+  private validateInputParameters(config: CreateOrUpdateCalendarConfig): {
     valid: boolean;
     error?: string;
   } {
@@ -253,27 +251,27 @@ export default class CreateOrUpdateCalendarExecutor implements TaskExecutor {
       return { valid: false, error: '配置参数不能为空' };
     }
 
+    if (!config.kcmc || typeof config.kcmc !== 'string') {
+      return { valid: false, error: '课程名称(kcmc)必须是非空字符串' };
+    }
+
     if (!config.kkh || typeof config.kkh !== 'string') {
       return { valid: false, error: '开课号(kkh)必须是非空字符串' };
     }
 
-    if (!config.xnxq || typeof config.xnxq !== 'string') {
-      return { valid: false, error: '学年学期(xnxq)必须是非空字符串' };
-    }
-
     // 验证开课号格式（基本格式检查）
-    if (!/^[A-Za-z0-9_-]+$/.test(config.kkh)) {
+    if (config.kkh.length < 3 || config.kkh.length > 40) {
       return {
         valid: false,
-        error: '开课号格式无效，只能包含字母、数字、下划线和连字符'
+        error: '开课号长度应在3-20个字符之间'
       };
     }
 
-    // 验证学年学期格式（例如：2024-2025-1）
-    if (!/^\d{4}-\d{4}-[12]$/.test(config.xnxq)) {
+    // 验证课程名称长度
+    if (config.kcmc.length < 1 || config.kcmc.length > 100) {
       return {
         valid: false,
-        error: '学年学期格式无效，应为YYYY-YYYY-N格式（如：2024-2025-1）'
+        error: '课程名称长度应在1-100个字符之间'
       };
     }
 
@@ -281,17 +279,14 @@ export default class CreateOrUpdateCalendarExecutor implements TaskExecutor {
   }
 
   /**
-   * 检查现有日历
+   * 检查是否已存在日历映射
    */
-  private async checkExistingCalendar(kkh: string, xnxq: string) {
+  private async checkExistingMapping(kkh: string) {
     try {
-      const result = await this.calendarMappingRepository.findByKkhAndXnxq(
-        kkh,
-        xnxq
-      );
+      const result = await this.calendarMappingRepository.findByKkh(kkh);
       return result.success ? result.data : null;
     } catch (error) {
-      this.logger.warn(`检查现有日历时出错，开课号: ${kkh}`, error);
+      this.logger.warn(`检查现有日历映射时出错，开课号: ${kkh}`, error);
       return null;
     }
   }
@@ -302,7 +297,7 @@ export default class CreateOrUpdateCalendarExecutor implements TaskExecutor {
   async healthCheck() {
     try {
       // 检查依赖服务是否可用
-      if (!this.calendarSyncService || !this.calendarMappingRepository) {
+      if (!this.wasV7ApiCalendar || !this.calendarMappingRepository) {
         return 'unhealthy';
       }
 

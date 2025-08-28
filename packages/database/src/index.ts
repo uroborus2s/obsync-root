@@ -243,10 +243,20 @@ export const PLUGIN_METADATA = {
 
 export {
   BaseRepository,
+  type IRepository,
   type RepositoryConnectionOptions
 } from './config/base-repository.js';
 
 export type { DatabaseAPI } from './adapters/database-api.adapter.js';
+
+// 导出事务上下文管理
+export {
+  getCurrentTransaction,
+  getCurrentTransactionId,
+  isInTransaction,
+  transactionContextManager,
+  type TransactionContextInfo
+} from './utils/transaction-context.js';
 
 export type {
   ColumnType,

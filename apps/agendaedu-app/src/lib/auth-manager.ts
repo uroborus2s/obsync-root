@@ -81,36 +81,24 @@ export class WpsAuthManager {
 
   /**
    * 构造授权URL
+   * 根据新的重构要求，重定向到指定的授权URL
    */
   getAuthUrl(state?: string): string {
-    // 使用固定的授权URL和参数
-    const randomState = Math.random().toString(36).substring(2, 15);
-    // 根据user_agent判断是否需要user_info权限
-    const userAgent = navigator.userAgent;
-    const isMobile =
-      /Mobile|Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|android-woa|iPhone-woa/i.test(
-        userAgent
-      );
-    if (isMobile) {
-      const params = new URLSearchParams({
-        response_type: 'code',
-        appid: 'AK20250614WBSGPX',
-        redirect_uri: 'https://chat.whzhsc.cn/api/auth/authorization',
-        scope: 'user_info',
-        state: btoa(`${state}||type=mobile`) || randomState
-      });
-      return `https://openapi.wps.cn/oauthapi/v2/authorize?${params.toString()}`;
-    } else {
-      const params = new URLSearchParams({
-        response_type: 'code',
-        client_id: 'AK20250614WBSGPX',
-        redirect_uri: 'https://chat.whzhsc.cn/api/auth/authorization',
-        scope: 'kso.user_base.read',
-        state: btoa(`${state}||type=web`) || randomState
-      });
-      console.log('params', params.toString());
-      return `https://openapi.wps.cn/oauth2/auth?${params.toString()}`;
-    }
+    // 构建WPS授权URL，按照重构要求使用指定的参数
+    const currentUrl = state || window.location.href;
+    const encodedState = btoa(currentUrl); // 将当前页面URL进行base64编码
+
+    const params = new URLSearchParams({
+      appid: 'AK20250614WBSGPX',
+      response_type: 'code',
+      redirect_uri: 'https://kwps.jlufe.edu.cn/api/auth/authorization', // 不需要额外的encodeURIComponent，URLSearchParams会自动处理
+      scope: 'user_info',
+      state: encodedState
+    });
+
+    const authUrl = `https://openapi.wps.cn/oauthapi/v2/authorize?${params.toString()}`;
+    console.log('🔗 生成的授权URL:', authUrl);
+    return authUrl;
   }
 
   /**

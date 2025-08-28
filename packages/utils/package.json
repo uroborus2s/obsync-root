@@ -1,6 +1,6 @@
 {
   "name": "@stratix/utils",
-  "version": "1.0.0",
+  "version": "1.0.0-beta.1",
   "description": "Stratix framework core utility functions - minimal edition",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -40,6 +40,10 @@
     "./functional": {
       "import": "./dist/functional/index.js",
       "types": "./dist/types/functional/index.d.ts"
+    },
+    "./auth": {
+      "import": "./dist/auth/index.js",
+      "types": "./dist/types/auth/index.d.ts"
     }
   },
   "dependencies": {},

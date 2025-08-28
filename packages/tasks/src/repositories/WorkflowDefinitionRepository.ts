@@ -15,9 +15,10 @@ import { DatabaseErrorHandler, QueryError } from '@stratix/database';
 import type { IWorkflowDefinitionRepository } from '../interfaces/repositories.js';
 import type {
   NewWorkflowDefinitionTable,
+  PaginatedResult,
   WorkflowDefinitionTable,
   WorkflowDefinitionTableUpdate
-} from '../types/database.js';
+} from '../types/index.js';
 import { BaseTasksRepository } from './base/BaseTasksRepository.js';
 
 /**
@@ -42,9 +43,9 @@ export default class WorkflowDefinitionRepository
   }
 
   /**
-   * 实现接口要求的findById方法 - 使用组合模式避免类型冲突
+   * 业务方法：根据ID查找工作流定义
    */
-  async findById(
+  async findByIdBusiness(
     id: number
   ): Promise<DatabaseResult<WorkflowDefinitionTable | null>> {
     return await DatabaseErrorHandler.execute(async () => {
@@ -54,7 +55,23 @@ export default class WorkflowDefinitionRepository
       }
 
       return this.convertOptionToNull(result.data);
-    }, 'findById');
+    }, 'findByIdBusiness');
+  }
+
+  // 方法重载：支持接口要求的签名
+  async findById(
+    id: number
+  ): Promise<DatabaseResult<WorkflowDefinitionTable | null>>;
+  // 方法重载：支持基类的签名
+  async findById(id: string | number): Promise<DatabaseResult<any>>;
+  // 实际实现
+  async findById(id: string | number): Promise<DatabaseResult<any>> {
+    if (typeof id === 'string') {
+      // 如果是string类型的id，调用基类方法
+      return super.findById(id);
+    }
+    // 如果是number类型的id，使用业务逻辑
+    return this.findByIdBusiness(id);
   }
 
   /**
@@ -113,18 +130,29 @@ export default class WorkflowDefinitionRepository
     }, 'findActiveByName');
   }
 
-  /**
-   * 实现接口要求的findMany方法 - 委托给业务方法避免类型冲突
-   */
+  // 方法重载：支持接口要求的签名
   async findMany(
     filters?: {
       status?: string;
       category?: string;
       isActive?: boolean;
+      search?: string;
     },
     pagination?: PaginationOptions
-  ): Promise<DatabaseResult<WorkflowDefinitionTable[]>> {
-    return this.findManyWithFilters(filters, pagination);
+  ): Promise<DatabaseResult<PaginatedResult<WorkflowDefinitionTable>>>;
+  // 方法重载：支持基类的签名
+  async findMany(criteria?: any, options?: any): Promise<DatabaseResult<any>>;
+  // 实际实现
+  async findMany(
+    filtersOrCriteria?: any,
+    paginationOrOptions?: any
+  ): Promise<DatabaseResult<any>> {
+    // 如果第一个参数是函数（WhereExpression），则调用基类方法
+    if (typeof filtersOrCriteria === 'function') {
+      return super.findMany(filtersOrCriteria, paginationOrOptions);
+    }
+    // 否则使用业务逻辑
+    return this.findManyWithFilters(filtersOrCriteria, paginationOrOptions);
   }
 
   /**
@@ -135,38 +163,71 @@ export default class WorkflowDefinitionRepository
       status?: string;
       category?: string;
       isActive?: boolean;
+      search?: string;
     },
     pagination?: PaginationOptions
-  ): Promise<DatabaseResult<WorkflowDefinitionTable[]>> {
-    return await DatabaseErrorHandler.execute(async () => {
-      const whereExpression = (qb: any) => {
-        if (filters?.status) {
-          qb = qb.where('status', '=', filters.status);
-        }
-        if (filters?.category) {
-          qb = qb.where('category', '=', filters.category);
-        }
-        if (filters?.isActive !== undefined) {
-          qb = qb.where('is_active', '=', filters.isActive);
-        }
-        return qb;
-      };
+  ): Promise<DatabaseResult<PaginatedResult<WorkflowDefinitionTable>>> {
+    const page = pagination?.page || 1;
+    const pageSize = pagination?.pageSize || 20;
+    const offset = (page - 1) * pageSize;
 
-      const options = {
-        orderBy: [{ field: 'created_at', direction: 'desc' as const }],
-        ...(pagination && {
-          limit: pagination.pageSize,
-          offset: (pagination.page - 1) * pagination.pageSize
-        })
-      };
+    return await this.databaseApi.executeQuery(async (db) => {
+      // 构建基础查询
+      let query = db.selectFrom(this.tableName);
 
-      const result = await super.findMany(whereExpression, options);
-      if (!result.success) {
-        throw QueryError.create('Failed to find workflow definitions');
+      // 添加过滤条件
+      if (filters?.status) {
+        query = query.where('status', '=', filters.status);
+      }
+      if (filters?.category) {
+        query = query.where('category', '=', filters.category);
+      }
+      if (filters?.isActive !== undefined) {
+        query = query.where('is_active', '=', filters.isActive);
+      }
+      if (filters?.search) {
+        // 搜索名称、显示名称和描述字段
+        query = query.where((eb: any) =>
+          eb.or([
+            eb('name', 'like', `%${filters.search}%`),
+            eb('display_name', 'like', `%${filters.search}%`),
+            eb('description', 'like', `%${filters.search}%`)
+          ])
+        );
       }
 
-      return result.data;
-    }, 'findMany');
+      // 先获取总数
+      const countQuery = query
+        .clearSelect()
+        .select(db.fn.count('id').as('total'));
+      const countResult = await countQuery.execute();
+      const total = Number(countResult[0]?.total || 0);
+
+      // 获取数据
+      const dataQuery = query
+        .selectAll()
+        .orderBy('created_at', 'desc')
+        .limit(pageSize)
+        .offset(offset);
+      const data = await dataQuery.execute();
+
+      // 计算分页信息
+      const totalPages = Math.ceil(total / pageSize);
+      const hasNext = page < totalPages;
+      const hasPrev = page > 1;
+
+      const paginatedResult: PaginatedResult<WorkflowDefinitionTable> = {
+        items: data as WorkflowDefinitionTable[],
+        total,
+        page,
+        pageSize,
+        totalPages,
+        hasNext,
+        hasPrev
+      };
+
+      return paginatedResult;
+    });
   }
 
   /**
@@ -204,14 +265,24 @@ export default class WorkflowDefinitionRepository
     }, 'create');
   }
 
-  /**
-   * 实现接口要求的update方法 - 委托给业务方法避免类型冲突
-   */
+  // 方法重载：支持接口要求的签名
   async update(
     id: number,
     updates: WorkflowDefinitionTableUpdate
-  ): Promise<DatabaseResult<WorkflowDefinitionTable | null>> {
-    return this.updateWorkflowDefinition(id, updates);
+  ): Promise<DatabaseResult<WorkflowDefinitionTable | null>>;
+  // 方法重载：支持基类的签名
+  async update(id: string | number, data: any): Promise<DatabaseResult<any>>;
+  // 实际实现
+  async update(
+    id: string | number,
+    updatesOrData: any
+  ): Promise<DatabaseResult<any>> {
+    if (typeof id === 'string') {
+      // 如果是string类型的id，调用基类方法
+      return super.update(id, updatesOrData);
+    }
+    // 如果是number类型的id，使用业务逻辑
+    return this.updateWorkflowDefinition(id, updatesOrData);
   }
 
   /**

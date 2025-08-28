@@ -95,13 +95,6 @@ export abstract class BaseIcasyncRepository<
   }
 
   /**
-   * 便捷方法：findMany 返回 T[] 类型
-   */
-  async findMany(filter?: any, options?: any): Promise<DatabaseResult<T[]>> {
-    return await super.findMany(filter, options);
-  }
-
-  /**
    * 生成自增ID（由数据库自动生成）
    */
   protected generateId(): number {
@@ -310,23 +303,6 @@ export abstract class BaseIcasyncRepository<
     const errorMessage = error instanceof Error ? error.message : String(error);
     this.logError(operation, new Error(errorMessage), context);
     throw new Error(`${operation} failed: ${errorMessage}`);
-  }
-
-  /**
-   * 验证必需字段
-   */
-  protected validateRequired(
-    data: Record<string, any>,
-    requiredFields: string[]
-  ): void {
-    const missingFields = requiredFields.filter(
-      (field) =>
-        data[field] === undefined || data[field] === null || data[field] === ''
-    );
-
-    if (missingFields.length > 0) {
-      throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
-    }
   }
 
   /**

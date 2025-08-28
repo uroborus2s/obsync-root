@@ -14,22 +14,19 @@ import { SignatureService } from './signatureService.js';
  * WPS API HTTP客户端
  */
 export class HttpClientService {
-  static [RESOLVER] = {
-    injector: (container: any) => {
-      const config = container.resolve('config');
-      return config;
-    }
-  };
+  static [RESOLVER] = {};
 
   private axiosInstance: AxiosInstance;
   private accessToken?: AccessToken;
   private tokenExpireTime?: number;
-  private config: WpsConfig;
+
+  // 签名白名单：这些路径不需要添加签名信息
+  private readonly signatureWhitelist = ['/oauth2/token'];
 
   constructor(
     private readonly signatureService: SignatureService,
     private readonly logger: Logger,
-    config: WpsConfig
+    private config: WpsConfig
   ) {
     this.axiosInstance = this.createAxiosInstance(
       config.baseUrl,
@@ -37,6 +34,29 @@ export class HttpClientService {
     );
     this.config = config;
     this.setupInterceptors();
+  }
+
+  /**
+   * 检查路径是否在签名白名单中
+   */
+  private isPathInSignatureWhitelist(url: string): boolean {
+    try {
+      // 解析URL获取路径
+      const urlObj = new URL(url, 'https://example.com');
+      const pathname = urlObj.pathname;
+
+      // 检查是否在白名单中
+      return this.signatureWhitelist.some(
+        (whitelistPath) =>
+          pathname === whitelistPath || pathname.startsWith(whitelistPath + '/')
+      );
+    } catch {
+      // 如果URL解析失败，直接检查原始URL
+      return this.signatureWhitelist.some(
+        (whitelistPath) =>
+          url === whitelistPath || url.startsWith(whitelistPath + '/')
+      );
+    }
   }
 
   /**
@@ -99,14 +119,54 @@ export class HttpClientService {
     // 请求拦截器
     this.axiosInstance.interceptors.request.use(
       (config) => {
-        // 添加签名
-        const signatureParams = this.signatureService.generateSignature();
+        try {
+          // 准备请求参数
+          const method = config.method?.toUpperCase() || 'GET';
+          const url = config.url || '/';
+          const contentType = String(
+            config.headers?.['Content-Type'] || 'application/json'
+          );
 
-        // 添加签名到请求头
-        if (config.headers) {
-          config.headers['X-WPS-Timestamp'] = signatureParams.timestamp;
-          config.headers['X-WPS-Nonce'] = signatureParams.nonce;
-          config.headers['X-WPS-Signature'] = signatureParams.signature;
+          // 检查是否在签名白名单中
+          if (this.isPathInSignatureWhitelist(url)) {
+            this.logger.debug(
+              'Path in signature whitelist, skipping signature:',
+              url
+            );
+
+            // 白名单路径只设置Content-Type，不添加签名
+            if (config.headers) {
+              config.headers['Content-Type'] = contentType;
+            }
+          } else {
+            // 非白名单路径需要添加签名
+            const requestBody = config.data
+              ? typeof config.data === 'string'
+                ? config.data
+                : JSON.stringify(config.data)
+              : '';
+
+            // 生成KSO-1签名
+            const signatureParams =
+              this.signatureService.generateRequestSignature(
+                method,
+                url,
+                contentType,
+                requestBody
+              );
+
+            // 添加签名到请求头
+            if (config.headers) {
+              config.headers['Content-Type'] = contentType;
+              config.headers['X-Kso-Date'] = signatureParams.timestamp;
+              config.headers['X-Kso-Authorization'] = signatureParams.signature;
+            }
+
+            this.logger.debug('Added KSO-1 signature for path:', url);
+          }
+        } catch (error) {
+          this.logger.error('Failed to generate KSO-1 signature:', error);
+          throw error;
         }
 
         this.logger.debug('WPS API Request:', {
@@ -182,22 +242,6 @@ export class HttpClientService {
       data: config.data,
       headers: config.headers
     };
-
-    // 检查是否是token请求，需要特殊处理认证头
-    const isTokenRequest = config.url.includes('/oauth2/token');
-    let originalAuthHeader: string | undefined;
-
-    if (
-      isTokenRequest &&
-      this.axiosInstance.defaults.headers.common['Authorization']
-    ) {
-      // 对于token请求，临时移除Authorization头
-      originalAuthHeader = this.axiosInstance.defaults.headers.common[
-        'Authorization'
-      ] as string;
-      delete this.axiosInstance.defaults.headers.common['Authorization'];
-    }
-
     const response = await this.axiosInstance.request(axiosConfig);
     return response.data;
   }

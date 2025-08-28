@@ -17,6 +17,8 @@ export interface IcasyncPluginOptions {
   enableValidation?: boolean;
   /** 是否启用请求日志 */
   enableLogging?: boolean;
+  /** 签到地址 */
+  attendanceUrl?: string;
 }
 
 /**
@@ -74,5 +76,3 @@ const stratixIcasyncPlugin = withRegisterAutoDI(icasync, {
 export default stratixIcasyncPlugin;
 
 export type { default as FullSyncAdapter } from './adapters/full-sync.adapter.js';
-export type { default as IncrementalSyncAdapter } from './adapters/incremental-sync.adapter.js';
-export type { default as UserSyncAdapter } from './adapters/user-sync.adapter.js';

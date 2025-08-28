@@ -2,7 +2,6 @@ import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Link } from '@tanstack/react-router'
-import { showSubmittedData } from '@/utils/show-submitted-data'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -47,7 +46,10 @@ export function NotificationsForm() {
   return (
     <Form {...form}>
       <form
-        onSubmit={form.handleSubmit((data) => showSubmittedData(data))}
+        onSubmit={form.handleSubmit((data) => {
+          // TODO: 实现实际的通知设置保存逻辑
+          console.log('通知设置数据:', data)
+        })}
         className='space-y-8'
       >
         <FormField

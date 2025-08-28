@@ -1,0 +1,206 @@
+# ObSync 主服务器 Nginx 配置
+# 服务器: 120.131.12.6
+# 域名: kwps.jlufe.edu.cn
+
+# API Gateway 负载均衡配置
+upstream api_gateway {
+    # 使用一致性哈希，提高缓存命中率
+    least_conn;
+    
+    # 主服务器 API Gateway 实例
+    server localhost:8090 weight=3 max_fails=2 fail_timeout=15s;
+    server localhost:8091 weight=2 max_fails=2 fail_timeout=15s;
+    
+    # 备用服务器 API Gateway 实例 (备份)
+    # server 10.0.0.102:80 weight=1 max_fails=2 fail_timeout=15s backup;
+    
+    # 优化连接池配置
+    keepalive 64;
+    keepalive_requests 1000;
+    keepalive_timeout 65s;
+}
+
+# 限流配置 - 大幅提高以支持压测
+limit_req_zone $binary_remote_addr zone=api_limit:10m rate=100r/s;
+limit_req_zone $binary_remote_addr zone=static_limit:10m rate=500r/s;
+limit_req_zone $binary_remote_addr zone=login_limit:10m rate=5r/s;
+
+limit_req_zone $binary_remote_addr zone=test_limit:10m rate=1000r/s;
+# 连接限制 - 提高连接数限制
+limit_conn_zone $binary_remote_addr zone=conn_limit_per_ip:10m;
+
+# 日志格式
+log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                '$status $body_bytes_sent "$http_referer" '
+                '"$http_user_agent" "$http_x_forwarded_for" '
+                'rt=$request_time uct="$upstream_connect_time" '
+                'uht="$upstream_header_time" urt="$upstream_response_time" '
+                'upstream="$upstream_addr" instance="$upstream_http_x_instance_id"';
+
+# HTTP 服务器 - 重定向到 HTTPS
+server {
+    listen 80;
+    server_name kwps.jlufe.edu.cn;
+    
+    # 健康检查端点不重定向
+    location /health {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+    
+    # Let's Encrypt 证书验证
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+    
+    # 其他请求重定向到 HTTPS
+    location / {
+        return 301 https://$server_name$request_uri;
+    }
+}
+
+# HTTPS 主服务器
+server {
+    listen 443 ssl http2;
+    server_name kwps.jlufe.edu.cn;
+    
+    # SSL 证书配置
+    ssl_certificate /etc/nginx/ssl/STAR_jlufe_edu_cn.pem;
+    ssl_certificate_key /etc/nginx/ssl/STAR_jlufe_edu_cn.key;
+    
+    # SSL 安全配置
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA384;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+    ssl_session_tickets off;
+    
+    # HSTS
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    
+    # 安全头
+    add_header X-Frame-Options DENY always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    
+    # 日志配置
+    access_log /var/log/nginx/kwps_access.log main;
+    error_log /var/log/nginx/kwps_error.log warn;
+    
+    # 连接限制 - 提高至50个连接
+    limit_conn conn_limit_per_ip 50;
+    
+    # 登录接口特殊限流
+    location /api/auth/login {
+        limit_req zone=login_limit burst=5 nodelay;
+        proxy_pass http://api_gateway;
+        include /etc/nginx/proxy_params;
+    }
+    
+    # ICA Link 接口 (打卡服务)
+    location /api/icalink/ {
+        limit_req zone=api_limit burst=100 nodelay;
+        proxy_pass http://api_gateway;
+        include /etc/nginx/proxy_params;
+    }
+    
+    # ICA Sync 接口 (课程同步服务)
+    location /api/icasync/ {
+        limit_req zone=api_limit burst=1000 nodelay;
+        proxy_pass http://api_gateway;
+
+        
+        # 使用通用代理配置（包含错误处理）
+        include /etc/nginx/proxy_params;
+    }
+    
+    # 其他 API 接口 - 临时使用高性能限流配置
+    location /api/ {
+        limit_req zone=test_limit burst=2000 nodelay;
+        proxy_pass http://api_gateway;
+        include /etc/nginx/proxy_params;
+        
+    }
+    
+    # Web 管理后台
+    location /web/ {
+        limit_req zone=static_limit burst=200 nodelay;
+        
+        alias /var/www/agendaedu-web/;
+        index index.html;
+        try_files $uri $uri/ /web/index.html;
+        
+        # 静态文件缓存
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+            add_header X-Content-Type-Options nosniff;
+        }
+        
+        # HTML 文件不缓存
+        location ~* \.html$ {
+            expires -1;
+            add_header Cache-Control "no-cache, no-store, must-revalidate";
+            add_header Pragma "no-cache";
+        }
+    }
+    
+    # 移动端应用
+    location /app/ {
+        limit_req zone=static_limit burst=200 nodelay;
+        
+        alias /var/www/agendaedu-app/;
+        index index.html;
+        try_files $uri $uri/ /app/index.html;
+        
+        # 静态文件缓存策略同上
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+            add_header X-Content-Type-Options nosniff;
+        }
+        
+        location ~* \.html$ {
+            expires -1;
+            add_header Cache-Control "no-cache, no-store, must-revalidate";
+            add_header Pragma "no-cache";
+        }
+    }
+    
+    # 根路径重定向
+    location = / {
+        return 301 https://$server_name/web/;
+    }
+    
+    # 健康检查端点
+    location /health {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+    
+    # Nginx 状态监控 (仅内网访问)
+    location /nginx_status {
+        stub_status on;
+        access_log off;
+        allow 127.0.0.1;
+        allow 172.20.0.0/16;
+        allow 120.131.10.128;
+        deny all;
+    }
+    
+    # API Gateway 负载均衡状态 (管理员访问)
+    location /lb_status {
+        access_log off;
+        allow 127.0.0.1;
+        allow 172.20.0.0/16;
+        allow 120.131.10.128;
+        deny all;
+        
+        proxy_pass http://api_gateway/api/lb/status;
+        include /etc/nginx/proxy_params;
+    }
+}

@@ -9,7 +9,15 @@ import {
   IconSettings,
   IconUsers,
 } from '@tabler/icons-react'
-import { Command, RefreshCw, Settings } from 'lucide-react'
+import {
+  Activity,
+  Clock,
+  Command,
+  FileText,
+  RefreshCw,
+  Settings,
+  Workflow,
+} from 'lucide-react'
 import { type SidebarData } from '../types'
 
 export const sidebarData: SidebarData = {
@@ -103,6 +111,27 @@ export const sidebarData: SidebarData = {
           title: '教师管理',
           url: '/teachers' as const,
           icon: IconSchool,
+        },
+        {
+          title: '工作流管理',
+          icon: Workflow,
+          items: [
+            {
+              title: '工作流定义',
+              url: '/workflows/definitions' as const,
+              icon: FileText,
+            },
+            {
+              title: '工作流实例',
+              url: '/workflows/instances' as const,
+              icon: Activity,
+            },
+            {
+              title: '定时任务',
+              url: '/workflows/schedules' as const,
+              icon: Clock,
+            },
+          ],
         },
       ],
     },

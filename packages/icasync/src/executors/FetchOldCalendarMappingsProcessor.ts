@@ -16,8 +16,8 @@ import type { ICalendarMappingRepository } from '../repositories/CalendarMapping
 export interface FetchOldCalendarMappingsConfig {
   xnxq: string; // 学年学期
   includeInactive?: boolean; // 是否包含非活跃日历
-  orderBy?: string; // 排序字段
-  limit?: number; // 限制数量
+  orderBy?: string; // 排序字段（现在使用数据库层面排序）
+  limit?: number; // 限制数量（保留用于向后兼容，但不在业务逻辑中使用以确保数据清理完整性）
 }
 
 /**
@@ -37,8 +37,7 @@ export interface OldCalendarMapping {
  * 获取旧日历映射结果接口
  */
 export interface FetchOldCalendarMappingsResult {
-  calendarsToDelete: OldCalendarMapping[]; // 待删除的日历列表（工作流要求的字段名）
-  oldCalendars: OldCalendarMapping[]; // 旧日历列表（向后兼容）
+  items: OldCalendarMapping[]; // 待删除的日历列表（工作流要求的字段名）
   totalCount: number; // 总数量
   fetchedCount: number; // 实际获取数量
   duration: number; // 执行时长(ms)
@@ -49,9 +48,10 @@ export interface FetchOldCalendarMappingsResult {
  *
  * 功能：
  * 1. 从icasync_calendar_mapping表获取指定学期的所有日历映射数据
- * 2. 按照指定顺序排序（默认按创建时间倒序）
+ * 2. 使用数据库层面的ORDER BY进行排序（默认按创建时间倒序）
  * 3. 返回格式化的旧日历信息，供删除操作使用
- * 4. 支持过滤条件和数量限制
+ * 4. 确保返回所有数据以保证清理完整性（不再使用数量限制）
+ * 5. 包含详细的性能监控和日志记录
  */
 @Executor({
   name: 'fetchOldCalendarMappings',
@@ -162,13 +162,25 @@ export default class FetchOldCalendarMappingsProcessor implements TaskExecutor {
   ): Promise<FetchOldCalendarMappingsResult> {
     try {
       this.logger.info('开始从数据库获取旧日历映射数据', {
-        xnxq: config.xnxq
+        xnxq: config.xnxq,
+        orderBy: config.orderBy
       });
 
-      // 获取指定学期的所有日历映射
-      const mappingsResult = await this.calendarMappingRepository.findByXnxq(
-        config.xnxq
-      );
+      // 记录查询开始时间
+      const queryStartTime = Date.now();
+
+      // 构建查询选项，使用数据库层面的排序
+      const orderBy = config.orderBy || 'created_at DESC';
+      const queryOptions = this.buildQueryOptions(orderBy);
+
+      // 获取指定学期的所有日历映射（使用数据库排序）
+      const mappingsResult =
+        await this.calendarMappingRepository.findByXnxqWithOptions(
+          config.xnxq,
+          queryOptions
+        );
+
+      const queryDuration = Date.now() - queryStartTime;
 
       if (!mappingsResult.success) {
         throw new Error(`获取日历映射失败: ${mappingsResult.error}`);
@@ -177,13 +189,28 @@ export default class FetchOldCalendarMappingsProcessor implements TaskExecutor {
       const mappings = mappingsResult.data;
       const totalCount = mappings.length;
 
+      // 记录查询性能
       this.logger.info('成功获取日历映射数据', {
         xnxq: config.xnxq,
-        totalCount
+        totalCount,
+        queryDuration,
+        orderBy
       });
 
+      // 性能警告：查询耗时超过阈值
+      if (queryDuration > 1000) {
+        this.logger.warn('数据库查询耗时较长', {
+          xnxq: config.xnxq,
+          queryDuration,
+          totalCount,
+          threshold: 1000
+        });
+      }
+
       // 转换为旧日历格式
-      let oldCalendars: OldCalendarMapping[] = mappings.map((mapping) => ({
+      const transformStartTime = Date.now();
+
+      const oldCalendars: OldCalendarMapping[] = mappings.map((mapping) => ({
         id: mapping.id,
         calendarId: mapping.calendar_id,
         kkh: mapping.kkh,
@@ -195,14 +222,11 @@ export default class FetchOldCalendarMappingsProcessor implements TaskExecutor {
         status: 'unknown' // sync_status field doesn't exist in current schema
       }));
 
-      // 排序处理
-      const orderBy = config.orderBy || 'created_at DESC';
-      oldCalendars = this.sortCalendars(oldCalendars, orderBy);
+      const transformDuration = Date.now() - transformStartTime;
 
-      // 数量限制处理
-      if (config.limit && config.limit < oldCalendars.length) {
-        oldCalendars = oldCalendars.slice(0, config.limit);
-      }
+      // 注意：移除了数量限制逻辑以确保数据清理的完整性
+      // 原代码：if (config.limit && config.limit < oldCalendars.length) { ... }
+      // 保留config.limit配置项以保持向后兼容，但不在业务逻辑中使用
 
       const fetchedCount = oldCalendars.length;
 
@@ -210,12 +234,14 @@ export default class FetchOldCalendarMappingsProcessor implements TaskExecutor {
         xnxq: config.xnxq,
         totalCount,
         fetchedCount,
-        orderBy
+        queryDuration,
+        transformDuration,
+        orderBy,
+        usedDatabaseSorting: true
       });
 
       return {
-        calendarsToDelete: oldCalendars, // 工作流要求的字段名
-        oldCalendars, // 向后兼容
+        items: oldCalendars, // 工作流要求的字段名
         totalCount,
         fetchedCount,
         duration: 0 // 将在上层设置
@@ -232,41 +258,36 @@ export default class FetchOldCalendarMappingsProcessor implements TaskExecutor {
   }
 
   /**
-   * 排序日历列表
+   * 构建查询选项（将orderBy字符串转换为QueryOptions格式）
    */
-  private sortCalendars(
-    calendars: OldCalendarMapping[],
-    orderBy: string
-  ): OldCalendarMapping[] {
+  private buildQueryOptions(orderBy: string): {
+    orderBy: { field: string; direction: 'asc' | 'desc' };
+  } {
     const [field, direction] = orderBy.split(' ');
     const isDesc = direction?.toUpperCase() === 'DESC';
 
-    return [...calendars].sort((a, b) => {
-      let aValue: any;
-      let bValue: any;
+    // 映射字段名到数据库字段名
+    let dbField: string;
+    switch (field) {
+      case 'created_at':
+        dbField = 'created_at';
+        break;
+      case 'kkh':
+        dbField = 'kkh';
+        break;
+      case 'calendar_name':
+        dbField = 'calendar_name';
+        break;
+      default:
+        dbField = 'created_at'; // 默认按创建时间排序
+    }
 
-      switch (field) {
-        case 'created_at':
-          aValue = new Date(a.createdAt);
-          bValue = new Date(b.createdAt);
-          break;
-        case 'kkh':
-          aValue = a.kkh;
-          bValue = b.kkh;
-          break;
-        case 'calendar_name':
-          aValue = a.calendarName;
-          bValue = b.calendarName;
-          break;
-        default:
-          aValue = a.createdAt;
-          bValue = b.createdAt;
+    return {
+      orderBy: {
+        field: dbField,
+        direction: isDesc ? 'desc' : 'asc'
       }
-
-      if (aValue < bValue) return isDesc ? 1 : -1;
-      if (aValue > bValue) return isDesc ? -1 : 1;
-      return 0;
-    });
+    };
   }
 
   /**

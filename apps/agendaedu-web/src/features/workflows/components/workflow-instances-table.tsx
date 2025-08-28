@@ -52,6 +52,12 @@ interface WorkflowInstancesTableProps {
   workflowDefinitionId?: number
   onViewInstance?: (instance: WorkflowInstance) => void
   onViewHistory?: (instance: WorkflowInstance) => void
+  // 可选的查询参数，如果不提供则使用默认值
+  searchTerm?: string
+  statusFilter?: WorkflowStatus | ''
+  definitionFilter?: string
+  page?: number
+  pageSize?: number
 }
 
 export function WorkflowInstancesTable({
@@ -59,6 +65,11 @@ export function WorkflowInstancesTable({
   workflowDefinitionId,
   onViewInstance,
   onViewHistory,
+  searchTerm,
+  statusFilter,
+  definitionFilter,
+  page = 1,
+  pageSize = 50,
 }: WorkflowInstancesTableProps) {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
   const [instanceToCancel, setInstanceToCancel] =
@@ -67,15 +78,26 @@ export function WorkflowInstancesTable({
 
   // 获取工作流实例列表
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['workflow-instances', status, workflowDefinitionId],
+    queryKey: [
+      'workflow-instances',
+      status || statusFilter,
+      workflowDefinitionId,
+      searchTerm,
+      definitionFilter,
+      page,
+      pageSize,
+    ],
     queryFn: () =>
       workflowApi.getWorkflowInstances({
-        status,
+        status: status || statusFilter || undefined,
         workflowDefinitionId,
-        page: 1,
-        pageSize: 50,
+        search: searchTerm || undefined,
+        workflowDefinitionName: definitionFilter || undefined,
+        page,
+        pageSize,
       }),
-    refetchInterval: status === 'running' ? 5000 : undefined, // 运行中的实例每5秒刷新
+    refetchInterval:
+      status === 'running' || statusFilter === 'running' ? 5000 : undefined, // 运行中的实例每5秒刷新
   })
 
   // 取消工作流实例

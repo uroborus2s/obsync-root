@@ -4,7 +4,7 @@
  */
 
 import { API_CONFIG } from '@/config/api-config';
-import { ApiClient } from './api-client';
+import { IcaLinkApiClient } from './icalink-api-client';
 
 // 从后端类型定义中导入的接口类型
 export interface StudentAttendanceSearchResponse {
@@ -496,10 +496,10 @@ export interface PersonalCourseStatsResponse {
  * 考勤API服务类
  */
 export class AttendanceApiService {
-  private apiClient: ApiClient;
+  private apiClient: IcaLinkApiClient;
 
   constructor(baseUrl?: string) {
-    this.apiClient = new ApiClient(baseUrl || API_CONFIG.baseUrl);
+    this.apiClient = new IcaLinkApiClient(baseUrl || API_CONFIG.baseUrl);
   }
 
   /**
@@ -509,7 +509,7 @@ export class AttendanceApiService {
     attendanceId: string
   ): Promise<StudentAttendanceSearchResponse> {
     const response = await this.apiClient.get(
-      `/attendance/${attendanceId}/record?type=student`
+      `/api/icalink/v1/attendance/${attendanceId}/record?type=student`
     );
     return {
       success: !!response.success,
@@ -525,7 +525,7 @@ export class AttendanceApiService {
     attendanceId: string
   ): Promise<TeacherAttendanceRecordResponse> {
     const response = await this.apiClient.get(
-      `/attendance/${attendanceId}/record?type=teacher`
+      `/api/icalink/v1/attendance/${attendanceId}/record?type=teacher`
     );
     return response.data;
   }
@@ -538,7 +538,7 @@ export class AttendanceApiService {
     request: StudentCheckInRequest
   ): Promise<StudentCheckInResponse> {
     const response = await this.apiClient.post(
-      `/attendance/${encodeURIComponent(attendanceRecordId)}/checkin`,
+      `/api/icalink/v1/attendance/${encodeURIComponent(attendanceRecordId)}/checkin`,
       request
     );
     return {
@@ -554,7 +554,10 @@ export class AttendanceApiService {
   async studentLeave(
     request: StudentLeaveRequest
   ): Promise<StudentLeaveResponse> {
-    const response = await this.apiClient.post('/attendance/leave', request);
+    const response = await this.apiClient.post(
+      '/api/icalink/v1/attendance/leave',
+      request
+    );
     return {
       success: !!response.success,
       message: response.message,
@@ -583,8 +586,8 @@ export class AttendanceApiService {
       : '';
 
     const url = queryString
-      ? `/attendance/leave-applications?${queryString}`
-      : '/attendance/leave-applications';
+      ? `/icalink/v1/attendance/leave-applications?${queryString}`
+      : '/icalink/v1/attendance/leave-applications';
 
     const response = await this.apiClient.get(url);
     return response as unknown as StudentLeaveApplicationQueryResponse;
@@ -611,8 +614,8 @@ export class AttendanceApiService {
       : '';
 
     const url = queryString
-      ? `/attendance/teacher-leave-applications?${queryString}`
-      : '/attendance/teacher-leave-applications';
+      ? `/icalink/v1/attendance/teacher-leave-applications?${queryString}`
+      : '/icalink/v1/attendance/teacher-leave-applications';
 
     const response = await this.apiClient.get(url);
     return response as unknown as TeacherLeaveApplicationQueryResponse;
@@ -625,7 +628,7 @@ export class AttendanceApiService {
     request: TeacherApprovalRequest
   ): Promise<TeacherApprovalResponse> {
     const response = await this.apiClient.post(
-      '/attendance/teacher-approve-leave',
+      '/api/icalink/v1/attendance/teacher-approve-leave',
       request
     );
     return response as unknown as TeacherApprovalResponse;
@@ -638,7 +641,7 @@ export class AttendanceApiService {
     attachmentId: string
   ): Promise<AttachmentViewResponse> {
     const response = await this.apiClient.get(
-      `/attendance/attachments/${attachmentId}/view`
+      `/api/icalink/v1/attendance/attachments/${attachmentId}/view`
     );
     return response.data;
   }
@@ -648,7 +651,7 @@ export class AttendanceApiService {
    */
   async downloadLeaveAttachment(attachmentId: string): Promise<Blob> {
     const response = await fetch(
-      `${this.apiClient['baseUrl']}/attendance/attachments/${attachmentId}/download`,
+      `${this.apiClient['baseUrl']}/api/icalink/v1/attendance/attachments/${attachmentId}/download`,
       {
         headers: {
           Authorization: `Bearer ${await this.getAccessToken()}`
@@ -664,7 +667,7 @@ export class AttendanceApiService {
   }
 
   /**
-   * 获取课程历史考勤数据
+   * 获取课程历史考勤数据（通过开课号）
    */
   async getCourseAttendanceHistory(
     kkh: string,
@@ -681,7 +684,7 @@ export class AttendanceApiService {
         queryParams.append('start_date', params.start_date);
       if (params?.end_date) queryParams.append('end_date', params.end_date);
 
-      const url = `/attendance/course/${encodeURIComponent(kkh)}/history${
+      const url = `/icalink/v1/attendance/course/${encodeURIComponent(kkh)}/history${
         queryParams.toString() ? `?${queryParams.toString()}` : ''
       }`;
 
@@ -718,7 +721,7 @@ export class AttendanceApiService {
       }
 
       const queryString = queryParams.toString();
-      const url = `/attendance/course/${kkh}/stats${queryString ? `?${queryString}` : ''}`;
+      const url = `/icalink/v1/attendance/course/${kkh}/stats${queryString ? `?${queryString}` : ''}`;
 
       const response = await this.apiClient.get(url);
 
@@ -748,7 +751,7 @@ export class AttendanceApiService {
     request: StudentWithdrawLeaveRequest
   ): Promise<StudentWithdrawLeaveResponse> {
     const response = await this.apiClient.post<StudentWithdrawLeaveResponse>(
-      '/attendance/withdraw-leave',
+      '/api/icalink/v1/attendance/withdraw-leave',
       request
     );
     return response as unknown as StudentWithdrawLeaveResponse;

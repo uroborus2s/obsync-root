@@ -1,11 +1,11 @@
 import { TeacherFloatingMessageButton } from '@/components/TeacherFloatingMessageButton';
-import { api } from '@/lib/api-client';
 import {
   attendanceApi,
   type CourseAttendanceHistoryResponse,
   type PersonalCourseStatsResponse
 } from '@/lib/attendance-api';
 import { authManager } from '@/lib/auth-manager';
+import { icaLinkApiClient } from '@/lib/icalink-api-client';
 import {
   wpsCollaboration,
   type AttendanceData,
@@ -121,23 +121,6 @@ export function AttendanceSheet() {
   const [error, setError] = useState<string | null>(null);
 
   const id = searchParams.get('id');
-
-  // 解码ID获取开课号的函数
-  const extractKkhFromId = (encodedId: string): string | null => {
-    try {
-      const decoded = atob(encodedId);
-      // 格式: "2024-2025-2.202420252003041225501.2025-07-03T15:30:00+08:007"
-      // 提取开课号: 202420252003041225501
-      const parts = decoded.split('.');
-      if (parts.length >= 2) {
-        return parts[1]; // 开课号
-      }
-      return null;
-    } catch (error) {
-      console.error('解码ID失败:', error);
-      return null;
-    }
-  };
 
   // 格式化课程时间显示
   const formatCourseTime = (startTime: string, endTime: string) => {
@@ -267,9 +250,18 @@ export function AttendanceSheet() {
 
   // 当切换到个人统计标签页时，确保数据已加载
   useEffect(() => {
+    console.log('🔍 个人统计useEffect触发:', {
+      activeTab,
+      id,
+      hasPersonalCourseStats: !!personalCourseStats,
+      personalCourseStatsSuccess: personalCourseStats?.success
+    });
+
     if (activeTab === 'personal' && id && !personalCourseStats) {
-      console.log('切换到个人统计标签页，重新加载数据');
+      console.log('✅ 切换到个人统计标签页，重新加载数据');
       loadPersonalCourseStats();
+    } else if (activeTab === 'personal' && id && personalCourseStats) {
+      console.log('ℹ️ 个人统计数据已存在:', personalCourseStats);
     }
   }, [activeTab, id, personalCourseStats]);
 
@@ -280,8 +272,9 @@ export function AttendanceSheet() {
     setError(null);
 
     try {
-      const response = await api.get<TeacherAttendanceData>(
-        `/attendance/${encodeURIComponent(id)}/record?type=teacher`
+      // 使用新的合并接口
+      const response = await icaLinkApiClient.get<TeacherAttendanceData>(
+        `/icalink/v1/courses/external/${encodeURIComponent(id)}/complete?type=teacher`
       );
 
       // 处理 API 响应格式 - 检查是否有 success 字段（实际 API 响应）或 code 字段（API 客户端格式）
@@ -292,7 +285,9 @@ export function AttendanceSheet() {
         (response.success && response.data)
       ) {
         const data = responseData.data || response.data;
-        setTeacherData(data);
+        if (data) {
+          setTeacherData(data);
+        }
       } else {
         throw new Error(
           responseData.message || response.message || '获取课程信息失败'
@@ -317,42 +312,49 @@ export function AttendanceSheet() {
   };
 
   const loadCourseHistoryData = async () => {
-    if (!id) return;
+    if (!id) {
+      console.log('❌ loadCourseHistoryData: 没有课程ID');
+      return;
+    }
 
     try {
-      const kkh = extractKkhFromId(id);
-      if (!kkh) {
-        console.error('无法从ID中提取开课号');
-        return;
-      }
+      console.log('🔍 开始加载课程历史数据，ID:', id);
+      console.log('🌐 直接传递ID给后端，让后端处理ID到kkh的转换...');
 
-      const response = await attendanceApi.getCourseAttendanceHistory(kkh);
+      // 直接传递ID给后端，让后端根据ID获取kkh然后查询数据
+      const response = await attendanceApi.getCourseAttendanceHistory(id);
+      console.log('📊 API响应:', response);
+
       setCourseHistoryData(response);
+      console.log('✅ 课程历史数据设置完成');
     } catch (error) {
-      console.error('加载课程历史数据失败:', error);
+      console.error('❌ 加载课程历史数据失败:', error);
     }
   };
 
   const loadPersonalCourseStats = async () => {
-    if (!id) return;
+    if (!id) {
+      console.log('❌ loadPersonalCourseStats: 没有课程ID');
+      return;
+    }
 
     try {
-      const kkh = extractKkhFromId(id);
-      if (!kkh) {
-        console.error('无法从ID中提取课程号');
-        return;
-      }
+      console.log('🔍 开始加载个人课程统计数据，ID:', id);
+      console.log('🌐 直接传递ID给后端，让后端处理ID到kkh的转换...');
 
-      const response = await attendanceApi.getPersonalCourseStats(kkh);
+      // 直接传递ID给后端，让后端根据ID获取kkh然后查询数据
+      const response = await attendanceApi.getPersonalCourseStats(id);
+      console.log('📊 个人统计API响应:', response);
 
       if (response.success && response.data) {
         setPersonalCourseStats(response);
+        console.log('✅ 个人课程统计数据设置完成');
       } else {
-        console.error('获取个人课程统计失败:', response.message);
+        console.error('❌ 获取个人课程统计失败:', response.message);
         setPersonalCourseStats(null);
       }
     } catch (error) {
-      console.error('获取个人课程统计失败:', error);
+      console.error('❌ 获取个人课程统计失败:', error);
       setPersonalCourseStats(null);
     }
   };
@@ -597,9 +599,7 @@ export function AttendanceSheet() {
                     <div className='space-y-2 text-sm text-gray-600'>
                       <p className='flex items-center'>
                         <MapPin className='mr-2 h-4 w-4 text-gray-400' />
-                        <span className='font-medium'>
-                          {course.lq} {course.room_s}教室
-                        </span>
+                        <span className='font-medium'>{course.lq} 室</span>
                       </p>
                       <p className='flex items-center'>
                         <User className='mr-2 h-4 w-4 text-gray-400' />
@@ -819,7 +819,8 @@ export function AttendanceSheet() {
                                 </div>
 
                                 <div className='mb-2 text-sm text-gray-600'>
-                                  节次：{record.class_period} | 出勤率：
+                                  节次：{record.class_period || 'N/A'} |
+                                  出勤率：
                                   {record.course_status === 'finished'
                                     ? `${
                                         typeof record.attendance_rate ===
@@ -921,9 +922,10 @@ export function AttendanceSheet() {
                         </div>
                         <div className='rounded-lg bg-orange-50 p-4'>
                           <div className='text-2xl font-bold text-orange-600'>
-                            {personalCourseStats.data.course_info.overall_attendance_rate.toFixed(
-                              1
-                            )}
+                            {Number(
+                              personalCourseStats.data.course_info
+                                .overall_attendance_rate
+                            ).toFixed(1)}
                             %
                           </div>
                           <div className='text-sm text-gray-600'>
@@ -971,7 +973,8 @@ export function AttendanceSheet() {
                                 </div>
                                 <div className='text-right'>
                                   <div className='text-lg font-bold text-blue-600'>
-                                    {student.attendance_rate.toFixed(1)}%
+                                    {Number(student.attendance_rate).toFixed(1)}
+                                    %
                                   </div>
                                   <div className='text-sm text-gray-500'>
                                     出勤率
@@ -984,7 +987,7 @@ export function AttendanceSheet() {
                                 <div
                                   className='h-2 rounded-full bg-blue-500'
                                   style={{
-                                    width: `${student.attendance_rate}%`
+                                    width: `${Number(student.attendance_rate)}%`
                                   }}
                                 ></div>
                               </div>

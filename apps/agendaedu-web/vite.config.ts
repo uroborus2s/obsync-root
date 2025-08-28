@@ -1,8 +1,8 @@
-import tailwindcss from '@tailwindcss/vite'
-import { tanstackRouter } from '@tanstack/router-plugin/vite'
-import react from '@vitejs/plugin-react-swc'
 import path from 'path'
 import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react-swc'
+import tailwindcss from '@tailwindcss/vite'
+import { tanstackRouter } from '@tanstack/router-plugin/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -15,6 +15,20 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  server: {
+    proxy: {
+      // 代理API请求到生产环境，保持Cookie
+      '/api': {
+        target: 'https://kwps.jlufe.edu.cn',
+        changeOrigin: true,
+        secure: true,
+        cookieDomainRewrite: 'localhost',
+        headers: {
+          Origin: 'https://kwps.jlufe.edu.cn',
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

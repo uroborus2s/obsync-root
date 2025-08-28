@@ -8,6 +8,7 @@ import {
   DatabaseErrorHandler,
   DatabaseResult
 } from '../utils/error-handler.js';
+import { transactionContextManager } from '../utils/transaction-context.js';
 
 /**
  * 数据库操作上下文
@@ -180,6 +181,7 @@ export default class ApiAdapter implements DatabaseAPI {
 
   /**
    * 执行事务
+   * 增强版本：支持无感事务上下文传递
    */
   async transaction<T>(
     operation: (trx: Transaction<any>) => Promise<T>,
@@ -200,7 +202,13 @@ export default class ApiAdapter implements DatabaseAPI {
           // 注意：这里简化实现，实际应该设置事务隔离级别
         }
 
-        return await operation(trx);
+        // 🎯 关键增强：在事务上下文中运行操作
+        // 这样Repository层就能自动感知并使用当前事务
+        return await transactionContextManager.runInTransaction(
+          trx,
+          () => operation(trx),
+          'default' // 可以根据需要传递连接名称
+        );
       });
     }, 'database-transaction-execution');
   }

@@ -10,6 +10,8 @@ import type {
   GetAllUserParams,
   GetAllUserResponse,
   GetUserByExIdParams,
+  GetUsersByExUserIdsParams,
+  GetUsersByExUserIdsResponse,
   UpdateUserParams,
   UserInfo
 } from '../types/contact.js';
@@ -43,6 +45,9 @@ export interface WpsUserAdapter {
   getAllUserList(params?: GetAllUserParams): Promise<UserInfo[]>;
   getCurrentUserId(): Promise<string>;
   getUserByExId(params: GetUserByExIdParams): Promise<UserInfo>;
+  getUsersByExUserIds(
+    params: GetUsersByExUserIdsParams
+  ): Promise<GetUsersByExUserIdsResponse>;
 }
 
 /**
@@ -164,6 +169,20 @@ export function createWpsUserAdapter(
       await httpClient.ensureAccessToken();
       const response = await httpClient.get(
         '/v7/contacts/users/by_ex_id',
+        params
+      );
+      return response.data;
+    },
+
+    /**
+     * 根据外部用户ID列表查询用户信息
+     */
+    async getUsersByExUserIds(
+      params: GetUsersByExUserIdsParams
+    ): Promise<GetUsersByExUserIdsResponse> {
+      await httpClient.ensureAccessToken();
+      const response = await httpClient.post(
+        '/v7/users/by_ex_user_ids',
         params
       );
       return response.data;

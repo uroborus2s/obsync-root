@@ -1,6 +1,6 @@
 {
   "name": "@stratix/icasync",
-  "version": "1.0.0",
+  "version": "1.0.0-beta.5",
   "description": "Stratix 课表同步插件 - 将数据库课程数据同步到 WPS 日历",
   "type": "module",
   "main": "./dist/index.js",
@@ -21,17 +21,18 @@
     "lint:fix": "eslint src --ext .ts,.js --fix"
   },
   "dependencies": {
-    "@stratix/utils": "workspace:*"
+    "@stratix/utils": "workspace:*",
+    "date-fns": "^4.1.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "vitest": "^1.0.0",
-    "tsx": "^4.0.0",
-    "rimraf": "^5.0.0",
-    "typescript": "^5.0.0",
-    "eslint": "^8.0.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
-    "@typescript-eslint/parser": "^6.0.0"
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "rimraf": "^5.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0"
   },
   "peerDependencies": {
     "@stratix/core": "workspace:*",

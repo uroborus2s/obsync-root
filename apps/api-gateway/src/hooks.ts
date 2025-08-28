@@ -4,7 +4,11 @@ import circuitBreaker from '@fastify/circuit-breaker';
 import httpProxy from '@fastify/http-proxy';
 import { asValue, FastifyReply, FastifyRequest, Logger } from '@stratix/core';
 import JWTService from './services/JWTService.js';
-import type { JWTPayload, UserIdentity } from './types/gateway.js';
+import type {
+  GatewayServicesList,
+  JWTPayload,
+  UserIdentity
+} from './types/gateway.js';
 /**
  * 将JWT载荷转换为用户身份信息
  */
@@ -26,7 +30,34 @@ function convertPayloadToIdentity(payload: JWTPayload): UserIdentity {
 }
 
 /**
+ * 处理可能包含汉字的请求头值
+ * 只对特定的几个请求头进行URL编码处理
+ *
+ * @param value - 原始值
+ * @returns URL编码后的值
+ */
+function encodeChineseHeaderValue(value: string): string {
+  if (!value) return '';
+
+  // 移除控制字符
+  const cleaned = value
+    .replace(/[\x00-\x1F\x7F-\x9F]/g, '')
+    .replace(/[\r\n]/g, '')
+    .trim();
+
+  if (!cleaned) return '';
+
+  // 直接进行URL编码（对汉字和特殊字符都有效）
+  try {
+    return encodeURIComponent(cleaned);
+  } catch (error) {
+    return '';
+  }
+}
+
+/**
  * 生成身份信息Headers（明文，内网使用）
+ * 自动处理包含汉字等非ASCII字符的值
  */
 function generateIdentityHeaders(
   identity: UserIdentity,
@@ -35,12 +66,12 @@ function generateIdentityHeaders(
   try {
     const headers: Record<string, string> = {};
 
-    // 基础用户信息
+    // 基础用户信息 - 只有用户名可能包含汉字
     if (identity.userId) {
       headers['X-User-Id'] = identity.userId;
     }
     if (identity.username) {
-      headers['X-User-Name'] = identity.username;
+      headers['X-User-Name'] = encodeChineseHeaderValue(identity.username);
     }
     if (identity.userType) {
       headers['X-User-Type'] = identity.userType;
@@ -55,23 +86,39 @@ function generateIdentityHeaders(
       headers['X-User-Phone'] = identity.phone;
     }
 
-    // 学院信息
+    // 学院信息 - 这些字段包含汉字，需要URL编码
     if (identity.collegeName) {
-      headers['X-User-College'] = identity.collegeName;
+      headers['X-User-College'] = encodeChineseHeaderValue(
+        identity.collegeName
+      );
     }
     if (identity.majorName) {
-      headers['X-User-Major'] = identity.majorName;
+      headers['X-User-Major'] = encodeChineseHeaderValue(identity.majorName);
     }
     if (identity.className) {
-      headers['X-User-Class'] = identity.className;
+      headers['X-User-Class'] = encodeChineseHeaderValue(identity.className);
     }
 
-    // 权限信息（JSON格式）
+    // 权限信息（JSON格式）- 角色和权限可能包含汉字，需要编码
     if (identity.roles && identity.roles.length > 0) {
-      headers['X-User-Roles'] = JSON.stringify(identity.roles);
+      try {
+        headers['X-User-Roles'] = JSON.stringify(identity.roles);
+      } catch (error) {
+        logger.warn('Failed to serialize user roles', {
+          roles: identity.roles,
+          error
+        });
+      }
     }
     if (identity.permissions && identity.permissions.length > 0) {
-      headers['X-User-Permissions'] = JSON.stringify(identity.permissions);
+      try {
+        headers['X-User-Permissions'] = JSON.stringify(identity.permissions);
+      } catch (error) {
+        logger.warn('Failed to serialize user permissions', {
+          permissions: identity.permissions,
+          error
+        });
+      }
     }
 
     // 请求时间戳（用于日志追踪）
@@ -91,23 +138,31 @@ function generateIdentityHeaders(
 
 /**
  * 创建认证预处理器
- * 增强错误处理和上下文安全检查
+ * 增强错误处理和上下文安全检查，防止重复响应
  */
 export async function authPreHandler(
   request: FastifyRequest,
   reply: FastifyReply
 ) {
+  // 防止重复响应：检查响应是否已发送
+  if (reply.sent) {
+    return;
+  }
+
   try {
     // 安全检查：确保请求上下文完整
     if (!request || !request.diScope) {
       request?.log?.error(
         'Request context or diScope not available in authPreHandler'
       );
-      return reply.code(500).send({
-        error: 'Internal Server Error',
-        message: 'Request context not available',
-        timestamp: new Date().toISOString()
-      });
+      if (!reply.sent) {
+        return reply.code(500).send({
+          error: 'Internal Server Error',
+          message: 'Request context not available',
+          timestamp: new Date().toISOString()
+        });
+      }
+      return;
     }
 
     // 从DI容器获取JWTService
@@ -116,31 +171,40 @@ export async function authPreHandler(
       jwtService = request.diScope.resolve('jwtService') as JWTService;
     } catch (error) {
       request.log.error('Failed to resolve jwtService from diScope', error);
-      return reply.code(500).send({
-        error: 'Internal Server Error',
-        message: 'Authentication service not available',
-        timestamp: new Date().toISOString()
-      });
+      if (!reply.sent) {
+        return reply.code(500).send({
+          error: 'Internal Server Error',
+          message: 'Authentication service not available',
+          timestamp: new Date().toISOString()
+        });
+      }
+      return;
     }
 
     const token = jwtService.extractTokenFromRequest(request);
 
     if (!token) {
-      return reply.code(401).send({
-        error: 'Unauthorized',
-        message: 'Authentication token required',
-        timestamp: new Date().toISOString()
-      });
+      if (!reply.sent) {
+        return reply.code(401).send({
+          error: 'Unauthorized',
+          message: 'Authentication token required',
+          timestamp: new Date().toISOString()
+        });
+      }
+      return;
     }
 
     const result = jwtService.verifyToken(token);
 
     if (!result.valid) {
-      return reply.code(401).send({
-        error: 'Unauthorized',
-        message: result.error || 'Invalid token',
-        timestamp: new Date().toISOString()
-      });
+      if (!reply.sent) {
+        return reply.code(401).send({
+          error: 'Unauthorized',
+          message: result.error || 'Invalid token',
+          timestamp: new Date().toISOString()
+        });
+      }
+      return;
     }
 
     // 安全地注册用户载荷到diScope
@@ -156,11 +220,14 @@ export async function authPreHandler(
       });
     } catch (error) {
       request.log.error('Failed to register userPayload to diScope', error);
-      return reply.code(500).send({
-        error: 'Internal Server Error',
-        message: 'Failed to process authentication',
-        timestamp: new Date().toISOString()
-      });
+      if (!reply.sent) {
+        return reply.code(500).send({
+          error: 'Internal Server Error',
+          message: 'Failed to process authentication',
+          timestamp: new Date().toISOString()
+        });
+      }
+      return;
     }
   } catch (error) {
     const errorMessage =
@@ -177,23 +244,30 @@ export async function authPreHandler(
       console.error('Authentication failed:', errorMessage);
     }
 
-    return reply.code(401).send({
-      error: 'Unauthorized',
-      message: 'Invalid or expired token',
-      timestamp: new Date().toISOString()
-    });
+    if (!reply.sent) {
+      return reply.code(401).send({
+        error: 'Unauthorized',
+        message: 'Invalid or expired token',
+        timestamp: new Date().toISOString()
+      });
+    }
   }
 }
 
 /**
  * 创建身份信息转发预处理器
  * 从diScope中获取已验证的用户载荷，避免重复JWT解析
- * 增强错误处理和上下文安全检查
+ * 增强错误处理和上下文安全检查，防止重复响应
  */
 export async function identityForwardPreHandler(
   request: FastifyRequest,
   reply: FastifyReply
 ) {
+  // 防止重复响应：检查响应是否已发送
+  if (reply.sent) {
+    return;
+  }
+
   try {
     // 安全检查：确保请求上下文完整
     if (!request || !request.diScope) {
@@ -286,103 +360,141 @@ export async function identityForwardPreHandler(
 
 /**
  * 初始化默认代理服务
+ *
+ * @param services - 网关服务配置列表，包含服务名称和代理配置
+ * @returns 返回符合 Stratix 框架 afterFastifyCreated 钩子规范的函数
+ *
+ * @example
+ * ```typescript
+ * const services: GatewayServicesList = [
+ *   {
+ *     name: 'workflows',
+ *     config: {
+ *       name: 'workflows',
+ *       upstream: 'http://localhost:3001',
+ *       prefix: '/api/workflows',
+ *       rewritePrefix: '/api/workflows',
+ *       requireAuth: true,
+ *       timeout: 30000,
+ *       retries: 3,
+ *       httpMethods: ['GET', 'POST', 'PUT', 'DELETE'],
+ *       preHandlers: [authPreHandler, identityForwardPreHandler]
+ *     }
+ *   }
+ * ];
+ *
+ * // 在 stratix.config.ts 中使用
+ * hooks: {
+ *   afterFastifyCreated: createAfterFastifyCreated(services)
+ * }
+ * ```
  */
-export async function afterFastifyCreated(instance: FastifyInstance) {
-  const services = [
-    {
-      name: 'workflows',
-      config: {
-        name: 'workflows',
-        upstream: 'http://localhost:3001',
-        prefix: '/api/workflows',
-        rewritePrefix: '/api/workflows',
-        requireAuth: true,
-        timeout: 30000,
-        retries: 3,
-        httpMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-        preHandlers: [authPreHandler, identityForwardPreHandler]
+export const createAfterFastifyCreated =
+  (
+    services: GatewayServicesList
+  ): ((instance: FastifyInstance) => Promise<void>) =>
+  async (instance: FastifyInstance) => {
+    instance.log.info(`Initializing proxy for ${services.length} services`);
+
+    await instance.register(circuitBreaker, {
+      threshold: 5, // 失败阈值：5次失败后打开断路器
+      timeout: 3000, // 超时时间：3秒未响应视为失败
+      resetTimeout: 10000, // 重置时间：10秒后从打开状态转为半开状态
+      timeoutErrorMessage: '请求超时',
+      circuitOpenErrorMessage: '服务暂时不可用，请稍后再试'
+    });
+
+    // 为每个服务创建代理路由
+    for (const { name, config } of services) {
+      try {
+        instance.log.info(`Setting up proxy for service: ${name}`);
+
+        // 注册代理路由 - 增强错误处理和安全性
+        await instance.register(httpProxy as any, {
+          upstream: config.upstream,
+          prefix: config.prefix,
+          rewritePrefix: config.rewritePrefix,
+          http2: false,
+          preHandler: config.requireAuth
+            ? [...config.preHandlers!, instance.circuitBreaker()]
+            : undefined,
+          timeout: config.timeout || 30000,
+          httpMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+          // 增强错误处理 - 防止重复响应
+          replyOptions: {
+            onError: (reply: any, error: any) => {
+              // 防止重复响应：检查响应是否已发送
+              if (reply.sent) {
+                instance.log.warn('Attempted to send response after already sent', {
+                  error: error.message,
+                  service: name,
+                  upstream: config.upstream
+                });
+                return;
+              }
+
+              instance.log.error('Proxy error occurred', {
+                error: error.message,
+                stack: error.stack,
+                service: name,
+                upstream: config.upstream
+              });
+
+              try {
+                // 返回标准化的错误响应
+                reply.code(502).send({
+                  error: 'Bad Gateway',
+                  message: 'Upstream service unavailable',
+                  service: name,
+                  timestamp: new Date().toISOString()
+                });
+              } catch (sendError) {
+                instance.log.error('Failed to send error response', {
+                  originalError: error.message,
+                  sendError: sendError instanceof Error ? sendError.message : sendError,
+                  service: name
+                });
+              }
+            }
+          },
+          // 增强请求处理
+          beforeHandler: (request: any, reply: any, next: any) => {
+            // 防止重复响应：检查响应是否已发送
+            if (reply.sent) {
+              instance.log.warn('Request already handled, skipping beforeHandler', {
+                method: request.method,
+                url: request.url,
+                service: name
+              });
+              return next();
+            }
+
+            try {
+              // 添加请求追踪
+              request.log.info('Proxying request', {
+                method: request.method,
+                url: request.url,
+                service: name,
+                upstream: config.upstream
+              });
+              next();
+            } catch (error) {
+              instance.log.error('Error in beforeHandler', {
+                error: error instanceof Error ? error.message : error,
+                service: name
+              });
+              next(error);
+            }
+          }
+        });
+
+        instance.log.info(
+          `✅ Proxy setup completed for ${name}: ${config.prefix} -> ${config.upstream}`
+        );
+      } catch (error) {
+        instance.log.error(`❌ Failed to setup proxy for ${name}:`, error);
+        throw error;
       }
     }
-    // {
-    //   name: 'users',
-    //   config: {
-    //     name: 'users',
-    //     upstream: 'http://localhost:3002',
-    //     prefix: '/api/users',
-    //     rewritePrefix: '/api/users',
-    //     requireAuth: true,
-    //     timeout: 30000,
-    //     retries: 3,
-    //     httpMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    //     preHandlers: [authPreHandler, identityForwardPreHandler]
-    //   }
-    // }
-  ];
-  instance.log.info(`Initializing proxy for ${services.length} services`);
-
-  await instance.register(circuitBreaker, {
-    threshold: 5, // 失败阈值：5次失败后打开断路器
-    timeout: 3000, // 超时时间：3秒未响应视为失败
-    resetTimeout: 10000, // 重置时间：10秒后从打开状态转为半开状态
-    timeoutErrorMessage: '请求超时',
-    circuitOpenErrorMessage: '服务暂时不可用，请稍后再试'
-  });
-
-  // 为每个服务创建代理路由
-  for (const { name, config } of services) {
-    try {
-      instance.log.info(`Setting up proxy for service: ${name}`);
-
-      // 注册代理路由 - 增强错误处理和安全性
-      await instance.register(httpProxy as any, {
-        upstream: config.upstream,
-        prefix: config.prefix,
-        rewritePrefix: config.rewritePrefix,
-        http2: false,
-        preHandler: config.requireAuth
-          ? [...config.preHandlers, instance.circuitBreaker()]
-          : undefined,
-        timeout: config.timeout || 30000,
-        httpMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-        // 增强错误处理
-        replyOptions: {
-          onError: (reply: any, error: any) => {
-            instance.log.error('Proxy error occurred', {
-              error: error.message,
-              stack: error.stack,
-              service: name,
-              upstream: config.upstream
-            });
-
-            // 返回标准化的错误响应
-            reply.code(502).send({
-              error: 'Bad Gateway',
-              message: 'Upstream service unavailable',
-              service: name,
-              timestamp: new Date().toISOString()
-            });
-          }
-        },
-        // 增强请求处理
-        beforeHandler: (request: any, reply: any, next: any) => {
-          // 添加请求追踪
-          request.log.info('Proxying request', {
-            method: request.method,
-            url: request.url,
-            service: name,
-            upstream: config.upstream
-          });
-          next();
-        }
-      });
-
-      instance.log.info(
-        `✅ Proxy setup completed for ${name}: ${config.prefix} -> ${config.upstream}`
-      );
-    } catch (error) {
-      instance.log.error(`❌ Failed to setup proxy for ${name}:`, error);
-      throw error;
-    }
-  }
-  instance.log.info('🚀 Proxy plugin initialization completed');
-}
+    instance.log.info('🚀 Proxy plugin initialization completed');
+  };

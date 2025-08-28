@@ -245,6 +245,8 @@ export interface CreateScheduleParams {
   attendees?: Omit<ScheduleAttendee, 'user_id'>[];
   /** 会议室列表 */
   meeting_rooms?: Omit<ScheduleMeetingRoom, 'room_id'>[];
+  /** 地点 */
+  locations: { name: string }[];
 }
 
 /**
@@ -386,6 +388,34 @@ export interface GetGroupMembersParams {
 }
 
 /**
+ * 查询日历列表参数
+ */
+export interface GetCalendarListParams {
+  /** 分页大小，默认为20，最大值为20 */
+  page_size?: number;
+  /** 分页标记，第一次请求不需要传递此参数，后续请求传递上一次响应中的next_page_token */
+  page_token?: string;
+}
+
+/**
+ * 查询日历参数
+ */
+export interface GetCalendarParams {
+  /** 日历ID，可从日历列表、主日历详情获取 */
+  calendar_id: string;
+}
+
+/**
+ * 更新日历参数
+ */
+export interface UpdateCalendarParams {
+  /** 日历ID，可从日历列表、主日历详情获取 */
+  calendar_id: string;
+  /** 日历标题 */
+  summary: string;
+}
+
+/**
  * 查询日历权限列表参数
  */
 export interface GetCalendarPermissionListParams {
@@ -470,11 +500,35 @@ export interface DeleteLeaveEventParams {
 // ==================== 响应类型 ====================
 
 /**
- * 查询主日历响应
+ * 查询日历列表响应
  */
-export interface GetPrimaryCalendarResponse {
-  /** 主日历信息 */
-  calendar: CalendarInfo;
+export interface GetCalendarListResponse {
+  /** 日历列表 */
+  Items: CalendarInfo[];
+  /** 下一页的标记，当该字段为空时，表示没有更多数据 */
+  next_page_token?: string;
+}
+
+/**
+ * 查询日历响应
+ */
+export interface GetCalendarResponse {
+  /** 日历详细信息 */
+  data: CalendarInfo;
+  /** 状态码 */
+  code: number;
+  /** 消息 */
+  msg: string;
+}
+
+/**
+ * 更新日历响应
+ */
+export interface UpdateCalendarResponse {
+  /** 状态码 */
+  code: number;
+  /** 人可阅读的文本信息，可能会包含不同的语言地区返回不同的文本信息 */
+  msg: string;
 }
 
 /**
@@ -531,7 +585,7 @@ export interface BatchCreateSchedulesParams {
     /** 提醒设置 */
     reminders?: ScheduleReminder[];
     /** 地点 */
-    location?: string;
+    location?: Array<{ name: string }>;
   }>;
 }
 
@@ -540,7 +594,7 @@ export interface BatchCreateSchedulesParams {
  */
 export interface BatchCreateSchedulesResponse {
   /** 创建的日程列表 */
-  events: ScheduleInfo[];
+  items: ScheduleInfo[];
 }
 
 /**

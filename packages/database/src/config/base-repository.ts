@@ -18,6 +18,8 @@ import {
   ValidationError
 } from '../utils/error-handler.js';
 
+import { getCurrentTransaction } from '../utils/transaction-context.js';
+
 // Logger 接口定义
 interface Logger {
   debug(message: string, meta?: any): void;
@@ -454,13 +456,50 @@ export abstract class BaseRepository<
 
   /**
    * 获取查询构建器上下文
+   * 增强版本：自动检测并使用事务连接
    */
   protected getContext(): QueryBuilderContext<DB, TB> {
     return {
-      db: this.readConnection!,
+      db: this.getQueryConnection(),
       tableName: this.tableName,
       primaryKey: this.primaryKey
     };
+  }
+
+  /**
+   * 获取查询连接（读操作）
+   * 优先使用当前事务，如果没有事务则使用读连接
+   */
+  protected getQueryConnection(): Kysely<DB> {
+    const currentTransaction = getCurrentTransaction();
+    if (currentTransaction) {
+      // 记录事务使用情况（调试用）
+      this.logger?.debug('Using transaction for read query', {
+        tableName: this.tableName,
+        inTransaction: true
+      });
+      // Transaction对象在Kysely中可以作为查询构建器使用
+      return currentTransaction as unknown as Kysely<DB>;
+    }
+    return this.readConnection!;
+  }
+
+  /**
+   * 获取写操作连接
+   * 优先使用当前事务，如果没有事务则使用写连接
+   */
+  protected getWriteConnection(): Kysely<DB> {
+    const currentTransaction = getCurrentTransaction();
+    if (currentTransaction) {
+      // 记录事务使用情况（调试用）
+      this.logger?.debug('Using transaction for write query', {
+        tableName: this.tableName,
+        inTransaction: true
+      });
+      // Transaction对象在Kysely中可以作为查询构建器使用
+      return currentTransaction as unknown as Kysely<DB>;
+    }
+    return this.writeConnection!;
   }
 
   /**
@@ -490,7 +529,7 @@ export abstract class BaseRepository<
    */
   async findById(id: string | number): Promise<DatabaseResult<Option<T>>> {
     return await DatabaseErrorHandler.execute(async () => {
-      const result = await (this.readConnection as any)
+      const result = await (this.getQueryConnection() as any)
         .selectFrom(this.tableName)
         .selectAll()
         .where(this.primaryKey, '=', id)
@@ -612,7 +651,7 @@ export abstract class BaseRepository<
       const processedData = this.processJsonFields(data);
 
       // 构建查询
-      const query = (this.writeConnection as any)
+      const query = (this.getWriteConnection() as any)
         .insertInto(this.tableName)
         .values(processedData as any);
 
@@ -673,9 +712,9 @@ export abstract class BaseRepository<
       });
     };
 
-    return await this.databaseApi.executeQuery(operation, {
-      readonly: false
-    });
+    return await DatabaseErrorHandler.execute(async () => {
+      return await operation(this.getWriteConnection() as any);
+    }, 'database-query-execution');
   }
 
   /**
@@ -696,7 +735,7 @@ export abstract class BaseRepository<
       const processedData = this.processJsonFields(data);
 
       // 构建更新查询
-      const query = (this.writeConnection as any)
+      const query = (this.getWriteConnection() as any)
         .updateTable(this.tableName)
         .set(processedData)
         .where(this.primaryKey, '=', id);
@@ -767,12 +806,35 @@ export abstract class BaseRepository<
       });
 
       const result = await finalQuery.execute();
-      return Number((result as any).numUpdatedRows || 0);
+
+      // 健壮的返回值处理
+      const getUpdatedRowsCount = (result: any): number => {
+        // MySQL可能返回数组格式
+        if (Array.isArray(result) && result.length > 0) {
+          const resultObj = result[0];
+          return Number(
+            resultObj?.numUpdatedRows ||
+              resultObj?.affectedRows ||
+              resultObj?.changedRows ||
+              0
+          );
+        }
+
+        // PostgreSQL/SQLite返回对象格式
+        if (result && typeof result === 'object') {
+          return Number(
+            result.numUpdatedRows || result.changes || result.affectedRows || 0
+          );
+        }
+
+        return 0;
+      };
+      return getUpdatedRowsCount(result);
     };
 
-    return await this.databaseApi.executeQuery(operation, {
-      readonly: false
-    });
+    return await DatabaseErrorHandler.execute(async () => {
+      return await operation(this.getWriteConnection() as any);
+    }, 'database-query-execution');
   }
 
   /**
@@ -780,7 +842,7 @@ export abstract class BaseRepository<
    */
   async delete(id: string | number): Promise<DatabaseResult<boolean>> {
     return await DatabaseErrorHandler.execute(async () => {
-      const result = await (this.writeConnection as any)
+      const result = await (this.getWriteConnection() as any)
         .deleteFrom(this.tableName)
         .where(this.primaryKey, '=', id)
         .execute();
@@ -804,9 +866,9 @@ export abstract class BaseRepository<
         .then((result: any) => Number(result.numDeletedRows || 0));
     };
 
-    return await this.databaseApi.executeQuery(operation, {
-      readonly: false
-    });
+    return await DatabaseErrorHandler.execute(async () => {
+      return await operation(this.getWriteConnection() as any);
+    }, 'database-query-execution');
   }
 
   /**
@@ -818,7 +880,7 @@ export abstract class BaseRepository<
     const operation = async (db: Kysely<DB>) => {
       const baseQuery = (db as any)
         .selectFrom(this.tableName)
-        .select((eb: any) => eb.fn.count('*').as('count'));
+        .select((eb: any) => eb.fn.countAll().as('count'));
 
       const finalQuery = criteria ? criteria(baseQuery) : baseQuery;
 

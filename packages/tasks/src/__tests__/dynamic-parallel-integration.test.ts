@@ -1,13 +1,16 @@
 /**
  * 动态并行工作流集成测试
- * 
+ *
  * 验证动态并行任务创建和执行的完整流程
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import WorkflowEngineService from '../services/WorkflowEngineService.js';
 import type { Logger } from '@stratix/core';
-import type { WorkflowDefinition, TaskNodeDefinition } from '../types/workflow.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import WorkflowEngineService from '../services/WorkflowEngineService.js';
+import type {
+  TaskNodeDefinition,
+  WorkflowDefinition
+} from '../types/workflow.js';
 
 // Mock dependencies
 const mockLogger: Logger = {
@@ -35,14 +38,14 @@ describe('Dynamic Parallel Workflow Integration', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    
+
     // Mock executor
     mockExecutor = {
       execute: vi.fn()
     };
-    
+
     mockExecutorRegistry.getExecutor = vi.fn().mockReturnValue(mockExecutor);
-    
+
     workflowEngine = new WorkflowEngineService(
       mockLogger,
       mockWorkflowInstanceRepository
@@ -59,13 +62,19 @@ describe('Dynamic Parallel Workflow Integration', () => {
       {
         groupId: 'group-1',
         groupName: '计算机学院',
-        courses: [{ id: 1, name: '数据结构' }, { id: 2, name: '算法设计' }],
+        courses: [
+          { id: 1, name: '数据结构' },
+          { id: 2, name: '算法设计' }
+        ],
         totalCourses: 2
       },
       {
-        groupId: 'group-2', 
+        groupId: 'group-2',
         groupName: '软件学院',
-        courses: [{ id: 3, name: 'Java编程' }, { id: 4, name: '数据库系统' }],
+        courses: [
+          { id: 3, name: 'Java编程' },
+          { id: 4, name: '数据库系统' }
+        ],
         totalCourses: 2
       }
     ];
@@ -114,7 +123,7 @@ describe('Dynamic Parallel Workflow Integration', () => {
       name: 'test-dynamic-parallel-sync',
       version: '1.0.0',
       description: '测试动态并行同步工作流',
-      
+
       inputs: [
         {
           name: 'xnxq',
@@ -153,12 +162,12 @@ describe('Dynamic Parallel Workflow Integration', () => {
           type: 'loop',
           loopType: 'dynamic',
           dependsOn: ['data-aggregation'],
-          
+
           // 从数据聚合结果获取课程分组
           sourceExpression: 'nodes.data-aggregation.output.courseGroups',
-          
+
           nodes: [], // 动态类型为空数组
-          
+
           // 课程组同步任务模板
           taskTemplate: {
             id: 'sync-course-group',
@@ -173,7 +182,7 @@ describe('Dynamic Parallel Workflow Integration', () => {
               totalCourses: '${item.totalCourses}'
             }
           } as TaskNodeDefinition,
-          
+
           maxConcurrency: 2,
           errorHandling: 'continue',
           joinType: 'all'
@@ -189,7 +198,7 @@ describe('Dynamic Parallel Workflow Integration', () => {
     // 验证结果
     expect(result).toBeDefined();
     expect(result.id).toBe(1);
-    
+
     // 验证数据聚合执行器被调用
     expect(mockExecutor.execute).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -253,22 +262,33 @@ describe('Dynamic Parallel Workflow Integration', () => {
           }
         },
         {
-          id: 'parallel-course-sync',
-          name: '动态并行课程同步',
-          type: 'loop',
+          nodeId: 'parallel-course-sync',
+          nodeName: '动态并行课程同步',
+          nodeType: 'loop',
           loopType: 'dynamic',
           dependsOn: ['data-aggregation'],
           sourceExpression: 'nodes.data-aggregation.output.courseGroups',
-          nodes: [],
           taskTemplate: {
-            id: 'sync-course-group',
-            type: 'task',
-            name: '同步课程组',
+            nodeId: 'sync-course-group',
+            nodeType: 'task',
+            nodeName: '同步课程组',
             executor: 'courseGroupSyncProcessor',
-            config: {
+            maxRetries: 3,
+            inputData: {
               groupId: '${item.groupId}'
             }
           } as TaskNodeDefinition,
+          node: {
+            nodeId: 'sync-course-group',
+            nodeType: 'simple',
+            nodeName: '同步课程组',
+            executor: 'courseGroupSyncProcessor',
+            maxRetries: 3,
+            inputData: {
+              groupId: '${item.groupId}'
+            }
+          },
+          maxRetries: 3,
           maxConcurrency: 2,
           errorHandling: 'continue',
           joinType: 'all'
@@ -282,10 +302,10 @@ describe('Dynamic Parallel Workflow Integration', () => {
     });
 
     expect(result).toBeDefined();
-    
+
     // 验证只调用了数据聚合，没有调用课程组同步
     expect(mockExecutor.execute).toHaveBeenCalledTimes(1);
-    
+
     // 验证记录了空数据的日志
     expect(mockLogger.info).toHaveBeenCalledWith(
       expect.stringContaining('Dynamic parallel loop has no items to process')
@@ -373,10 +393,10 @@ describe('Dynamic Parallel Workflow Integration', () => {
     });
 
     expect(result).toBeDefined();
-    
+
     // 验证执行器被调用
     expect(mockExecutor.execute).toHaveBeenCalledTimes(2);
-    
+
     // 验证错误被记录但工作流继续执行
     expect(mockLogger.warn).toHaveBeenCalledWith(
       expect.stringContaining('Dynamic parallel task 0 failed')
@@ -435,10 +455,11 @@ describe('Dynamic Parallel Workflow Integration', () => {
           type: 'loop',
           loopType: 'dynamic',
           dependsOn: ['data-preparation'],
-          
+
           // 使用JSONPath表达式访问嵌套数据
-          sourceExpression: '$.nodes["data-preparation"].output.metadata.sync.groups',
-          
+          sourceExpression:
+            '$.nodes["data-preparation"].output.metadata.sync.groups',
+
           nodes: [],
           taskTemplate: {
             id: 'process-item',
@@ -461,7 +482,7 @@ describe('Dynamic Parallel Workflow Integration', () => {
     const result = await workflowEngine.startWorkflow(testWorkflow, {});
 
     expect(result).toBeDefined();
-    
+
     // 验证JSONPath表达式被正确处理
     expect(mockLogger.info).toHaveBeenCalledWith(
       expect.stringContaining('Dynamic parallel loop processing 2 items')

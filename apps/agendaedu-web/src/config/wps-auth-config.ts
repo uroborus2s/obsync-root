@@ -29,6 +29,43 @@ export const WPS_AUTH_CONFIG: WpsAuthConfig = {
 }
 
 /**
+ * 对状态参数进行base64编码
+ * @param state 原始状态参数
+ * @returns base64编码后的状态参数
+ */
+function encodeStateToBase64(state: string): string {
+  try {
+    // 使用btoa进行base64编码，确保URL参数的安全传输
+    const encodedState = btoa(encodeURIComponent(state))
+    return encodedState
+  } catch (error) {
+    console.error('❌ WPS认证配置: 状态参数编码失败', error)
+    // 编码失败时返回原始状态，确保认证流程不中断
+    return state
+  }
+}
+
+/**
+ * 对base64编码的状态参数进行解码
+ * @param encodedState base64编码的状态参数
+ * @returns 解码后的原始状态参数
+ */
+export function decodeStateFromBase64(encodedState: string): string {
+  try {
+    // 使用atob进行base64解码
+    const decodedState = decodeURIComponent(atob(encodedState))
+    console.log('🔓 WPS认证配置: 状态参数解码')
+    console.log('  - 编码状态:', encodedState)
+    console.log('  - 解码后状态:', decodedState)
+    return decodedState
+  } catch (error) {
+    console.error('❌ WPS认证配置: 状态参数解码失败', error)
+    // 解码失败时返回编码状态，避免认证流程中断
+    return encodedState
+  }
+}
+
+/**
  * 构建WPS授权URL
  * @param state 状态参数，通常是当前页面URL用于授权后重定向
  * @returns 完整的WPS授权URL
@@ -36,19 +73,23 @@ export const WPS_AUTH_CONFIG: WpsAuthConfig = {
 export function buildWpsAuthUrl(state?: string): string {
   const finalState = state || window.location.href
 
+  // 对状态参数进行base64编码，确保URL参数的安全传输
+  const encodedState = encodeStateToBase64(finalState)
+
   console.log('🔧 WPS认证配置: 构建授权URL参数')
   console.log('  - appid:', WPS_AUTH_CONFIG.appid)
   console.log('  - redirectUri:', WPS_AUTH_CONFIG.redirectUri)
   console.log('  - scope:', WPS_AUTH_CONFIG.scope)
   console.log('  - authUrl:', WPS_AUTH_CONFIG.authUrl)
-  console.log('  - state:', finalState)
+  console.log('  - 原始state:', finalState)
+  console.log('  - 编码后state:', encodedState)
 
   const params = new URLSearchParams({
-    client_id: WPS_AUTH_CONFIG.appid,
+    appid: WPS_AUTH_CONFIG.appid,
     response_type: 'code',
     redirect_uri: WPS_AUTH_CONFIG.redirectUri,
     scope: WPS_AUTH_CONFIG.scope,
-    state: finalState,
+    state: encodedState, // 使用base64编码后的状态参数
     login_type: WPS_AUTH_CONFIG.loginType,
   })
 
@@ -63,12 +104,8 @@ export function buildWpsAuthUrl(state?: string): string {
  * @param returnUrl 授权成功后要返回的页面URL
  */
 export function redirectToWpsAuth(returnUrl?: string): void {
-  console.log('🔄 WPS认证配置: 开始构建授权URL...')
   const finalReturnUrl = returnUrl || window.location.href
   const authUrl = buildWpsAuthUrl(finalReturnUrl)
-
-  console.log('📋 WPS认证配置: 授权参数')
-  console.log('  - 返回URL:', finalReturnUrl)
   console.log('  - 授权URL:', authUrl)
 
   // 保存返回URL到sessionStorage，以防state参数丢失

@@ -31,7 +31,6 @@ CREATE TABLE `icasync_calendar_mapping` (
   `updated_at` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `metadata` json DEFAULT NULL COMMENT '元数据',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_kkh_xnxq` (`kkh`, `xnxq`),
   KEY `idx_calendar_id` (`calendar_id`),
   KEY `idx_is_deleted` (`is_deleted`),
   KEY `idx_deleted_at` (`deleted_at`)
@@ -64,67 +63,11 @@ CREATE TABLE `icasync_schedule_mapping` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='日程映射表';
 
 -- =====================================================
--- 3. 用户视图表 (icasync_user_view)
--- 统一的用户视图，包含学生和教师信息
--- =====================================================
-
-DROP TABLE IF EXISTS `icasync_user_view`;
-
-CREATE TABLE `icasync_user_view` (
-  `id` int(11) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `user_code` varchar(100) NOT NULL COMMENT '用户编号（学号/工号）',
-  `user_name` varchar(200) NOT NULL COMMENT '用户姓名',
-  `user_type` enum('student','teacher') NOT NULL COMMENT '用户类型',
-  `college_code` varchar(30) DEFAULT NULL COMMENT '学院代码',
-  `college_name` varchar(90) DEFAULT NULL COMMENT '学院名称',
-  `major_code` varchar(30) DEFAULT NULL COMMENT '专业代码（学生）/部门代码（教师）',
-  `major_name` varchar(90) DEFAULT NULL COMMENT '专业名称（学生）/部门名称（教师）',
-  `class_code` varchar(30) DEFAULT NULL COMMENT '班级代码（仅学生）',
-  `class_name` varchar(90) DEFAULT NULL COMMENT '班级名称（仅学生）',
-  `phone` varchar(11) DEFAULT NULL COMMENT '手机号',
-  `email` varchar(200) DEFAULT NULL COMMENT '邮箱',
-  `wps_user_id` varchar(100) DEFAULT NULL COMMENT 'WPS用户ID',
-  `sync_status` enum('pending','syncing','completed','failed') DEFAULT 'pending' COMMENT '同步状态',
-  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  `metadata` json DEFAULT NULL COMMENT '元数据',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_user_code_type` (`user_code`, `user_type`),
-  KEY `idx_user_type` (`user_type`),
-  KEY `idx_college_code` (`college_code`),
-  KEY `idx_major_code` (`major_code`),
-  KEY `idx_class_code` (`class_code`),
-  KEY `idx_wps_user_id` (`wps_user_id`),
-  KEY `idx_sync_status` (`sync_status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户视图表';
-
--- =====================================================
 -- 4. 日历参与者映射表 (icasync_calendar_participants)
 -- 用于存储日历参与者关系
 -- =====================================================
 
 DROP TABLE IF EXISTS `icasync_calendar_participants`;
-
-CREATE TABLE `icasync_calendar_participants` (
-  `id` int(11) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `calendar_id` varchar(100) NOT NULL COMMENT 'WPS日历ID',
-  `kkh` varchar(60) NOT NULL COMMENT '开课号',
-  `user_code` varchar(100) NOT NULL COMMENT '用户编号（学号/工号）',
-  `user_type` enum('student','teacher') NOT NULL COMMENT '用户类型',
-  `permission_role` enum('reader','writer','owner') DEFAULT 'reader' COMMENT '权限角色',
-  `is_deleted` boolean NOT NULL DEFAULT FALSE COMMENT '软删除标志',
-  `deleted_at` datetime NULL COMMENT '删除时间',
-  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  `metadata` json DEFAULT NULL COMMENT '元数据',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_calendar_user` (`calendar_id`, `user_code`, `user_type`),
-  KEY `idx_kkh` (`kkh`),
-  KEY `idx_user_code` (`user_code`),
-  KEY `idx_user_type` (`user_type`),
-  KEY `idx_is_deleted` (`is_deleted`),
-  KEY `idx_deleted_at` (`deleted_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='日历参与者映射表';
 
 -- =====================================================
 -- 5. 同步任务记录表 (icasync_sync_tasks)
@@ -133,30 +76,52 @@ CREATE TABLE `icasync_calendar_participants` (
 
 DROP TABLE IF EXISTS `icasync_sync_tasks`;
 
-CREATE TABLE `icasync_sync_tasks` (
-  `id` int(11) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `task_type` enum('full_sync','incremental_sync','user_sync') NOT NULL COMMENT '任务类型',
-  `xnxq` varchar(20) DEFAULT NULL COMMENT '学年学期（课程同步）',
-  `task_tree_id` varchar(36) DEFAULT NULL COMMENT '任务树ID（@stratix/tasks）',
-  `status` enum('pending','running','completed','failed','cancelled') DEFAULT 'pending' COMMENT '任务状态',
-  `progress` decimal(5,2) DEFAULT 0.00 COMMENT '执行进度（0-100）',
-  `total_items` int(11) DEFAULT 0 COMMENT '总处理项目数',
-  `processed_items` int(11) DEFAULT 0 COMMENT '已处理项目数',
-  `failed_items` int(11) DEFAULT 0 COMMENT '失败项目数',
-  `start_time` timestamp NULL DEFAULT NULL COMMENT '开始时间',
-  `end_time` timestamp NULL DEFAULT NULL COMMENT '结束时间',
-  `error_message` text DEFAULT NULL COMMENT '错误信息',
-  `result_summary` json DEFAULT NULL COMMENT '执行结果摘要',
-  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+-- =====================================================
+-- 6. 签到课程表 (icasync_attendance_courses)
+-- 用于存储需要签到的课程信息，关联juhe_renwu表
+-- =====================================================
+
+DROP TABLE IF EXISTS `icasync_attendance_courses`;
+
+CREATE TABLE `icasync_attendance_courses` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `juhe_renwu_id` int(11) NOT NULL COMMENT '关联聚合任务ID',
+  `external_id` varchar(200) NOT NULL COMMENT '关联外部ID',
+  `course_code` varchar(60) NOT NULL COMMENT '课程代码',
+  `course_name` varchar(500) NOT NULL COMMENT '课程名称',
+  `semester` varchar(20) NOT NULL COMMENT '学年学期',
+  `teaching_week` int(11) NOT NULL COMMENT '教学周(来自juhe_renwu.jxz)',
+  `week_day` int(11) NOT NULL COMMENT '周次-星期几(来自juhe_renwu.zc)',
+  `teacher_codes` varchar(500) COMMENT '教师工号列表(逗号分隔)',
+  `teacher_names` varchar(500) COMMENT '教师姓名列表',
+  `class_location` varchar(1000) COMMENT '上课地址(教学楼+教室)',
+  `start_time` datetime NOT NULL COMMENT '开始时间(RFC3339格式)',
+  `end_time` datetime NOT NULL COMMENT '结束时间(RFC3339格式)',
+  `periods` varchar(256) COMMENT '节次',
+  `time_period` varchar(2) NOT NULL COMMENT '时间段(am/pm)',
+  `attendance_enabled` tinyint(1) NOT NULL DEFAULT 1 COMMENT '是否启用签到',
+  `attendance_start_offset` int(11) DEFAULT 0 COMMENT '签到开始时间偏移(分钟)',
+  `attendance_end_offset` int(11) DEFAULT 15 COMMENT '签到结束时间偏移(分钟)',
+  `late_threshold` int(11) DEFAULT 10 COMMENT '迟到阈值(分钟)',
+  `auto_absent_after` int(11) DEFAULT 60 COMMENT '自动标记缺勤时间(分钟)',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `created_by` varchar(50) COMMENT '创建人',
+  `updated_by` varchar(50) COMMENT '更新人',
+  `deleted_at` timestamp NULL DEFAULT NULL COMMENT '软删除时间',
+  `deleted_by` varchar(50) DEFAULT NULL COMMENT '删除者',
   `metadata` json DEFAULT NULL COMMENT '元数据',
   PRIMARY KEY (`id`),
-  KEY `idx_task_type` (`task_type`),
-  KEY `idx_xnxq` (`xnxq`),
-  KEY `idx_task_tree_id` (`task_tree_id`),
-  KEY `idx_status` (`status`),
-  KEY `idx_created_at` (`created_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='同步任务记录表';
+  KEY `idx_course_code_semester` (`course_code`, `semester`),
+  KEY `idx_semester_enabled` (`semester`, `attendance_enabled`),
+  KEY `idx_teaching_week` (`teaching_week`),
+  KEY `idx_week_day` (`week_day`),
+  KEY `idx_teacher_codes` (`teacher_codes`(255)),
+  KEY `idx_deleted_at` (`deleted_at`),
+  KEY `idx_semester_deleted` (`semester`, `deleted_at`),
+  KEY `idx_course_semester_deleted` (`course_code`, `semester`, `deleted_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='签到课程表-存储需要签到的课程信息';
 
 -- =====================================================
 -- 恢复外键检查
@@ -169,14 +134,12 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- =====================================================
 
 -- 所有 @stratix/icasync 数据表创建完成
--- 包含以下 5 个表：
+-- 包含以下 6 个表：
 -- 1. icasync_calendar_mapping - 课程日历映射表
 -- 2. icasync_schedule_mapping - 日程映射表
--- 3. icasync_user_view - 用户视图表
--- 4. icasync_calendar_participants - 日历参与者映射表
--- 5. icasync_sync_tasks - 同步任务记录表
+-- 3. icasync_attendance_courses - 签到课程表
 --
--- 执行时间: 预计 < 1 秒
+-- 执行时间: 预计 < 2 秒
 -- 适用版本: MySQL 5.7+
 -- 字符集: utf8mb4
 -- 排序规则: utf8mb4_unicode_ci

@@ -34,3 +34,5 @@ export * as environment from './environment/index.js';
 
 // 导出函数式编程工具
 export * as functional from './functional/index.js';
+
+export * as auth from './auth/index.js';

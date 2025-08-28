@@ -1,9 +1,10 @@
 import { StudentFloatingMessageButton } from '@/components/StudentFloatingMessageButton';
 import { Toaster, ToastProvider } from '@/components/ui/toast';
 import { useToast } from '@/hooks/use-toast';
-import { api } from '@/lib/api-client';
 import { attendanceApi } from '@/lib/attendance-api';
 import { authManager } from '@/lib/auth-manager';
+import { icaLinkApiClient } from '@/lib/icalink-api-client';
+import { getUserInfoFromCookie, type JWTPayload } from '@/lib/jwt-utils';
 import { BookOpen, Calendar, Clock, MapPin, User } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -75,10 +76,15 @@ function StudentDashboardContent() {
   const [error, setError] = useState<string | null>(null);
   const [checkinLoading, setCheckinLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [userInfo, setUserInfo] = useState<JWTPayload | null>(null);
 
   const id = searchParams.get('id');
 
   useEffect(() => {
+    // 从cookie获取用户信息
+    const user = getUserInfoFromCookie();
+    setUserInfo(user);
+
     console.log('⚡ useEffect 触发, id:', id);
     if (id) {
       // 如果有课程ID，获取具体课程的签到数据
@@ -122,8 +128,9 @@ function StudentDashboardContent() {
     setError(null);
 
     try {
-      const response = await api.get<AttendanceData>(
-        `/attendance/${encodeURIComponent(id)}/record?type=student`
+      // 使用新的合并接口
+      const response = await icaLinkApiClient.get<AttendanceData>(
+        `/icalink/v1/courses/external/${encodeURIComponent(id)}/complete?type=student`
       );
 
       if (response.success && response.data) {
@@ -241,12 +248,30 @@ function StudentDashboardContent() {
 
   // 如果有课程ID，显示签到页面
   if (id && attendanceData) {
-    const { course, student, attendance_status } = attendanceData;
+    const { course, attendance_status } = attendanceData;
+
+    // 计算签到时间窗口（上课前5分钟到上课后5分钟）
+    const courseStartTime = new Date(course.course_start_time);
+    const checkinStartTime = new Date(
+      courseStartTime.getTime() - 5 * 60 * 1000
+    ); // 上课前5分钟
+    const checkinEndTime = new Date(courseStartTime.getTime() + 30 * 60 * 1000); // 上课后5分钟
+
+    // 判断当前是否在签到时间窗口内
+    const isInCheckinWindow =
+      currentTime >= checkinStartTime && currentTime <= checkinEndTime;
+
+    // 判断是否可以签到：在时间窗口内 且 未签到 且 未请假 且 非审批中
+    const canCheckin =
+      isInCheckinWindow &&
+      !attendance_status.is_checked_in &&
+      attendance_status.status !== 'leave' &&
+      attendance_status.status !== 'leave_pending';
 
     return (
       <div className='min-h-screen bg-gray-50'>
         <div className='mx-auto max-w-md space-y-4 p-4'>
-          {/* 学生信息卡片 */}
+          {/* 学生信息卡片 - 使用cookie中的用户信息 */}
           <div className='rounded-lg bg-white p-6 shadow-sm'>
             <div className='flex items-center space-x-4'>
               <div className='flex h-16 w-16 items-center justify-center rounded-full bg-gray-100'>
@@ -254,12 +279,19 @@ function StudentDashboardContent() {
               </div>
               <div className='flex-1'>
                 <h1 className='text-xl font-bold text-gray-900'>
-                  {student.xm}
+                  {userInfo?.username || '未知用户'}
                 </h1>
-                <p className='text-gray-600'>学号：{student.xh}</p>
+                <p className='text-gray-600'>
+                  学号：
+                  {userInfo?.studentNumber || userInfo?.userNumber || '未知'}
+                </p>
                 <div className='mt-2 space-y-1'>
-                  <p className='text-sm text-gray-500'>班级：{student.bjmc}</p>
-                  <p className='text-sm text-gray-500'>专业：{student.zymc}</p>
+                  <p className='text-sm text-gray-500'>
+                    班级：{userInfo?.className || '未知班级'}
+                  </p>
+                  <p className='text-sm text-gray-500'>
+                    专业：{userInfo?.majorName || '未知专业'}
+                  </p>
                 </div>
               </div>
             </div>
@@ -326,9 +358,7 @@ function StudentDashboardContent() {
               </div>
               <div className='flex items-center text-gray-600'>
                 <MapPin className='mr-3 h-4 w-4 text-gray-400' />
-                <span className='text-sm'>
-                  {course.lq} {course.room_s}教室
-                </span>
+                <span className='text-sm'>{course.lq} 室</span>
               </div>
               <div className='flex items-center text-gray-600'>
                 <User className='mr-3 h-4 w-4 text-gray-400' />
@@ -393,32 +423,36 @@ function StudentDashboardContent() {
                 <div className='space-y-3'>
                   {/* 签到按钮 */}
                   <button
+                    type='button'
                     onClick={handleCheckin}
-                    disabled={checkinLoading || !attendance_status.can_checkin}
+                    disabled={checkinLoading || !canCheckin}
                     className={`w-full rounded-lg px-4 py-3 font-semibold transition-colors ${
-                      !attendance_status.can_checkin
+                      !canCheckin
                         ? 'cursor-not-allowed bg-gray-300 text-gray-500'
                         : 'bg-green-600 text-white hover:bg-green-700'
                     }`}
                   >
                     {checkinLoading
                       ? '签到中...'
-                      : !attendance_status.can_checkin
-                        ? '暂不可签到'
+                      : !canCheckin
+                        ? isInCheckinWindow
+                          ? '已签到或已请假'
+                          : '不在签到时间'
                         : '签到（测试模式）'}
                   </button>
 
                   {/* 请假按钮 */}
                   <button
+                    type='button'
                     onClick={() => navigate(`/leave/${encodeURIComponent(id)}`)}
-                    disabled={!attendance_status.can_leave}
+                    disabled={!isInCheckinWindow}
                     className={`w-full rounded-lg px-4 py-3 font-semibold transition-colors ${
-                      !attendance_status.can_leave
+                      !isInCheckinWindow
                         ? 'cursor-not-allowed bg-gray-300 text-gray-500'
                         : 'bg-orange-600 text-white hover:bg-orange-700'
                     }`}
                   >
-                    请假
+                    {!isInCheckinWindow ? '不在请假时间' : '请假'}
                   </button>
                 </div>
               )}

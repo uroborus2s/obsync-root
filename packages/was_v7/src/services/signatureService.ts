@@ -1,5 +1,5 @@
-import { RESOLVER } from '@stratix/core';
-import { createHash, createHmac, randomBytes } from 'crypto';
+import { AwilixContainer, RESOLVER } from '@stratix/core';
+import { createHash, createHmac } from 'crypto';
 import type { SignatureParams } from '../types/index.js';
 
 /**
@@ -8,7 +8,7 @@ import type { SignatureParams } from '../types/index.js';
  */
 export class SignatureService {
   static [RESOLVER] = {
-    injector: (container: any) => {
+    injector: (container: AwilixContainer) => {
       const config = container.resolve('config');
       const appId = config.appId;
       const appSecret = config.appSecret;
@@ -25,29 +25,50 @@ export class SignatureService {
   }
 
   /**
-   * 生成签名参数
+   * 生成KSO-1签名
+   * @param method HTTP方法
+   * @param requestUri 请求URI（包含query参数）
+   * @param contentType 内容类型
+   * @param ksoDate RFC1123格式的日期
+   * @param requestBody 请求体
    */
-  generateSignature(): SignatureParams {
-    const timestamp = Math.floor(Date.now() / 1000).toString();
-    const nonce = this.generateNonce();
-    const signature = this.createSignature(timestamp, nonce);
+  private generateKso1Signature(
+    method: string,
+    requestUri: string,
+    contentType: string,
+    ksoDate: string,
+    requestBody: string
+  ): string {
+    // 计算请求体的SHA256哈希
+    const bodyHash = this.calculateSha256Hash(requestBody);
 
-    return {
-      timestamp,
-      nonce,
-      signature
-    };
+    // 构建签名字符串：KSO-1 + Method + RequestURI + ContentType + KsoDate + sha256(RequestBody)
+    const signatureString =
+      'KSO-1' + method + requestUri + contentType + ksoDate + bodyHash;
+
+    // 使用HMAC-SHA256生成签名
+    const signature = createHmac('sha256', this.appSecret)
+      .update(signatureString)
+      .digest('hex');
+
+    // 构建完整的Authorization头值：KSO-1 accessKey:signature
+    return `KSO-1 ${this.appId}:${signature}`;
   }
 
   /**
-   * 生成随机数
+   * 计算字符串的SHA256哈希
+   * 参考Java实现：当requestBody为null或空时，直接返回空字符串，不计算哈希
    */
-  private generateNonce(): string {
-    return randomBytes(16).toString('hex');
+  private calculateSha256Hash(data: string): string {
+    // 如果请求体为空或null，直接返回空字符串（与Java实现保持一致）
+    if (!data || data.length === 0) {
+      return '';
+    }
+    return createHash('sha256').update(data, 'utf8').digest('hex');
   }
 
   /**
-   * 创建签名
+   * 创建签名（保留旧方法以兼容）
    * 签名算法：HMAC-SHA256(appSecret, timestamp + nonce + appId)
    */
   private createSignature(timestamp: string, nonce: string): string {
@@ -55,6 +76,47 @@ export class SignatureService {
     return createHmac('sha256', this.appSecret)
       .update(stringToSign)
       .digest('hex');
+  }
+
+  /**
+   * 生成请求签名（支持完整的HTTP请求参数）
+   * @param method HTTP方法
+   * @param url 完整URL或路径
+   * @param contentType 内容类型
+   * @param requestBody 请求体
+   */
+  generateRequestSignature(
+    method: string,
+    url: string,
+    contentType: string = 'application/json',
+    requestBody: string = ''
+  ): SignatureParams {
+    // 生成RFC1123格式的时间戳
+    const ksoDate = new Date().toUTCString();
+
+    // 解析URL获取路径和查询参数
+    let requestUri = url;
+    try {
+      const urlObj = new URL(url, 'https://example.com');
+      requestUri = urlObj.pathname + urlObj.search;
+    } catch {
+      // 如果URL解析失败，直接使用原始URL
+      requestUri = url;
+    }
+
+    // 构建KSO-1签名
+    const signature = this.generateKso1Signature(
+      method,
+      requestUri,
+      contentType,
+      ksoDate,
+      requestBody
+    );
+
+    return {
+      timestamp: ksoDate,
+      signature: signature
+    };
   }
 
   /**
@@ -125,81 +187,5 @@ export class SignatureService {
       });
 
     return params.toString();
-  }
-
-  /**
-   * 生成请求签名（用于特殊场景）
-   */
-  generateRequestSignature(
-    method: string,
-    url: string,
-    params?: Record<string, any>,
-    body?: any
-  ): SignatureParams {
-    const timestamp = Math.floor(Date.now() / 1000).toString();
-    const nonce = this.generateNonce();
-
-    // 构建签名字符串
-    let stringToSign = method.toUpperCase() + '\n';
-    stringToSign += url + '\n';
-
-    // 添加查询参数
-    if (params) {
-      stringToSign += SignatureService.objectToQueryString(params) + '\n';
-    } else {
-      stringToSign += '\n';
-    }
-
-    // 添加请求体
-    if (body) {
-      if (typeof body === 'string') {
-        stringToSign += body;
-      } else {
-        stringToSign += JSON.stringify(body);
-      }
-    }
-
-    stringToSign += '\n' + timestamp + '\n' + nonce;
-
-    const signature = createHmac('sha256', this.appSecret)
-      .update(stringToSign)
-      .digest('hex');
-
-    return {
-      timestamp,
-      nonce,
-      signature
-    };
-  }
-
-  /**
-   * 生成文件上传签名
-   */
-  generateUploadSignature(
-    fileName: string,
-    fileSize: number,
-    contentType: string
-  ): SignatureParams {
-    const timestamp = Math.floor(Date.now() / 1000).toString();
-    const nonce = this.generateNonce();
-
-    const stringToSign = [
-      fileName,
-      fileSize.toString(),
-      contentType,
-      timestamp,
-      nonce,
-      this.appId
-    ].join('\n');
-
-    const signature = createHmac('sha256', this.appSecret)
-      .update(stringToSign)
-      .digest('hex');
-
-    return {
-      timestamp,
-      nonce,
-      signature
-    };
   }
 }

@@ -80,7 +80,12 @@ export interface IStudentCourseRepository {
   ): Promise<DatabaseResult<boolean>>;
 
   // 业务查询
-  findStudentsByKkh(kkh: string): Promise<DatabaseResult<string[]>>;
+  findStudentsByKkh(kkh: string): Promise<
+    DatabaseResult<{
+      studentIds: string[];
+      teacherIds: string[];
+    }>
+  >;
   findCoursesByXh(xh: string): Promise<DatabaseResult<string[]>>;
   findCoursesByXhAndXnxq(
     xh: string,
@@ -131,10 +136,9 @@ export default class StudentCourseRepository
       throw new Error('Course number cannot be empty');
     }
 
-    return await this.findMany((eb: any) => eb('kkh', '=', kkh), {
-      orderBy: 'xh',
-      order: 'asc'
-    });
+    return await this.findMany((qb: any) =>
+      qb.where('kkh', '=', kkh).orderBy('xh', 'asc')
+    );
   }
 
   /**
@@ -145,10 +149,9 @@ export default class StudentCourseRepository
       throw new Error('Student number cannot be empty');
     }
 
-    return await this.findMany((eb: any) => eb('xh', '=', xh), {
-      orderBy: 'kkh',
-      order: 'asc'
-    });
+    return await this.findMany((qb: any) =>
+      qb.where('xh', '=', xh).orderBy('kkh', 'asc')
+    );
   }
 
   /**
@@ -159,10 +162,9 @@ export default class StudentCourseRepository
       throw new Error('Academic year and semester cannot be empty');
     }
 
-    return await this.findMany((eb: any) => eb('xnxq', '=', xnxq), {
-      orderBy: 'kkh',
-      order: 'asc'
-    });
+    return await this.findMany((qb: any) =>
+      qb.where('xnxq', '=', xnxq).orderBy('xh', 'asc')
+    );
   }
 
   /**
@@ -173,10 +175,9 @@ export default class StudentCourseRepository
       throw new Error('Course code cannot be empty');
     }
 
-    return await this.findMany((eb: any) => eb('kcbh', '=', kcbh), {
-      orderBy: 'xh',
-      order: 'asc'
-    });
+    return await this.findMany((qb: any) =>
+      qb.where('kcbh', '=', kcbh).orderBy('xh', 'asc')
+    );
   }
 
   /**
@@ -193,8 +194,8 @@ export default class StudentCourseRepository
       throw new Error('Student number cannot be empty');
     }
 
-    return await this.findOneNullable((eb: any) =>
-      eb.and([eb('kkh', '=', kkh), eb('xh', '=', xh)])
+    return await this.findOneNullable((qb: any) =>
+      qb.where('kkh', '=', kkh).where('xh', '=', xh)
     );
   }
 
@@ -212,12 +213,8 @@ export default class StudentCourseRepository
       throw new Error('Academic year and semester cannot be empty');
     }
 
-    return await this.findMany(
-      (eb: any) => eb.and([eb('xh', '=', xh), eb('xnxq', '=', xnxq)]),
-      {
-        orderBy: 'kkh',
-        order: 'asc'
-      }
+    return await this.findMany((qb: any) =>
+      qb.where('xh', '=', xh).where('xnxq', '=', xnxq).orderBy('kkh', 'asc')
     );
   }
 
@@ -235,12 +232,8 @@ export default class StudentCourseRepository
       throw new Error('Academic year and semester cannot be empty');
     }
 
-    return await this.findMany(
-      (eb: any) => eb.and([eb('kkh', '=', kkh), eb('xnxq', '=', xnxq)]),
-      {
-        orderBy: 'xh',
-        order: 'asc'
-      }
+    return await this.findMany((qb: any) =>
+      qb.where('kkh', '=', kkh).where('xnxq', '=', xnxq).orderBy('xh', 'asc')
     );
   }
 
@@ -252,20 +245,18 @@ export default class StudentCourseRepository
       throw new Error('Status cannot be empty');
     }
 
-    return await this.findMany((eb: any) => eb('zt', '=', zt), {
-      orderBy: 'sj',
-      order: 'desc'
-    });
+    return await this.findMany((qb: any) =>
+      qb.where('zt', '=', zt).orderBy('sj', 'desc')
+    );
   }
 
   /**
    * 查找未处理的变更
    */
   async findUnprocessedChanges(): Promise<DatabaseResult<StudentCourse[]>> {
-    return await this.findMany((eb: any) => eb('zt', 'is not', null), {
-      orderBy: 'sj',
-      order: 'desc'
-    });
+    return await this.findMany((qb: any) =>
+      qb.where('zt', 'is not', null).orderBy('sj', 'desc')
+    );
   }
 
   /**
@@ -275,10 +266,9 @@ export default class StudentCourseRepository
     timestamp: Date
   ): Promise<DatabaseResult<StudentCourse[]>> {
     const timestampStr = timestamp.toISOString();
-    return await this.findMany((eb: any) => eb('sj', '>', timestampStr), {
-      orderBy: 'sj',
-      order: 'desc'
-    });
+    return await this.findMany((qb: any) =>
+      qb.where('sj', '>', timestampStr).orderBy('sj', 'desc')
+    );
   }
 
   /**
@@ -293,7 +283,14 @@ export default class StudentCourseRepository
 
     // 验证每个学生课程关联数据
     for (const studentCourse of studentCourses) {
-      this.validateRequired(studentCourse, ['kkh', 'xh', 'xnxq']);
+      const requiredFields = ['kkh', 'xh', 'xnxq'];
+      for (const field of requiredFields) {
+        if (!studentCourse[field as keyof NewStudentCourse]) {
+          throw new Error(
+            `Required field '${field}' is missing in student course`
+          );
+        }
+      }
 
       if (!studentCourse.kkh) {
         throw new Error('Course number cannot be empty');
@@ -413,7 +410,7 @@ export default class StudentCourseRepository
       throw new Error('Course number cannot be empty');
     }
 
-    return await this.count((eb) => eb('kkh', '=', kkh));
+    return await this.count((qb) => qb.where('kkh', '=', kkh));
   }
 
   /**
@@ -424,7 +421,7 @@ export default class StudentCourseRepository
       throw new Error('Student number cannot be empty');
     }
 
-    return await this.count((eb) => eb('xh', '=', xh));
+    return await this.count((qb) => qb.where('xh', '=', xh));
   }
 
   /**
@@ -435,7 +432,7 @@ export default class StudentCourseRepository
       throw new Error('Academic year and semester cannot be empty');
     }
 
-    return await this.count((eb) => eb('xnxq', '=', xnxq));
+    return await this.count((qb) => qb.where('xnxq', '=', xnxq));
   }
 
   /**
@@ -446,7 +443,7 @@ export default class StudentCourseRepository
       throw new Error('Course code cannot be empty');
     }
 
-    return await this.count((eb) => eb('kcbh', '=', kcbh));
+    return await this.count((qb) => qb.where('kcbh', '=', kcbh));
   }
 
   /**
@@ -457,14 +454,14 @@ export default class StudentCourseRepository
       throw new Error('Status cannot be empty');
     }
 
-    return await this.count((eb) => eb('zt', '=', zt));
+    return await this.count((qb) => qb.where('zt', '=', zt));
   }
 
   /**
    * 统计未处理变更的数量
    */
   async countUnprocessedChanges(): Promise<DatabaseResult<number>> {
-    return await this.count((eb) => eb('zt', 'is not', null));
+    return await this.count((qb) => qb.where('zt', 'is not', null));
   }
 
   /**
@@ -544,27 +541,146 @@ export default class StudentCourseRepository
   }
 
   /**
-   * 根据开课号查找学生列表
+   * 根据开课号查找参与者信息（学生和教师）
+   * 使用SQL级别的DISTINCT获取唯一学生ID，并从课程表获取教师信息，提高性能
    */
-  async findStudentsByKkh(kkh: string): Promise<DatabaseResult<string[]>> {
+  async findStudentsByKkh(kkh: string): Promise<
+    DatabaseResult<{
+      studentIds: string[];
+      teacherIds: string[];
+    }>
+  > {
     if (!kkh) {
-      throw new Error('Course number cannot be empty');
+      this.logger.warn('Course number is empty');
+      return {
+        success: false,
+        error: {
+          type: 'VALIDATION_ERROR' as any,
+          message: 'Course number cannot be empty',
+          timestamp: new Date(),
+          retryable: false
+        }
+      };
     }
 
-    const result = await this.findByKkh(kkh);
-    if (!result.success) {
-      return result as DatabaseResult<string[]>;
+    try {
+      this.logger.debug('Finding participants by course number', { kkh });
+
+      // 并行查询学生和教师信息
+      const [studentsResult, teachersResult] = await Promise.all([
+        // 查询学生ID列表
+        this.databaseApi.executeQuery(
+          (db: any) => {
+            return db
+              .selectFrom(this.tableName)
+              .select('xh')
+              .distinct()
+              .where('kkh', '=', kkh)
+              .where('xh', 'is not', null)
+              .where((eb: any) =>
+                eb.exists(
+                  eb
+                    .selectFrom('out_xsxx')
+                    .select('xh')
+                    .whereRef('out_xsxx.xh', '=', `${this.tableName}.xh`) // 关联当前表的xh
+                    .where('out_xsxx.xh', 'is not', null)
+                )
+              )
+              .orderBy('xh', 'asc')
+              .execute();
+          },
+          { readonly: true, connectionName: 'syncdb' }
+        ),
+        // 查询教师ID列表
+        this.databaseApi.executeQuery(
+          (db: any) => {
+            return db
+              .selectFrom('out_jw_kcb_js')
+              .select('gh')
+              .distinct()
+              .where('kkh', '=', kkh)
+              .where((eb: any) =>
+                eb.exists(
+                  eb
+                    .selectFrom('out_jsxx')
+                    .select('gh')
+                    .whereRef('out_jsxx.gh', '=', `out_jw_kcb_js.gh`) // 关联当前表的xh
+                )
+              )
+              .where('gh', 'is not', null)
+              .where('gh', 'not in', ['101005', '117044'])
+              .execute();
+          },
+          { readonly: true, connectionName: 'syncdb' }
+        )
+      ]);
+
+      // 检查学生查询结果
+      if (!studentsResult.success) {
+        this.logger.error('Failed to find students by course number', {
+          kkh,
+          error: studentsResult.error
+        });
+        return {
+          success: false,
+          error: studentsResult.error
+        };
+      }
+
+      // 检查教师查询结果
+      if (!teachersResult.success) {
+        this.logger.error('Failed to find teachers by course number', {
+          kkh,
+          error: teachersResult.error
+        });
+        return {
+          success: false,
+          error: teachersResult.error
+        };
+      }
+
+      // 提取学生ID（SQL已过滤null，无需内存过滤）
+      const studentIds = (studentsResult.data as any[]).map(
+        (row: any) => row.xh
+      );
+
+      // 提取并解析教师ID（处理逗号分隔的字符串）
+      const teacherIds = (teachersResult.data as any[]).map(
+        (row: any) => row.gh
+      );
+
+      // 去重教师ID
+      const uniqueTeacherIds = [...new Set(teacherIds)];
+
+      this.logger.debug('Found participants by course number', {
+        kkh,
+        studentCount: studentIds.length,
+        teacherCount: uniqueTeacherIds.length
+      });
+
+      return {
+        success: true,
+        data: {
+          studentIds,
+          teacherIds: uniqueTeacherIds
+        }
+      };
+    } catch (error) {
+      this.logger.error('Error finding participants by course number', {
+        kkh,
+        error
+      });
+      return {
+        success: false,
+        error: {
+          type: 'QUERY_ERROR' as any,
+          message:
+            error instanceof Error ? error.message : 'Unknown error occurred',
+          timestamp: new Date(),
+          retryable: false
+        }
+      };
     }
-
-    const studentNumbers = result.data
-      .map((sc) => sc.xh)
-      .filter((xh): xh is string => xh !== null)
-      .filter((xh, index, array) => array.indexOf(xh) === index); // 去重
-
-    return {
-      success: true,
-      data: studentNumbers
-    };
   }
 
   /**
@@ -663,15 +779,17 @@ export default class StudentCourseRepository
 
     const searchPattern = `%${keyword}%`;
 
-    return await this.findMany(
-      (eb: any) =>
-        eb.or([
-          eb('kkh', 'like', searchPattern),
-          eb('xh', 'like', searchPattern),
-          eb('xnxq', 'like', searchPattern),
-          eb('kcbh', 'like', searchPattern)
-        ]),
-      { orderBy: 'kkh', order: 'asc' }
+    return await this.findMany((qb: any) =>
+      qb
+        .where((eb: any) =>
+          eb.or([
+            eb('kkh', 'like', searchPattern),
+            eb('xh', 'like', searchPattern),
+            eb('xnxq', 'like', searchPattern),
+            eb('kcbh', 'like', searchPattern)
+          ])
+        )
+        .orderBy('kkh', 'asc')
     );
   }
 
@@ -680,7 +798,12 @@ export default class StudentCourseRepository
    */
   async create(data: NewStudentCourse): Promise<DatabaseResult<StudentCourse>> {
     // 验证必需字段
-    this.validateRequired(data, ['kkh', 'xh', 'xnxq']);
+    const requiredFields = ['kkh', 'xh', 'xnxq'];
+    for (const field of requiredFields) {
+      if (!data[field as keyof NewStudentCourse]) {
+        throw new Error(`Required field '${field}' is missing`);
+      }
+    }
 
     // 验证数据格式
     const validationResult = await this.validateStudentCourseData(data);

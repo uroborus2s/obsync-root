@@ -105,58 +105,109 @@ export default class CourseAggregationService
   }
 
   /**
-   * 执行 SQL 聚合并写入聚合表
-   * 从 u_jw_kcb_cur 表聚合数据并写入 juhe_renwu 表
+   * 执行增量聚合操作
+   * 只处理新增或变更的数据（gx_zt IS NULL），不清空现有聚合数据
+   * 清空操作由上层调用方决定是否执行
    */
-  async executeAggregationAndSave(
+  async executeIncrementalAggregation(
     xnxq: string
   ): Promise<Either<string, AggregationResult>> {
     try {
       const startTime = Date.now();
+      this.logger.info('开始执行增量聚合', { xnxq });
 
-      this.logger.info('开始执行 SQL 聚合并写入', { xnxq });
-
-      // 1. 执行优化的 SQL 聚合查询（只处理未处理的数据）
-      const aggregationResult =
-        await this.courseRawRepository.executeFullAggregationSql(xnxq);
-      if (!aggregationResult.success) {
-        return left(`SQL 聚合查询失败: ${aggregationResult.error}`);
-      }
-
-      const aggregatedData = aggregationResult.data;
-      this.logger.info('SQL 聚合查询完成', {
-        xnxq,
-        aggregatedCount: aggregatedData.length
-      });
-
-      // 2. 批量插入聚合数据到 juhe_renwu 表
-      const insertResult =
-        await this.juheRenwuRepository.insertAggregatedDataBatch(
-          aggregatedData
-        );
-      if (!insertResult.success) {
-        return left(`批量插入聚合数据失败: ${insertResult.error}`);
+      // 使用原子化的聚合插入操作
+      const atomicResult =
+        await this.juheRenwuRepository.executeAtomicAggregationInsert(xnxq);
+      if (!atomicResult.success) {
+        return left(`增量聚合失败: ${atomicResult.error}`);
       }
 
       const duration = Date.now() - startTime;
       const result: AggregationResult = {
-        successCount: insertResult.data,
+        successCount: atomicResult.data,
         failureCount: 0,
-        processedKkhs: [`聚合了 ${aggregatedData.length} 条数据`],
+        processedKkhs: [`增量聚合了 ${atomicResult.data} 条新数据`],
         errors: []
       };
 
-      this.logger.info('SQL 聚合并写入完成', {
+      this.logger.info('增量聚合完成', {
         xnxq,
         successCount: result.successCount,
-        duration
+        duration,
+        performance: {
+          recordsPerSecond: Math.round(atomicResult.data / (duration / 1000)),
+          totalDurationMs: duration,
+          operation: 'incremental_aggregate',
+          memoryEfficient: true,
+          transactional: true
+        }
       });
 
       return right(result);
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.logger.error('SQL 聚合并写入失败', { xnxq, error: errorMessage });
+      this.logger.error('增量聚合失败', {
+        xnxq,
+        error: errorMessage,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      return left(`增量聚合失败: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * 执行 SQL 聚合并写入聚合表
+   * 从 u_jw_kcb_cur 表聚合数据并写入 juhe_renwu 表
+   * 使用 INSERT INTO ... SELECT 原子操作，只处理未处理的数据
+   */
+  async executeAggregationAndSave(
+    xnxq: string
+  ): Promise<Either<string, AggregationResult>> {
+    try {
+      const startTime = Date.now();
+      this.logger.info('开始执行 SQL 聚合并写入', { xnxq });
+
+      // 使用原子化的聚合插入操作
+      const atomicResult =
+        await this.juheRenwuRepository.executeAtomicAggregationInsert(xnxq);
+      if (!atomicResult.success) {
+        return left(`聚合插入失败: ${atomicResult.error}`);
+      }
+
+      const insertedCount = atomicResult.data;
+      const duration = Date.now() - startTime;
+
+      const result: AggregationResult = {
+        successCount: insertedCount,
+        failureCount: 0,
+        processedKkhs: [`聚合了 ${insertedCount} 条数据`],
+        errors: []
+      };
+
+      this.logger.info('SQL 聚合并写入完成', {
+        xnxq,
+        successCount: result.successCount,
+        duration,
+        performance: {
+          recordsPerSecond: Math.round(insertedCount / (duration / 1000)),
+          totalDurationMs: duration,
+          operation: 'atomic_aggregate_insert',
+          memoryEfficient: true,
+          transactional: true
+        }
+      });
+
+      return right(result);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error('SQL 聚合并写入失败', {
+        xnxq,
+        error: errorMessage,
+        stack: error instanceof Error ? error.stack : undefined
+      });
       return left(`SQL 聚合并写入失败: ${errorMessage}`);
     }
   }

@@ -1,4 +1,5 @@
 import type { AwilixContainer } from '@stratix/core';
+import { sleep } from '@stratix/utils/async';
 import type { HttpClientService } from '../services/httpClientService.js';
 import type {
   BatchCreateCalendarPermissionsParams,
@@ -10,9 +11,14 @@ import type {
   CreateCalendarPermissionResponse,
   DeleteCalendarParams,
   DeleteCalendarPermissionParams,
+  GetCalendarListParams,
+  GetCalendarListResponse,
+  GetCalendarParams,
   GetCalendarPermissionListParams,
   GetCalendarPermissionListResponse,
-  GetPrimaryCalendarResponse
+  GetCalendarResponse,
+  UpdateCalendarParams,
+  UpdateCalendarResponse
 } from '../types/calendar.js';
 
 /**
@@ -24,6 +30,12 @@ export interface WpsCalendarAdapter {
   createCalendar(params: CreateCalendarParams): Promise<CalendarInfo>;
   getPrimaryCalendar(): Promise<CalendarInfo>;
   getMainCalendar(): Promise<CalendarInfo>;
+  getCalendar(params: GetCalendarParams): Promise<CalendarInfo>;
+  getCalendarList(
+    params?: GetCalendarListParams
+  ): Promise<GetCalendarListResponse>;
+  getAllCalendarList(params?: GetCalendarListParams): Promise<CalendarInfo[]>;
+  updateCalendar(params: UpdateCalendarParams): Promise<UpdateCalendarResponse>;
   createCalendarPermission(
     params: CreateCalendarPermissionParams
   ): Promise<CreateCalendarPermissionResponse>;
@@ -72,10 +84,10 @@ export function createWpsCalendarAdapter(
      */
     async getPrimaryCalendar(): Promise<CalendarInfo> {
       await httpClient.ensureAccessToken();
-      const response = await httpClient.get<GetPrimaryCalendarResponse>(
+      const response = await httpClient.get<CalendarInfo>(
         '/v7/calendars/primary'
       );
-      return response.data.calendar;
+      return response.data;
     },
 
     /**
@@ -83,6 +95,80 @@ export function createWpsCalendarAdapter(
      */
     async getMainCalendar(): Promise<CalendarInfo> {
       return this.getPrimaryCalendar();
+    },
+
+    /**
+     * 查询日历列表
+     */
+    async getCalendarList(
+      params?: GetCalendarListParams
+    ): Promise<GetCalendarListResponse> {
+      await httpClient.ensureAccessToken();
+      const { page_size = 20, page_token } = params || {};
+
+      const queryParams: Record<string, any> = {};
+      if (page_size !== undefined) queryParams.page_size = page_size;
+      if (page_token !== undefined) queryParams.page_token = page_token;
+
+      const response = await httpClient.get<GetCalendarListResponse>(
+        '/v7/calendars',
+        queryParams
+      );
+      return response.data;
+    },
+
+    /**
+     * 获取所有日历列表（自动分页）
+     */
+    async getAllCalendarList(
+      params?: GetCalendarListParams
+    ): Promise<CalendarInfo[]> {
+      const allCalendars: CalendarInfo[] = [];
+      let pageToken: string | undefined;
+
+      do {
+        const response = await calendar.getCalendarList({
+          ...params,
+          page_token: pageToken
+        });
+
+        allCalendars.push(...(response.Items || []));
+        pageToken = response.next_page_token;
+        sleep(20);
+      } while (pageToken);
+
+      return allCalendars;
+    },
+
+    /**
+     * 查询日历
+     */
+    async getCalendar(params: GetCalendarParams): Promise<CalendarInfo> {
+      await httpClient.ensureAccessToken();
+      const { calendar_id } = params;
+
+      const response = await httpClient.get<GetCalendarResponse>(
+        `/v7/calendars/${calendar_id}`
+      );
+      return response.data.data;
+    },
+
+    /**
+     * 更新日历
+     */
+    async updateCalendar(
+      params: UpdateCalendarParams
+    ): Promise<UpdateCalendarResponse> {
+      await httpClient.ensureAccessToken();
+      const { calendar_id, summary } = params;
+
+      const requestBody = { summary };
+
+      const response = await httpClient.post<UpdateCalendarResponse>(
+        `/v7/calendars/${calendar_id}/update`,
+        requestBody
+      );
+      return response.data;
     },
 
     /**
@@ -116,7 +202,7 @@ export function createWpsCalendarAdapter(
         calendar_id,
         page_size,
         page_token,
-        id_type = 'internal'
+        id_type = 'external'
       } = params;
 
       const queryParams: Record<string, any> = {};
@@ -162,7 +248,7 @@ export function createWpsCalendarAdapter(
       await httpClient.ensureAccessToken();
       const { calendar_id } = params;
 
-      await httpClient.post(`/v7/calendars/${calendar_id}/delete`, {});
+      await httpClient.post(`/v7/calendars/${calendar_id}/delete`);
     },
 
     /**
@@ -173,7 +259,7 @@ export function createWpsCalendarAdapter(
       params: BatchCreateCalendarPermissionsParams
     ): Promise<BatchCreateCalendarPermissionsResponse> {
       await httpClient.ensureAccessToken();
-      const { calendar_id, permissions, id_type = 'internal' } = params;
+      const { calendar_id, permissions, id_type = 'external' } = params;
 
       if (permissions.length > 100) {
         throw new Error('批量创建权限失败，最多支持100个用户');
@@ -212,7 +298,7 @@ export function createWpsCalendarAdapter(
       params: BatchCreateCalendarPermissionsParams
     ): Promise<BatchCreateCalendarPermissionsResponse> {
       await httpClient.ensureAccessToken();
-      const { calendar_id, permissions, id_type = 'internal' } = params;
+      const { calendar_id, permissions, id_type = 'external' } = params;
 
       // 分批处理逻辑：每批最多100个用户
       const BATCH_SIZE = 100;

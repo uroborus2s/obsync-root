@@ -66,44 +66,22 @@ export function createWpsScheduleAdapter(
       await httpClient.ensureAccessToken();
       const { calendar_id, events } = params;
 
-      // 分批处理逻辑：每批最多100个日程
-      const BATCH_SIZE = 100;
-      const allCreatedEvents: ScheduleInfo[] = [];
-
-      // 将日程数组分割成多个批次
-      const eventBatches: Array<typeof events> = [];
-      for (let i = 0; i < events.length; i += BATCH_SIZE) {
-        eventBatches.push(events.slice(i, i + BATCH_SIZE));
+      // 检查events数量，如果超过100则抛出错误
+      if (events.length > 100) {
+        throw new Error(
+          `批量创建日程失败：events数量不能超过100个，当前数量: ${events.length}`
+        );
       }
 
-      // 依次处理每个批次
-      for (const batch of eventBatches) {
-        try {
-          const requestBody = { events: batch };
+      // 直接发送请求，不进行分割
+      const requestBody = { events };
 
-          const response = await httpClient.post<BatchCreateSchedulesResponse>(
-            `/v7/calendars/${calendar_id}/events/batch_create`,
-            requestBody
-          );
+      const response = await httpClient.post<BatchCreateSchedulesResponse>(
+        `/v7/calendars/${calendar_id}/events/batch_create`,
+        requestBody
+      );
 
-          // 将当前批次的结果合并到总结果中
-          if (response.data.events) {
-            allCreatedEvents.push(...response.data.events);
-          }
-        } catch (error) {
-          // 如果某个批次失败，停止后续处理并抛出错误
-          const errorMessage =
-            error instanceof Error ? error.message : String(error);
-          throw new Error(
-            `批量创建日程失败，已处理 ${allCreatedEvents.length} 个日程，错误: ${errorMessage}`
-          );
-        }
-      }
-
-      // 返回合并后的完整结果
-      return {
-        events: allCreatedEvents
-      };
+      return response.data;
     },
 
     /**

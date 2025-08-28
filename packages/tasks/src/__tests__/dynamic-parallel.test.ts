@@ -2,15 +2,13 @@
  * 动态并行任务功能测试
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import WorkflowEngineService from '../services/WorkflowEngineService.js';
-import WorkflowInstanceRepository from '../repositories/WorkflowInstanceRepository.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as executorRegistry from '../registerTask.js';
-import type { 
-  WorkflowDefinition, 
-  LoopNodeDefinition, 
+import WorkflowEngineService from '../services/WorkflowEngineService.js';
+import type {
+  LoopNodeDefinition,
   TaskNodeDefinition,
-  DynamicParallelResult 
+  WorkflowDefinition
 } from '../types/workflow.js';
 
 // Mock 依赖
@@ -43,7 +41,7 @@ describe('Dynamic Parallel Loop', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     workflowEngine = new WorkflowEngineService(mockLogger, mockRepository);
-    
+
     // 设置默认的mock返回值
     vi.mocked(executorRegistry.getExecutor).mockReturnValue(mockExecutor);
     mockExecutor.execute.mockResolvedValue({
@@ -111,17 +109,28 @@ describe('Dynamic Parallel Loop', () => {
       });
 
       // 执行工作流
-      const result = await workflowEngine.startWorkflow(workflowDef, { testData: sourceData });
+      const result = await workflowEngine.startWorkflow(workflowDef, {
+        testData: sourceData
+      });
 
       // 验证结果
       expect(result).toBeDefined();
       expect(mockExecutor.execute).toHaveBeenCalledTimes(3); // 应该为3个数据项各执行一次
-      
+
       // 验证每次执行时传入的上下文
       const executeCalls = mockExecutor.execute.mock.calls;
-      expect(executeCalls[0][0].config.dynamicInput).toEqual({ id: 1, name: 'item1' });
-      expect(executeCalls[1][0].config.dynamicInput).toEqual({ id: 2, name: 'item2' });
-      expect(executeCalls[2][0].config.dynamicInput).toEqual({ id: 3, name: 'item3' });
+      expect(executeCalls[0][0].config.dynamicInput).toEqual({
+        id: 1,
+        name: 'item1'
+      });
+      expect(executeCalls[1][0].config.dynamicInput).toEqual({
+        id: 2,
+        name: 'item2'
+      });
+      expect(executeCalls[2][0].config.dynamicInput).toEqual({
+        id: 3,
+        name: 'item3'
+      });
     });
 
     it('应该支持JSONPath表达式获取源数据', async () => {
@@ -142,13 +151,14 @@ describe('Dynamic Parallel Loop', () => {
       };
 
       const dynamicLoopNode: LoopNodeDefinition = {
-        type: 'loop',
-        id: 'user-loop',
-        name: 'Process Users',
+        nodeType: 'loop',
+        nodeId: 'user-loop',
+        nodeName: 'Process Users',
         loopType: 'dynamic',
         sourceExpression: '$.users[*]', // JSONPath 表达式
         taskTemplate,
-        nodes: [],
+        node: taskTemplate, // 使用单个节点而不是数组
+        maxRetries: 3,
         maxConcurrency: 5
       };
 
@@ -180,17 +190,23 @@ describe('Dynamic Parallel Loop', () => {
       await workflowEngine.startWorkflow(workflowDef, complexData);
 
       expect(mockExecutor.execute).toHaveBeenCalledTimes(2);
-      
+
       const executeCalls = mockExecutor.execute.mock.calls;
-      expect(executeCalls[0][0].config.dynamicInput).toEqual({ id: 1, profile: { name: 'Alice' } });
-      expect(executeCalls[1][0].config.dynamicInput).toEqual({ id: 2, profile: { name: 'Bob' } });
+      expect(executeCalls[0][0].config.dynamicInput).toEqual({
+        id: 1,
+        profile: { name: 'Alice' }
+      });
+      expect(executeCalls[1][0].config.dynamicInput).toEqual({
+        id: 2,
+        profile: { name: 'Bob' }
+      });
     });
   });
 
   describe('错误处理策略', () => {
     it('fail-fast策略应该在第一个任务失败时停止执行', async () => {
       const sourceData = ['item1', 'item2', 'item3', 'item4'];
-      
+
       // 模拟第二个任务失败
       mockExecutor.execute
         .mockResolvedValueOnce({ success: true, data: 'result1' })
@@ -242,13 +258,14 @@ describe('Dynamic Parallel Loop', () => {
       });
 
       // 应该抛出错误
-      await expect(workflowEngine.startWorkflow(workflowDef, { items: sourceData }))
-        .rejects.toThrow();
+      await expect(
+        workflowEngine.startWorkflow(workflowDef, { items: sourceData })
+      ).rejects.toThrow();
     });
 
     it('continue策略应该继续执行即使某些任务失败', async () => {
       const sourceData = ['item1', 'item2', 'item3'];
-      
+
       // 模拟中间任务失败
       mockExecutor.execute
         .mockResolvedValueOnce({ success: true, data: 'result1' })
@@ -300,9 +317,10 @@ describe('Dynamic Parallel Loop', () => {
       });
 
       // 不应该抛出错误
-      await expect(workflowEngine.startWorkflow(workflowDef, { items: sourceData }))
-        .resolves.toBeDefined();
-        
+      await expect(
+        workflowEngine.startWorkflow(workflowDef, { items: sourceData })
+      ).resolves.toBeDefined();
+
       // 所有任务都应该被尝试执行
       expect(mockExecutor.execute).toHaveBeenCalledTimes(3);
     });
@@ -316,11 +334,14 @@ describe('Dynamic Parallel Loop', () => {
 
       mockExecutor.execute.mockImplementation(async () => {
         concurrentCount++;
-        maxConcurrentObserved = Math.max(maxConcurrentObserved, concurrentCount);
-        
+        maxConcurrentObserved = Math.max(
+          maxConcurrentObserved,
+          concurrentCount
+        );
+
         // 模拟异步任务
-        await new Promise(resolve => setTimeout(resolve, 50));
-        
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
         concurrentCount--;
         return { success: true, data: 'processed' };
       });
@@ -421,7 +442,7 @@ describe('表达式引擎单元测试', () => {
     const getValueFromPath = (path: string, variables: Record<string, any>) => {
       const keys = path.split('.');
       let value = variables;
-      
+
       for (const key of keys) {
         if (value && typeof value === 'object' && key in value) {
           value = value[key];
@@ -429,7 +450,7 @@ describe('表达式引擎单元测试', () => {
           return undefined;
         }
       }
-      
+
       return value;
     };
 

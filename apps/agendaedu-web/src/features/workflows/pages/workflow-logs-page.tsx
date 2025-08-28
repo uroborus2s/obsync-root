@@ -94,7 +94,8 @@ export default function WorkflowLogsPage() {
 
   // 处理筛选
   const handleFilterChange = (key: string, value: string) => {
-    setFilters((prev) => ({ ...prev, [key]: value }))
+    const processedValue = value === 'all' ? '' : value
+    setFilters((prev) => ({ ...prev, [key]: processedValue }))
     setPage(1) // 重置到第一页
   }
 
@@ -206,7 +207,7 @@ export default function WorkflowLogsPage() {
                 <div className='space-y-2'>
                   <Label htmlFor='level'>日志级别</Label>
                   <Select
-                    value={filters.level}
+                    value={filters.level || 'all'}
                     onValueChange={(value) =>
                       handleFilterChange('level', value)
                     }
@@ -215,7 +216,7 @@ export default function WorkflowLogsPage() {
                       <SelectValue placeholder='选择日志级别' />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value=''>全部</SelectItem>
+                      <SelectItem value='all'>全部</SelectItem>
                       <SelectItem value='error'>错误</SelectItem>
                       <SelectItem value='warn'>警告</SelectItem>
                       <SelectItem value='info'>信息</SelectItem>

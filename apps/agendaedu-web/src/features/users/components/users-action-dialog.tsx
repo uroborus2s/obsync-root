@@ -3,7 +3,6 @@
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { showSubmittedData } from '@/utils/show-submitted-data'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -119,7 +118,8 @@ export function UsersActionDialog({ currentRow, open, onOpenChange }: Props) {
 
   const onSubmit = (values: UserForm) => {
     form.reset()
-    showSubmittedData(values)
+    // TODO: 实现实际的用户操作逻辑
+    console.log('用户操作数据:', values)
     onOpenChange(false)
   }
 

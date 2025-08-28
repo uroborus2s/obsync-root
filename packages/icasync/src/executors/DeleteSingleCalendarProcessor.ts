@@ -116,7 +116,7 @@ export default class DeleteSingleCalendarProcessor implements TaskExecutor {
     } catch (error) {
       const duration = Date.now() - startTime;
       const errorMsg = error instanceof Error ? error.message : String(error);
-      
+
       this.logger.error('删除单个日历任务失败', {
         calendarId: config.calendarId,
         kkh: config.kkh,
@@ -168,18 +168,18 @@ export default class DeleteSingleCalendarProcessor implements TaskExecutor {
     // 验证学年学期格式
     const xnxqPattern = /^\d{4}-\d{4}-[12]$/;
     if (!xnxqPattern.test(config.xnxq)) {
-      return { 
-        valid: false, 
-        error: '学年学期格式不正确，应为YYYY-YYYY-N格式（如：2024-2025-1）' 
+      return {
+        valid: false,
+        error: '学年学期格式不正确，应为YYYY-YYYY-N格式（如：2024-2025-1）'
       };
     }
 
     // 验证删除模式
     const validModes = ['complete', 'soft', 'mapping-only'];
     if (config.deleteMode && !validModes.includes(config.deleteMode)) {
-      return { 
-        valid: false, 
-        error: `删除模式不正确，支持的模式：${validModes.join(', ')}` 
+      return {
+        valid: false,
+        error: `删除模式不正确，支持的模式：${validModes.join(', ')}`
       };
     }
 
@@ -263,30 +263,33 @@ export default class DeleteSingleCalendarProcessor implements TaskExecutor {
     config: DeleteSingleCalendarConfig,
     result: DeleteSingleCalendarResult
   ): Promise<void> {
-    // 1. 删除日历相关数据（参与者、日程等）
-    if (config.deleteParticipants !== false) {
-      const participantsResult = await this.calendarSyncService.deleteCalendarParticipants(
-        config.calendarId
-      );
-      result.deletedItems.participants = participantsResult.deletedCount || 0;
-    }
+    // // 1. 删除日历相关数据（参与者、日程等）
+    // if (config.deleteParticipants !== false) {
+    //   const participantsResult = await this.calendarSyncService.deleteCalendarParticipants(
+    //     config.calendarId
+    //   );
+    //   result.deletedItems.participants = participantsResult.deletedCount || 0;
+    // }
 
-    if (config.deleteSchedules !== false) {
-      const schedulesResult = await this.calendarSyncService.deleteCalendarSchedules(
-        config.calendarId
-      );
-      result.deletedItems.schedules = schedulesResult.deletedCount || 0;
-    }
+    // if (config.deleteSchedules !== false) {
+    //   const schedulesResult = await this.calendarSyncService.deleteCalendarSchedules(
+    //     config.calendarId
+    //   );
+    //   result.deletedItems.schedules = schedulesResult.deletedCount || 0;
+    // }
 
     // 2. 删除日历本身
-    const calendarResult = await this.calendarSyncService.deleteCalendar(config.calendarId);
+    const calendarResult = await this.calendarSyncService.deleteCalendar(
+      config.calendarId
+    );
     result.deletedItems.calendar = calendarResult.success;
 
     // 3. 清理映射表记录
     if (config.cleanupMapping !== false) {
-      const mappingResult = await this.calendarMappingRepository.deleteByCalendarId(
-        config.calendarId
-      );
+      const mappingResult =
+        await this.calendarMappingRepository.deleteByCalendarId(
+          config.calendarId
+        );
       result.deletedItems.mapping = mappingResult.success;
     }
   }
@@ -321,9 +324,10 @@ export default class DeleteSingleCalendarProcessor implements TaskExecutor {
     result: DeleteSingleCalendarResult
   ): Promise<void> {
     // 只删除映射表记录，保留实际的日历数据
-    const mappingResult = await this.calendarMappingRepository.deleteByCalendarId(
-      config.calendarId
-    );
+    const mappingResult =
+      await this.calendarMappingRepository.deleteByCalendarId(
+        config.calendarId
+      );
     result.deletedItems.mapping = mappingResult.success;
   }
 

@@ -85,76 +85,35 @@ export interface ScheduleMappingTable {
 }
 
 /**
- * 用户视图表
+ * 签到课程表
  */
-export interface UserViewTable {
+export interface AttendanceCoursesTable {
   id: Generated<number>;
-  user_code: string;
-  user_name: string;
-  user_type: UserType;
-  college_code: string | null;
-  college_name: string | null;
-  major_code: string | null;
-  major_name: string | null;
-  class_code: string | null;
-  class_name: string | null;
-  phone: string | null;
-  email: string | null;
-  wps_user_id: string | null;
-  sync_status: DatabaseSyncStatus;
+  juhe_renwu_id: number;
+  external_id: string;
+  course_code: string;
+  course_name: string;
+  semester: string;
+  teaching_week: number;
+  week_day: number;
+  teacher_codes: string | null;
+  teacher_names: string | null;
+  class_location: string | null;
+  start_time: ColumnType<Date, string, string>;
+  end_time: ColumnType<Date, string, string>;
+  periods: string | null;
+  time_period: string;
+  attendance_enabled: number;
+  attendance_start_offset: number | null;
+  attendance_end_offset: number | null;
+  late_threshold: number | null;
+  auto_absent_after: number | null;
   created_at: ColumnType<Date, string | undefined, never>;
   updated_at: ColumnType<Date, string | undefined, string>;
-  metadata: ColumnType<
-    Record<string, any> | null,
-    string | null,
-    string | null
-  >;
-}
-
-/**
- * 日历参与者映射表
- */
-export interface CalendarParticipantsTable {
-  id: Generated<number>;
-  calendar_id: string;
-  kkh: string;
-  user_code: string;
-  user_type: UserType;
-  permission_role: PermissionRole;
-  is_deleted: ColumnType<boolean, boolean | undefined, boolean>;
-  deleted_at: ColumnType<Date | null, string | undefined, string | null>;
-  created_at: ColumnType<Date, string | undefined, never>;
-  updated_at: ColumnType<Date, string | undefined, string>;
-  metadata: ColumnType<
-    Record<string, any> | null,
-    string | null,
-    string | null
-  >;
-}
-
-/**
- * 同步任务记录表
- */
-export interface SyncTasksTable {
-  id: Generated<number>;
-  task_type: TaskType;
-  xnxq: string | null;
-  task_tree_id: string | null;
-  status: TaskStatus;
-  progress: number;
-  total_items: number;
-  processed_items: number;
-  failed_items: number;
-  start_time: Date | null;
-  end_time: Date | null;
-  error_message: string | null;
-  result_summary: ColumnType<
-    Record<string, any> | null,
-    string | null,
-    string | null
-  >;
-  created_at: ColumnType<Date, string | undefined, never>;
-  updated_at: ColumnType<Date, string | undefined, string>;
+  created_by: string | null;
+  updated_by: string | null;
+  deleted_at: ColumnType<Date | null, string | null, string | null>;
+  deleted_by: string | null;
   metadata: ColumnType<
     Record<string, any> | null,
     string | null,
@@ -197,7 +156,7 @@ export interface JuheRenwuTable {
   xnxq: string | null; // 学年学期
   jxz: number | null; // 教学周
   zc: number | null; // 周次
-  rq: string | null; // 日期
+  rq: string; // 日期
   kcmc: string | null; // 课程名称
   sfdk: string | null; // 是否打卡（是否生成学生日历）
   jc_s: string | null; // 节次合并
@@ -205,8 +164,8 @@ export interface JuheRenwuTable {
   gh_s: string | null; // 教师组号，推送教师课表日历的依据
   xm_s: string | null; // 教师组姓名，推送学生课表日历直接取此
   lq: string | null; // 教学楼
-  sj_f: string | null; // 开始时间
-  sj_t: string | null; // 结束时间
+  sj_f: string; // 开始时间
+  sj_t: string; // 结束时间
   sjd: string; // 时间段（1-4为am，4-10为pm）
   gx_sj: string | null; // 更新时间，给杨经理用
   gx_zt: string | null; // 更新状态，给杨经理用(0未处理，1教师日历已经推送，2学生日历已经推送，3软删除未处理，4软删除处理完毕)
@@ -282,9 +241,7 @@ export interface IcasyncDatabase {
   // icasync 专用表
   icasync_calendar_mapping: CalendarMappingTable;
   icasync_schedule_mapping: ScheduleMappingTable;
-  icasync_user_view: UserViewTable;
-  icasync_calendar_participants: CalendarParticipantsTable;
-  icasync_sync_tasks: SyncTasksTable;
+  icasync_attendance_courses: AttendanceCoursesTable;
 
   // 现有系统表
   u_jw_kcb_cur: CourseRawTable;
@@ -303,17 +260,9 @@ export type ScheduleMapping = Selectable<ScheduleMappingTable>;
 export type NewScheduleMapping = Insertable<ScheduleMappingTable>;
 export type ScheduleMappingUpdate = Updateable<ScheduleMappingTable>;
 
-export type UserView = Selectable<UserViewTable>;
-export type NewUserView = Insertable<UserViewTable>;
-export type UserViewUpdate = Updateable<UserViewTable>;
-
-export type CalendarParticipant = Selectable<CalendarParticipantsTable>;
-export type NewCalendarParticipant = Insertable<CalendarParticipantsTable>;
-export type CalendarParticipantUpdate = Updateable<CalendarParticipantsTable>;
-
-export type SyncTaskRecord = Selectable<SyncTasksTable>;
-export type NewSyncTaskRecord = Insertable<SyncTasksTable>;
-export type SyncTaskRecordUpdate = Updateable<SyncTasksTable>;
+export type AttendanceCourse = Selectable<AttendanceCoursesTable>;
+export type NewAttendanceCourse = Insertable<AttendanceCoursesTable>;
+export type AttendanceCourseUpdate = Updateable<AttendanceCoursesTable>;
 
 export type CourseRaw = Selectable<CourseRawTable>;
 export type NewCourseRaw = Insertable<CourseRawTable>;

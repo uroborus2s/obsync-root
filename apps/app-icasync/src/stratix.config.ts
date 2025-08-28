@@ -6,7 +6,14 @@ import type { FastifyInstance, StratixConfig } from '@stratix/core';
 import stratixDatabasePlugin from '@stratix/database';
 import icasyncPlugin from '@stratix/icasync';
 import tasksPlugin from '@stratix/tasks';
+import {
+  hasRole,
+  hasUserType,
+  onRequestPermissionHook,
+  type UserIdentity
+} from '@stratix/utils/auth';
 import { isDevelopment } from '@stratix/utils/environment';
+
 import wasV7Plugin from '@stratix/was-v7';
 
 /**
@@ -20,14 +27,32 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
   // 从敏感配置中提取各种配置
   const databaseConfig = sensitiveConfig.databases || {};
   const webConfig = sensitiveConfig.web || {};
+  const icasyncConfig = sensitiveConfig.icasync || {};
 
   return {
     // 服务器配置
     server: {
-      port: webConfig.port || '3001',
+      port: webConfig.port || '3000',
       host: webConfig.host || '0.0.0.0'
     },
-
+    hooks: {
+      afterFastifyCreated: async (fastify: FastifyInstance) => {
+        // 关闭数据库连接
+        fastify.addHook(
+          'onRequest',
+          onRequestPermissionHook(
+            [
+              (identity: UserIdentity) => hasUserType(identity, 'teacher'),
+              (identity: UserIdentity) => hasRole(identity, 'teacher')
+            ],
+            {
+              skipPaths: ['/health'],
+              mode: 'or'
+            }
+          )
+        );
+      }
+    },
     // 插件配置
     plugins: [
       {
@@ -60,8 +85,7 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
               password: databaseConfig.syncdb?.password || ''
             }
           }
-        },
-        prefix: '/api/database'
+        }
       },
       {
         name: '@stratix/was-v7',
@@ -102,33 +126,24 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
           timeout: 1800000, // 默认超时时间(30分钟)
           maxConcurrency: 5, // 最大并发数
           retryCount: 3, // 重试次数
-          debug: isDevelopment()
+          debug: isDevelopment(),
+          attendanceUrl:
+            icasyncConfig.attendanceUrl || 'https://kwps.jlufe.edu.cn/app'
         }
       },
       {
         name: 'under-pressure',
         plugin: underPressure,
         options: {
-          maxEventLoopDelay: 500, // 500ms，更早发现问题
-          maxHeapUsedBytes: 900 * 1024 * 1024, // 650MB
-          maxRssBytes: 1100 * 1024 * 1024, // 850MB
-          maxEventLoopUtilization: 0.95, // 95%
-          message: 'Service under pressure',
-          retryAfter: 50,
+          maxEventLoopDelay: 2000, // 提高到2秒，减少误触发
+          maxHeapUsedBytes: 1200 * 1024 * 1024, // 提高到1.2GB
+          maxRssBytes: 1400 * 1024 * 1024, // 提高到1.4GB
+          maxEventLoopUtilization: 0.98, // 提高到98%
+          message: 'Service under pressure - please retry later',
+          retryAfter: 10000, // 增加到1秒重试间隔
           exposeStatusRoute: {
             routeOpts: { logLevel: 'silent' },
             url: '/health'
-          },
-          // 🔧 新增：集成的健康检查功能
-          healthCheck: async (fastifyInstance: FastifyInstance) => {
-            try {
-              const dataApi =
-                fastifyInstance.diContainer.resolve('databaseApi');
-              const db1 = await dataApi.healthCheck('default');
-              return db1.success && db1.data;
-            } catch (error) {
-              return false;
-            }
           }
         }
       }

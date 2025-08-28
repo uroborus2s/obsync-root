@@ -48,13 +48,43 @@ const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error) => {
       if (error instanceof AxiosError) {
-        // 401错误现在由WPS认证提供者处理
-        if (error.response?.status === 500) {
-          toast.error('Internal Server Error!')
-          router.navigate({ to: '/500' })
+        const status = error.response?.status
+
+        // 401错误由API拦截器处理，这里只记录日志
+        if (status === 401) {
+          console.log('🔒 QueryCache: 401错误已由API拦截器处理')
+          return
         }
-        if (error.response?.status === 403) {
-          // router.navigate("/forbidden", { replace: true });
+
+        // 403错误由API拦截器处理，这里只记录日志
+        if (status === 403) {
+          console.log('🚫 QueryCache: 403错误已由API拦截器处理')
+          return
+        }
+
+        
+        // 500错误处理
+        if (status === 500) {
+          toast.error('服务器内部错误，请稍后重试')
+          router.navigate({ to: '/500' })
+          return
+        }
+
+        // 其他HTTP错误的通用处理
+        if (status && status >= 400) {
+          console.error('🌐 QueryCache: HTTP错误', {
+            status,
+            url: error.config?.url,
+            method: error.config?.method,
+            message: error.response?.data?.message || error.message,
+          })
+
+          // 对于其他4xx错误，显示通用错误提示
+          if (status >= 400 && status < 500) {
+            toast.error(
+              error.response?.data?.message || '请求失败，请检查输入信息'
+            )
+          }
         }
       }
     },

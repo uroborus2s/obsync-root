@@ -1,7 +1,7 @@
 import { ToastProvider, Toaster } from '@/components/ui/toast';
 import { Approval } from '@/pages/Approval';
 import { AttendanceSheet } from '@/pages/AttendanceSheet';
-import AuthCallback from '@/pages/AuthCallback';
+import { AttendanceView } from '@/pages/AttendanceView';
 import { CheckIn } from '@/pages/CheckIn';
 import { Dashboard } from '@/pages/Dashboard';
 import { Leave } from '@/pages/Leave';
@@ -11,17 +11,22 @@ import { useEffect } from 'react';
 import { Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 
 function AppContent() {
-  console.log('🚀 AppContent 渲染中...');
-  console.log('📍 当前路径:', window.location.pathname);
-
   return (
     <div className='bg-background min-h-screen'>
       <main>
         <Routes>
-          {/* 授权回调路由 */}
-          <Route path='/auth/callback' element={<AuthCallback />} />
+          {/* 新的统一入口点路由 - 支持?id=external_id参数 */}
+          <Route
+            path='/attendance/view'
+            element={
+              <>
+                {console.log('🎯 AttendanceView路由匹配!')}
+                <AttendanceView />
+              </>
+            }
+          />
 
-          {/* 教师页面路由 */}
+          {/* 原有的教师页面路由 - 保持向后兼容 */}
           <Route path='/' element={<Dashboard />} />
           <Route path='/leave' element={<Leave />} />
           <Route path='/leave/:attendanceId' element={<Leave />} />
@@ -29,11 +34,11 @@ function AppContent() {
           <Route path='/attendance' element={<AttendanceSheet />} />
           <Route path='/approval' element={<Approval />} />
 
-          {/* 学生页面路由 */}
+          {/* 原有的学生页面路由 - 保持向后兼容 */}
           <Route path='/student' element={<StudentDashboard />} />
           <Route path='/student/messages' element={<StudentMessages />} />
 
-          {/* 新的签到页面路由 */}
+          {/* 原有的签到页面路由 - 保持向后兼容 */}
           <Route path='/attendance/student' element={<StudentDashboard />} />
           <Route path='/attendance/teacher' element={<AttendanceSheet />} />
 
@@ -49,16 +54,31 @@ function AppContent() {
                   <p className='mb-2 text-gray-600'>
                     当前路径: {window.location.pathname}
                   </p>
-                  <p className='mb-2 text-gray-600'>basename: /app</p>
+                  <p className='mb-2 text-gray-600'>
+                    React Router basename: /app
+                  </p>
+                  <p className='mb-2 text-gray-600'>
+                    匹配的路径应该是:{' '}
+                    {window.location.pathname.replace('/app', '')}
+                  </p>
                   <p className='mb-4 text-gray-600'>
                     完整URL: {window.location.href}
                   </p>
-                  <button
-                    onClick={() => (window.location.href = '/app/')}
-                    className='rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600'
-                  >
-                    返回首页
-                  </button>
+                  <div className='space-y-2'>
+                    <button
+                      type='button'
+                      onClick={() => (window.location.href = '/app/')}
+                      className='block w-full rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600'
+                    >
+                      返回首页
+                    </button>
+                    <p className='text-sm text-gray-500'>
+                      提示: 使用 /app/attendance/view?id=课程ID 访问考勤页面
+                    </p>
+                    <p className='text-sm text-red-500'>
+                      调试: 如果看到这个页面，请检查路由配置
+                    </p>
+                  </div>
                 </div>
               </div>
             }

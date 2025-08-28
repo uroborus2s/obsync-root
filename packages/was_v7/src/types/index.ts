@@ -53,7 +53,6 @@ export interface AccessToken {
 // 签名参数类型
 export interface SignatureParams {
   timestamp: string;
-  nonce: string;
   signature: string;
 }
 

@@ -1,7 +1,6 @@
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { showSubmittedData } from '@/utils/show-submitted-data'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -56,7 +55,8 @@ export function TasksImportDialog({ open, onOpenChange }: Props) {
         size: file[0].size,
         type: file[0].type,
       }
-      showSubmittedData(fileDetails, 'You have imported the following file:')
+      // TODO: 实现实际的文件导入逻辑
+      console.log('导入文件详情:', fileDetails)
     }
     onOpenChange(false)
   }

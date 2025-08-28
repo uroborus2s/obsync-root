@@ -1,16 +1,20 @@
 import { useState } from 'react'
 import { formatDistanceToNow } from 'date-fns'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { WorkflowSchedule } from '@/types/workflow.types'
 import { zhCN } from 'date-fns/locale'
 import {
+  AlertCircle,
   Calendar,
   Clock,
   Edit,
+  Filter,
   MoreHorizontal,
   Plus,
   Power,
   PowerOff,
+  RefreshCw,
+  Search,
   Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -36,6 +40,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -47,23 +59,55 @@ import {
 // API 和类型
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
-import { Search } from '@/components/search'
+import { Search as SearchComponent } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { UserNav } from '@/components/user-nav'
 
 export default function WorkflowSchedulesPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
-  const [_selectedSchedule, _setSelectedSchedule] =
+  const [_selectedSchedule, setSelectedSchedule] =
     useState<WorkflowSchedule | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string>('')
+  const [definitionFilter, setDefinitionFilter] = useState<string>('')
+  const [page, setPage] = useState(1)
+  const pageSize = 20
   const queryClient = useQueryClient()
 
-  // 注意：定时任务功能暂时不可用，需要后端支持
-  const schedulesData: { items: WorkflowSchedule[]; total: number } = {
-    items: [],
-    total: 0,
-  }
-  const isLoading = false
+  // 获取定时任务列表
+  const {
+    data: schedulesData,
+    isLoading,
+    error: schedulesError,
+  } = useQuery({
+    queryKey: [
+      'workflow-schedules',
+      searchTerm,
+      statusFilter,
+      definitionFilter,
+      page,
+      pageSize,
+    ],
+    queryFn: () =>
+      workflowApi.getWorkflowSchedules({
+        page,
+        pageSize,
+        search: searchTerm || undefined,
+        enabled: statusFilter ? statusFilter === 'enabled' : undefined,
+        workflowDefinitionName: definitionFilter || undefined,
+      }),
+    refetchInterval: 30000, // 每30秒刷新
+    retry: 3,
+    retryDelay: 1000,
+  })
+
+  // 获取工作流定义列表（用于过滤器）
+  const { data: definitionsData } = useQuery({
+    queryKey: ['workflow-definitions-for-schedule-filter'],
+    queryFn: () =>
+      workflowApi.getWorkflowDefinitions({ page: 1, pageSize: 100 }),
+  })
 
   // 删除定时任务
   const deleteMutation = useMutation({
@@ -94,9 +138,27 @@ export default function WorkflowSchedulesPage() {
     },
   })
 
+  // 处理搜索
+  const handleSearch = (value: string) => {
+    setSearchTerm(value)
+    setPage(1) // 重置到第一页
+  }
+
+  // 处理状态过滤
+  const handleStatusFilter = (value: string) => {
+    setStatusFilter(value === 'all' ? '' : value)
+    setPage(1)
+  }
+
+  // 处理定义过滤
+  const handleDefinitionFilter = (value: string) => {
+    setDefinitionFilter(value === 'all' ? '' : value)
+    setPage(1)
+  }
+
   // 处理编辑定时任务
   const handleEdit = (schedule: WorkflowSchedule) => {
-    _setSelectedSchedule(schedule)
+    setSelectedSchedule(schedule)
     setShowEditDialog(true)
   }
 
@@ -137,6 +199,55 @@ export default function WorkflowSchedulesPage() {
   }
 
   const schedules = schedulesData?.items || []
+  const total = schedulesData?.total || 0
+  const totalPages = schedulesData?.totalPages || 0
+  const definitions = definitionsData?.items || []
+
+  // 统计不同状态的任务数量
+  const enabledCount = schedules.filter((s) => s.isEnabled).length
+  const disabledCount = schedules.filter((s) => !s.isEnabled).length
+
+  // 错误处理
+  if (schedulesError) {
+    return (
+      <>
+        <Header className='border-b'>
+          <div className='flex h-16 items-center px-4'>
+            <div className='ml-auto flex items-center space-x-4'>
+              <SearchComponent />
+              <ThemeSwitch />
+              <UserNav />
+            </div>
+          </div>
+        </Header>
+
+        <Main>
+          <div className='flex min-h-[400px] items-center justify-center'>
+            <Card className='w-full max-w-md'>
+              <CardContent className='pt-6'>
+                <div className='flex flex-col items-center space-y-4 text-center'>
+                  <AlertCircle className='h-12 w-12 text-red-500' />
+                  <div>
+                    <h3 className='text-lg font-semibold'>加载失败</h3>
+                    <p className='text-muted-foreground mt-1 text-sm'>
+                      无法加载工作流定时任务列表，请检查网络连接或稍后重试
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => window.location.reload()}
+                    className='gap-2'
+                  >
+                    <RefreshCw className='h-4 w-4' />
+                    重新加载
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </Main>
+      </>
+    )
+  }
 
   return (
     <div className='h-full'>
@@ -165,6 +276,72 @@ export default function WorkflowSchedulesPage() {
             </Button>
           </div>
 
+          {/* 搜索和过滤 */}
+          <Card>
+            <CardHeader>
+              <CardTitle className='flex items-center gap-2'>
+                <Filter className='h-5 w-5' />
+                搜索和过滤
+              </CardTitle>
+              <CardDescription>
+                使用搜索和过滤条件快速找到需要的定时任务
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className='flex flex-col gap-4 md:flex-row md:items-end'>
+                <div className='flex-1'>
+                  <label className='mb-2 block text-sm font-medium'>搜索</label>
+                  <div className='relative'>
+                    <Search className='text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2' />
+                    <Input
+                      placeholder='搜索任务名称、描述...'
+                      value={searchTerm}
+                      onChange={(e) => handleSearch(e.target.value)}
+                      className='pl-10'
+                    />
+                  </div>
+                </div>
+                <div className='w-full md:w-48'>
+                  <label className='mb-2 block text-sm font-medium'>状态</label>
+                  <Select
+                    value={statusFilter || 'all'}
+                    onValueChange={handleStatusFilter}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder='选择状态' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='all'>全部状态</SelectItem>
+                      <SelectItem value='enabled'>已启用</SelectItem>
+                      <SelectItem value='disabled'>已禁用</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className='w-full md:w-48'>
+                  <label className='mb-2 block text-sm font-medium'>
+                    工作流定义
+                  </label>
+                  <Select
+                    value={definitionFilter || 'all'}
+                    onValueChange={handleDefinitionFilter}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder='选择定义' />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='all'>全部定义</SelectItem>
+                      {definitions.map((def) => (
+                        <SelectItem key={def.id} value={def.name}>
+                          {def.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* 统计卡片 */}
           <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-4'>
             <Card>
@@ -173,7 +350,17 @@ export default function WorkflowSchedulesPage() {
                 <Calendar className='text-muted-foreground h-4 w-4' />
               </CardHeader>
               <CardContent>
-                <div className='text-2xl font-bold'>{schedules.length}</div>
+                <div className='text-2xl font-bold'>
+                  {isLoading ? (
+                    <div className='flex items-center gap-2'>
+                      <RefreshCw className='h-4 w-4 animate-spin' />
+                      <span>--</span>
+                    </div>
+                  ) : (
+                    total
+                  )}
+                </div>
+                <p className='text-muted-foreground text-xs'>当前搜索结果</p>
               </CardContent>
             </Card>
             <Card>
@@ -182,9 +369,10 @@ export default function WorkflowSchedulesPage() {
                 <Power className='text-muted-foreground h-4 w-4' />
               </CardHeader>
               <CardContent>
-                <div className='text-2xl font-bold'>
-                  {schedules.filter((s) => s.isEnabled).length}
+                <div className='text-2xl font-bold text-green-600'>
+                  {enabledCount}
                 </div>
+                <p className='text-muted-foreground text-xs'>正在运行的任务</p>
               </CardContent>
             </Card>
             <Card>
@@ -193,9 +381,10 @@ export default function WorkflowSchedulesPage() {
                 <PowerOff className='text-muted-foreground h-4 w-4' />
               </CardHeader>
               <CardContent>
-                <div className='text-2xl font-bold'>
-                  {schedules.filter((s) => !s.isEnabled).length}
+                <div className='text-2xl font-bold text-gray-600'>
+                  {disabledCount}
                 </div>
+                <p className='text-muted-foreground text-xs'>已停止的任务</p>
               </CardContent>
             </Card>
             <Card>
@@ -313,6 +502,52 @@ export default function WorkflowSchedulesPage() {
                     ))}
                   </TableBody>
                 </Table>
+              )}
+
+              {/* 分页控件 */}
+              {totalPages > 1 && (
+                <div className='mt-4 flex items-center justify-between'>
+                  <div className='text-muted-foreground text-sm'>
+                    显示第 {(page - 1) * pageSize + 1} -{' '}
+                    {Math.min(page * pageSize, total)} 条，共 {total} 条记录
+                  </div>
+                  <div className='flex items-center space-x-2'>
+                    <Button
+                      variant='outline'
+                      size='sm'
+                      onClick={() => setPage(page - 1)}
+                      disabled={page <= 1}
+                    >
+                      上一页
+                    </Button>
+                    <div className='flex items-center space-x-1'>
+                      {Array.from(
+                        { length: Math.min(5, totalPages) },
+                        (_, i) => {
+                          const pageNum = i + 1
+                          return (
+                            <Button
+                              key={pageNum}
+                              variant={page === pageNum ? 'default' : 'outline'}
+                              size='sm'
+                              onClick={() => setPage(pageNum)}
+                            >
+                              {pageNum}
+                            </Button>
+                          )
+                        }
+                      )}
+                    </div>
+                    <Button
+                      variant='outline'
+                      size='sm'
+                      onClick={() => setPage(page + 1)}
+                      disabled={page >= totalPages}
+                    >
+                      下一页
+                    </Button>
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>

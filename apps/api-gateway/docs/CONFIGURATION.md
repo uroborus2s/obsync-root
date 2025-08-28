@@ -45,10 +45,32 @@ if (!validation.valid) {
 
 | 环境变量 | 默认值 | 说明 |
 |---------|--------|------|
-| `JWT_SECRET` | `fallback-secret-key` | JWT 签名密钥（生产环境必须设置） |
+| `JWT_SECRET` | `fallback-secret-key` | JWT 签名密钥（生产环境必须设置，同时用于Cookie签名） |
 | `TOKEN_EXPIRY` | `1h` | Token 过期时间 |
 | `REFRESH_TOKEN_EXPIRY` | `7d` | 刷新 Token 过期时间 |
 | `COOKIE_NAME` | `wps_jwt_token` | Cookie 名称 |
+
+### Cookie 配置
+
+Cookie功能基于 `@fastify/cookie` 插件实现，支持以下特性：
+
+- **自动解析**: 在 `onRequest` 钩子中自动解析请求中的Cookie
+- **签名支持**: 使用JWT_SECRET对Cookie进行签名，防止篡改
+- **安全选项**: 支持 `httpOnly`、`secure`、`sameSite` 等安全选项
+- **过期管理**: 支持设置Cookie的过期时间和最大存活时间
+
+**Cookie安全配置**：
+- 生产环境自动启用 `secure` 属性（仅HTTPS传输）
+- 默认启用 `httpOnly` 属性（防止XSS攻击）
+- 使用 `sameSite=lax` 属性（防止CSRF攻击）
+- 启用 `signed=true` 属性（防止cookie篡改）
+
+**Secret密钥要求**：
+- 最小长度：32字符（推荐64字符以上）
+- 必须包含随机字符，避免使用简单密码
+- 生产环境必须使用环境变量配置
+- 用于HMAC-SHA256签名算法
+- 默认值仅供开发测试使用
 | `AUTH_ENABLED` | `true` | 是否启用认证 |
 
 ### WPS API 配置

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Stratix Gateway 高级构建和推送脚本
+# App ICASync 高级构建和推送脚本
 set -e
 
 # 颜色定义
@@ -27,27 +27,29 @@ PLATFORMS="linux/amd64"
 
 # 显示帮助信息
 show_help() {
-    echo -e "${BLUE}Stratix Gateway Docker 构建和推送脚本${NC}"
+    echo -e "${BLUE}App ICASync Docker 构建和推送脚本${NC}"
     echo ""
     echo "用法:"
-    echo "  $0 [OPTIONS] [PROJECT_NAME] [VERSION]"
+    echo "  $0 [OPTIONS] [PROJECT_NAME]"
     echo ""
     echo "参数:"
     echo "  PROJECT_NAME    项目名称 (默认: ${DEFAULT_PROJECT_NAME})"
-    echo "  VERSION         版本标签 (默认: ${DEFAULT_VERSION})"
     echo ""
     echo "选项:"
     echo "  -h, --help      显示帮助信息"
     echo "  --no-cache      禁用构建缓存"
     echo "  --dry-run       仅显示将要执行的命令，不实际执行"
-    echo "  --multi-arch    构建多架构镜像 (linux/amd64,linux/arm64)"
-    echo "  --latest        同时推送 latest 标签"
+    echo ""
+    echo "功能说明:"
+    echo "  • 自动从 package.json 读取版本号"
+    echo "  • 同时推送版本标签和 latest 标签"
+    echo "  • 版本标签格式: v{package.json.version}"
     echo ""
     echo "示例:"
     echo "  $0                                    # 使用默认参数"
-    echo "  $0 stratix-gateway v1.0.0            # 指定项目和版本"
-    echo "  $0 --no-cache stratix-gateway v1.0.0 # 禁用缓存构建"
-    echo "  $0 --dry-run stratix-gateway v1.0.0  # 预览命令"
+    echo "  $0 app-icasync                       # 指定项目名称"
+    echo "  $0 --no-cache                        # 禁用缓存构建"
+    echo "  $0 --dry-run                         # 预览构建命令"
     echo ""
 }
 
@@ -57,15 +59,15 @@ validate_version() {
     if [[ $version == "latest" ]]; then
         return 0
     fi
-    
+
     # 验证语义化版本格式 (如 v1.0.0, 1.0.0, v1.0.0-beta.1 等)
     if [[ $version =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[0-9]+)?)?$ ]]; then
         return 0
-    else
-        echo -e "${RED}❌ 版本格式不正确: $version${NC}"
-        echo -e "${YELLOW}建议格式: v1.0.0, 1.0.0, v1.0.0-beta.1${NC}"
-        return 1
     fi
+
+    echo -e "${RED}❌ 版本格式不正确: $version${NC}"
+    echo -e "${YELLOW}支持格式: v1.0.0, 1.0.0, v1.0.0-beta.1, latest${NC}"
+    return 1
 }
 
 # 记录日志
@@ -83,6 +85,32 @@ log_warning() {
 
 log_error() {
     echo -e "${RED}❌ $1${NC}"
+}
+
+# 从 package.json 获取版本
+get_package_version() {
+    if [ -f "package.json" ]; then
+        # 使用 node 解析 package.json
+        if command -v node >/dev/null 2>&1; then
+            node -p "require('./package.json').version" 2>/dev/null
+        else
+            # 如果没有 node，使用 grep 和 sed 解析
+            grep '"version"' package.json | sed 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' | head -1
+        fi
+    else
+        echo ""
+    fi
+}
+
+# 从 package.json 生成版本标签
+generate_version_from_package() {
+    local pkg_version=$(get_package_version)
+    if [ -n "$pkg_version" ]; then
+        echo "v${pkg_version}"
+    else
+        log_error "无法从 package.json 获取版本"
+        exit 1
+    fi
 }
 
 # 检查环境
@@ -124,9 +152,7 @@ check_environment() {
 parse_arguments() {
     NO_CACHE=false
     DRY_RUN=false
-    MULTI_ARCH=false
-    PUSH_LATEST=false
-    
+
     while [[ $# -gt 0 ]]; do
         case $1 in
             -h|--help)
@@ -141,15 +167,6 @@ parse_arguments() {
                 DRY_RUN=true
                 shift
                 ;;
-            --multi-arch)
-                MULTI_ARCH=true
-                PLATFORMS="linux/amd64,linux/arm64"
-                shift
-                ;;
-            --latest)
-                PUSH_LATEST=true
-                shift
-                ;;
             -*)
                 log_error "未知选项: $1"
                 show_help
@@ -158,8 +175,6 @@ parse_arguments() {
             *)
                 if [ -z "$PROJECT_NAME" ]; then
                     PROJECT_NAME="$1"
-                elif [ -z "$VERSION" ]; then
-                    VERSION="$1"
                 else
                     log_error "过多参数: $1"
                     show_help
@@ -169,11 +184,13 @@ parse_arguments() {
                 ;;
         esac
     done
-    
+
     # 设置默认值
     PROJECT_NAME=${PROJECT_NAME:-$DEFAULT_PROJECT_NAME}
-    VERSION=${VERSION:-$DEFAULT_VERSION}
-    
+
+    # 从 package.json 生成版本
+    VERSION=$(generate_version_from_package)
+
     # 验证版本格式
     if ! validate_version "$VERSION"; then
         exit 1
@@ -204,7 +221,7 @@ main() {
     IMAGE_NAME="${REGISTRY}/${NAMESPACE}/${PROJECT_NAME}"
     FULL_IMAGE_NAME="${IMAGE_NAME}:${VERSION}"
     
-    echo -e "${BLUE}🚀 Stratix Gateway Docker 构建和推送${NC}"
+    echo -e "${BLUE}🚀 App ICASync Docker 构建和推送${NC}"
     echo "======================================"
     echo -e "${BLUE}📦 项目名称:${NC} ${PROJECT_NAME}"
     echo -e "${BLUE}🏷️  版本标签:${NC} ${VERSION}"
@@ -235,9 +252,13 @@ main() {
     # 构建命令参数
     BUILD_ARGS="--platform ${PLATFORMS}"
     BUILD_ARGS+=" --tag ${FULL_IMAGE_NAME}"
-    
-    if [ "$PUSH_LATEST" = true ] || [ "$VERSION" = "latest" ]; then
+
+    # 始终同时推送 latest 标签
+    if [ "$VERSION" != "latest" ]; then
         BUILD_ARGS+=" --tag ${IMAGE_NAME}:latest"
+        log_info "将同时推送版本标签 (${VERSION}) 和 latest 标签"
+    else
+        log_info "推送 latest 标签"
     fi
     
     if [ "$NO_CACHE" = true ]; then
@@ -263,10 +284,8 @@ main() {
         log_success "构建推送完成！"
         echo ""
         echo -e "${GREEN}📋 镜像信息:${NC}"
-        echo "  • 完整名称: ${FULL_IMAGE_NAME}"
-        if [ "$PUSH_LATEST" = true ] || [ "$VERSION" = "latest" ]; then
-            echo "  • 最新标签: ${IMAGE_NAME}:latest"
-        fi
+        echo "  • 版本标签: ${FULL_IMAGE_NAME}"
+        echo "  • 最新标签: ${IMAGE_NAME}:latest"
         echo "  • 支持平台: ${PLATFORMS}"
         echo ""
         echo -e "${GREEN}📡 部署命令示例:${NC}"

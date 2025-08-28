@@ -7,7 +7,6 @@
 
 import type { AwilixContainer, Logger } from '@stratix/core';
 import type {
-  ScheduleConfig,
   ScheduleInfo,
   WorkflowStats,
   WorkflowStatusInfo
@@ -25,6 +24,8 @@ import type {
   WorkflowInstance,
   WorkflowOptions
 } from '../types/business.js';
+import type { WorkflowDefinitionTable } from '../types/database.js';
+import type { ScheduleConfig } from '../types/schedule.types.js';
 
 /**
  * Tasks工作流适配器实现
@@ -242,52 +243,33 @@ export class TasksWorkflowAdapter implements ITasksWorkflowAdapter {
 
   /**
    * 手动启动工作流（创建工作流实例）
+   *
+   * 轻量级代理方法，直接委托给 WorkflowExecutionService
+   *
+   * @param workflowDefinition 完整的工作流定义对象（从数据库查询获得）
+   * @param options 工作流选项
    */
   async startWorkflow(
-    workflowDefinitionId: number,
+    workflowDefinition: WorkflowDefinitionTable,
     options?: WorkflowOptions
   ): Promise<ServiceResult<WorkflowInstance>> {
     try {
-      this.logger.info('Starting workflow', { workflowDefinitionId, options });
+      this.logger.info('Adapter: Starting workflow', {
+        workflowDefinitionId: workflowDefinition.id,
+        workflowName: workflowDefinition.name,
+        workflowVersion: workflowDefinition.version
+      });
 
-      // 首先创建工作流实例
-      const instanceResult =
-        await this.workflowInstanceService.getWorkflowInstance(
-          workflowDefinitionId.toString(),
-          options || {}
-        );
-
-      if (!instanceResult.success) {
-        return {
-          success: false,
-          error: 'Failed to create workflow instance',
-          errorDetails: instanceResult.error
-        };
-      }
-
-      const instance = instanceResult.data!;
-
-      // 启动工作流执行
-      const startResult =
-        await this.workflowExecutionService.executeWorkflowInstance(instance);
-
-      if (!startResult.success) {
-        return {
-          success: false,
-          error: 'Failed to start workflow execution',
-          errorDetails: startResult.error
-        };
-      }
-
-      return {
-        success: true,
-        data: instance
-      };
+      // 🎯 直接委托给 Service 层，避免重复业务逻辑
+      return await this.workflowExecutionService.startWorkflow(
+        workflowDefinition,
+        options || {}
+      );
     } catch (error) {
-      this.logger.error('Failed to start workflow', {
+      this.logger.error('Adapter: Failed to start workflow', {
         error,
-        workflowDefinitionId,
-        options
+        workflowDefinitionId: workflowDefinition.id,
+        workflowName: workflowDefinition.name
       });
       return {
         success: false,
@@ -307,21 +289,31 @@ export class TasksWorkflowAdapter implements ITasksWorkflowAdapter {
     try {
       this.logger.info('Starting workflow by name', { workflowName, options });
 
-      // 获取活跃的工作流定义
-      const definitionResult =
-        await this.workflowDefinitionService.getActiveByName(workflowName);
+      // 如果指定了版本，使用精确查找；否则使用活跃版本
+      let definitionResult;
+      if (options?.workflowVersion) {
+        definitionResult =
+          await this.workflowDefinitionService.getByNameAndVersion(
+            workflowName,
+            options.workflowVersion
+          );
+      } else {
+        definitionResult =
+          await this.workflowDefinitionService.getActiveByName(workflowName);
+      }
+
       if (!definitionResult.success) {
         return {
           success: false,
-          error: `Active workflow definition not found: ${workflowName}`,
+          error: `Workflow definition not found: ${workflowName}${options?.workflowVersion ? `@${options.workflowVersion}` : ' (active)'}`,
           errorDetails: definitionResult.error
         };
       }
 
       const definition = definitionResult.data!;
 
-      // 启动工作流
-      return await this.startWorkflow(definition.id, options);
+      // 启动工作流 - 传入完整的工作流定义对象
+      return await this.startWorkflow(definition, options);
     } catch (error) {
       this.logger.error('Failed to start workflow by name', {
         error,

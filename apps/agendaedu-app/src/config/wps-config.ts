@@ -1,7 +1,7 @@
 // WPS协作JSAPI配置文件
 export const WPS_CONFIG = {
   // WPS协作应用配置
-  appId: process.env.VITE_WPS_APP_ID || 'agendaedu-checkin-app', // 从环境变量获取AppID，默认使用应用标识
+  appId: import.meta.env.VITE_WPS_APP_ID || 'agendaedu-checkin-app', // 从环境变量获取AppID，默认使用应用标识
 
   // 权限范围配置
   scope: [
@@ -50,5 +50,5 @@ export const isWPSEnvironment = (): boolean => {
 
 // 开发环境检测
 export const isDevelopment = (): boolean => {
-  return process.env.NODE_ENV === 'development';
+  return import.meta.env.DEV;
 };

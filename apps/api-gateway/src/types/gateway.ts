@@ -209,6 +209,8 @@ export interface ProxyServiceConfig {
   headers?: Record<string, string>;
   /** 健康检查配置 */
   healthCheck?: HealthCheckConfig;
+  /** 预处理器列表 */
+  preHandlers?: Array<(request: any, reply: any) => Promise<void> | void>;
 }
 
 /**
@@ -412,3 +414,28 @@ export interface ConfigValidationResult {
   /** 警告信息 */
   warnings: string[];
 }
+
+/**
+ * 网关服务配置项
+ * 用于 createAfterFastifyCreated 函数的 services 参数
+ */
+export interface GatewayServiceItem {
+  /** 服务名称 */
+  name: string;
+  /** 服务配置 */
+  config: ProxyServiceConfig;
+}
+
+/**
+ * 网关服务配置列表类型
+ * 替代 any[] 类型，提供类型安全保障
+ */
+export type GatewayServicesList = GatewayServiceItem[];
+
+/**
+ * afterFastifyCreated 钩子函数类型
+ * 符合 Stratix 框架的生命周期钩子规范
+ */
+export type AfterFastifyCreatedHook = (
+  services: GatewayServicesList
+) => (instance: import('@stratix/core').FastifyInstance) => Promise<void>;

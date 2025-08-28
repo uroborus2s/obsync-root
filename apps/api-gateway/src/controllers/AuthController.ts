@@ -13,6 +13,43 @@ import UserAuthService, {
 import WPSApiService from '../services/WPSApiService.js';
 
 /**
+ * 安全响应工具 - 防止重复响应错误
+ */
+class SafeResponse {
+  /**
+   * 安全发送响应
+   */
+  static safeSend(reply: FastifyReply, statusCode: number, data: any): boolean {
+    if (reply.sent) {
+      return false;
+    }
+    try {
+      reply.code(statusCode).send(data);
+      return true;
+    } catch (error) {
+      console.error('Failed to send response:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 安全重定向
+   */
+  static safeRedirect(reply: FastifyReply, url: string): boolean {
+    if (reply.sent) {
+      return false;
+    }
+    try {
+      reply.redirect(url);
+      return true;
+    } catch (error) {
+      console.error('Failed to redirect:', error);
+      return false;
+    }
+  }
+}
+
+/**
  * 认证请求参数
  */
 interface AuthRequest {
@@ -44,6 +81,8 @@ interface CookieOptions {
   path?: string;
   /** 域名 */
   domain?: string;
+  /** 是否签名cookie */
+  signed?: boolean;
 }
 
 /**
@@ -97,11 +136,12 @@ export default class AuthController {
       // 验证必要参数
       if (!code) {
         this.logger.error('Missing authorization code');
-        return reply.code(400).send({
+        SafeResponse.safeSend(reply, 400, {
           success: false,
           error: 'MISSING_CODE',
           message: '缺少授权码'
         });
+        return;
       }
 
       // 1. 使用授权码获取WPS访问令牌
@@ -194,11 +234,13 @@ export default class AuthController {
         email: userInfo.email
       });
 
-      const callbackUrl = Buffer.from(state, 'base64').toString('utf8');
+      const callbackUrl = decodeURIComponent(
+        Buffer.from(state, 'base64').toString('utf8')
+      );
 
       // 重定向到回调URL
       const redirectUrl = addUrlParams(callbackUrl, { auth_success: 'true' });
-      return reply.redirect(redirectUrl);
+      SafeResponse.safeRedirect(reply, redirectUrl);
     } catch (error) {
       this.logger.error('OAuth authorization callback failed:', error);
       return this.handleAuthError(
@@ -208,6 +250,31 @@ export default class AuthController {
         '认证回调处理失败'
       );
     }
+  }
+
+  @Get('/api/auth/cookie')
+  async setCookie(request: FastifyRequest, reply: FastifyReply) {
+    // 根据提供的userInfo生成JWT token 并设置cookie ，和生产方式一样
+
+    const userInfo = {
+      id: '0304062400128',
+      name: '高誉宁',
+      userType: 'student' as 'student',
+      userNumber: '0304062400128',
+      collegeName: '统计学院',
+      majorName: '数据科学',
+      className: '数据科学2401'
+    };
+    const jwtPayload = this.createEnhancedJWTPayload(userInfo);
+    const config = this.jwtService.getConfig();
+    const jwtToken = this.jwtService.generateToken(jwtPayload, {
+      expiresIn: (config.tokenExpiry || '29d') as any
+    });
+    await this.setAuthCookie(reply, jwtToken);
+    return reply.send({
+      success: true,
+      message: 'Cookie设置成功'
+    });
   }
 
   /**
@@ -365,12 +432,13 @@ export default class AuthController {
     const cookieOptions: CookieOptions = {
       maxAge: expiresIn,
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/'
+      secure: true,
+      sameSite: 'none',
+      path: '/',
+      signed: true // 启用cookie签名，防止篡改
     };
 
-    // 设置JWT Token cookie
+    // 设置JWT Token cookie（带签名）
     reply.setCookie(cookieName, jwtToken, cookieOptions);
 
     // 设置兼容性cookie（过期时间）
@@ -386,6 +454,15 @@ export default class AuthController {
     errorType: string = 'unknown',
     errorMessage: string = '认证失败'
   ): void {
+    // 防止重复响应：检查响应是否已发送
+    if (reply.sent) {
+      this.logger.warn('Attempted to handle auth error after response sent', {
+        errorType,
+        errorMessage
+      });
+      return;
+    }
+
     let callbackUrl = process.env.APP_URL || 'http://localhost:3000';
 
     if (state) {
@@ -403,7 +480,7 @@ export default class AuthController {
       error_message: encodeURIComponent(errorMessage)
     });
 
-    reply.redirect(errorRedirectUrl);
+    SafeResponse.safeRedirect(reply, errorRedirectUrl);
   }
 
   /**

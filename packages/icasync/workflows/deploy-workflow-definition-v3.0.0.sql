@@ -1,16 +1,21 @@
 -- ============================================================================
--- 全量同步工作流 v3.0.0 部署脚本
--- 基于分布式工作流引擎架构，支持分布式执行、断点续传、故障转移
+-- 全量同步工作流 v3.0.0-enhanced 部署脚本
+-- 基于Stratix Tasks v3.0.0-enhanced架构，支持定时任务、自动锁续期、增强监控
+-- 兼容新的数据库表结构和节点类型定义
 -- ============================================================================
 
 -- 开始事务
 START TRANSACTION;
 
+-- 设置字符集和排序规则
+SET NAMES utf8mb4;
+SET CHARACTER SET utf8mb4;
+
 -- 设置变量
 SET @workflow_name = 'full-sync-multi-loop-workflow' COLLATE utf8mb4_unicode_ci;
 SET @workflow_version = '3.0.0' COLLATE utf8mb4_unicode_ci;
 SET @workflow_category = 'icasync' COLLATE utf8mb4_unicode_ci;
-SET @workflow_display_name = '全量同步工作流（分布式版）';
+SET @workflow_display_name = '全量同步工作流' COLLATE utf8mb4_unicode_ci;
 
 -- 删除旧版本（如果存在）
 DELETE FROM workflow_definitions 
@@ -35,11 +40,11 @@ INSERT INTO workflow_definitions (
     @workflow_name,
     @workflow_version,
     @workflow_display_name,
-    '基于分布式架构的全量同步工作流，支持日历、参与者、日程的独立并行处理，具备断点续传和故障转移能力',
+    '基于Stratix Tasks v3.0.0-enhanced架构的全量同步工作流，支持定时任务、自动锁续期、增强监控，具备断点续传和故障转移能力',
     '{
         "id": "full-sync-multi-loop-workflow",
-        "name": "全量同步工作流（分布式版）",
-        "description": "基于分布式架构的全量同步工作流，支持日历、参与者、日程的独立并行处理",
+        "name": "全量同步工作流",
+        "description": "基于Stratix Tasks v3.0.0-enhanced架构的全量同步工作流，支持定时任务、自动锁续期、增强监控",
         "version": "3.0.0",
         "metadata": {
             "author": "system",
@@ -56,6 +61,17 @@ INSERT INTO workflow_definitions (
                 "maxConcurrency": 20,
                 "failoverStrategy": "automatic",
                 "lockTimeout": 300000
+            },
+            "lockRenewal": {
+                "enabled": true,
+                "renewalInterval": 60000,
+                "lockExtension": 300000,
+                "maxRetryAttempts": 3
+            },
+            "scheduler": {
+                "enabled": true,
+                "defaultTimezone": "Asia/Shanghai",
+                "maxConcurrency": 10
             },
             "monitoring": {
                 "enabled": true,
@@ -113,11 +129,11 @@ INSERT INTO workflow_definitions (
         ],
         "nodes": [
             {
-                "id": "data-aggregation",
-                "name": "数据聚合准备",
-                "type": "task",
+                "nodeId": "data-aggregation",
+                "nodeName": "数据聚合准备",
+                "nodeType": "simple",
                 "executor": "dataAggregationProcessor",
-                "config": {
+                "inputData": {
                     "xnxq": "${xnxq}",
                     "forceSync": "${forceSync}",
                     "syncType": "full",
@@ -139,76 +155,13 @@ INSERT INTO workflow_definitions (
                 }
             },
             {
-                "id": "fetch-old-calendars",
-                "name": "查询待删除的旧日历",
-                "type": "task",
-                "executor": "fetchOldCalendarMappings",
-                "dependsOn": ["data-aggregation"],
-                "config": {
-                    "xnxq": "${xnxq}",
-                    "includeInactive": true,
-                    "orderBy": "created_at DESC",
-                    "limit": 10000
-                },
-                "distributed": {
-                    "assignmentStrategy": "locality",
-                    "requiredCapabilities": ["fetchOldCalendarMappings"]
-                },
-                "errorHandling": {
-                    "strategy": "retry",
-                    "maxRetries": 2,
-                    "retryDelay": 3000,
-                    "onFailure": "continue"
-                }
-            },
-            {
-                "id": "parallel-delete-old-calendars",
-                "name": "动态并行删除旧日历",
-                "type": "loop",
+                "nodeId": "process-calendar-groups-loop",
+                "nodeName": "获取并处理日历组",
+                "nodeType": "loop",
                 "loopType": "dynamic",
-                "dependsOn": ["fetch-old-calendars"],
-                "sourceExpression": "nodes.fetch-old-calendars.output.calendarsToDelete",
-                "maxConcurrency": 8,
-                "errorHandling": "continue",
-                "joinType": "all",
-                "distributed": {
-                    "enabled": true,
-                    "childTaskDistribution": "round-robin",
-                    "maxEnginesPerLoop": 5
-                },
-                "nodes": [
-                    {
-                        "id": "delete-single-calendar",
-                        "name": "删除单个日历",
-                        "type": "task",
-                        "executor": "deleteSingleCalendar",
-                        "config": {
-                            "calendarId": "${$item.calendarId}",
-                            "kkh": "${$item.kkh}",
-                            "xnxq": "${xnxq}",
-                            "deleteMode": "complete",
-                            "cleanupMapping": true
-                        },
-                        "distributed": {
-                            "assignmentStrategy": "capability",
-                            "requiredCapabilities": ["deleteSingleCalendar"]
-                        },
-                        "errorHandling": {
-                            "strategy": "retry",
-                            "maxRetries": 2,
-                            "retryDelay": 2000,
-                            "onFailure": "continue"
-                        }
-                    }
-                ]
-            },
-            {
-                "id": "fetch-sync-sources",
-                "name": "获取同步日历数据",
-                "type": "task",
+                "dependsOn": ["data-aggregation"],
                 "executor": "fetchSyncSources",
-                "dependsOn": ["parallel-delete-old-calendars"],
-                "config": {
+                "inputData": {
                     "xnxq": "${xnxq}",
                     "includeCalendars": true,
                     "includeUsers": true,
@@ -216,93 +169,42 @@ INSERT INTO workflow_definitions (
                     "groupBy": "calendar",
                     "maxGroups": 1000
                 },
-                "distributed": {
-                    "assignmentStrategy": "load-balanced",
-                    "requiredCapabilities": ["fetchSyncSources"]
-                },
-                "errorHandling": {
-                    "strategy": "retry",
-                    "maxRetries": 3,
-                    "retryDelay": 5000,
-                    "onFailure": "stop"
-                }
-            },
-            {
-                "id": "parallel-calendar-groups",
-                "name": "并行处理日历组",
-                "type": "loop",
-                "loopType": "dynamic",
-                "dependsOn": ["fetch-sync-sources"],
-                "sourceExpression": "nodes.fetch-sync-sources.output.calendarGroups",
+                "sourceExpression": "output.calendarGroups",
                 "maxConcurrency": 5,
                 "errorHandling": "continue",
                 "joinType": "all",
                 "distributed": {
                     "enabled": true,
+                    "assignmentStrategy": "load-balanced",
+                    "requiredCapabilities": ["fetchSyncSources"],
                     "childTaskDistribution": "load-balanced",
                     "maxEnginesPerLoop": 10
                 },
-                "nodes": [
-                    {
-                        "id": "process-calendar-group",
-                        "name": "处理单个日历组",
-                        "type": "subprocess",
-                        "workflowName": "calendar-group-sync-workflow",
-                        "version": "3.0.0",
-                        "inputMapping": {
-                            "calendarGroup": "$item",
-                            "calendarInfo": "$item.calendar",
-                            "participants": "$item.participants",
-                            "schedules": "$item.schedules",
-                            "xnxq": "${input.xnxq}",
-                            "forceSync": "${input.forceSync}"
-                        },
-                        "outputMapping": {
-                            "calendarId": "output.calendarResult.calendarId",
-                            "participantStats": "output.participantLoopResults",
-                            "scheduleStats": "output.scheduleLoopResults",
-                            "totalProcessed": "output.summary.totalProcessed",
-                            "success": "output.summary.success"
-                        },
-                        "distributed": {
-                            "inheritParentStrategy": false,
-                            "assignmentStrategy": "affinity"
-                        },
-                        "timeout": 1800000,
-                        "errorHandling": {
-                            "strategy": "retry",
-                            "maxRetries": 2,
-                            "retryDelay": 10000,
-                            "onFailure": "continue"
-                        }
-                    }
-                ]
-            },
-            {
-                "id": "final-sync-report",
-                "name": "生成最终同步报告",
-                "type": "task",
-                "executor": "generateFinalSyncReport",
-                "dependsOn": ["parallel-calendar-groups"],
-                "config": {
-                    "xnxq": "${xnxq}",
-                    "calendarGroupResults": "${nodes.parallel-calendar-groups.output}",
-                    "reportFormat": "comprehensive",
-                    "includeStatistics": true,
-                    "includeErrors": true,
-                    "includePerformanceMetrics": true,
-                    "exportToFile": true,
-                    "notifyOnCompletion": true
-                },
-                "distributed": {
-                    "assignmentStrategy": "locality",
-                    "requiredCapabilities": ["generateFinalSyncReport"]
-                },
-                "errorHandling": {
+                "executorErrorHandling": {
                     "strategy": "retry",
-                    "maxRetries": 2,
+                    "maxRetries": 3,
                     "retryDelay": 5000,
-                    "onFailure": "continue"
+                    "onFailure": "stop"
+                },
+                "node": {
+                    "nodeId": "process-calendar-group",
+                    "nodeName": "处理单个日历组",
+                    "nodeType": "subprocess",
+                    "workflowName": "calendar-group-sync-workflow",
+                    "version": "3.0.0",
+                    "inputData": {
+                        "kkh": "${kkh}",
+                        "kcmc": "${kcmc}",
+                        "xnxq": "${xnxq}",
+                        "forceSync": "${forceSync}"
+                    },
+                    "timeoutSeconds": 1800,
+                    "errorHandling": {
+                        "strategy": "retry",
+                        "maxRetries": 2,
+                        "retryDelay": 10000,
+                        "onFailure": "continue"
+                    }
                 }
             }
         ]
@@ -345,41 +247,20 @@ INSERT INTO workflow_definitions (
         "config": {
             "timeout": 1800000,
             "retries": 2,
-            "retryDelay": 10000,
-            "distributed": {
-                "enabled": true,
-                "assignmentStrategy": "affinity",
-                "maxConcurrency": 15
-            },
-            "recovery": {
-                "enabled": true,
-                "checkpointInterval": 30000
-            }
+            "retryDelay": 10000
         },
         "inputs": [
             {
-                "name": "calendarGroup",
-                "type": "object",
+                "name": "kkh",
+                "type": "string",
                 "required": true,
-                "description": "日历组数据"
+                "description": "开课号"
             },
             {
-                "name": "calendarInfo",
-                "type": "object",
+                "name": "kcmc",
+                "type": "string",
                 "required": true,
-                "description": "日历信息"
-            },
-            {
-                "name": "participants",
-                "type": "array",
-                "required": true,
-                "description": "参与者列表"
-            },
-            {
-                "name": "schedules",
-                "type": "array",
-                "required": true,
-                "description": "日程列表"
+                "description": "课程名称"
             },
             {
                 "name": "xnxq",
@@ -418,20 +299,15 @@ INSERT INTO workflow_definitions (
         ],
         "nodes": [
             {
-                "id": "create-calendar",
-                "name": "创建或更新日历",
-                "type": "task",
+                "nodeId": "create-calendar",
+                "nodeName": "创建或更新日历",
+                "nodeType": "simple",
                 "executor": "createOrUpdateCalendar",
-                "config": {
-                    "kkh": "${input.calendarInfo.kkh}",
-                    "name": "${input.calendarInfo.name}",
-                    "xnxq": "${input.xnxq}",
-                    "forceUpdate": "${input.forceSync}",
-                    "calendarData": "${input.calendarInfo}"
-                },
-                "distributed": {
-                    "assignmentStrategy": "capability",
-                    "requiredCapabilities": ["createOrUpdateCalendar"]
+                "inputData": {
+                    "kkh": "${kkh}",
+                    "kcmc": "${kcmc}",
+                    "xnxq": "${xnxq}",
+                    "forceUpdate": "${forceSync}"
                 },
                 "errorHandling": {
                     "strategy": "retry",
@@ -441,12 +317,16 @@ INSERT INTO workflow_definitions (
                 }
             },
             {
-                "id": "process-participants",
-                "name": "批量处理参与者",
-                "type": "loop",
+                "nodeId": "process-participants",
+                "nodeName": "批量处理参与者",
+                "nodeType": "loop",
                 "loopType": "dynamic",
                 "dependsOn": ["create-calendar"],
-                "sourceExpression": "input.participants",
+                "executor": "fetchParticipants",
+                "inputData": {
+                    "kkh": "${kkh}",
+                    "xnxq": "${xnxq}"
+                },
                 "maxConcurrency": 15,
                 "errorHandling": "continue",
                 "joinType": "all",
@@ -454,92 +334,54 @@ INSERT INTO workflow_definitions (
                     "enabled": true,
                     "childTaskDistribution": "round-robin"
                 },
-                "nodes": [
-                    {
-                        "id": "add-participant",
-                        "name": "添加参与者",
-                        "type": "task",
-                        "executor": "addParticipant",
-                        "config": {
-                            "calendarId": "${nodes.create-calendar.output.calendarId}",
-                            "participantData": "${$item}",
-                            "role": "${$item.role }",
-                            "permissions": "${$item.permissions}"
-                        },
-                        "distributed": {
-                            "assignmentStrategy": "capability",
-                            "requiredCapabilities": ["addParticipant"]
-                        },
-                        "errorHandling": {
-                            "strategy": "retry",
-                            "maxRetries": 2,
-                            "retryDelay": 2000,
-                            "onFailure": "continue"
-                        }
+                "node": {
+                    "nodeId": "add-participant",
+                    "nodeName": "添加参与者",
+                    "nodeType": "simple",
+                    "executor": "addParticipants",
+                    "inputData": {
+                        "permissions": "${permissions}",
+                        "kkh": "${kkh}",
+                        "xnxq": "${xnxq}"
+                    },
+                    "errorHandling": {
+                        "strategy": "retry",
+                        "maxRetries": 2,
+                        "retryDelay": 2000,
+                        "onFailure": "continue"
                     }
-                ]
+                }
             },
             {
-                "id": "process-schedules",
-                "name": "批量处理日程",
-                "type": "loop",
+                "nodeId": "process-schedules",
+                "nodeName": "批量处理日程",
+                "nodeType": "loop",
                 "loopType": "dynamic",
                 "dependsOn": ["create-calendar"],
-                "sourceExpression": "input.schedules",
+                "executor": "fetchSchedules",
                 "maxConcurrency": 12,
                 "errorHandling": "continue",
                 "joinType": "all",
-                "distributed": {
-                    "enabled": true,
-                    "childTaskDistribution": "load-balanced"
+                "inputData": {
+                    "kkh": "${kkh}",
+                    "xnxq": "${xnxq}"
                 },
-                "nodes": [
-                    {
-                        "id": "add-schedule",
-                        "name": "添加日程",
-                        "type": "task",
-                        "executor": "addSchedule",
-                        "config": {
-                            "calendarId": "${nodes.create-calendar.output.calendarId}",
-                            "scheduleData": "${$item}",
-                            "conflictResolution": "merge",
-                            "notifyParticipants": false
-                        },
-                        "distributed": {
-                            "assignmentStrategy": "capability",
-                            "requiredCapabilities": ["addSchedule"]
-                        },
-                        "errorHandling": {
-                            "strategy": "retry",
-                            "maxRetries": 2,
-                            "retryDelay": 3000,
-                            "onFailure": "continue"
-                        }
+                "node": {
+                    "nodeId": "add-schedule",
+                    "nodeName": "添加日程",
+                    "nodeType": "simple",
+                    "executor": "addSchedule",
+                    "inputData": {
+                        "kkh": "${kkh}",
+                        "schedules": "${schedules}",
+                        "xnxq": "${xnxq}"
+                    },
+                    "errorHandling": {
+                        "strategy": "retry",
+                        "maxRetries": 2,
+                        "retryDelay": 3000,
+                        "onFailure": "continue"
                     }
-                ]
-            },
-            {
-                "id": "calendar-group-summary",
-                "name": "日历组同步汇总",
-                "type": "task",
-                "executor": "calendarGroupSyncSummary",
-                "dependsOn": ["process-participants", "process-schedules"],
-                "config": {
-                    "calendarId": "${nodes.create-calendar.output.calendarId}",
-                    "calendarKkh": "${input.calendarInfo.kkh}",
-                    "participantResults": "${nodes.process-participants.output}",
-                    "scheduleResults": "${nodes.process-schedules.output}",
-                    "generateDetailedReport": true
-                },
-                "distributed": {
-                    "assignmentStrategy": "affinity",
-                    "requiredCapabilities": ["calendarGroupSyncSummary"]
-                },
-                "errorHandling": {
-                    "strategy": "retry",
-                    "maxRetries": 2,
-                    "retryDelay": 3000,
-                    "onFailure": "continue"
                 }
             }
         ]
@@ -570,8 +412,6 @@ SELECT
     timeout_seconds,
     max_retries,
     JSON_LENGTH(definition, '$.nodes') as main_nodes_count,
-    JSON_EXTRACT(definition, '$.config.distributed.enabled') as distributed_enabled,
-    JSON_EXTRACT(definition, '$.config.recovery.enabled') as recovery_enabled,
     created_at
 FROM workflow_definitions
 WHERE name = @workflow_name AND version = @workflow_version
@@ -587,49 +427,12 @@ SELECT
     status,
     is_active,
     JSON_LENGTH(definition, '$.nodes') as sub_nodes_count,
-    JSON_EXTRACT(definition, '$.config.distributed.enabled') as distributed_enabled,
     created_at
 FROM workflow_definitions
-WHERE name = 'calendar-group-sync-workflow' AND version = '3.0.0'
+WHERE name = 'calendar-group-sync-workflow' AND version = '3.0.0-enhanced'
 ORDER BY created_at DESC
 LIMIT 1;
 
--- 验证JSON结构完整性
-SELECT
-    name,
-    version,
-    CASE
-        WHEN JSON_VALID(definition) = 1 THEN 'VALID'
-        ELSE 'INVALID'
-    END as definition_validity,
-    CASE
-        WHEN JSON_EXTRACT(definition, '$.config.distributed.enabled') = true
-         AND JSON_EXTRACT(definition, '$.config.recovery.enabled') = true
-        THEN 'V3_FEATURES_ENABLED'
-        ELSE 'V3_FEATURES_MISSING'
-    END as v3_features_status,
-    CASE
-        WHEN JSON_LENGTH(definition, '$.nodes') > 0
-        THEN CONCAT('NODES_COUNT: ', JSON_LENGTH(definition, '$.nodes'))
-        ELSE 'NO_NODES'
-    END as nodes_status
-FROM workflow_definitions
-WHERE name IN (@workflow_name, 'calendar-group-sync-workflow')
-  AND version = '3.0.0'
-ORDER BY name;
-
--- 验证分布式配置
-SELECT
-    name,
-    version,
-    JSON_EXTRACT(definition, '$.config.distributed.assignmentStrategy') as assignment_strategy,
-    JSON_EXTRACT(definition, '$.config.distributed.maxConcurrency') as max_concurrency,
-    JSON_EXTRACT(definition, '$.config.monitoring.enabled') as monitoring_enabled,
-    JSON_EXTRACT(definition, '$.config.recovery.checkpointInterval') as checkpoint_interval
-FROM workflow_definitions
-WHERE name IN (@workflow_name, 'calendar-group-sync-workflow')
-  AND version = '3.0.0'
-ORDER BY name;
 
 -- 使用子查询替代CTE来统计节点类型（兼容MySQL 5.7+）
 SELECT
@@ -645,14 +448,14 @@ FROM (
         definition
     FROM workflow_definitions
     WHERE name IN (@workflow_name, 'calendar-group-sync-workflow')
-      AND version = '3.0.0'
+      AND version = '3.0.0-enhanced'
 ) as node_analysis
 UNION ALL
 SELECT
     workflow_name,
     version,
-    'task' as node_type,
-    ROUND((CHAR_LENGTH(definition) - CHAR_LENGTH(REPLACE(definition, '"type":"task"', ''))) / CHAR_LENGTH('"type":"task"')) as node_count
+    'simple' as node_type,
+    ROUND((CHAR_LENGTH(definition) - CHAR_LENGTH(REPLACE(definition, '"nodeType":"simple"', ''))) / CHAR_LENGTH('"nodeType":"simple"')) as node_count
 FROM (
     SELECT
         name as workflow_name,
@@ -660,14 +463,14 @@ FROM (
         definition
     FROM workflow_definitions
     WHERE name IN (@workflow_name, 'calendar-group-sync-workflow')
-      AND version = '3.0.0'
+      AND version = '3.0.0-enhanced'
 ) as node_analysis
 UNION ALL
 SELECT
     workflow_name,
     version,
     'loop' as node_type,
-    ROUND((CHAR_LENGTH(definition) - CHAR_LENGTH(REPLACE(definition, '"type":"loop"', ''))) / CHAR_LENGTH('"type":"loop"')) as node_count
+    ROUND((CHAR_LENGTH(definition) - CHAR_LENGTH(REPLACE(definition, '"nodeType":"loop"', ''))) / CHAR_LENGTH('"nodeType":"loop"')) as node_count
 FROM (
     SELECT
         name as workflow_name,
@@ -682,7 +485,7 @@ SELECT
     workflow_name,
     version,
     'subprocess' as node_type,
-    ROUND((CHAR_LENGTH(definition) - CHAR_LENGTH(REPLACE(definition, '"type":"subprocess"', ''))) / CHAR_LENGTH('"type":"subprocess"')) as node_count
+    ROUND((CHAR_LENGTH(definition) - CHAR_LENGTH(REPLACE(definition, '"nodeType":"subprocess"', ''))) / CHAR_LENGTH('"nodeType":"subprocess"')) as node_count
 FROM (
     SELECT
         name as workflow_name,
@@ -695,46 +498,7 @@ FROM (
 ORDER BY workflow_name,
          CASE node_type
              WHEN 'total' THEN 1
-             WHEN 'task' THEN 2
+             WHEN 'simple' THEN 2
              WHEN 'loop' THEN 3
              WHEN 'subprocess' THEN 4
          END;
-
--- 验证执行器配置
-SELECT
-    name,
-    version,
-    JSON_EXTRACT(definition, '$.nodes[0].executor') as first_executor,
-    JSON_EXTRACT(definition, '$.nodes[0].distributed.requiredCapabilities') as first_capabilities,
-    JSON_EXTRACT(definition, '$.nodes[0].errorHandling.strategy') as first_error_strategy
-FROM workflow_definitions
-WHERE name IN (@workflow_name, 'calendar-group-sync-workflow')
-  AND version = '3.0.0'
-ORDER BY name;
-
--- 检查是否有语法错误
-SELECT
-    name,
-    version,
-    CASE
-        WHEN JSON_EXTRACT(definition, '$.nodes[*].type') IS NOT NULL THEN 'SYNTAX_OK'
-        ELSE 'SYNTAX_ERROR'
-    END as syntax_check,
-    CASE
-        WHEN JSON_SEARCH(definition, 'one', 'subWorkflow') IS NOT NULL THEN 'OLD_SUBPROCESS_FORMAT'
-        WHEN JSON_SEARCH(definition, 'one', 'subprocess') IS NOT NULL THEN 'NEW_SUBPROCESS_FORMAT'
-        ELSE 'NO_SUBPROCESS'
-    END as subprocess_format_check
-FROM workflow_definitions
-WHERE name IN (@workflow_name, 'calendar-group-sync-workflow')
-  AND version = '3.0.0'
-ORDER BY name;
-
--- 显示部署完成信息
-SELECT
-    'Workflow Definition v3.0.0 Deployment Completed!' as status,
-    NOW() as completed_at,
-    COUNT(*) as deployed_workflows
-FROM workflow_definitions
-WHERE version = '3.0.0'
-  AND name IN (@workflow_name, 'calendar-group-sync-workflow');

@@ -1,9 +1,9 @@
-import { ChevronsUpDown, LogOut, User } from 'lucide-react'
+import { ChevronsUpDown, LogOut } from 'lucide-react'
+import { useUser } from '@/hooks/use-user'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -29,15 +29,22 @@ function getInitials(name: string): string {
 export function NavUser() {
   const { isMobile } = useSidebar()
 
-  // 简化后的用户信息，不依赖复杂的认证状态管理
-  const user = {
-    name: '用户',
-    email: 'user@example.com',
-    avatar: undefined,
-  }
+  // 使用JWT用户信息Hook
+  const {
+    isAuthenticated,
+    user,
+    loading,
+    logout,
+    getDisplayName,
+    getAvatar,
+    getUserTypeDisplayText,
+  } = useUser()
 
   const handleLogout = () => {
-    // 简化的登出逻辑：清除本地状态并重定向到认证页面
+    // 使用Hook的logout方法
+    logout()
+
+    // 清除其他本地状态
     localStorage.clear()
     sessionStorage.clear()
 
@@ -52,6 +59,44 @@ export function NavUser() {
       })
   }
 
+  // 加载状态
+  if (loading) {
+    return (
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton size='lg' disabled>
+            <Avatar className='h-8 w-8 rounded-lg'>
+              <AvatarFallback className='rounded-lg'>...</AvatarFallback>
+            </Avatar>
+            <div className='grid flex-1 text-left text-sm leading-tight'>
+              <span className='truncate font-semibold'>加载中...</span>
+              <span className='truncate text-xs'>请稍候</span>
+            </div>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    )
+  }
+
+  // 未认证状态
+  if (!isAuthenticated || !user) {
+    return (
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton size='lg' disabled>
+            <Avatar className='h-8 w-8 rounded-lg'>
+              <AvatarFallback className='rounded-lg'>?</AvatarFallback>
+            </Avatar>
+            <div className='grid flex-1 text-left text-sm leading-tight'>
+              <span className='truncate font-semibold'>未登录</span>
+              <span className='truncate text-xs'>请登录</span>
+            </div>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    )
+  }
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -62,17 +107,18 @@ export function NavUser() {
               className='data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground'
             >
               <Avatar className='h-8 w-8 rounded-lg'>
-                <AvatarImage src={user.avatar} alt={user.name || '用户'} />
+                <AvatarImage src={getAvatar()} alt={getDisplayName()} />
                 <AvatarFallback className='rounded-lg'>
-                  {getInitials(user.name || '用户')}
+                  {getInitials(getDisplayName())}
                 </AvatarFallback>
               </Avatar>
               <div className='grid flex-1 text-left text-sm leading-tight'>
                 <span className='truncate font-semibold'>
-                  {user.name || '用户'}
+                  {getDisplayName()}
                 </span>
                 <span className='truncate text-xs'>
-                  {user.email || '未知用户'}
+                  {getUserTypeDisplayText()}{' '}
+                  {user.employeeNumber && `• ${user.employeeNumber}`}
                 </span>
               </div>
               <ChevronsUpDown className='ml-auto size-4' />
@@ -87,28 +133,26 @@ export function NavUser() {
             <DropdownMenuLabel className='p-0 font-normal'>
               <div className='flex items-center gap-2 px-1 py-1.5 text-left text-sm'>
                 <Avatar className='h-8 w-8 rounded-lg'>
-                  <AvatarImage src={user.avatar} alt={user.name || '用户'} />
+                  <AvatarImage src={getAvatar()} alt={getDisplayName()} />
                   <AvatarFallback className='rounded-lg'>
-                    {getInitials(user.name || '用户')}
+                    {getInitials(getDisplayName())}
                   </AvatarFallback>
                 </Avatar>
                 <div className='grid flex-1 text-left text-sm leading-tight'>
                   <span className='truncate font-semibold'>
-                    {user.name || '用户'}
+                    {getDisplayName()}
                   </span>
                   <span className='truncate text-xs'>
-                    {user.email || '未知用户'}
+                    {getUserTypeDisplayText()}
                   </span>
+                  {user.department && (
+                    <span className='text-muted-foreground truncate text-xs'>
+                      {user.department}
+                    </span>
+                  )}
                 </div>
               </div>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <User />
-                个人信息
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout}>
               <LogOut />

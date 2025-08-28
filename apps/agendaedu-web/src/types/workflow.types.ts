@@ -215,6 +215,8 @@ export interface WorkflowInstanceQueryParams {
   priority?: number
   startTime?: string
   endTime?: string
+  search?: string
+  workflowDefinitionName?: string
   sortBy?: 'id' | 'name' | 'status' | 'priority' | 'createdAt' | 'updatedAt'
   sortOrder?: 'asc' | 'desc'
 }
@@ -245,9 +247,10 @@ export interface WorkflowDefinitionQueryParams {
   pageSize?: number
   status?: 'draft' | 'active' | 'deprecated' | 'archived'
   category?: string
-  keyword?: string
+  search?: string
   tags?: string
   createdBy?: string
+  isActive?: boolean
   sortBy?: 'name' | 'version' | 'createdAt' | 'updatedAt'
   sortOrder?: 'asc' | 'desc'
 }

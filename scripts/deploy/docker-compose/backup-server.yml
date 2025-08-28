@@ -1,0 +1,116 @@
+services:
+  # API Gateway 实例 1
+  api-gateway-1:
+    image: g-rrng9518-docker.pkg.coding.net/obsync/sync/stratix-gateway:latest
+    container_name: stratix-gateway-1
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    depends_on:
+      app-icasync-1:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      TZ: Asia/Shanghai
+      STRATIX_SENSITIVE_CONFIG: 18b84626a29362a6fe5b2ad5e5ede44c.f4ea9929ef1f0f8af66bd1a7e9704d55.92YbAMh2AGkTK50QhUr7t12juwtzrSTdvR7txI4OHRgNuNsk3SnBiNh/najoXHnbqho8DymvWyCkZ8q+zzIul/CVjJMNy+lUEcWU5RYBRv1EWF88IEOY6MV+Wh5rV9DeIrFWEr0KP+Ei0KaWGRVyhEscd7SZfgyxi1WVKq7YSSFVQP+W0+5tzqvGp/C7agVTx/Vt4j8HkB5+vRK68GxhBlX5yvHeR8w+s4JwUWuuHhp/4NFPYA9z64AHOQvoLZIzRGLGCn2CMI3NK/9NomMzMH0iezFu9XjMTL07Az9WI1ZXdtfrXvxu4XFs8T/nIOPIW55nh+qaElKkUfMd6zFABfMijZw7r23x0SnnGNLL8Xw0z8XBoBZRFcEXbM26blynsE7X25YOiosSUT1hl1oXCumpvkAj+PavivU0vCp88FNuuAT3JclwFZl6Go9a0YSAxit9/k3HH01Cbiuapatn4Yz2feg2xlt8w8LvcFjxBDE5XyYDFDU8BTg7h60jceTlJ70Q/ajOgyK8v69PwiI7gmFcjGjqv8fKb71Vsnd1WJPkN0rIExYnHxYk8WrIUAukB1H3vl07cxBC+yjKeThWGNkZGvGN6uk0UKTpTaV7WFyHUReiPCENcaMAMCjstX3/5ScM3+MknQxk0mQTpsu9kHfiWEG8N7voTbprOaktOQLAyu98U7/WrI4p56Wq/3U03ob5Ee11aF70Iup2vbDZYrcKOEp+mdfdbJ2kXFKiDKtvQ5HkbBz1PTscpr/R+QgjLuNCJeQfOYP9eK9Xa48hGOFE7kf4e/sdCmlUxXPv+2uxws2SQunIVgZSZMGnm4RPorW4WR5C6XUvoL7pZP8JMGV88SVZUw4oa47tiPCpLEYnLoBUgyp1E3vJKDQhyktgfHWJ1meTy5AgU9Sw0fJoUutRLEQ=
+    networks:
+      - obsync-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    volumes:
+      - gateway-logs:/app/logs
+
+  # API Gateway 实例 2
+  api-gateway-2:
+    image: g-rrng9518-docker.pkg.coding.net/obsync/sync/stratix-gateway:latest
+    container_name: stratix-gateway-2
+    restart: unless-stopped
+    ports:
+      - "8091:8090"
+    depends_on:
+      app-icasync-2:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      TZ: Asia/Shanghai
+      STRATIX_SENSITIVE_CONFIG: dfd92c7f96d394f4aa6c98447be78a33.ee6e70cd08c7722eeaf7bd485f5ffd24.m/QBTQhcuKdQCwy4Fe3FESfjL+YfjgAuAjwPvrNMQLhTi6esh429jW5hyu2HmN1K/WwyDaOUXnXPpzBAgDBv1Ku60LqJ7c9WfkydCi2oq3V7jLXtw5Dcx6UnO+kFptw02k5h0kh/jdlyn1xNVNyshwTx9qP6TO/8ISuVSpb18T7ltAWUIUbZlNhlqDqPkoq4hNf7fIDwT1kn/X9efHQNmBKvjqhl3NfvNSR08bEeKw8SlHGZPETOqFZPnOu52rCLV6dpP0cKYZQhP7BJdkp5Su15XFSiEdoEbL+8pGoQlyCyeyNfdmGnLuhKi8oDCzJnh6Z6va4PGALb4LzN6eLhqRS5fZ3snzNppps5CwsHAF0bwXg53H21VhOLLL8WF+TJTKHglSXtD0ldE0bho7gzjAr5js0iO8PtvR5xIVqXAICJUtZWhU/UYfjJdri1TJ6YreF49zRuKYKBnqLvmV696JTYcXguGrmDeaqUvmcoMSW13EZZKlWjIW5Nt58kKcVJqRz90uuEXCYeDb3eOrMK000nkAYTI4RzLzVHZZhBUH7DGFcQCDQv7q6iPM9OT4hRlzmdxHyoyzKi28Bbm7eUi/T1GufaS8o62dwpVUCE8XSInZ47lokdU/quKyPDxtq6C81zY2qaEh3uLPPqOer5S7sZY2B13dC0BHbQxiQgWbLkLimslyI897IcnqD+t5cSnKHu+J3IPH0peiOYnB345pVKC+kpH/TKdE8bZtp+VEBhg8vzi/H2pvZL/gtP8sDmA8Ei5dBqaHCRmF8RRfSxUeQDSHt8EKkBtQcsckCNYlPCuPhgUaPuQtJGqYzP5+K6L6Gdb6Y7q9CErQ4l1mmdBm5pH8OadLQs5y78SA05YByMs/CyyaLL7wVnaG+UI2NFKpl8680vD/3ceV+4os3W2rU7Bdc=
+    networks:
+      - obsync-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    volumes:
+      - gateway-logs:/app/logs
+
+  # ICA Sync 应用实例 1 (对应 api-gateway-1)
+  app-icasync-1:
+    image: g-rrng9518-docker.pkg.coding.net/obsync/sync/app-icasync:latest
+    container_name: app-icasync-1
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      NODE_ENV: production
+      TZ: Asia/Shanghai
+      STRATIX_SENSITIVE_CONFIG: 99d49d04a9aefe72a4bb389c96f3ab5c.4901b5737ff6d98226552e7288e2b6dc.GJxrKXqEKhrI7n+UHhQoSMMSQedJrpR7p+jDKDaKBJnrIu0EMqlSv/NwHd2myiNwcbA/CCyYWYFrh9vgt++4+xU6ZN7onrrEV4zRpd0v+hNpAOwWF0FXByz/RIpu+p04qlCmT/zV4eAJTL5eKYTJY7enW9fe0htX1wDIsAYEbQ+mKFLxpoZ+dlwAb0QVJ5eTLMfvghnUjraF2rL/EafaxDqF55oorW4MxCRuFWLcV4DfgRJPah3Z/tYnQKzQGvP/tkUYyK8BkCwEJiCNAvO4QvsiBA4hPT6dqMBiYgZRqE5X9n9Xb+GbwBqd7tYYiITNyDJcJLQEKSsPNTTLh9VwPgy/2ivRIfHji1p2fVpv1TWtf3iai8WB4voPStu4Sv0sbH2Ec6w+BFMzLGmpf3E2b+CA+fvQ3JhGGyVhM/r8sfIxq5SSpQKLYEVO0I5jg1VLGB7i9aIFa4A8NVq8wG004BIA+2YsuL2teZtYF5qIEtN2ysZfa7xL5kcQ2hPPFaoYhGtrv7QSkDg50Pri9FBlE3YkGNitfWBjxnGjUuc0
+    networks:
+      - obsync-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    volumes:
+      - icasync-1-logs:/app/logs
+      - icasync-1-data:/app/data
+
+  # ICA Sync 应用实例 2 (对应 api-gateway-2)
+  app-icasync-2:
+    image: g-rrng9518-docker.pkg.coding.net/obsync/sync/app-icasync:latest
+    container_name: app-icasync-2
+    restart: unless-stopped
+    ports:
+      - "3002:3000"
+    environment:
+      NODE_ENV: production
+      TZ: Asia/Shanghai
+      STRATIX_SENSITIVE_CONFIG: 99d49d04a9aefe72a4bb389c96f3ab5c.4901b5737ff6d98226552e7288e2b6dc.GJxrKXqEKhrI7n+UHhQoSMMSQedJrpR7p+jDKDaKBJnrIu0EMqlSv/NwHd2myiNwcbA/CCyYWYFrh9vgt++4+xU6ZN7onrrEV4zRpd0v+hNpAOwWF0FXByz/RIpu+p04qlCmT/zV4eAJTL5eKYTJY7enW9fe0htX1wDIsAYEbQ+mKFLxpoZ+dlwAb0QVJ5eTLMfvghnUjraF2rL/EafaxDqF55oorW4MxCRuFWLcV4DfgRJPah3Z/tYnQKzQGvP/tkUYyK8BkCwEJiCNAvO4QvsiBA4hPT6dqMBiYgZRqE5X9n9Xb+GbwBqd7tYYiITNyDJcJLQEKSsPNTTLh9VwPgy/2ivRIfHji1p2fVpv1TWtf3iai8WB4voPStu4Sv0sbH2Ec6w+BFMzLGmpf3E2b+CA+fvQ3JhGGyVhM/r8sfIxq5SSpQKLYEVO0I5jg1VLGB7i9aIFa4A8NVq8wG004BIA+2YsuL2teZtYF5qIEtN2ysZfa7xL5kcQ2hPPFaoYhGtrv7QSkDg50Pri9FBlE3YkGNitfWBjxnGjUuc0
+    networks:
+      - obsync-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    volumes:
+      - icasync-2-logs:/app/logs
+      - icasync-2-data:/app/data
+networks:
+  obsync-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+
+volumes:
+  gateway-logs:
+    driver: local
+  # ICA Sync 实例 1
+  icasync-1-logs:
+    driver: local
+  icasync-1-data:
+    driver: local
+  # ICA Sync 实例 2
+  icasync-2-logs:
+    driver: local
+  icasync-2-data:
+    driver: local

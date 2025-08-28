@@ -5,8 +5,7 @@
  * 版本: v3.0.0-refactored
  */
 
-import type { AwilixContainer, Logger } from '@stratix/core';
-import { RESOLVER } from '@stratix/core';
+import type { Logger } from '@stratix/core';
 import type {
   IExecutionLockRepository,
   IExecutionLockService
@@ -17,18 +16,6 @@ import type { ServiceResult } from '../types/business.js';
  * 执行锁服务实现
  */
 export default class ExecutionLockService implements IExecutionLockService {
-  /**
-   * Stratix框架依赖注入配置
-   */
-  static [RESOLVER] = {
-    injector: (container: AwilixContainer) => {
-      return {
-        executionLockRepository: container.resolve('executionLockRepository'),
-        logger: container.resolve('logger')
-      };
-    }
-  };
-
   constructor(
     private readonly executionLockRepository: IExecutionLockRepository,
     private readonly logger: Logger
@@ -343,7 +330,10 @@ export default class ExecutionLockService implements IExecutionLockService {
     try {
       const result = await this.executionLockRepository.getLocksByOwner(owner);
       if (!result.success) {
-        return result as ServiceResult<any[]>;
+        return {
+          success: false,
+          error: result.error?.message || 'Failed to get locks by owner'
+        };
       }
 
       const locks = result.data!.map((lock) => ({
@@ -391,7 +381,13 @@ export default class ExecutionLockService implements IExecutionLockService {
         });
       }
 
-      return result;
+      return {
+        success: result.success,
+        data: result.success ? result.data : 0,
+        error: result.success
+          ? undefined
+          : result.error?.message || 'Failed to release all locks by owner'
+      };
     } catch (error) {
       this.logger.error('Error releasing all locks by owner', { error, owner });
       return {
@@ -417,7 +413,13 @@ export default class ExecutionLockService implements IExecutionLockService {
         owner
       );
 
-      return result;
+      return {
+        success: result.success,
+        data: result.success ? result.data : false,
+        error: result.success
+          ? undefined
+          : result.error?.message || 'Failed to check lock ownership'
+      };
     } catch (error) {
       this.logger.error('Error checking lock ownership', {
         error,
@@ -445,7 +447,10 @@ export default class ExecutionLockService implements IExecutionLockService {
     try {
       const result = await this.executionLockRepository.getActiveLocks();
       if (!result.success) {
-        return result as ServiceResult<any>;
+        return {
+          success: false,
+          error: result.error?.message || 'Failed to get active locks'
+        };
       }
 
       const locks = result.data!;

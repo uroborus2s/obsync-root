@@ -5,12 +5,19 @@ import type { HttpClientService } from '../../services/httpClientService.js';
 import type {
   BatchCreateCalendarPermissionsParams,
   BatchCreateCalendarPermissionsResponse,
+  CalendarInfo,
   CreateCalendarPermissionParams,
   CreateCalendarPermissionResponse,
   DeleteCalendarParams,
   DeleteCalendarPermissionParams,
+  GetCalendarListParams,
+  GetCalendarListResponse,
+  GetCalendarParams,
   GetCalendarPermissionListParams,
-  GetCalendarPermissionListResponse
+  GetCalendarPermissionListResponse,
+  GetCalendarResponse,
+  UpdateCalendarParams,
+  UpdateCalendarResponse
 } from '../../types/calendar.js';
 
 // Mock dependencies
@@ -59,6 +66,10 @@ describe('WPS V7 日历适配器测试', () => {
       expect(typeof calendarAdapter.createCalendar).toBe('function');
       expect(typeof calendarAdapter.getPrimaryCalendar).toBe('function');
       expect(typeof calendarAdapter.getMainCalendar).toBe('function');
+      expect(typeof calendarAdapter.getCalendar).toBe('function');
+      expect(typeof calendarAdapter.getCalendarList).toBe('function');
+      expect(typeof calendarAdapter.getAllCalendarList).toBe('function');
+      expect(typeof calendarAdapter.updateCalendar).toBe('function');
       expect(typeof calendarAdapter.createCalendarPermission).toBe('function');
       expect(typeof calendarAdapter.getCalendarPermissionList).toBe('function');
       expect(typeof calendarAdapter.getAllCalendarPermissions).toBe('function');
@@ -457,6 +468,117 @@ describe('WPS V7 日历适配器测试', () => {
 
       expect(mockHttpClient.post).toHaveBeenCalled();
       expect(mockHttpClient.get).toHaveBeenCalled();
+    });
+  });
+
+  describe('日历查询和更新', () => {
+    const mockCalendarId = 'test-calendar-id';
+    const mockCalendarInfo: CalendarInfo = {
+      id: mockCalendarId,
+      role: 'owner',
+      summary: '测试日历',
+      type: 'normal'
+    };
+
+    it('应该能够查询日历列表', async () => {
+      const mockResponse: GetCalendarListResponse = {
+        items: [mockCalendarInfo],
+        next_page_token: 'next-token'
+      };
+
+      (mockHttpClient.get as any).mockResolvedValue({
+        data: mockResponse
+      });
+
+      const params: GetCalendarListParams = {
+        page_size: 10
+      };
+
+      const result = await calendarAdapter.getCalendarList(params);
+
+      expect(result).toEqual(mockResponse);
+      expect(mockHttpClient.ensureAccessToken).toHaveBeenCalled();
+      expect(mockHttpClient.get).toHaveBeenCalledWith('/v7/calendars', {
+        page_size: 10
+      });
+    });
+
+    it('应该能够查询单个日历', async () => {
+      const mockResponse: GetCalendarResponse = {
+        data: mockCalendarInfo,
+        code: 0,
+        msg: 'success'
+      };
+
+      (mockHttpClient.get as any).mockResolvedValue({
+        data: mockResponse
+      });
+
+      const params: GetCalendarParams = {
+        calendar_id: mockCalendarId
+      };
+
+      const result = await calendarAdapter.getCalendar(params);
+
+      expect(result).toEqual(mockCalendarInfo);
+      expect(mockHttpClient.ensureAccessToken).toHaveBeenCalled();
+      expect(mockHttpClient.get).toHaveBeenCalledWith(
+        `/v7/calendars/${mockCalendarId}`
+      );
+    });
+
+    it('应该能够更新日历', async () => {
+      const mockResponse: UpdateCalendarResponse = {
+        code: 0,
+        msg: 'success'
+      };
+
+      (mockHttpClient.post as any).mockResolvedValue({
+        data: mockResponse
+      });
+
+      const params: UpdateCalendarParams = {
+        calendar_id: mockCalendarId,
+        summary: '更新后的日历标题'
+      };
+
+      const result = await calendarAdapter.updateCalendar(params);
+
+      expect(result).toEqual(mockResponse);
+      expect(mockHttpClient.ensureAccessToken).toHaveBeenCalled();
+      expect(mockHttpClient.post).toHaveBeenCalledWith(
+        `/v7/calendars/${mockCalendarId}/update`,
+        { summary: '更新后的日历标题' }
+      );
+    });
+
+    it('应该能够获取所有日历列表（自动分页）', async () => {
+      const mockFirstPage: GetCalendarListResponse = {
+        items: [mockCalendarInfo],
+        next_page_token: 'page-2'
+      };
+
+      const mockSecondPage: GetCalendarListResponse = {
+        items: [
+          {
+            id: 'calendar-2',
+            role: 'writer',
+            summary: '第二个日历',
+            type: 'normal'
+          }
+        ]
+      };
+
+      (mockHttpClient.get as any)
+        .mockResolvedValueOnce({ data: mockFirstPage })
+        .mockResolvedValueOnce({ data: mockSecondPage });
+
+      const result = await calendarAdapter.getAllCalendarList();
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual(mockCalendarInfo);
+      expect(result[1].id).toBe('calendar-2');
+      expect(mockHttpClient.get).toHaveBeenCalledTimes(2);
     });
   });
 });

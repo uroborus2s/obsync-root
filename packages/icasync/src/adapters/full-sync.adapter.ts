@@ -3,12 +3,21 @@
 
 import type { AwilixContainer, Logger } from '@stratix/core';
 import type {
-  IStratixTasksAdapter,
-  PaginatedResult,
-  WorkflowInstance
+  ITasksWorkflowAdapter,
+  WorkflowInstance,
+  WorkflowOptions
 } from '@stratix/tasks';
-import type { IICAsyncMutexManager } from '../services/ICAsyncMutexManager.js';
 import { SyncStatus, type SyncResult } from '../types/sync.js';
+
+/**
+ * 分页结果接口
+ */
+interface PaginatedResult<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
 
 /**
  * 全量同步配置
@@ -27,151 +36,263 @@ export interface FullSyncConfig {
 export default class FullSyncAdapter {
   static adapterName = 'fullSync';
 
-  private workflowAdapter: IStratixTasksAdapter;
-  private icasyncMutexManager: IICAsyncMutexManager;
+  private workflowAdapter: ITasksWorkflowAdapter;
   private logger: Logger;
 
   constructor(container: AwilixContainer) {
     // 使用 WorkflowAdapter 作为代理，而不是直接访问底层服务
     this.workflowAdapter = container.resolve('tasksWorkflow');
     // 使用新的ICAsync互斥管理器
-    this.icasyncMutexManager = container.resolve('icAsyncMutexManager');
     this.logger = container.resolve('logger');
   }
 
   /**
-   * 执行全量同步
+   * 手动启动全量同步
+   *
+   * 使用增强的getWorkflowInstance功能，通过workflowName和version方式调用工作流
+   *
+   * @param options 同步选项
+   * @param options.xnxq 学年学期标识，格式：YYYY-YYYY-S（如：2024-2025-1）
+   * @param options.forceSync 是否强制同步，默认false
+   * @param options.batchSize 批处理大小，默认1000
+   * @param options.businessKey 业务键，用于实例锁检查
+   * @returns 同步结果，包含工作流实例ID和状态
    */
-  async executeFullSync(config: FullSyncConfig): Promise<SyncResult> {
-    this.logger.info(`[FullSyncAdapter] Starting full sync for ${config.xnxq}`);
-
+  async startManualSync(options: {
+    xnxq: string;
+    forceSync?: boolean;
+    batchSize?: number;
+    businessKey?: string;
+  }): Promise<SyncResult> {
     try {
-      // 使用新的ICAsync互斥管理器创建全量同步工作流
-      const workflowDefinition = {
-        name: 'full-sync-multi-loop-workflow',
-        version: '3.0.0'
-      } as any; // 简化处理，实际应该是完整的WorkflowDefinition
+      this.logger.info('开始手动启动全量同步', { options });
 
-      const inputs = {
-        xnxq: config.xnxq,
-        batchSize: config.batchSize || 100,
-        timeout: config.timeout ? `${config.timeout}ms` : '45m',
-        clearExisting: true,
-        createAttendanceRecords: false,
-        sendNotification: true
-      };
+      // 验证学年学期格式
+      if (!this.validateXnxq(options.xnxq)) {
+        return {
+          status: SyncStatus.FAILED,
+          startTime: new Date(),
+          processedCount: 0,
+          successCount: 0,
+          failedCount: 0,
+          errors: ['学年学期格式错误，应为：YYYY-YYYY-S（如：2024-2025-1）']
+        };
+      }
 
-      const options = {
-        timeout: config.timeout || 1800000,
-        externalId: `full-sync-${config.xnxq}-${Date.now()}`,
-        businessKey: `full-sync-${config.xnxq}`,
-        metadata: {
+      // 准备工作流选项
+      const workflowOptions: WorkflowOptions = {
+        // 使用增强的getWorkflowInstance功能，通过name+version方式调用
+        workflowName: 'full-sync-multi-loop-workflow',
+        workflowVersion: '3.0.0',
+
+        // 业务参数
+        businessKey: options.businessKey || `full-sync-${options.xnxq}}`,
+
+        // 输入数据
+        inputData: {
+          xnxq: options.xnxq,
+          forceSync: options.forceSync || false,
+          batchSize: options.batchSize || 1000,
           syncType: 'full',
-          xnxq: config.xnxq,
-          startTime: new Date().toISOString()
+          triggeredBy: 'manual',
+          triggeredAt: new Date().toISOString()
+        },
+
+        // 上下文数据
+        contextData: {
+          instanceType: 'sync-class-schedule',
+          createdBy: 'manual-trigger',
+          syncMode: 'manual',
+          priority: 'high'
         }
       };
 
-      const workflowResult = await this.icasyncMutexManager.createMutexFullSync(
-        workflowDefinition,
-        inputs,
-        options
+      this.logger.debug('准备启动工作流', { workflowOptions });
+
+      // 使用增强的工作流启动方法
+      const workflowResult = await this.workflowAdapter.startWorkflowByName(
+        'full-sync-multi-loop-workflow',
+        workflowOptions
       );
 
       if (!workflowResult.success) {
-        // 检查是否是因为存在冲突的实例而失败
-        if (workflowResult.conflictingInstance) {
-          const reasonType = workflowResult.reason || 'unknown';
-          let message = '已存在运行中的同学年学期全量同步任务';
+        this.logger.error('启动工作流失败', {
+          error: workflowResult.error,
+          errorDetails: workflowResult.errorDetails
+        });
 
-          if (reasonType === 'semester_limit') {
-            message = '该学期已执行过全量同步，不允许重复执行';
-          } else if (reasonType === 'type_mutex') {
-            message = '该学期已有其他类型的同步正在执行，与全量同步互斥';
-          }
-
-          this.logger.warn(`[FullSyncAdapter] 全量同步被业务规则阻止`, {
-            xnxq: config.xnxq,
-            reason: reasonType,
-            conflictingInstanceId: workflowResult.conflictingInstance.id,
-            ruleResult: workflowResult.ruleResult
-          });
-
-          return {
-            status: SyncStatus.SKIPPED,
-            processedCount: 0,
-            successCount: 0,
-            failedCount: 0,
-            startTime: new Date(),
-            endTime: new Date(),
-            details: {
-              reason: reasonType,
-              message,
-              conflictingInstanceId: workflowResult.conflictingInstance.id,
-              ruleResult: workflowResult.ruleResult
-            }
-          };
-        }
-
-        throw new Error(`创建互斥工作流失败: ${workflowResult.error}`);
+        return {
+          status: SyncStatus.FAILED,
+          startTime: new Date(),
+          processedCount: 0,
+          successCount: 0,
+          failedCount: 0,
+          errors: ['启动同步工作流失败'],
+          details: { error: workflowResult.error }
+        };
       }
 
-      const workflowInstance = workflowResult.instance!;
-      const workflowId = String(workflowInstance.id);
-      this.logger.info(
-        `[FullSyncAdapter] 互斥工作流创建成功，ID: ${workflowId}`,
-        {
-          xnxq: config.xnxq,
-          instanceId: workflowId
-        }
-      );
+      const workflowInstance = workflowResult.data;
 
-      // 执行工作流 - 注意：IStratixTasksAdapter可能没有executeWorkflow方法
-      // 工作流创建后会自动开始执行，我们只需要等待结果
-      this.logger.info('工作流已创建并开始执行', { workflowId });
+      if (workflowInstance) {
+        this.logger.info('工作流启动成功', {
+          instanceId: workflowInstance.id,
+          workflowName: workflowInstance.name,
+          status: workflowInstance.status
+        });
 
-      // 这里可以通过getWorkflowInstance来监控执行状态
-      const executeResult = { success: true, data: workflowInstance };
-
-      // 由于工作流已经开始执行，我们不需要额外的错误检查
-      // 实际的执行状态会通过工作流引擎管理
-
-      this.logger.info(
-        `[FullSyncAdapter] Full sync completed for ${config.xnxq}`,
-        { workflowId, xnxq: config.xnxq }
-      );
-
-      // 返回符合 SyncResult 接口的结果
-      return {
-        status: SyncStatus.COMPLETED,
-        processedCount: 1,
-        successCount: 1,
-        failedCount: 0,
-        startTime: new Date(),
-        endTime: new Date(),
-        details: {
-          workflowId,
-          xnxq: config.xnxq,
-          status: 'completed',
-          data: executeResult.data
-        }
-      };
+        return {
+          status: SyncStatus.IN_PROGRESS,
+          startTime: workflowInstance.startedAt || new Date(),
+          processedCount: 0,
+          successCount: 0,
+          failedCount: 0,
+          details: {
+            instanceId: workflowInstance.id.toString(),
+            workflowName: 'full-sync-multi-loop-workflow',
+            workflowVersion: '3.0.0',
+            inputData: workflowOptions.inputData
+          }
+        };
+      } else {
+        return {
+          status: SyncStatus.FAILED,
+          startTime: new Date(),
+          processedCount: 0,
+          successCount: 0,
+          failedCount: 0,
+          errors: ['工作流实例创建失败']
+        };
+      }
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      this.logger.error(`[FullSyncAdapter] Full sync failed: ${errorMessage}`);
+      this.logger.error('手动启动同步异常', { error, options });
 
       return {
         status: SyncStatus.FAILED,
+        startTime: new Date(),
         processedCount: 0,
         successCount: 0,
-        failedCount: 1,
+        failedCount: 0,
+        errors: [error instanceof Error ? error.message : String(error)]
+      };
+    }
+  }
+
+  /**
+   * 验证学年学期格式
+   * @param xnxq 学年学期字符串
+   * @returns 是否有效
+   */
+  private validateXnxq(xnxq: string): boolean {
+    // 格式：YYYY-YYYY-S，如：2024-2025-1
+    const pattern = /^\d{4}-\d{4}-[12]$/;
+    return pattern.test(xnxq);
+  }
+
+  /**
+   * 获取同步状态
+   */
+  async getSyncStatus(): Promise<SyncResult> {
+    try {
+      this.logger.info('获取同步状态');
+
+      // 查询正在运行的工作流实例
+      const runningInstancesResult =
+        await this.workflowAdapter.getWorkflowInstances({
+          status: 'running',
+          instanceType: 'full-sync-multi-loop-workflow'
+        });
+
+      if (!runningInstancesResult.success) {
+        this.logger.error(
+          '查询运行中的工作流实例失败',
+          runningInstancesResult.error
+        );
+        return {
+          status: SyncStatus.FAILED,
+          startTime: new Date(),
+          processedCount: 0,
+          successCount: 0,
+          failedCount: 0,
+          errors: ['查询同步状态失败'],
+          details: { error: runningInstancesResult.error }
+        };
+      }
+
+      const runningInstances = runningInstancesResult.data || [];
+
+      if (runningInstances.length > 0) {
+        return {
+          status: SyncStatus.IN_PROGRESS,
+          startTime: runningInstances[0].startedAt || new Date(),
+          processedCount: 0,
+          successCount: 0,
+          failedCount: 0,
+          details: {
+            instanceId: runningInstances[0].id,
+            message: '同步正在进行中'
+          }
+        };
+      }
+
+      // 查询最近完成的实例
+      const recentInstancesResult =
+        await this.workflowAdapter.getWorkflowInstances(
+          {
+            instanceType: 'full-sync-multi-loop-workflow'
+          },
+          {
+            pageSize: 1,
+            sortBy: 'completedAt',
+            sortOrder: 'desc'
+          }
+        );
+
+      if (
+        recentInstancesResult.success &&
+        recentInstancesResult.data &&
+        recentInstancesResult.data.length > 0
+      ) {
+        const lastInstance = recentInstancesResult.data[0];
+        return {
+          status:
+            lastInstance.status === 'completed'
+              ? SyncStatus.COMPLETED
+              : SyncStatus.FAILED,
+          startTime: lastInstance.startedAt || new Date(),
+          endTime: lastInstance.completedAt,
+          processedCount: 0,
+          successCount: 0,
+          failedCount: 0,
+          details: {
+            instanceId: lastInstance.id,
+            message:
+              lastInstance.status === 'completed'
+                ? '上次同步已完成'
+                : '上次同步失败',
+            error: lastInstance.errorMessage
+          }
+        };
+      }
+
+      return {
+        status: SyncStatus.PENDING,
         startTime: new Date(),
-        endTime: new Date(),
-        errors: [errorMessage],
-        details: {
-          error: errorMessage
-        }
+        processedCount: 0,
+        successCount: 0,
+        failedCount: 0,
+        details: { message: '暂无同步记录' }
+      };
+    } catch (error) {
+      this.logger.error('获取同步状态异常', error);
+      return {
+        status: SyncStatus.FAILED,
+        startTime: new Date(),
+        processedCount: 0,
+        successCount: 0,
+        failedCount: 0,
+        errors: [error instanceof Error ? error.message : String(error)],
+        details: { message: '获取同步状态异常' }
       };
     }
   }
@@ -206,20 +327,20 @@ export default class FullSyncAdapter {
 
       // 2. 测试简单的状态查询（不带名称过滤）
       this.logger.debug(`[FullSyncAdapter] Testing simple status query`);
-      const simpleQuery = await this.workflowAdapter.listWorkflowInstances({
-        status: 'running',
-        pageSize: 5
-      });
+      const simpleQuery = await this.workflowAdapter.getWorkflowInstances(
+        {
+          status: 'running'
+        },
+        {
+          pageSize: 5
+        }
+      );
 
       diagnosis.simpleQuery = {
         success: simpleQuery.success,
         error: simpleQuery.error,
-        dataLength: simpleQuery.data?.items?.length || 0,
-        hasData: !!(
-          simpleQuery.data &&
-          simpleQuery.data.items &&
-          simpleQuery.data.items.length > 0
-        )
+        dataLength: simpleQuery.data?.length || 0,
+        hasData: !!(simpleQuery.data && simpleQuery.data.length > 0)
       };
 
       if (!simpleQuery.success) {
@@ -235,41 +356,39 @@ export default class FullSyncAdapter {
 
       // 3. 测试带名称过滤的查询
       this.logger.debug(`[FullSyncAdapter] Testing query with name filter`);
-      const nameFilterQuery = await this.workflowAdapter.listWorkflowInstances({
-        status: 'running',
-        name: 'icasync-full-sync',
-        pageSize: 5
-      });
+      const nameFilterQuery = await this.workflowAdapter.getWorkflowInstances(
+        {
+          status: 'running',
+          instanceType: 'icasync-full-sync'
+        },
+        {
+          pageSize: 5
+        }
+      );
 
       diagnosis.nameFilterQuery = {
         success: nameFilterQuery.success,
         error: nameFilterQuery.error,
-        dataLength: nameFilterQuery.data?.items?.length || 0,
-        hasData: !!(
-          nameFilterQuery.data &&
-          nameFilterQuery.data.items &&
-          nameFilterQuery.data.items.length > 0
-        )
+        dataLength: nameFilterQuery.data?.length || 0,
+        hasData: !!(nameFilterQuery.data && nameFilterQuery.data.length > 0)
       };
 
       // 4. 测试获取所有实例（不按状态过滤）
       this.logger.debug(
         `[FullSyncAdapter] Testing query without status filter`
       );
-      const allInstancesQuery =
-        await this.workflowAdapter.listWorkflowInstances({
+      const allInstancesQuery = await this.workflowAdapter.getWorkflowInstances(
+        {},
+        {
           pageSize: 10
-        });
+        }
+      );
 
       diagnosis.allInstancesQuery = {
         success: allInstancesQuery.success,
         error: allInstancesQuery.error,
-        dataLength: allInstancesQuery.data?.items?.length || 0,
-        hasData: !!(
-          allInstancesQuery.data &&
-          allInstancesQuery.data.items &&
-          allInstancesQuery.data.items.length > 0
-        )
+        dataLength: allInstancesQuery.data?.length || 0,
+        hasData: !!(allInstancesQuery.data && allInstancesQuery.data.length > 0)
       };
 
       this.logger.info(
@@ -330,18 +449,20 @@ export default class FullSyncAdapter {
         }
       );
 
-      const runningInstances = await this.workflowAdapter.listWorkflowInstances(
+      const runningInstances = await this.workflowAdapter.getWorkflowInstances(
         {
           status: 'running',
-          name: 'icasync-full-sync',
+          instanceType: 'icasync-full-sync'
+        },
+        {
           pageSize: 50
         }
       );
 
-      this.logger.debug(`[FullSyncAdapter] listWorkflowInstances result`, {
+      this.logger.debug(`[FullSyncAdapter] getWorkflowInstances result`, {
         success: runningInstances.success,
         error: runningInstances.error,
-        dataLength: runningInstances.data?.items?.length || 0
+        dataLength: runningInstances.data?.length || 0
       });
 
       if (!runningInstances.success) {
@@ -438,7 +559,10 @@ export default class FullSyncAdapter {
   private async recoverSingleSyncInstance(
     instance: WorkflowInstance
   ): Promise<void> {
-    const instanceId = instance.id.toString();
+    const instanceId =
+      typeof instance.id === 'number'
+        ? instance.id
+        : parseInt(String(instance.id));
     const xnxq = instance.inputData?.xnxq || 'unknown';
 
     this.logger.info(`[FullSyncAdapter] Attempting to recover sync instance`, {
@@ -509,10 +633,12 @@ export default class FullSyncAdapter {
     instance?: WorkflowInstance;
   }> {
     try {
-      const runningInstances = await this.workflowAdapter.listWorkflowInstances(
+      const runningInstances = await this.workflowAdapter.getWorkflowInstances(
         {
           status: 'running',
-          name: 'icasync-full-sync',
+          instanceType: 'icasync-full-sync'
+        },
+        {
           pageSize: 20
         }
       );
@@ -521,9 +647,7 @@ export default class FullSyncAdapter {
         throw new Error(`查询运行中实例失败: ${runningInstances.error}`);
       }
 
-      const paginatedData =
-        runningInstances.data as unknown as PaginatedResult<WorkflowInstance>;
-      const instances = paginatedData?.items || [];
+      const instances = runningInstances.data || [];
       const matchingInstance = instances.find((instance: WorkflowInstance) => {
         const inputXnxq = instance.inputData?.xnxq;
         return inputXnxq === xnxq;

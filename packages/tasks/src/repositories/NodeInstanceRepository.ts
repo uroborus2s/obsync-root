@@ -9,18 +9,18 @@ import type { Logger } from '@stratix/core';
 import type { DatabaseAPI, DatabaseResult } from '@stratix/database';
 import { DatabaseErrorHandler, QueryError } from '@stratix/database';
 import type { INodeInstanceRepository } from '../interfaces/repositories.js';
-import type { NodeInstanceStatus } from '../types/business.js';
 import type {
   NewWorkflowNodeInstance,
   WorkflowNodeInstance,
   WorkflowNodeInstanceUpdate
 } from '../types/database.js';
+import type { NodeInstanceStatus } from '../types/unified-node.js';
 import { BaseTasksRepository } from './base/BaseTasksRepository.js';
 
 /**
  * 节点实例仓储实现
  */
-export default class NodeInstanceRepository
+class NodeInstanceRepository
   extends BaseTasksRepository<
     'workflow_node_instances',
     WorkflowNodeInstance,
@@ -39,9 +39,9 @@ export default class NodeInstanceRepository
   }
 
   /**
-   * 实现接口要求的findById方法 - 使用组合模式避免类型冲突
+   * 实现接口要求的findById方法 - 重命名避免与基类冲突
    */
-  async findById(
+  async findByIdBusiness(
     id: number
   ): Promise<DatabaseResult<WorkflowNodeInstance | null>> {
     return await DatabaseErrorHandler.execute(async () => {
@@ -51,7 +51,23 @@ export default class NodeInstanceRepository
       }
 
       return this.convertOptionToNull(result.data);
-    }, 'findById');
+    }, 'findByIdBusiness');
+  }
+
+  // 方法重载：支持接口要求的签名
+  async findById(
+    id: number
+  ): Promise<DatabaseResult<WorkflowNodeInstance | null>>;
+  // 方法重载：支持基类的签名
+  async findById(id: string | number): Promise<DatabaseResult<any>>;
+  // 实际实现
+  async findById(id: string | number): Promise<DatabaseResult<any>> {
+    if (typeof id === 'string') {
+      // 如果是string类型的id，调用基类方法
+      return super.findById(id);
+    }
+    // 如果是number类型的id，使用业务逻辑
+    return this.findByIdBusiness(id);
   }
 
   /**
@@ -66,11 +82,13 @@ export default class NodeInstanceRepository
 
   /**
    * 根据工作流实例ID和节点ID查找节点实例
+   * 注意：当节点不存在时返回 { success: true, data: null }，这是正常情况
+   * 只有在数据库错误时才返回 { success: false }
    */
   async findByWorkflowAndNodeId(
     workflowInstanceId: number,
     nodeId: string
-  ): Promise<DatabaseResult<WorkflowNodeInstance>> {
+  ): Promise<DatabaseResult<WorkflowNodeInstance | null>> {
     return await DatabaseErrorHandler.execute(async () => {
       const whereExpression = (qb: any) =>
         qb
@@ -79,12 +97,15 @@ export default class NodeInstanceRepository
           .where('parent_node_id', 'is', null); // 只查找顶级节点，不包括子节点
 
       const result = await this.findOneNullable(whereExpression);
-      if (!result.success || !result.data) {
+
+      // 如果查询失败（数据库错误），抛出异常
+      if (!result.success) {
         throw QueryError.create(
-          `Node instance not found: ${nodeId} in workflow ${workflowInstanceId}`
+          `Database error while finding node instance: ${nodeId} in workflow ${workflowInstanceId}. Error: ${result.error}`
         );
       }
 
+      // 查询成功，返回结果（可能是null，表示节点不存在，这是正常情况）
       return result.data;
     }, 'findByWorkflowAndNodeId');
   }
@@ -287,7 +308,33 @@ export default class NodeInstanceRepository
   }
 
   /**
+   * 检查记录是否包含所有必需字段
+   */
+  private isCompleteRecord(data: any): boolean {
+    if (!data || typeof data !== 'object') {
+      return false;
+    }
+
+    // 检查关键字段是否存在
+    const requiredFields = [
+      'id',
+      'workflow_instance_id',
+      'node_id',
+      'node_name',
+      'node_type',
+      'status',
+      'created_at',
+      'updated_at'
+    ];
+
+    return requiredFields.every(
+      (field) => data[field] !== undefined && data[field] !== null
+    );
+  }
+
+  /**
    * 创建节点实例
+   * 注意：确保返回完整的创建记录，而不仅仅是插入操作的结果
    */
   async create(
     nodeInstance: NewWorkflowNodeInstance
@@ -298,7 +345,44 @@ export default class NodeInstanceRepository
         throw QueryError.create('Failed to create node instance');
       }
 
-      return result.data;
+      // 检查返回的数据是否完整
+      const createdData = result.data;
+      if (!createdData || !this.isCompleteRecord(createdData)) {
+        // 如果返回的数据不完整，重新查询完整记录
+        // 从插入结果中提取ID（可能是 insertId 或 id）
+        // 使用类型断言处理运行时数据结构与类型定义的差异
+        const insertResult = createdData as any;
+        const recordId = insertResult?.insertId || insertResult?.id;
+
+        this.logger.debug('Create result incomplete, fetching full record', {
+          createdData,
+          recordId,
+          hasInsertId: !!insertResult?.insertId,
+          hasId: !!insertResult?.id,
+          isComplete: this.isCompleteRecord(createdData)
+        });
+
+        if (!recordId) {
+          throw QueryError.create(
+            'Create operation did not return record ID (checked both insertId and id fields)'
+          );
+        }
+
+        // 将 BigInt 转换为 number（如果需要）
+        const idValue =
+          typeof recordId === 'bigint' ? Number(recordId) : recordId;
+
+        const fullRecordResult = await this.findById(idValue);
+        if (!fullRecordResult.success || !fullRecordResult.data) {
+          throw QueryError.create(
+            `Failed to fetch complete record after creation: ${idValue}`
+          );
+        }
+
+        return fullRecordResult.data;
+      }
+
+      return createdData;
     }, 'create');
   }
 
@@ -343,3 +427,5 @@ export default class NodeInstanceRepository
     }, 'delete');
   }
 }
+
+export default NodeInstanceRepository;

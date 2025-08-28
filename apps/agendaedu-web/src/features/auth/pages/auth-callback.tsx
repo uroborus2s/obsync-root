@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react'
+import { decodeStateFromBase64 } from '@/config/wps-auth-config'
+import { AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react'
 import { authManager } from '@/lib/gateway-auth-manager'
-import { Spinner } from '@/components/ui/spinner'
-import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 
 type CallbackStatus = 'processing' | 'success' | 'error'
 
@@ -18,25 +19,52 @@ export function AuthCallback() {
       try {
         // 处理认证回调
         authManager.handleAuthCallback()
-        
+
         // 等待认证状态更新
-        await new Promise(resolve => setTimeout(resolve, 1000))
-        
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+
         // 检查认证状态
         await authManager.checkAuthStatus()
-        const state = authManager.getState()
-        
-        if (state.isAuthenticated) {
+        const authState = authManager.getState()
+
+        if (authState.isAuthenticated) {
           setStatus('success')
-          
+
           // 延迟跳转，让用户看到成功状态
           setTimeout(() => {
-            // 尝试跳转到保存的返回URL，否则跳转到首页
-            const returnUrl = sessionStorage.getItem('wps_auth_return_url')
-            if (returnUrl) {
-              sessionStorage.removeItem('wps_auth_return_url')
+            // 优先从URL参数中获取state参数（base64编码的返回URL）
+            const urlParams = new URLSearchParams(window.location.search)
+            const encodedState = urlParams.get('state')
+
+            let returnUrl: string | null = null
+
+            if (encodedState) {
+              try {
+                // 解码base64编码的state参数
+                returnUrl = decodeStateFromBase64(encodedState)
+                console.log('🔓 认证回调: 从state参数解码返回URL:', returnUrl)
+              } catch (error) {
+                console.error('❌ 认证回调: 解码state参数失败', error)
+              }
+            }
+
+            // 如果state参数解码失败，尝试从sessionStorage获取
+            if (!returnUrl) {
+              returnUrl = sessionStorage.getItem('wps_auth_return_url')
+              console.log(
+                '📋 认证回调: 从sessionStorage获取返回URL:',
+                returnUrl
+              )
+            }
+
+            // 清理sessionStorage
+            sessionStorage.removeItem('wps_auth_return_url')
+
+            if (returnUrl && returnUrl !== window.location.href) {
+              console.log('🔄 认证回调: 重定向到返回URL:', returnUrl)
               window.location.href = returnUrl
             } else {
+              console.log('🏠 认证回调: 重定向到默认页面')
               navigate({ to: '/dashboard' })
             }
           }, 2000)
@@ -120,7 +148,7 @@ export function AuthCallback() {
                 {errorMessage || '认证过程中出现错误，请重试'}
               </AlertDescription>
             </Alert>
-            
+
             <div className='flex space-x-3'>
               <Button onClick={handleRetry} className='flex-1'>
                 <RefreshCw className='mr-2 h-4 w-4' />

@@ -31,11 +31,6 @@ const wasV7Api: FastifyPluginAsync<WasV7PluginOptions> = async (
   fastify: FastifyInstance,
   options: WasV7PluginOptions
 ): Promise<void> => {
-  fastify.log.info('WPS V7 API plugin loading...');
-
-  // 将处理后的配置存储到 fastify 实例，供适配器使用
-  fastify.decorate('wasV7Config', options);
-
   fastify.log.info('WPS V7 API plugin loaded successfully');
 };
 
@@ -56,8 +51,7 @@ const stratixWasV7Plugin: FastifyPluginAsync<any> = withRegisterAutoDI(
     },
     services: {
       enabled: true,
-      patterns: ['adapters/**/*.adapter.{ts,js}'],
-      baseDir: undefined // 使用插件目录
+      patterns: []
     },
     routing: {
       enabled: false, // 不启用路由注册

@@ -14,6 +14,9 @@ export type { GetUserParams, WpsUserAdapter } from './adapters/user.adapter.js';
 // 导出插件配置类型
 export type { WasV7PluginOptions } from './plugin.js';
 
+// 导出错误类
+export { WpsError } from './core/error.js';
+
 // 导出类型定义，便于使用方引用
 export * from './types/index.js';
 

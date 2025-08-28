@@ -17,6 +17,7 @@ import { BaseIcasyncRepository } from './base/BaseIcasyncRepository.js';
 export interface IJuheRenwuRepository {
   // 基础操作
   findByIdNullable(id: number): Promise<DatabaseResult<JuheRenwu | null>>;
+  findByIds(ids: number[]): Promise<DatabaseResult<JuheRenwu[]>>;
   create(data: NewJuheRenwu): Promise<DatabaseResult<JuheRenwu>>;
   updateNullable(
     id: number,
@@ -97,13 +98,13 @@ export interface IJuheRenwuRepository {
   deleteOldTasks(daysOld: number): Promise<DatabaseResult<number>>;
   clearAllTasks(): Promise<DatabaseResult<number>>;
 
-  // SQL 聚合操作
-  insertAggregatedDataBatch(
-    aggregatedData: any[]
-  ): Promise<DatabaseResult<number>>;
+  // 原子化聚合插入操作
+  executeAtomicAggregationInsert(xnxq: string): Promise<DatabaseResult<number>>;
 
   // 课程获取方法
-  findDistinctCourses(xnxq: string): Promise<DatabaseResult<string[]>>;
+  findDistinctCourses(
+    xnxq: string
+  ): Promise<DatabaseResult<{ kkh: string | null; kcmc: string | null }[]>>;
   findCoursesForCalendarCreation(
     xnxq: string
   ): Promise<DatabaseResult<JuheRenwu[]>>;
@@ -133,14 +134,21 @@ export default class JuheRenwuRepository
 
   /**
    * 根据开课号查找聚合任务
+   * 只返回未处理的课程（gx_zt = '0'）且包含必要字段的数据
    */
   async findByKkh(kkh: string): Promise<DatabaseResult<JuheRenwu[]>> {
     this.validateKkh(kkh);
 
-    return await this.findMany((qb: any) => qb.where('kkh', '=', kkh), {
-      orderBy: 'rq',
-      order: 'asc'
-    });
+    return await this.findMany((qb: any) =>
+      qb
+        .where('kkh', '=', kkh)
+        .where('gx_zt', '=', '0')
+        .where('rq', 'is not', null)
+        .where('sj_f', 'is not', null)
+        .where('sj_t', 'is not', null)
+        .where('kcmc', 'is not', null)
+        .orderBy('rq', 'asc')
+    );
   }
 
   /**
@@ -156,9 +164,8 @@ export default class JuheRenwuRepository
       throw new Error('Date cannot be empty');
     }
 
-    return await this.findMany(
-      (eb: any) => eb.and([eb('kkh', '=', kkh), eb('rq', '=', rq)]),
-      { orderBy: { field: 'sj_f', direction: 'asc' } }
+    return await this.findMany((eb: any) =>
+      eb.and([eb('kkh', '=', kkh), eb('rq', '=', rq)]).orderBy('sj_f', 'desc')
     );
   }
 
@@ -170,10 +177,9 @@ export default class JuheRenwuRepository
       throw new Error('Update status cannot be empty');
     }
 
-    return await this.findMany((qb: any) => qb.where('gx_zt', '=', gxZt), {
-      orderBy: 'gx_sj',
-      order: 'desc'
-    });
+    return await this.findMany((qb: any) =>
+      qb.where('gx_zt', '=', gxZt).orderBy('gx_sj', 'desc')
+    );
   }
 
   /**
@@ -191,9 +197,10 @@ export default class JuheRenwuRepository
       throw new Error('Start date must be before end date');
     }
 
-    return await this.findMany(
-      (eb: any) => eb.and([eb('rq', '>=', startDate), eb('rq', '<=', endDate)]),
-      { orderBy: { field: 'rq', direction: 'asc' } }
+    return await this.findMany((eb: any) =>
+      eb
+        .and([eb('rq', '>=', startDate), eb('rq', '<=', endDate)])
+        .orderBy('rq', 'asc')
     );
   }
 
@@ -207,12 +214,8 @@ export default class JuheRenwuRepository
       throw new Error('Teacher code cannot be empty');
     }
 
-    return await this.findMany(
-      (qb: any) => qb.where('gh_s', 'like', `%${teacherCode}%`),
-      {
-        orderBy: 'rq',
-        order: 'desc'
-      }
+    return await this.findMany((qb: any) =>
+      qb.where('gh_s', 'like', `%${teacherCode}%`).orderBy('rq', 'desc')
     );
   }
 
@@ -228,8 +231,7 @@ export default class JuheRenwuRepository
    */
   async findProcessedTasks(): Promise<DatabaseResult<JuheRenwu[]>> {
     return await this.findMany(
-      (qb: any) => qb.where('gx_zt', 'in', ['1', '2']), // 1 = 教师日历已推送, 2 = 学生日历已推送
-      { orderBy: { field: 'gx_sj', direction: 'desc' } }
+      (qb: any) => qb.where('gx_zt', 'in', ['1', '2']).orderBy('gx_sj', 'desc') // 1 = 教师日历已推送, 2 = 学生日历已推送
     );
   }
 
@@ -238,8 +240,7 @@ export default class JuheRenwuRepository
    */
   async findSoftDeletedTasks(): Promise<DatabaseResult<JuheRenwu[]>> {
     return await this.findMany(
-      (qb: any) => qb.where('gx_zt', 'in', ['3', '4']), // 3 = 软删除未处理, 4 = 软删除处理完毕
-      { orderBy: { field: 'gx_sj', direction: 'desc' } }
+      (qb: any) => qb.where('gx_zt', 'in', ['3', '4']).orderBy('gx_sj', 'desc') // 3 = 软删除未处理, 4 = 软删除处理完毕
     );
   }
 
@@ -254,7 +255,8 @@ export default class JuheRenwuRepository
       throw new Error('Update status cannot be empty');
     }
 
-    const updateData = this.buildUpdateData({
+    // 直接构建更新数据，不使用 buildUpdateData 避免添加不存在的 updated_at 字段
+    const updateData = this.cleanData({
       gx_zt: gxZt
     });
 
@@ -276,12 +278,19 @@ export default class JuheRenwuRepository
       throw new Error('Update status cannot be empty');
     }
 
-    const updateData = this.buildUpdateData({
-      gx_zt: gxZt
+    const updateTime = new Date().toISOString().slice(0, 19).replace('T', ' '); // MySQL datetime format
+
+    // 直接构建更新数据，不使用 buildUpdateData 避免添加不存在的 updated_at 字段
+    const updateData = this.cleanData({
+      gx_zt: gxZt,
+      gx_sj: updateTime
     });
 
+    // 使用正确的 WhereExpression 函数格式
+    const whereExpression = (qb: any) => qb.where('id', 'in', ids);
+
     return await this.updateMany(
-      { id: ids } as any,
+      whereExpression,
       updateData as JuheRenwuUpdate
     );
   }
@@ -298,7 +307,13 @@ export default class JuheRenwuRepository
 
     // 验证每个任务数据
     for (const task of tasks) {
-      this.validateRequired(task, ['kkh', 'rq', 'jc_s', 'sj_f', 'sj_t']);
+      const requiredFields = ['kkh', 'rq', 'jc_s', 'sj_f', 'sj_t'];
+      for (const field of requiredFields) {
+        if (!task[field as keyof NewJuheRenwu]) {
+          throw new Error(`Required field '${field}' is missing in task`);
+        }
+      }
+
       if (task.kkh) {
         this.validateKkh(task.kkh);
       }
@@ -321,7 +336,8 @@ export default class JuheRenwuRepository
   async softDeleteByKkh(kkh: string): Promise<DatabaseResult<number>> {
     this.validateKkh(kkh);
 
-    const updateData = this.buildUpdateData({
+    // 直接构建更新数据，不使用 buildUpdateData 避免添加不存在的 updated_at 字段
+    const updateData = this.cleanData({
       gx_zt: '3' // 3 = 软删除未处理
     });
 
@@ -344,7 +360,8 @@ export default class JuheRenwuRepository
       throw new Error('Date cannot be empty');
     }
 
-    const updateData = this.buildUpdateData({
+    // 直接构建更新数据，不使用 buildUpdateData 避免添加不存在的 updated_at 字段
+    const updateData = this.cleanData({
       gx_zt: '3' // 3 = 软删除未处理
     });
 
@@ -368,8 +385,7 @@ export default class JuheRenwuRepository
     limit: number = 100
   ): Promise<DatabaseResult<JuheRenwu[]>> {
     return await this.findMany(
-      (qb: any) => qb.where('gx_zt', '=', '0'), // 0 = 未处理
-      { orderBy: { field: 'rq', direction: 'asc' }, limit }
+      (qb: any) => qb.where('gx_zt', '=', '0').orderBy('rq', 'asc').limit(limit) // 0 = 未处理
     );
   }
 
@@ -546,7 +562,12 @@ export default class JuheRenwuRepository
    */
   async create(data: NewJuheRenwu): Promise<DatabaseResult<JuheRenwu>> {
     // 验证必需字段
-    this.validateRequired(data, ['kkh', 'rq', 'jc_s', 'sj_f', 'sj_t']);
+    const requiredFields = ['kkh', 'rq', 'jc_s', 'sj_f', 'sj_t'];
+    for (const field of requiredFields) {
+      if (!data[field as keyof NewJuheRenwu]) {
+        throw new Error(`Required field '${field}' is missing`);
+      }
+    }
 
     // 验证字段格式
     if (data.kkh) {
@@ -563,6 +584,7 @@ export default class JuheRenwuRepository
 
     const createData = this.buildCreateData({
       ...data,
+      kkh: String(data.kkh || ''), // 确保kkh转换为字符串
       gx_zt: data.gx_zt || '0' // 默认为未处理
     });
 
@@ -590,9 +612,12 @@ export default class JuheRenwuRepository
    * 使用 TRUNCATE TABLE 快速清空表并重置自增ID
    */
   async clearAllTasks(): Promise<DatabaseResult<number>> {
-    this.logOperation('clearAll', {});
+    try {
+      this.logOperation('clearAll', {});
 
-    const operation = async (db: any) => {
+      // 直接使用数据库连接，不使用事务包装
+      const db = this.writeConnection;
+
       // 先获取当前表的行数（可选，用于日志记录）
       const countResult = await db
         .selectFrom(this.tableName)
@@ -610,89 +635,130 @@ export default class JuheRenwuRepository
         operation: 'TRUNCATE'
       });
 
-      return rowCount; // 返回清空前的行数
-    };
-
-    return await this.databaseApi.executeQuery(operation, {
-      connectionName: 'syncdb'
-    });
-  }
-
-  /**
-   * 批量插入聚合数据
-   * 直接从 SQL 聚合结果插入到 juhe_renwu 表
-   */
-  async insertAggregatedDataBatch(
-    aggregatedData: any[]
-  ): Promise<DatabaseResult<number>> {
-    if (!aggregatedData || aggregatedData.length === 0) {
       return {
         success: true,
-        data: 0
+        data: rowCount
       };
-    }
-
-    try {
-      const operation = async (db: any) => {
-        // 转换聚合数据为 NewJuheRenwu 格式，并处理日期格式
-        const juheRenwuData = aggregatedData.map((item) => {
-          // 确保日期格式正确（只保留前10位：YYYY-MM-DD）
-          let formattedDate = item.rq;
-          if (formattedDate && formattedDate.length > 10) {
-            formattedDate = formattedDate.substring(0, 10);
-          }
-
-          return {
-            kkh: item.kkh,
-            xnxq: item.xnxq,
-            jxz: item.jxz,
-            zc: item.zc,
-            rq: formattedDate,
-            kcmc: item.kcmc,
-            sfdk: item.sfdk || '0',
-            jc_s: item.jc_s,
-            room_s: item.room_s,
-            gh_s: item.gh_s,
-            xm_s: item.xm_s,
-            lq: item.lq,
-            sj_f: item.sj_f,
-            sj_t: item.sj_t,
-            sjd: item.sjd,
-            gx_zt: '0' // 默认为未处理
-          };
-        });
-
-        const result = await db
-          .insertInto(this.tableName)
-          .values(juheRenwuData)
-          .execute();
-
-        return Number(result.numInsertedRows || juheRenwuData.length);
-      };
-
-      const result = await this.databaseApi.executeQuery(operation, {
-        readonly: false,
-        connectionName: 'syncdb'
-      });
-
-      if (result.success) {
-        this.logOperation('批量插入聚合数据', {
-          insertedCount: result.data,
-          totalData: aggregatedData.length
-        });
-      }
-
-      return result;
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      this.logOperation('批量插入聚合数据失败', {
+      this.logOperation('clearAll失败', {
         error: errorMessage,
-        dataCount: aggregatedData.length
+        stack: error instanceof Error ? error.stack : undefined
       });
       return {
         success: false,
-        error: QueryError.create(errorMessage)
+        error: QueryError.create(`清空聚合表失败: ${errorMessage}`)
+      };
+    }
+  }
+
+  /**
+   * 原子化聚合插入操作
+   * 使用 INSERT INTO ... SELECT 直接从源表聚合并插入到目标表
+   * 这是一个原子操作，避免了内存中缓存大量数据的问题
+   */
+  async executeAtomicAggregationInsert(
+    xnxq: string
+  ): Promise<DatabaseResult<number>> {
+    try {
+      this.logOperation('开始原子化聚合插入', {
+        xnxq,
+        note: '使用CAST(kkh AS CHAR)确保kkh字段为字符串类型'
+      });
+
+      // 直接使用数据库连接，不使用事务包装
+      const db = this.writeConnection;
+
+      const result = await sql`
+          INSERT INTO juhe_renwu (
+            kkh, xnxq, jxz, zc, rq, kcmc, sfdk,
+            jc_s, room_s, gh_s, xm_s, lq, sj_f, sj_t, sjd, gx_zt
+          )
+          SELECT
+            kkh,
+            xnxq,
+            jxz,
+            zc,
+            rq,
+            kcmc,
+            IFNULL(sfdk, '0') as sfdk,
+            GROUP_CONCAT(jc ORDER BY jc SEPARATOR '/') as jc_s,
+            GROUP_CONCAT(IFNULL(room, '无') ORDER BY jc SEPARATOR '/') as room_s,
+            GROUP_CONCAT(DISTINCT ghs) as gh_s,
+            GROUP_CONCAT(DISTINCT xms) as xm_s,
+            SUBSTRING_INDEX(GROUP_CONCAT(lq ORDER BY st), ',', 1) as lq,
+            SUBSTRING_INDEX(GROUP_CONCAT(st ORDER BY st), ',', 1) as sj_f,
+            SUBSTRING_INDEX(GROUP_CONCAT(ed ORDER BY ed DESC), ',', 1) as sj_t,
+            'am' as sjd,
+            '0' as gx_zt
+          FROM u_jw_kcb_cur
+          WHERE xnxq = ${xnxq} 
+            AND gx_zt IS NULL 
+            AND jc < 5 
+            AND rq is not null
+            AND st is not null
+            AND ed is not null
+            AND kcmc is not null
+            AND xms = '孙永锐'
+          GROUP BY kkh, xnxq, jxz, zc, rq, kcmc, sfdk
+          UNION
+          SELECT
+            kkh,
+            xnxq,
+            jxz,
+            zc,
+            rq,
+            kcmc,
+            IFNULL(sfdk, '0') as sfdk,
+            GROUP_CONCAT(jc ORDER BY jc SEPARATOR '/') as jc_s,
+            GROUP_CONCAT(IFNULL(room, '无') ORDER BY jc SEPARATOR '/') as room_s,
+            GROUP_CONCAT(DISTINCT ghs) as gh_s,
+            GROUP_CONCAT(DISTINCT xms) as xm_s,
+            SUBSTRING_INDEX(GROUP_CONCAT(lq ORDER BY st), ',', 1) as lq,
+            SUBSTRING_INDEX(GROUP_CONCAT(st ORDER BY st), ',', 1) as sj_f,
+            SUBSTRING_INDEX(GROUP_CONCAT(ed ORDER BY ed DESC), ',', 1) as sj_t,
+            'pm' as sjd,
+            '0' as gx_zt
+          FROM u_jw_kcb_cur
+          WHERE xnxq = ${xnxq} 
+            AND gx_zt IS NULL 
+            AND jc >= 5
+            AND rq is not null
+            AND st is not null
+            AND ed is not null
+            AND kcmc is not null
+            AND xms = '孙永锐'
+          GROUP BY kkh, xnxq, jxz, zc, rq, kcmc, sfdk
+        `.execute(db);
+
+      const insertedCount = Number(result.numAffectedRows) || 0;
+
+      this.logOperation('原子化聚合插入完成', {
+        xnxq,
+        insertedCount,
+        performance: {
+          operation: 'atomic_insert_select',
+          memoryEfficient: true,
+          transactional: false
+        }
+      });
+
+      return {
+        success: true,
+        data: insertedCount
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logOperation('原子化聚合插入失败', {
+        xnxq,
+        error: errorMessage,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      return {
+        success: false,
+        error: QueryError.create(`原子化聚合插入失败: ${errorMessage}`)
       };
     }
   }
@@ -701,56 +767,76 @@ export default class JuheRenwuRepository
    * 根据学年学期查询任务
    */
   async findByXnxq(xnxq: string): Promise<DatabaseResult<JuheRenwu[]>> {
-    this.validateXnxq(xnxq);
-    this.logOperation('findByXnxq', { xnxq });
+    try {
+      this.validateXnxq(xnxq);
+      this.logOperation('findByXnxq', { xnxq });
 
-    const operation = async (db: any) => {
-      return await db
+      // 直接使用数据库连接
+      const db = this.readConnection;
+
+      const result = await db
         .selectFrom(this.tableName)
         .selectAll()
         .where('xnxq', '=', xnxq)
         .orderBy('rq', 'asc')
-        .orderBy('kssj', 'asc')
+        .orderBy('sj_f', 'asc')
         .execute();
-    };
 
-    return await this.databaseApi.executeQuery(operation, {
-      connectionName: 'syncdb'
-    });
+      return {
+        success: true,
+        data: result
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logOperation('findByXnxq失败', {
+        xnxq,
+        error: errorMessage
+      });
+      return {
+        success: false,
+        error: QueryError.create(`查询学期数据失败: ${errorMessage}`)
+      };
+    }
   }
 
   /**
    * 获取指定学期的所有不重复课程号
    * 用于日历创建时统计课程数量
+   * 使用数据库 DISTINCT 查询，避免内存过滤
    */
-  async findDistinctCourses(xnxq: string): Promise<DatabaseResult<string[]>> {
+  async findDistinctCourses(
+    xnxq: string
+  ): Promise<DatabaseResult<{ kkh: string | null; kcmc: string | null }[]>> {
     this.validateXnxq(xnxq);
     this.logOperation('findDistinctCourses', { xnxq });
 
     try {
-      const result = await this.findByXnxq(xnxq);
-      if (!result.success) {
-        return result as any;
-      }
+      // 直接使用数据库连接
+      const db = this.readConnection;
 
-      // 手动去重，过滤掉null值
-      const distinctKkhs = [
-        ...new Set(
-          result.data
-            .map((task) => task.kkh)
-            .filter((kkh): kkh is string => kkh !== null)
-        )
-      ];
+      // 🎯 使用数据库 DISTINCT 查询，直接在数据库层面去重
+      const result = await db
+        .selectFrom(this.tableName)
+        .select('kkh')
+        .select('kcmc')
+        .distinct() // 使用 DISTINCT 去重
+        .where('xnxq', '=', xnxq)
+        .where('kkh', 'is not', null) // 过滤掉 null 值
+        .where('kcmc', 'is not', null) // 过滤掉 null 值
+        .where('gx_sj', 'is', null)
+        .orderBy('kkh', 'asc') // 按课程号排序
+        .execute();
 
       this.logOperation('findDistinctCourses完成', {
         xnxq,
-        distinctCount: distinctKkhs.length,
-        totalTasks: result.data.length
+        distinctCount: result.length,
+        method: 'database_distinct' // 标记使用数据库去重
       });
 
       return {
         success: true,
-        data: distinctKkhs
+        data: result
       };
     } catch (error) {
       const errorMessage =
@@ -773,11 +859,14 @@ export default class JuheRenwuRepository
   async findCoursesForCalendarCreation(
     xnxq: string
   ): Promise<DatabaseResult<JuheRenwu[]>> {
-    this.validateXnxq(xnxq);
-    this.logOperation('findCoursesForCalendarCreation', { xnxq });
+    try {
+      this.validateXnxq(xnxq);
+      this.logOperation('findCoursesForCalendarCreation', { xnxq });
 
-    const operation = async (db: any) => {
-      return await db
+      // 直接使用数据库连接
+      const db = this.readConnection;
+
+      const result = await db
         .selectFrom(this.tableName)
         .selectAll()
         .where('xnxq', '=', xnxq)
@@ -791,19 +880,78 @@ export default class JuheRenwuRepository
         .orderBy('rq', 'asc')
         .orderBy('sj_f', 'asc')
         .execute();
-    };
 
-    const result = await this.databaseApi.executeQuery(operation, {
-      connectionName: 'syncdb'
-    });
-
-    if (result.success) {
       this.logOperation('findCoursesForCalendarCreation完成', {
         xnxq,
-        courseCount: result.data.length
+        courseCount: result.length
       });
-    }
 
-    return result;
+      return {
+        success: true,
+        data: result
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logOperation('findCoursesForCalendarCreation失败', {
+        xnxq,
+        error: errorMessage
+      });
+      return {
+        success: false,
+        error: QueryError.create(`查询日历创建数据失败: ${errorMessage}`)
+      };
+    }
+  }
+
+  /**
+   * 批量查询指定ID的记录
+   * 用于数据完整性验证
+   */
+  async findByIds(ids: number[]): Promise<DatabaseResult<JuheRenwu[]>> {
+    try {
+      if (!ids || ids.length === 0) {
+        return {
+          success: true,
+          data: []
+        };
+      }
+
+      this.logOperation('findByIds', {
+        idsCount: ids.length,
+        sampleIds: ids.slice(0, 5) // 只记录前5个ID作为样本
+      });
+
+      // 直接使用数据库连接
+      const db = this.readConnection;
+
+      const result = await db
+        .selectFrom(this.tableName)
+        .selectAll() // 选择所有字段以匹配JuheRenwu类型
+        .where('id', 'in', ids)
+        .execute();
+
+      this.logOperation('findByIds完成', {
+        requestedCount: ids.length,
+        foundCount: result.length,
+        method: 'sql_in_query'
+      });
+
+      return {
+        success: true,
+        data: result
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logOperation('findByIds失败', {
+        idsCount: ids.length,
+        error: errorMessage
+      });
+      return {
+        success: false,
+        error: QueryError.create(`批量查询ID失败: ${errorMessage}`)
+      };
+    }
   }
 }

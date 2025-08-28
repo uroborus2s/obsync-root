@@ -4,11 +4,18 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import underPressure from '@fastify/under-pressure';
-import type { FastifyInstance, StratixConfig } from '@stratix/core';
+import type { StratixConfig } from '@stratix/core';
 import database from '@stratix/database';
-import { isProduction } from '@stratix/utils/environment';
 import { Redis } from 'ioredis';
-import { afterFastifyCreated } from './hooks.js';
+import {
+  authPreHandler,
+  createAfterFastifyCreated,
+  identityForwardPreHandler
+} from './hooks.js';
+import type {
+  GatewayServicesList,
+  ProxyServiceConfig
+} from './types/gateway.js';
 
 export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
   // 从敏感配置中提取各种配置
@@ -18,6 +25,29 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
   const rateLimitConfig = sensitiveConfig.rateLimit || {};
   const jwtConfig = sensitiveConfig.jwt || {};
   const wpsConfig = sensitiveConfig.wps || {};
+  const proxyServicesConfig = sensitiveConfig.proxyServices || [];
+
+  const services: GatewayServicesList = proxyServicesConfig.map(
+    (config: ProxyServiceConfig) => ({
+      name: config.name,
+      config: {
+        ...config,
+        requireAuth: config.requireAuth || true,
+        timeout: config.timeout || 30000,
+        retries: config.retries || 3,
+        httpMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+        preHandlers: [authPreHandler, identityForwardPreHandler]
+      }
+    })
+  );
+
+  const redisClient = redisConfig.host
+    ? new Redis({
+        host: redisConfig.host,
+        port: redisConfig.port || 6379,
+        ...(redisConfig.password ? { password: redisConfig.password } : {})
+      })
+    : undefined;
 
   return {
     server: {
@@ -25,8 +55,7 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
       host: webConfig.host || '0.0.0.0',
       keepAliveTimeout: 30000, // 🔧 增加到30秒，减少连接重建
       requestTimeout: 30000,
-      maxParamLength: 100,
-      bodyLimit: 5242880, // 🔧 增加到5MB
+      bodyLimit: 5242880 * 4, // 🔧 增加到5MB
       trustProxy: true,
       // 🔧 新增：连接管理配置
       connectionTimeout: 60000, // 连接超时60秒
@@ -48,11 +77,16 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
         wps: {
           baseUrl: wpsConfig.baseUrl || 'https://openapi.wps.cn',
           appid: wpsConfig.clientId,
-          appkey: webConfig.clientSecret
+          appkey: wpsConfig.clientSecret
         }
       }
     },
-    hooks: { afterFastifyCreated: afterFastifyCreated },
+    hooks: {
+      afterFastifyCreated: createAfterFastifyCreated(services),
+      beforeClose: async (fastify: any) => {
+        redisClient?.disconnect();
+      }
+    },
     plugins: [
       {
         name: '@stratix/database',
@@ -65,7 +99,7 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
               type: 'mysql' as const,
               host: databaseConfig.default?.host || 'localhost',
               port: databaseConfig.default?.port || 3306,
-              database: databaseConfig.default?.database || 'icasync',
+              database: databaseConfig.default?.database || 'syncdb',
               username:
                 databaseConfig.default?.user ||
                 databaseConfig.default?.username ||
@@ -112,16 +146,15 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
         name: 'cookie',
         plugin: cookie,
         options: {
-          secret: sensitiveConfig.COOKIE_SECRET || 'gateway-cookie-secret',
+          secret:
+            jwtConfig.secret ||
+            'stratix-cookie-secret-key-32-chars-required-for-security', // 用于cookie签名，至少32字符
+          hook: 'onRequest', // 在onRequest钩子中解析cookie
           parseOptions: {
-            httpOnly: true,
-            secure: isProduction(),
-            sameSite: 'lax'
+            // cookie解析选项，使用默认值即可
           }
         }
       },
-
-      // 压缩
       {
         name: 'compress',
         plugin: compress,
@@ -141,15 +174,7 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
           max: rateLimitConfig.globalMax || 10000,
           timeWindow: rateLimitConfig.globalWindow || '1 minute',
           allowList: ['127.0.0.1', '::1'],
-          redis: redisConfig.host
-            ? new Redis({
-                host: redisConfig.host,
-                port: redisConfig.port || 6379,
-                ...(redisConfig.password
-                  ? { password: redisConfig.password }
-                  : {})
-              })
-            : undefined,
+          redis: redisClient,
           nameSpace: 'stratix-gateway-rate-limit',
           continueExceeding: true,
           skipSuccessfulRequests: false,
@@ -163,96 +188,20 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
           }
         }
       },
-
-      // 🔧 优化系统压力监控配置 + 集成健康检查
+      // 🔧 优化系统压力监控配置（暂时禁用自定义健康检查）
       {
         name: 'under-pressure',
         plugin: underPressure,
         options: {
-          maxEventLoopDelay: 500, // 500ms，更早发现问题
+          maxEventLoopDelay: 2000, // 500ms，更早发现问题
           maxHeapUsedBytes: 650 * 1024 * 1024, // 650MB
           maxRssBytes: 850 * 1024 * 1024, // 850MB
-          maxEventLoopUtilization: 0.95, // 95%
+          maxEventLoopUtilization: 0.98, // 95%
           message: 'Service under pressure',
-          retryAfter: 50,
-          healthCheckInterval: 5 * 60 * 1000, // 10秒检查间隔
+          retryAfter: 30000,
           exposeStatusRoute: {
             routeOpts: { logLevel: 'silent' },
             url: '/health'
-          },
-          // 🔧 新增：集成的健康检查功能
-          healthCheck: async (fastifyInstance: FastifyInstance) => {
-            try {
-              const databaseApi =
-                fastifyInstance.diContainer.resolve('databaseApi');
-              const dbres = await databaseApi.healthCheck();
-              // const checks: Record<string, any> = {};
-
-              // 检查后端服务连接（使用统一配置）
-              const createServiceCheck = (
-                serviceName: string,
-                url: string,
-                timeout: number = 5000
-              ) => {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-                return fetch(url, {
-                  method: 'GET',
-                  signal: controller.signal,
-                  headers: {
-                    'User-Agent': 'Stratix-Gateway-HealthCheck/1.0'
-                  }
-                })
-                  .then((res) => {
-                    clearTimeout(timeoutId);
-                    return {
-                      name: serviceName,
-                      status: res.ok ? 'healthy' : 'unhealthy',
-                      statusCode: res.status,
-                      responseTime: Date.now() - Date.now() // 简化实现
-                    };
-                  })
-                  .catch((error) => {
-                    clearTimeout(timeoutId);
-                    return {
-                      name: serviceName,
-                      status: 'unhealthy',
-                      error:
-                        error instanceof Error ? error.message : 'Unknown error'
-                    };
-                  });
-              };
-
-              const serviceChecks = await Promise.allSettled([
-                // Tasks服务检查
-                createServiceCheck('workflows', `http://localhost:3001/health`)
-
-                // 用户服务检查
-                // createServiceCheck('users', `http://localhost:3002/health`)
-              ]);
-
-              const allServicesHealthy = serviceChecks.every(
-                (check) =>
-                  check.status === 'fulfilled' &&
-                  check.value.status === 'healthy'
-              );
-
-              return dbres.success && dbres.data && allServicesHealthy;
-            } catch (error) {
-              return {
-                status: 'unhealthy',
-                timestamp: new Date().toISOString(),
-                error:
-                  error instanceof Error
-                    ? error.message
-                    : 'Health check failed',
-                gateway: {
-                  version: process.env.GATEWAY_VERSION || '1.0.0',
-                  uptime: process.uptime()
-                }
-              };
-            }
           }
         }
       }

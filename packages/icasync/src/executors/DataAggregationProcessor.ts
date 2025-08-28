@@ -8,6 +8,7 @@ import type {
   ExecutionResult,
   TaskExecutor
 } from '@stratix/tasks';
+import type { IAttendanceCoursesRepository } from '../repositories/AttendanceCoursesRepository.js';
 import type { ICourseAggregationService } from '../services/CourseAggregationService.js';
 
 /**
@@ -55,6 +56,7 @@ export default class DataAggregationProcessor implements TaskExecutor {
 
   constructor(
     private courseAggregationService: ICourseAggregationService,
+    private attendanceCoursesRepository: IAttendanceCoursesRepository,
     private logger: Logger
   ) {}
 
@@ -171,6 +173,9 @@ export default class DataAggregationProcessor implements TaskExecutor {
         this.logger.info('聚合表清空完成', {
           clearedCount: clearResult.right
         });
+
+        // 清空签到课程表（全量同步时）
+        await this.clearAttendanceCoursesForFullSync(config.xnxq);
       }
 
       /// 增量聚合模式：直接执行聚合并写入（不清空表）
@@ -228,12 +233,48 @@ export default class DataAggregationProcessor implements TaskExecutor {
   }
 
   /**
+   * 全量同步时清理签到课程数据
+   * 软删除所有签到课程记录
+   */
+  private async clearAttendanceCoursesForFullSync(
+    currentSemester: string
+  ): Promise<void> {
+    try {
+      this.logger.info('开始全量清理签到课程数据', { currentSemester });
+
+      // 软删除所有签到课程记录（全量同步时清空所有数据）
+      const result =
+        await this.attendanceCoursesRepository.softDeleteAll(
+          'system-full-sync'
+        );
+
+      if (result.success) {
+        this.logger.info(`成功软删除 ${result.data} 条签到课程记录`, {
+          deletedCount: result.data
+        });
+      } else {
+        this.logger.error('软删除签到课程记录失败', {
+          error: result
+        });
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error('清理签到课程数据失败', {
+        currentSemester,
+        error: errorMessage
+      });
+      // 不抛出错误，避免影响主流程
+    }
+  }
+
+  /**
    * 健康检查
    */
   async healthCheck(): Promise<'healthy' | 'unhealthy' | 'unknown'> {
     try {
-      // 检查 CourseAggregationService 是否可用
-      if (!this.courseAggregationService) {
+      // 检查 CourseAggregationService 和 AttendanceCoursesRepository 是否可用
+      if (!this.courseAggregationService || !this.attendanceCoursesRepository) {
         return 'unhealthy';
       }
 

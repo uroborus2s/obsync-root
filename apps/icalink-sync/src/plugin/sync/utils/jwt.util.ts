@@ -16,17 +16,6 @@ export interface JwtConfig {
 }
 
 /**
- * JWT载荷接口
- */
-export interface JwtPayload {
-  userId: string;
-  name: string;
-  email?: string;
-  mobile?: string;
-  ex_user_id?: string; // 外部用户ID，用于关联学生或教师信息
-  [key: string]: any;
-}
-
 /**
  * JWT工具类
  */

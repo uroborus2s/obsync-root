@@ -4,6 +4,7 @@ import axios, {
   AxiosRequestConfig,
   AxiosResponse,
 } from 'axios'
+import { handle401Error, handle403Error } from '@/utils/error-handler'
 import { appConfig, networkConfig } from './config'
 import { authManager } from './gateway-auth-manager'
 
@@ -50,7 +51,7 @@ export class ApiClient {
       (error) => Promise.reject(error)
     )
 
-    // 响应拦截器 - 简化的401处理
+    // 响应拦截器 - 完整的错误处理
     this.client.interceptors.response.use(
       (response: AxiosResponse) => response.data,
       async (error: AxiosError) => {
@@ -58,14 +59,21 @@ export class ApiClient {
           metadata?: { skipAuth?: boolean }
         }
 
-        // 处理401未授权响应 - 直接重定向，不重试
+        // 处理401未授权响应
         if (
           error.response?.status === 401 &&
           !originalRequest.metadata?.skipAuth
         ) {
-          console.log('🔒 API客户端: 检测到401错误，触发WPS认证重定向')
+          handle401Error(error)
           this.handleUnauthorized()
           return Promise.reject(new Error('需要重新授权'))
+        }
+
+        // 处理403权限不足响应
+        if (error.response?.status === 403) {
+          handle403Error(error)
+          this.handleForbidden(error)
+          return Promise.reject(error)
         }
 
         return Promise.reject(error)
@@ -74,11 +82,29 @@ export class ApiClient {
   }
 
   /**
-   * 处理未授权情况 - 直接跳转到WPS授权页面
+   * 处理未授权情况 - 保存当前页面并跳转到WPS授权页面
    */
   private handleUnauthorized(): void {
-    // 直接跳转到WPS授权页面，不使用SDK
-    authManager.redirectToAuth()
+    // 保存当前页面路径，用于登录成功后返回
+    const currentPath = window.location.href
+    console.log('💾 API客户端: 保存当前页面路径:', currentPath)
+
+    // 清除可能存在的认证信息
+    authManager.clearTokens()
+
+    // 跳转到WPS授权页面，传入当前页面作为返回URL
+    authManager.redirectToAuth(currentPath)
+  }
+
+  /**
+   * 处理权限不足情况 - 导航到403页面
+   */
+  private handleForbidden(error: AxiosError): void {
+    // 导航到403错误页面
+    // 使用setTimeout避免在请求处理过程中立即导航
+    setTimeout(() => {
+      window.location.href = '/web/403'
+    }, 100)
   }
 
   async get<T = unknown>(url: string, options?: RequestOptions): Promise<T> {

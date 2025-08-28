@@ -1,3 +1,6 @@
-import StratixApp, { type IStratixApp } from '@stratix/core';
+// @wps/app-icalink 应用入口
+// 基于 Stratix 框架的应用启动
 
-StratixApp.run().then(async (app: IStratixApp) => {});
+import { Stratix } from '@stratix/core';
+
+Stratix.run();

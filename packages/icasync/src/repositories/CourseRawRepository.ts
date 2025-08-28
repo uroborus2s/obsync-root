@@ -52,6 +52,11 @@ export interface ICourseRawRepository {
 
   // 批量操作
   updateGxZtBatch(ids: number[], gxZt: string): Promise<DatabaseResult<number>>;
+  updateGxZtByKkhAndXnxq(
+    kkh: string,
+    xnxq: string,
+    gxZt: string
+  ): Promise<DatabaseResult<number>>;
   markAsProcessed(ids: number[]): Promise<DatabaseResult<number>>;
 
   // 查询操作
@@ -92,6 +97,30 @@ export interface ICourseRawRepository {
 
   // 增量聚合查询
   findUnprocessedAggregatedTasks(): Promise<DatabaseResult<any[]>>;
+
+  // 反向查询方法
+  findOriginalCoursesByJuheRenwuId(
+    juheRenwuId: number
+  ): Promise<DatabaseResult<CourseRaw[]>>;
+  findOriginalCoursesByJuheRenwuIds(
+    juheRenwuIds: number[]
+  ): Promise<DatabaseResult<CourseRaw[]>>;
+
+  // 使用组合键更新状态
+  updateGxZtByCompositeKey(
+    kkh: string,
+    xnxq: string,
+    jxz: number,
+    zc: number,
+    jc: number,
+    gxZt: string
+  ): Promise<DatabaseResult<number>>;
+
+  // 根据聚合任务ID直接更新对应的原始课程记录状态（一条SQL完成）
+  updateOriginalCoursesByJuheRenwuIds(
+    juheRenwuIds: number[],
+    gxZt: string
+  ): Promise<DatabaseResult<number>>;
 }
 
 /**
@@ -424,14 +453,88 @@ export default class CourseRawRepository
       throw new Error('Update status cannot be empty');
     }
 
-    const updateData = this.buildUpdateData({
+    // 直接构建更新数据，不使用 buildUpdateData 避免添加不存在的 updated_at 字段
+    const updateData = this.cleanData({
       gx_zt: gxZt
     });
 
+    // 使用正确的 WhereExpression 函数格式
+    const whereExpression = (qb: any) => qb.where('id', 'in', ids);
+
     return await this.updateMany(
-      { id: ids } as any,
+      whereExpression,
       updateData as CourseRawUpdate
     );
+  }
+
+  /**
+   * 根据开课号和学年学期更新状态
+   * 用于批量更新指定课程的所有记录
+   */
+  async updateGxZtByKkhAndXnxq(
+    kkh: string,
+    xnxq: string,
+    gxZt: string
+  ): Promise<DatabaseResult<number>> {
+    this.validateKkh(kkh);
+    this.validateXnxq(xnxq);
+
+    if (!gxZt) {
+      throw new Error('Update status cannot be empty');
+    }
+
+    try {
+      this.logOperation('updateGxZtByKkhAndXnxq', { kkh, xnxq, gxZt });
+
+      const updateTime = new Date()
+        .toISOString()
+        .slice(0, 19)
+        .replace('T', ' '); // MySQL datetime format
+
+      const operation = async (db: any) => {
+        const result = await db
+          .updateTable(this.tableName)
+          .set({
+            gx_zt: gxZt,
+            gx_sj: updateTime
+          })
+          .where('kkh', '=', kkh)
+          .where('xnxq', '=', xnxq)
+          .where('gx_zt', 'is', null) // 只更新未处理的记录
+          .executeTakeFirst();
+
+        return result.numAffectedRows ? Number(result.numAffectedRows) : 0;
+      };
+
+      const result = await this.databaseApi.executeQuery(operation, {
+        connectionName: 'syncdb'
+      });
+
+      if (result.success) {
+        this.logOperation('updateGxZtByKkhAndXnxq完成', {
+          kkh,
+          xnxq,
+          gxZt,
+          updatedCount: result.data,
+          updateTime
+        });
+      }
+
+      return result;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logOperation('updateGxZtByKkhAndXnxq失败', {
+        kkh,
+        xnxq,
+        gxZt,
+        error: errorMessage
+      });
+      return {
+        success: false,
+        error: QueryError.create(`更新课程状态失败: ${errorMessage}`)
+      };
+    }
   }
 
   /**
@@ -451,12 +554,8 @@ export default class CourseRawRepository
       throw new Error('Teacher code cannot be empty');
     }
 
-    return await this.findMany(
-      (qb: any) => qb.where('ghs', 'like', `%${teacherCode}%`),
-      {
-        orderBy: 'xnxq',
-        order: 'desc'
-      }
+    return await this.findMany((qb: any) =>
+      qb.where('ghs', 'like', `%${teacherCode}%`).orderBy('xnxq', 'desc')
     );
   }
 
@@ -468,10 +567,9 @@ export default class CourseRawRepository
       throw new Error('Room cannot be empty');
     }
 
-    return await this.findMany((qb: any) => qb.where('room', '=', room), {
-      orderBy: 'zc',
-      order: 'asc'
-    });
+    return await this.findMany((qb: any) =>
+      qb.where('room', '=', room).orderBy('xnxq', 'desc')
+    );
   }
 
   /**
@@ -784,7 +882,12 @@ export default class CourseRawRepository
    */
   async create(data: NewCourseRaw): Promise<DatabaseResult<CourseRaw>> {
     // 验证必需字段
-    this.validateRequired(data, ['kkh', 'xnxq', 'jxz', 'zc', 'jc', 'kcmc']);
+    const requiredFields = ['kkh', 'xnxq', 'jxz', 'zc', 'jc', 'kcmc'];
+    for (const field of requiredFields) {
+      if (!data[field as keyof NewCourseRaw]) {
+        throw new Error(`Required field '${field}' is missing`);
+      }
+    }
 
     // 验证数据格式
     const validationResult = await this.validateCourseData(data);
@@ -859,6 +962,335 @@ export default class CourseRawRepository
           timestamp: new Date(),
           retryable: true
         }
+      };
+    }
+  }
+
+  /**
+   * 根据聚合任务ID查找对应的原始课程记录
+   * 实现反向查询：从 juhe_renwu 表的记录反向查找对应的 u_jw_kcb_cur 原始记录
+   */
+  async findOriginalCoursesByJuheRenwuId(
+    juheRenwuId: number
+  ): Promise<DatabaseResult<CourseRaw[]>> {
+    if (!juheRenwuId || juheRenwuId <= 0) {
+      throw new Error('JuheRenwu ID must be a positive number');
+    }
+
+    try {
+      this.logOperation('findOriginalCoursesByJuheRenwuId', { juheRenwuId });
+
+      const operation = async (db: any) => {
+        const query = sql`
+          SELECT u.*
+          FROM u_jw_kcb_cur u
+          JOIN juhe_renwu j ON (
+            u.kkh = j.kkh
+            AND u.xnxq = j.xnxq
+            AND u.jxz = j.jxz
+            AND u.zc = j.zc
+            AND LEFT(u.rq, 10) = j.rq
+            AND u.kcmc = j.kcmc
+            AND IFNULL(u.sfdk, '0') = IFNULL(j.sfdk, '0')
+            AND FIND_IN_SET(u.jc, REPLACE(j.jc_s, '/', ',')) > 0
+            AND (
+              (j.sjd = 'am' AND u.jc < 5) OR
+              (j.sjd = 'pm' AND u.jc >= 5)
+            )
+          )
+          WHERE j.id = ${juheRenwuId}
+          ORDER BY u.jc ASC
+        `;
+
+        const result = await query.execute(db);
+        return result.rows;
+      };
+
+      const result = await this.databaseApi.executeQuery(operation, {
+        connectionName: 'syncdb'
+      });
+
+      if (result.success) {
+        this.logOperation('findOriginalCoursesByJuheRenwuId完成', {
+          juheRenwuId,
+          foundCount: result.data.length
+        });
+      }
+
+      return result as DatabaseResult<CourseRaw[]>;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logOperation('findOriginalCoursesByJuheRenwuId失败', {
+        juheRenwuId,
+        error: errorMessage
+      });
+      return {
+        success: false,
+        error: QueryError.create(`反向查询失败: ${errorMessage}`)
+      };
+    }
+  }
+
+  /**
+   * 批量反向查询：根据多个聚合任务ID查找对应的原始课程记录
+   * 直接返回所有匹配的原始课程记录，不分组
+   */
+  async findOriginalCoursesByJuheRenwuIds(
+    juheRenwuIds: number[]
+  ): Promise<DatabaseResult<CourseRaw[]>> {
+    if (!juheRenwuIds || juheRenwuIds.length === 0) {
+      return {
+        success: true,
+        data: []
+      };
+    }
+
+    // 验证所有ID都是正数
+    for (const id of juheRenwuIds) {
+      if (!id || id <= 0) {
+        throw new Error('All JuheRenwu IDs must be positive numbers');
+      }
+    }
+
+    try {
+      this.logOperation('findOriginalCoursesByJuheRenwuIds', {
+        idsCount: juheRenwuIds.length,
+        sampleIds: juheRenwuIds.slice(0, 5) // 只记录前5个ID作为样本
+      });
+
+      const operation = async (db: any) => {
+        const query = sql`
+          SELECT u.*
+          FROM u_jw_kcb_cur u
+          JOIN juhe_renwu j ON (
+            u.kkh = j.kkh
+            AND u.xnxq = j.xnxq
+            AND u.rq = j.rq
+            AND FIND_IN_SET(u.jc, REPLACE(j.jc_s, '/', ',')) > 0
+            AND (
+              (j.sjd = 'am' AND u.jc < 5) OR
+              (j.sjd = 'pm' AND u.jc >= 5)
+            )
+          )
+          WHERE j.id IN (${sql.join(juheRenwuIds)})
+          ORDER BY u.kkh, u.xnxq, u.jxz, u.zc, u.jc ASC
+        `;
+
+        const result = await query.execute(db);
+        return result.rows;
+      };
+
+      const result = await this.databaseApi.executeQuery(operation, {
+        connectionName: 'syncdb'
+      });
+
+      if (result.success) {
+        this.logOperation('findOriginalCoursesByJuheRenwuIds完成', {
+          requestedCount: juheRenwuIds.length,
+          totalRecords: result.data.length
+        });
+
+        return {
+          success: true,
+          data: result.data as CourseRaw[]
+        };
+      } else {
+        return {
+          success: false,
+          error: result.error
+        };
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logOperation('findOriginalCoursesByJuheRenwuIds失败', {
+        idsCount: juheRenwuIds.length,
+        error: errorMessage
+      });
+      return {
+        success: false,
+        error: QueryError.create(`批量反向查询失败: ${errorMessage}`)
+      };
+    }
+  }
+
+  /**
+   * 使用组合键（kkh, xnxq, jxz, zc, jc）更新单条记录的状态
+   * 这个方法用于精确更新特定的课程记录
+   */
+  async updateGxZtByCompositeKey(
+    kkh: string,
+    xnxq: string,
+    jxz: number,
+    zc: number,
+    jc: number,
+    gxZt: string
+  ): Promise<DatabaseResult<number>> {
+    if (!kkh || !xnxq || jxz === null || zc === null || jc === null) {
+      throw new Error('All composite key fields must be provided');
+    }
+
+    if (!gxZt) {
+      throw new Error('Update status cannot be empty');
+    }
+
+    try {
+      this.logOperation('updateGxZtByCompositeKey', {
+        kkh,
+        xnxq,
+        jxz,
+        zc,
+        jc,
+        gxZt
+      });
+
+      const updateTime = new Date()
+        .toISOString()
+        .slice(0, 19)
+        .replace('T', ' '); // MySQL datetime format
+
+      const operation = async (db: any) => {
+        const result = await db
+          .updateTable(this.tableName)
+          .set({
+            gx_zt: gxZt,
+            gx_sj: updateTime
+          })
+          .where('kkh', '=', kkh)
+          .where('xnxq', '=', xnxq)
+          .where('jxz', '=', jxz)
+          .where('zc', '=', zc)
+          .where('jc', '=', jc)
+          .where('gx_zt', 'is', null) // 只更新未处理的记录
+          .executeTakeFirst();
+
+        return result.numAffectedRows ? Number(result.numAffectedRows) : 0;
+      };
+
+      const result = await this.databaseApi.executeQuery(operation, {
+        connectionName: 'syncdb'
+      });
+
+      if (result.success) {
+        this.logOperation('updateGxZtByCompositeKey完成', {
+          kkh,
+          xnxq,
+          jxz,
+          zc,
+          jc,
+          gxZt,
+          updatedCount: result.data
+        });
+      }
+
+      return result as DatabaseResult<number>;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logOperation('updateGxZtByCompositeKey失败', {
+        kkh,
+        xnxq,
+        jxz,
+        zc,
+        jc,
+        gxZt,
+        error: errorMessage
+      });
+      return {
+        success: false,
+        error: QueryError.create(`组合键更新失败: ${errorMessage}`)
+      };
+    }
+  }
+
+  /**
+   * 根据聚合任务ID直接更新对应的原始课程记录状态
+   * 使用一条 UPDATE ... JOIN SQL 语句完成查找和更新，性能最优
+   */
+  async updateOriginalCoursesByJuheRenwuIds(
+    juheRenwuIds: number[],
+    gxZt: string
+  ): Promise<DatabaseResult<number>> {
+    if (!juheRenwuIds || juheRenwuIds.length === 0) {
+      return {
+        success: true,
+        data: 0
+      };
+    }
+
+    // 验证所有ID都是正数
+    for (const id of juheRenwuIds) {
+      if (!id || id <= 0) {
+        throw new Error('All JuheRenwu IDs must be positive numbers');
+      }
+    }
+
+    if (!gxZt) {
+      throw new Error('Update status cannot be empty');
+    }
+
+    try {
+      this.logOperation('updateOriginalCoursesByJuheRenwuIds', {
+        juheRenwuIdsCount: juheRenwuIds.length,
+        gxZt,
+        sampleIds: juheRenwuIds.slice(0, 5)
+      });
+
+      const updateTime = new Date()
+        .toISOString()
+        .slice(0, 19)
+        .replace('T', ' '); // MySQL datetime format
+
+      const operation = async (db: any) => {
+        // 使用 UPDATE ... JOIN 一条SQL完成查找和更新
+        const query = sql`
+          UPDATE u_jw_kcb_cur u
+          JOIN juhe_renwu j ON (
+            u.kkh = j.kkh
+            AND u.xnxq = j.xnxq
+            AND u.rq = j.rq
+            AND FIND_IN_SET(u.jc, REPLACE(j.jc_s, '/', ',')) > 0
+            AND (
+              (j.sjd = 'am' AND u.jc < 5) OR
+              (j.sjd = 'pm' AND u.jc >= 5)
+            )
+          )
+          SET
+            u.gx_zt = ${gxZt},
+            u.gx_sj = ${updateTime}
+          WHERE j.id IN (${sql.join(juheRenwuIds)})
+            AND u.gx_zt IS NULL
+        `;
+
+        const result = await query.execute(db);
+        return result.numAffectedRows ? Number(result.numAffectedRows) : 0;
+      };
+
+      const result = await this.databaseApi.executeQuery(operation, {
+        connectionName: 'syncdb'
+      });
+
+      if (result.success) {
+        this.logOperation('updateOriginalCoursesByJuheRenwuIds完成', {
+          juheRenwuIdsCount: juheRenwuIds.length,
+          gxZt,
+          updatedCount: result.data
+        });
+      }
+
+      return result as DatabaseResult<number>;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logOperation('updateOriginalCoursesByJuheRenwuIds失败', {
+        juheRenwuIdsCount: juheRenwuIds.length,
+        gxZt,
+        error: errorMessage
+      });
+      return {
+        success: false,
+        error: QueryError.create(`批量更新原始课程记录失败: ${errorMessage}`)
       };
     }
   }

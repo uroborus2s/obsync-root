@@ -1,6 +1,6 @@
 {
   "name": "@stratix/gateway",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "private": true,
   "description": "",
   "type": "module",
@@ -10,8 +10,9 @@
     "build": "pnpm run clean && tsc",
     "start": "node dist/index.js",
     "dev": "tsx --watch src/index.ts",
-    "env": "stratix config encrypt prod.env.json",
-    "env:dev": "stratix encrypt dev.env.json",
+    "env:prod": "stratix config encrypt prod.env.json",
+    "env:dev": "stratix config encrypt dev.env.json",
+    "env": "stratix encrypt",
     "stratix": "stratix",
     "lint": "eslint --ext .ts src",
     "format": "prettier --write \"src/**/*.ts\"",
@@ -20,9 +21,9 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@stratix/core": "1.0.0-beta.3",
-    "@stratix/utils": "^1.0.0",
-    "@stratix/database": "^1.0.0",
+    "@stratix/core": "1.0.0-beta.7",
+    "@stratix/utils": "^1.0.0-beta.1",
+    "@stratix/database": "1.0.0-beta.3",
     "@fastify/http-proxy": "^11.3.0",
     "@fastify/cors": "^11.1.0",
     "@fastify/helmet": "^13.0.1",

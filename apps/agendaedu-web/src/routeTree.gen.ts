@@ -41,8 +41,13 @@ import { Route as AuthenticatedAppsIndexRouteImport } from './routes/_authentica
 import { Route as ClerkAuthenticatedUserManagementRouteImport } from './routes/clerk/_authenticated/user-management'
 import { Route as ClerkauthSignUpRouteImport } from './routes/clerk/(auth)/sign-up'
 import { Route as ClerkauthSignInRouteImport } from './routes/clerk/(auth)/sign-in'
+import { Route as AuthenticatedWorkflowsVisualizationDemoRouteImport } from './routes/_authenticated/workflows/visualization-demo'
+import { Route as AuthenticatedWorkflowsTestRouteImport } from './routes/_authenticated/workflows/test'
 import { Route as AuthenticatedWorkflowsSchedulesRouteImport } from './routes/_authenticated/workflows/schedules'
+import { Route as AuthenticatedWorkflowsQuickTestRouteImport } from './routes/_authenticated/workflows/quick-test'
 import { Route as AuthenticatedWorkflowsLogsRouteImport } from './routes/_authenticated/workflows/logs'
+import { Route as AuthenticatedWorkflowsInstancesRouteImport } from './routes/_authenticated/workflows/instances'
+import { Route as AuthenticatedWorkflowsDefinitionsRouteImport } from './routes/_authenticated/workflows/definitions'
 import { Route as AuthenticatedTasksSyncRouteImport } from './routes/_authenticated/tasks/sync'
 import { Route as AuthenticatedTasksSettingsRouteImport } from './routes/_authenticated/tasks/settings'
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings/notifications'
@@ -51,6 +56,7 @@ import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_a
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
 import { Route as AuthenticatedCoursesSettingsRouteImport } from './routes/_authenticated/courses/settings'
 import { Route as AuthenticatedCoursesScheduleRouteImport } from './routes/_authenticated/courses/schedule'
+import { Route as AuthenticatedWorkflowsDefinitionsDefinitionIdRouteImport } from './routes/_authenticated/workflows/definitions/$definitionId'
 
 const ClerkRouteRoute = ClerkRouteRouteImport.update({
   id: '/clerk',
@@ -216,16 +222,46 @@ const ClerkauthSignInRoute = ClerkauthSignInRouteImport.update({
   path: '/sign-in',
   getParentRoute: () => ClerkauthRouteRoute,
 } as any)
+const AuthenticatedWorkflowsVisualizationDemoRoute =
+  AuthenticatedWorkflowsVisualizationDemoRouteImport.update({
+    id: '/visualization-demo',
+    path: '/visualization-demo',
+    getParentRoute: () => AuthenticatedWorkflowsRouteRoute,
+  } as any)
+const AuthenticatedWorkflowsTestRoute =
+  AuthenticatedWorkflowsTestRouteImport.update({
+    id: '/test',
+    path: '/test',
+    getParentRoute: () => AuthenticatedWorkflowsRouteRoute,
+  } as any)
 const AuthenticatedWorkflowsSchedulesRoute =
   AuthenticatedWorkflowsSchedulesRouteImport.update({
     id: '/schedules',
     path: '/schedules',
     getParentRoute: () => AuthenticatedWorkflowsRouteRoute,
   } as any)
+const AuthenticatedWorkflowsQuickTestRoute =
+  AuthenticatedWorkflowsQuickTestRouteImport.update({
+    id: '/quick-test',
+    path: '/quick-test',
+    getParentRoute: () => AuthenticatedWorkflowsRouteRoute,
+  } as any)
 const AuthenticatedWorkflowsLogsRoute =
   AuthenticatedWorkflowsLogsRouteImport.update({
     id: '/logs',
     path: '/logs',
+    getParentRoute: () => AuthenticatedWorkflowsRouteRoute,
+  } as any)
+const AuthenticatedWorkflowsInstancesRoute =
+  AuthenticatedWorkflowsInstancesRouteImport.update({
+    id: '/instances',
+    path: '/instances',
+    getParentRoute: () => AuthenticatedWorkflowsRouteRoute,
+  } as any)
+const AuthenticatedWorkflowsDefinitionsRoute =
+  AuthenticatedWorkflowsDefinitionsRouteImport.update({
+    id: '/definitions',
+    path: '/definitions',
     getParentRoute: () => AuthenticatedWorkflowsRouteRoute,
   } as any)
 const AuthenticatedTasksSyncRoute = AuthenticatedTasksSyncRouteImport.update({
@@ -275,6 +311,12 @@ const AuthenticatedCoursesScheduleRoute =
     path: '/schedule',
     getParentRoute: () => AuthenticatedCoursesRoute,
   } as any)
+const AuthenticatedWorkflowsDefinitionsDefinitionIdRoute =
+  AuthenticatedWorkflowsDefinitionsDefinitionIdRouteImport.update({
+    id: '/$definitionId',
+    path: '/$definitionId',
+    getParentRoute: () => AuthenticatedWorkflowsDefinitionsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/clerk': typeof ClerkAuthenticatedRouteRouteWithChildren
@@ -305,8 +347,13 @@ export interface FileRoutesByFullPath {
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/tasks/settings': typeof AuthenticatedTasksSettingsRoute
   '/tasks/sync': typeof AuthenticatedTasksSyncRoute
+  '/workflows/definitions': typeof AuthenticatedWorkflowsDefinitionsRouteWithChildren
+  '/workflows/instances': typeof AuthenticatedWorkflowsInstancesRoute
   '/workflows/logs': typeof AuthenticatedWorkflowsLogsRoute
+  '/workflows/quick-test': typeof AuthenticatedWorkflowsQuickTestRoute
   '/workflows/schedules': typeof AuthenticatedWorkflowsSchedulesRoute
+  '/workflows/test': typeof AuthenticatedWorkflowsTestRoute
+  '/workflows/visualization-demo': typeof AuthenticatedWorkflowsVisualizationDemoRoute
   '/clerk/sign-in': typeof ClerkauthSignInRoute
   '/clerk/sign-up': typeof ClerkauthSignUpRoute
   '/clerk/user-management': typeof ClerkAuthenticatedUserManagementRoute
@@ -317,6 +364,7 @@ export interface FileRoutesByFullPath {
   '/tasks/': typeof AuthenticatedTasksIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
   '/workflows/': typeof AuthenticatedWorkflowsIndexRoute
+  '/workflows/definitions/$definitionId': typeof AuthenticatedWorkflowsDefinitionsDefinitionIdRoute
 }
 export interface FileRoutesByTo {
   '/clerk': typeof ClerkAuthenticatedRouteRouteWithChildren
@@ -343,8 +391,13 @@ export interface FileRoutesByTo {
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/tasks/settings': typeof AuthenticatedTasksSettingsRoute
   '/tasks/sync': typeof AuthenticatedTasksSyncRoute
+  '/workflows/definitions': typeof AuthenticatedWorkflowsDefinitionsRouteWithChildren
+  '/workflows/instances': typeof AuthenticatedWorkflowsInstancesRoute
   '/workflows/logs': typeof AuthenticatedWorkflowsLogsRoute
+  '/workflows/quick-test': typeof AuthenticatedWorkflowsQuickTestRoute
   '/workflows/schedules': typeof AuthenticatedWorkflowsSchedulesRoute
+  '/workflows/test': typeof AuthenticatedWorkflowsTestRoute
+  '/workflows/visualization-demo': typeof AuthenticatedWorkflowsVisualizationDemoRoute
   '/clerk/sign-in': typeof ClerkauthSignInRoute
   '/clerk/sign-up': typeof ClerkauthSignUpRoute
   '/clerk/user-management': typeof ClerkAuthenticatedUserManagementRoute
@@ -355,6 +408,7 @@ export interface FileRoutesByTo {
   '/tasks': typeof AuthenticatedTasksIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
   '/workflows': typeof AuthenticatedWorkflowsIndexRoute
+  '/workflows/definitions/$definitionId': typeof AuthenticatedWorkflowsDefinitionsDefinitionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -388,8 +442,13 @@ export interface FileRoutesById {
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/_authenticated/tasks/settings': typeof AuthenticatedTasksSettingsRoute
   '/_authenticated/tasks/sync': typeof AuthenticatedTasksSyncRoute
+  '/_authenticated/workflows/definitions': typeof AuthenticatedWorkflowsDefinitionsRouteWithChildren
+  '/_authenticated/workflows/instances': typeof AuthenticatedWorkflowsInstancesRoute
   '/_authenticated/workflows/logs': typeof AuthenticatedWorkflowsLogsRoute
+  '/_authenticated/workflows/quick-test': typeof AuthenticatedWorkflowsQuickTestRoute
   '/_authenticated/workflows/schedules': typeof AuthenticatedWorkflowsSchedulesRoute
+  '/_authenticated/workflows/test': typeof AuthenticatedWorkflowsTestRoute
+  '/_authenticated/workflows/visualization-demo': typeof AuthenticatedWorkflowsVisualizationDemoRoute
   '/clerk/(auth)/sign-in': typeof ClerkauthSignInRoute
   '/clerk/(auth)/sign-up': typeof ClerkauthSignUpRoute
   '/clerk/_authenticated/user-management': typeof ClerkAuthenticatedUserManagementRoute
@@ -400,6 +459,7 @@ export interface FileRoutesById {
   '/_authenticated/tasks/': typeof AuthenticatedTasksIndexRoute
   '/_authenticated/users/': typeof AuthenticatedUsersIndexRoute
   '/_authenticated/workflows/': typeof AuthenticatedWorkflowsIndexRoute
+  '/_authenticated/workflows/definitions/$definitionId': typeof AuthenticatedWorkflowsDefinitionsDefinitionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -432,8 +492,13 @@ export interface FileRouteTypes {
     | '/settings/notifications'
     | '/tasks/settings'
     | '/tasks/sync'
+    | '/workflows/definitions'
+    | '/workflows/instances'
     | '/workflows/logs'
+    | '/workflows/quick-test'
     | '/workflows/schedules'
+    | '/workflows/test'
+    | '/workflows/visualization-demo'
     | '/clerk/sign-in'
     | '/clerk/sign-up'
     | '/clerk/user-management'
@@ -444,6 +509,7 @@ export interface FileRouteTypes {
     | '/tasks/'
     | '/users'
     | '/workflows/'
+    | '/workflows/definitions/$definitionId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/clerk'
@@ -470,8 +536,13 @@ export interface FileRouteTypes {
     | '/settings/notifications'
     | '/tasks/settings'
     | '/tasks/sync'
+    | '/workflows/definitions'
+    | '/workflows/instances'
     | '/workflows/logs'
+    | '/workflows/quick-test'
     | '/workflows/schedules'
+    | '/workflows/test'
+    | '/workflows/visualization-demo'
     | '/clerk/sign-in'
     | '/clerk/sign-up'
     | '/clerk/user-management'
@@ -482,6 +553,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/users'
     | '/workflows'
+    | '/workflows/definitions/$definitionId'
   id:
     | '__root__'
     | '/_authenticated'
@@ -514,8 +586,13 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/notifications'
     | '/_authenticated/tasks/settings'
     | '/_authenticated/tasks/sync'
+    | '/_authenticated/workflows/definitions'
+    | '/_authenticated/workflows/instances'
     | '/_authenticated/workflows/logs'
+    | '/_authenticated/workflows/quick-test'
     | '/_authenticated/workflows/schedules'
+    | '/_authenticated/workflows/test'
+    | '/_authenticated/workflows/visualization-demo'
     | '/clerk/(auth)/sign-in'
     | '/clerk/(auth)/sign-up'
     | '/clerk/_authenticated/user-management'
@@ -526,6 +603,7 @@ export interface FileRouteTypes {
     | '/_authenticated/tasks/'
     | '/_authenticated/users/'
     | '/_authenticated/workflows/'
+    | '/_authenticated/workflows/definitions/$definitionId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -765,6 +843,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClerkauthSignInRouteImport
       parentRoute: typeof ClerkauthRouteRoute
     }
+    '/_authenticated/workflows/visualization-demo': {
+      id: '/_authenticated/workflows/visualization-demo'
+      path: '/visualization-demo'
+      fullPath: '/workflows/visualization-demo'
+      preLoaderRoute: typeof AuthenticatedWorkflowsVisualizationDemoRouteImport
+      parentRoute: typeof AuthenticatedWorkflowsRouteRoute
+    }
+    '/_authenticated/workflows/test': {
+      id: '/_authenticated/workflows/test'
+      path: '/test'
+      fullPath: '/workflows/test'
+      preLoaderRoute: typeof AuthenticatedWorkflowsTestRouteImport
+      parentRoute: typeof AuthenticatedWorkflowsRouteRoute
+    }
     '/_authenticated/workflows/schedules': {
       id: '/_authenticated/workflows/schedules'
       path: '/schedules'
@@ -772,11 +864,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedWorkflowsSchedulesRouteImport
       parentRoute: typeof AuthenticatedWorkflowsRouteRoute
     }
+    '/_authenticated/workflows/quick-test': {
+      id: '/_authenticated/workflows/quick-test'
+      path: '/quick-test'
+      fullPath: '/workflows/quick-test'
+      preLoaderRoute: typeof AuthenticatedWorkflowsQuickTestRouteImport
+      parentRoute: typeof AuthenticatedWorkflowsRouteRoute
+    }
     '/_authenticated/workflows/logs': {
       id: '/_authenticated/workflows/logs'
       path: '/logs'
       fullPath: '/workflows/logs'
       preLoaderRoute: typeof AuthenticatedWorkflowsLogsRouteImport
+      parentRoute: typeof AuthenticatedWorkflowsRouteRoute
+    }
+    '/_authenticated/workflows/instances': {
+      id: '/_authenticated/workflows/instances'
+      path: '/instances'
+      fullPath: '/workflows/instances'
+      preLoaderRoute: typeof AuthenticatedWorkflowsInstancesRouteImport
+      parentRoute: typeof AuthenticatedWorkflowsRouteRoute
+    }
+    '/_authenticated/workflows/definitions': {
+      id: '/_authenticated/workflows/definitions'
+      path: '/definitions'
+      fullPath: '/workflows/definitions'
+      preLoaderRoute: typeof AuthenticatedWorkflowsDefinitionsRouteImport
       parentRoute: typeof AuthenticatedWorkflowsRouteRoute
     }
     '/_authenticated/tasks/sync': {
@@ -835,6 +948,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCoursesScheduleRouteImport
       parentRoute: typeof AuthenticatedCoursesRoute
     }
+    '/_authenticated/workflows/definitions/$definitionId': {
+      id: '/_authenticated/workflows/definitions/$definitionId'
+      path: '/$definitionId'
+      fullPath: '/workflows/definitions/$definitionId'
+      preLoaderRoute: typeof AuthenticatedWorkflowsDefinitionsDefinitionIdRouteImport
+      parentRoute: typeof AuthenticatedWorkflowsDefinitionsRoute
+    }
   }
 }
 
@@ -861,16 +981,43 @@ const AuthenticatedSettingsRouteRouteWithChildren =
     AuthenticatedSettingsRouteRouteChildren,
   )
 
+interface AuthenticatedWorkflowsDefinitionsRouteChildren {
+  AuthenticatedWorkflowsDefinitionsDefinitionIdRoute: typeof AuthenticatedWorkflowsDefinitionsDefinitionIdRoute
+}
+
+const AuthenticatedWorkflowsDefinitionsRouteChildren: AuthenticatedWorkflowsDefinitionsRouteChildren =
+  {
+    AuthenticatedWorkflowsDefinitionsDefinitionIdRoute:
+      AuthenticatedWorkflowsDefinitionsDefinitionIdRoute,
+  }
+
+const AuthenticatedWorkflowsDefinitionsRouteWithChildren =
+  AuthenticatedWorkflowsDefinitionsRoute._addFileChildren(
+    AuthenticatedWorkflowsDefinitionsRouteChildren,
+  )
+
 interface AuthenticatedWorkflowsRouteRouteChildren {
+  AuthenticatedWorkflowsDefinitionsRoute: typeof AuthenticatedWorkflowsDefinitionsRouteWithChildren
+  AuthenticatedWorkflowsInstancesRoute: typeof AuthenticatedWorkflowsInstancesRoute
   AuthenticatedWorkflowsLogsRoute: typeof AuthenticatedWorkflowsLogsRoute
+  AuthenticatedWorkflowsQuickTestRoute: typeof AuthenticatedWorkflowsQuickTestRoute
   AuthenticatedWorkflowsSchedulesRoute: typeof AuthenticatedWorkflowsSchedulesRoute
+  AuthenticatedWorkflowsTestRoute: typeof AuthenticatedWorkflowsTestRoute
+  AuthenticatedWorkflowsVisualizationDemoRoute: typeof AuthenticatedWorkflowsVisualizationDemoRoute
   AuthenticatedWorkflowsIndexRoute: typeof AuthenticatedWorkflowsIndexRoute
 }
 
 const AuthenticatedWorkflowsRouteRouteChildren: AuthenticatedWorkflowsRouteRouteChildren =
   {
+    AuthenticatedWorkflowsDefinitionsRoute:
+      AuthenticatedWorkflowsDefinitionsRouteWithChildren,
+    AuthenticatedWorkflowsInstancesRoute: AuthenticatedWorkflowsInstancesRoute,
     AuthenticatedWorkflowsLogsRoute: AuthenticatedWorkflowsLogsRoute,
+    AuthenticatedWorkflowsQuickTestRoute: AuthenticatedWorkflowsQuickTestRoute,
     AuthenticatedWorkflowsSchedulesRoute: AuthenticatedWorkflowsSchedulesRoute,
+    AuthenticatedWorkflowsTestRoute: AuthenticatedWorkflowsTestRoute,
+    AuthenticatedWorkflowsVisualizationDemoRoute:
+      AuthenticatedWorkflowsVisualizationDemoRoute,
     AuthenticatedWorkflowsIndexRoute: AuthenticatedWorkflowsIndexRoute,
   }
 

@@ -1,6 +1,10 @@
 // @stratix/icasync 课程日历映射仓储
 import { Logger } from '@stratix/core';
-import type { DatabaseAPI, DatabaseResult } from '@stratix/database';
+import type {
+  DatabaseAPI,
+  DatabaseResult,
+  QueryOptions
+} from '@stratix/database';
 import { DatabaseErrorHandler } from '@stratix/database';
 import type {
   CalendarMapping,
@@ -8,6 +12,21 @@ import type {
   NewCalendarMapping
 } from '../types/database.js';
 import { BaseIcasyncRepository } from './base/BaseIcasyncRepository.js';
+
+/**
+ * 将JavaScript Date转换为MySQL datetime格式
+ * @param date Date对象或null
+ * @returns MySQL兼容的datetime字符串或null
+ */
+function toMySQLDateTime(date: Date | null): string | null {
+  if (!date) return null;
+
+  // 转换为MySQL datetime格式: YYYY-MM-DD HH:MM:SS
+  return date
+    .toISOString()
+    .replace('T', ' ')
+    .replace(/\.\d{3}Z$/, '');
+}
 
 /**
  * 课程日历映射仓储接口
@@ -37,6 +56,10 @@ export interface ICalendarMappingRepository {
     calendarId: string
   ): Promise<DatabaseResult<CalendarMapping | null>>;
   findByXnxq(xnxq: string): Promise<DatabaseResult<CalendarMapping[]>>;
+  findByXnxqWithOptions(
+    xnxq: string,
+    options?: QueryOptions
+  ): Promise<DatabaseResult<CalendarMapping[]>>;
   findByXnxqWithStatus(
     xnxq: string,
     statuses: string[],
@@ -90,7 +113,7 @@ export default class CalendarMappingRepository
     return await DatabaseErrorHandler.execute(async () => {
       const result = await this.updateNullable(id, {
         is_deleted: true,
-        deleted_at: new Date().toISOString()
+        deleted_at: toMySQLDateTime(new Date())
       });
 
       return result.success && result.data !== null;
@@ -194,6 +217,21 @@ export default class CalendarMappingRepository
 
     return await this.findMany((qb: any) =>
       qb.where('xnxq', '=', xnxq).where('is_deleted', '=', false)
+    );
+  }
+
+  /**
+   * 根据学年学期查找日历映射列表（支持排序和其他查询选项）
+   */
+  async findByXnxqWithOptions(
+    xnxq: string,
+    options?: QueryOptions
+  ): Promise<DatabaseResult<CalendarMapping[]>> {
+    this.validateXnxq(xnxq);
+
+    return await this.findMany(
+      (qb: any) => qb.where('xnxq', '=', xnxq).where('is_deleted', '=', false),
+      options
     );
   }
 
@@ -311,7 +349,7 @@ export default class CalendarMappingRepository
 
       const updateResult = await this.updateNullable(mapping.data.id, {
         is_deleted: true,
-        deleted_at: new Date().toISOString()
+        deleted_at: toMySQLDateTime(new Date())
       });
 
       return updateResult.success && updateResult.data !== null;

@@ -15,9 +15,21 @@ import { registerTaskExecutor } from './registerTask.js';
 export * from './interfaces/index.js';
 export * from './types/index.js';
 
+// 导出输入验证相关类型
+export type {
+  InputProcessingOptions,
+  InputValidationError,
+  InputValidationReport,
+  InputValidationResult
+} from './types/input-validation.js';
+
 // 导出新架构的服务类
+export type { ITemplateService } from './interfaces/services.js';
 export { default as ExecutionLockService } from './services/ExecutionLockService.js';
+export { default as InputValidationService } from './services/InputValidationService.js';
 export { default as NodeExecutionService } from './services/NodeExecutionService.js';
+export { default as TemplateService } from './services/TemplateService.js';
+export { default as VariableContextService } from './services/VariableContextService.js';
 export { default as WorkflowExecutionService } from './services/WorkflowExecutionService.js';
 export { default as WorkflowInstanceService } from './services/WorkflowInstanceService.js';
 
@@ -31,9 +43,16 @@ export { default as WorkflowInstanceRepository } from './repositories/WorkflowIn
 // 导出适配器类
 export { default as TasksWorkflowAdapter } from './adapters/TasksWorkflowAdapter.js';
 
-// 导出调度器服务
-export { default as SchedulerService } from './services/SchedulerService.js';
+// 导出调度器服务 (已优化为事件驱动架构)
+// OptimizedSchedulerService 不再单独导出，通过SchedulerService使用
 
+// 导出工作流定义服务
+export { default as WorkflowDefinitionService } from './services/WorkflowDefinitionService.js';
+
+export type { ITasksWorkflowAdapter } from './interfaces/adapters.js';
+
+export type { TaskExecutor } from './registerTask.js';
+export type { ExecutionContext } from './types/workflow.js';
 /**
  * 插件配置接口
  */
@@ -68,7 +87,7 @@ export interface TasksPluginOptions extends FastifyPluginOptions {
     /** 是否启用调度器 */
     enabled?: boolean;
     /** 调度间隔（毫秒） */
-    interval?: number;
+    recoveryCheckInterval?: number;
     /** 最大并发任务数 */
     maxConcurrency?: number;
   };
@@ -112,36 +131,21 @@ export interface TasksPluginOptions extends FastifyPluginOptions {
     /** 最大恢复尝试次数 */
     maxAttempts?: number;
   };
-}
 
-/**
- * 默认插件配置（暂时保留用于未来扩展）
- */
-// const DEFAULT_OPTIONS: Required<TasksPluginOptions> = {
-//   database: {
-//     autoMigrate: isDevelopment(),
-//     connectionName: 'default'
-//   },
-//   executors: {
-//     enableBuiltIn: true,
-//     customPath: './executors'
-//   },
-//   scheduler: {
-//     enabled: true,
-//     interval: 1000,
-//     maxConcurrency: 100
-//   },
-//   monitoring: {
-//     enabled: true,
-//     metricsInterval: 30000,
-//     logLevel: isDevelopment() ? 'debug' : 'info'
-//   },
-//   api: {
-//     enabled: true,
-//     prefix: '/api/workflows',
-//     docs: isDevelopment()
-//   }
-// };
+  /** 锁续期配置 */
+  lockRenewal?: {
+    /** 是否启用自动续期 */
+    enabled?: boolean;
+    /** 续期间隔（毫秒），建议设置为锁超时时间的20-30% */
+    renewalInterval?: number;
+    /** 每次续期延长的时间（毫秒） */
+    lockExtension?: number;
+    /** 最大续期重试次数 */
+    maxRetryAttempts?: number;
+    /** 续期失败后的重试间隔（毫秒） */
+    retryInterval?: number;
+  };
+}
 
 /**
  * Tasks 插件主函数
@@ -169,6 +173,7 @@ async function tasks(
         lifetime: Lifetime.SINGLETON
       })
     });
+
     // 将注册函数添加到 fastify 实例上，供其他插件使用
     fastify.decorate('registerTaskExecutor', registerTaskExecutor);
     // API路由注册已移除 - 由具体应用层负责路由注册
@@ -241,14 +246,8 @@ function processPluginParameters<T = TasksPluginOptions>(options: T): T {
     // 调度器配置增强
     scheduler: {
       enabled: true,
-      interval: 1000,
-      maxConcurrency: 100,
-      // 继承执行器的默认参数
-      executorDefaults: {
-        timeout: DEFAULT_EXECUTOR_PARAMETERS.timeout,
-        maxRetries: DEFAULT_EXECUTOR_PARAMETERS.maxRetries,
-        retryDelay: DEFAULT_EXECUTOR_PARAMETERS.retryDelay
-      }
+      recoveryCheckInterval: 600000,
+      maxConcurrency: 10
     },
 
     // 并发控制配置
@@ -330,6 +329,15 @@ function processPluginParameters<T = TasksPluginOptions>(options: T): T {
         statePreservation: true,
         automaticRestart: true
       }
+    },
+
+    // 锁续期配置增强
+    lockRenewal: {
+      enabled: true,
+      renewalInterval: 120000, // 1分钟续期间隔（锁超时时间的20%）
+      lockExtension: 300000, // 5分钟锁延长时间（重新设置完整锁时间）
+      maxRetryAttempts: 3, // 最大重试3次（提供容错能力）
+      retryInterval: 10000 // 10秒重试间隔（避免频繁重试）
     }
   };
 

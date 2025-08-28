@@ -2,7 +2,6 @@ import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { IconMailPlus, IconSend } from '@tabler/icons-react'
-import { showSubmittedData } from '@/utils/show-submitted-data'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -49,7 +48,8 @@ export function UsersInviteDialog({ open, onOpenChange }: Props) {
 
   const onSubmit = (values: UserInviteForm) => {
     form.reset()
-    showSubmittedData(values)
+    // TODO: 实现实际的用户邀请逻辑
+    console.log('用户邀请数据:', values)
     onOpenChange(false)
   }
 

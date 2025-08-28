@@ -21,7 +21,7 @@ export const ToastProvider = ({ children }: { children: React.ReactNode }) => {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const addToast = useCallback((toast: Omit<Toast, 'id'>) => {
-    const id = Math.random().toString(36).substr(2, 9);
+    const id = Math.random().toString(36).substring(2, 11);
     const newToast = { ...toast, id };
 
     setToasts((prev) => [...prev, newToast]);
@@ -97,6 +97,7 @@ const ToastComponent = ({ toast }: { toast: Toast }) => {
           )}
         </div>
         <button
+          type='button'
           onClick={() => removeToast(toast.id)}
           className='text-lg leading-none opacity-70 transition-opacity hover:opacity-100'
         >

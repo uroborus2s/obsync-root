@@ -313,7 +313,7 @@ export function Approval() {
   ) => {
     try {
       // 构建图片URL
-      const imageUrl = `/api/attendance/attachments/${attachmentId}/image`;
+      const imageUrl = `/api/icalink/v1/attendance/attachments/${attachmentId}/image`;
 
       // 在模态框中显示图片
       setImageModal({

@@ -162,6 +162,13 @@ export class ApplicationBootstrap {
         `✅ Stratix application bootstrapped successfully in ${duration}ms`
       );
 
+      // 触发应用启动后的生命周期钩子
+      if (config.hooks?.beforeClose) {
+        this.addShutdownHandler(async () => {
+          await config.hooks?.beforeClose?.(fastifyInstance);
+        });
+      }
+
       // 12. 创建应用实例 - 确保日志器统一性
       const application: StratixApplication = {
         fastify: fastifyInstance as any,
@@ -375,23 +382,56 @@ export class ApplicationBootstrap {
             `必需的环境变量文件不存在: ${resolve(rootDir, `.env`)}`
           );
         }
-        // 尝试加载每个可能的环境变量文件 - 注意加载顺序
-        // envFiles数组是按优先级从低到高排序的，后面加载的会覆盖前面的
+        // 收集所有环境变量，实现正确的优先级覆盖
+        const allEnvVars: Record<string, string> = {};
+
+        // 按优先级顺序解析文件（从低到高优先级）
+        // 后加载的文件中的配置项会覆盖先加载文件中的同名配置项
         for (const filePath of filesToLoad) {
           if (!fs.existsSync(filePath)) {
             this.logger.debug(`环境变量文件不存在: ${filePath}`);
             continue;
           }
 
-          this.logger.debug(`加载环境变量文件: ${filePath}`);
+          try {
+            this.logger.debug(`解析环境变量文件: ${filePath}`);
 
-          // 使用dotenv加载文件
-          const result = dotenv.config({
-            path: filePath,
-            override // 控制是否覆盖系统环境变量
-          });
-          // 扩展变量引用，如 DB_HOST=${HOST}
-          dotenvExpand.expand(result);
+            // 读取文件内容并解析
+            const fileContent = fs.readFileSync(filePath, 'utf8');
+            const parsed = dotenv.parse(fileContent);
+
+            // 记录解析结果
+            const parsedCount = Object.keys(parsed).length;
+            this.logger.debug(`从 ${filePath} 解析到 ${parsedCount} 个变量`);
+
+            // 合并到总配置中，后加载的覆盖先加载的
+            // 这里实现了真正的优先级覆盖机制
+            Object.assign(allEnvVars, parsed);
+          } catch (error) {
+            this.logger.warn(`解析环境变量文件失败: ${filePath}`, error);
+            // 继续处理其他文件，不中断整个流程
+          }
+        }
+
+        // 记录最终合并结果
+        const totalVarsCount = Object.keys(allEnvVars).length;
+        this.logger.debug(`环境变量合并完成，共 ${totalVarsCount} 个变量`);
+
+        // 设置到 process.env，根据 override 参数决定是否覆盖系统环境变量
+        for (const [key, value] of Object.entries(allEnvVars)) {
+          if (override || !(key in process.env)) {
+            process.env[key] = value;
+          }
+        }
+
+        // 在所有文件解析完成后，统一进行变量扩展
+        // 这样可以确保变量引用关系的正确性
+        const expandResult = dotenvExpand.expand({ parsed: allEnvVars });
+
+        if (expandResult.error) {
+          this.logger.warn('变量扩展过程中出现错误:', expandResult.error);
+        } else {
+          this.logger.debug('变量扩展完成');
         }
       }
 

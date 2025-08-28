@@ -228,7 +228,7 @@ export abstract class BaseDialect {
   protected getDefaultPoolConfig() {
     return {
       min: 1,
-      max: 10,
+      max: 20,
       acquireTimeoutMillis: 60000,
       createTimeoutMillis: 30000,
       destroyTimeoutMillis: 5000,
