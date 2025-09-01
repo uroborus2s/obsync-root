@@ -38,7 +38,7 @@ export function CourseAttendanceTab() {
     useState<CourseAttendanceDetail | null>(null)
   const [loading, setLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedSemester, setSelectedSemester] = useState<string>('')
+  const [selectedSemester, setSelectedSemester] = useState<string>('all')
 
   const fetchCourses = useCallback(async () => {
     try {
@@ -46,7 +46,7 @@ export function CourseAttendanceTab() {
       const response = await attendanceApi.getCourseAttendanceRecords({
         page: 1,
         page_size: 20,
-        xnxq: selectedSemester || undefined,
+        xnxq: selectedSemester === 'all' ? undefined : selectedSemester,
       })
       if (response.success && response.data) {
         setCourses(response.data.items)
@@ -109,7 +109,7 @@ export function CourseAttendanceTab() {
             <SelectValue placeholder='选择学期' />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value=''>全部学期</SelectItem>
+            <SelectItem value='all'>全部学期</SelectItem>
             <SelectItem value='2024-2025-1'>2024-2025第一学期</SelectItem>
             <SelectItem value='2024-2025-2'>2024-2025第二学期</SelectItem>
           </SelectContent>

@@ -1,10 +1,9 @@
 /**
  * 用户信息管理Hook
  */
-
-import { useState, useEffect, useCallback } from 'react'
-import type { AuthState, UserInfo } from '@/types/user.types'
-import { parseUserFromCookie, clearJWTCookie } from '@/utils/jwt.utils'
+import { useCallback, useEffect, useState } from 'react'
+import type { AuthState } from '@/types/user.types'
+import { clearJWTCookie, parseUserFromCookie } from '@/utils/jwt.utils'
 
 /**
  * 用户信息管理Hook
@@ -21,7 +20,7 @@ export function useUser() {
    * 加载用户信息
    */
   const loadUser = useCallback(() => {
-    setAuthState(prev => ({ ...prev, loading: true, error: null }))
+    setAuthState((prev) => ({ ...prev, loading: true, error: null }))
 
     try {
       const result = parseUserFromCookie()
@@ -79,16 +78,22 @@ export function useUser() {
   /**
    * 检查用户是否有特定权限
    */
-  const hasPermission = useCallback((permission: string): boolean => {
-    return authState.user?.permissions.includes(permission as any) || false
-  }, [authState.user])
+  const hasPermission = useCallback(
+    (permission: string): boolean => {
+      return authState.user?.permissions.includes(permission as any) || false
+    },
+    [authState.user]
+  )
 
   /**
    * 检查用户是否有特定角色
    */
-  const hasRole = useCallback((role: string): boolean => {
-    return authState.user?.roles.includes(role as any) || false
-  }, [authState.user])
+  const hasRole = useCallback(
+    (role: string): boolean => {
+      return authState.user?.roles.includes(role as any) || false
+    },
+    [authState.user]
+  )
 
   /**
    * 获取用户显示名称
@@ -110,7 +115,7 @@ export function useUser() {
    */
   const getRoleDisplayText = useCallback((): string => {
     if (!authState.user || !authState.user.roles.length) return '未知角色'
-    
+
     const roleMap: Record<string, string> = {
       teacher: '教师',
       student: '学生',
@@ -119,9 +124,7 @@ export function useUser() {
       super_admin: '超级管理员',
     }
 
-    return authState.user.roles
-      .map(role => roleMap[role] || role)
-      .join(', ')
+    return authState.user.roles.map((role) => roleMap[role] || role).join(', ')
   }, [authState.user])
 
   /**
@@ -129,7 +132,7 @@ export function useUser() {
    */
   const getUserTypeDisplayText = useCallback((): string => {
     if (!authState.user) return '未知类型'
-    
+
     const typeMap: Record<string, string> = {
       teacher: '教师',
       student: '学生',
@@ -153,7 +156,7 @@ export function useUser() {
 
     // 监听storage事件（虽然Cookie不会触发，但可以用于其他同步机制）
     window.addEventListener('storage', handleStorageChange)
-    
+
     // 监听focus事件，当页面重新获得焦点时检查用户状态
     window.addEventListener('focus', handleStorageChange)
 
@@ -166,14 +169,14 @@ export function useUser() {
   return {
     // 状态
     ...authState,
-    
+
     // 方法
     loadUser,
     logout,
     refreshUser,
     hasPermission,
     hasRole,
-    
+
     // 辅助方法
     getDisplayName,
     getAvatar,

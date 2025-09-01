@@ -12,20 +12,23 @@ export class LocationHelper {
     return new Promise((resolve, reject) => {
       // 检查是否在WPS环境中
       if (typeof window !== 'undefined' && window.ksoxz_sdk) {
+        console.log('WPS SDK已加载', window.ksoxz_sdk);
         console.log('🔍 使用WPS JSAPI获取位置...');
 
-        window.ksoxz_sdk.getLocationInfo({
-          type: 'gcj02', // 使用gcj02坐标系
-          onSuccess: (data: LocationInfo) => {
-            console.log('📍 WPS JSAPI获取位置成功:', data);
-            resolve(data);
-          },
-          onError: (error: unknown) => {
-            console.error('❌ WPS JSAPI获取位置失败:', error);
-            // 如果WPS API失败，尝试使用浏览器API
-            this.getBrowserLocation().then(resolve).catch(reject);
-          }
-        });
+        // 如果WPS API失败，尝试使用浏览器API
+        this.getBrowserLocation().then(resolve).catch(reject);
+
+        // window.ksoxz_sdk.getLocationInfo({
+        //   onSuccess: (data: LocationInfo) => {
+        //     console.log('📍 WPS JSAPI获取位置成功:', data);
+        //     resolve(data);
+        //   },
+        //   onError: (error: unknown) => {
+        //     console.error('❌ WPS JSAPI获取位置失败:', error);
+        //     // 如果WPS API失败，尝试使用浏览器API
+        //     this.getBrowserLocation().then(resolve).catch(reject);
+        //   }
+        // });
       } else {
         console.log('🔍 使用浏览器原生API获取位置...');
         this.getBrowserLocation().then(resolve).catch(reject);

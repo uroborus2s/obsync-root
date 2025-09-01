@@ -509,7 +509,7 @@ export class AttendanceApiService {
     attendanceId: string
   ): Promise<StudentAttendanceSearchResponse> {
     const response = await this.apiClient.get(
-      `/api/icalink/v1/attendance/${attendanceId}/record?type=student`
+      `/icalink/v1/courses/external/${encodeURIComponent(attendanceId)}/complete?type=student`
     );
     return {
       success: !!response.success,
@@ -525,7 +525,7 @@ export class AttendanceApiService {
     attendanceId: string
   ): Promise<TeacherAttendanceRecordResponse> {
     const response = await this.apiClient.get(
-      `/api/icalink/v1/attendance/${attendanceId}/record?type=teacher`
+      `/icalink/v1/attendance/${attendanceId}/record?type=teacher`
     );
     return response.data;
   }
@@ -538,7 +538,7 @@ export class AttendanceApiService {
     request: StudentCheckInRequest
   ): Promise<StudentCheckInResponse> {
     const response = await this.apiClient.post(
-      `/api/icalink/v1/attendance/${encodeURIComponent(attendanceRecordId)}/checkin`,
+      `/icalink/v1/attendance/${encodeURIComponent(attendanceRecordId)}/checkin`,
       request
     );
     return {
@@ -555,7 +555,7 @@ export class AttendanceApiService {
     request: StudentLeaveRequest
   ): Promise<StudentLeaveResponse> {
     const response = await this.apiClient.post(
-      '/api/icalink/v1/attendance/leave',
+      '/icalink/v1/leave-applications',
       request
     );
     return {
@@ -628,7 +628,7 @@ export class AttendanceApiService {
     request: TeacherApprovalRequest
   ): Promise<TeacherApprovalResponse> {
     const response = await this.apiClient.post(
-      '/api/icalink/v1/attendance/teacher-approve-leave',
+      '/icalink/v1/attendance/teacher-approve-leave',
       request
     );
     return response as unknown as TeacherApprovalResponse;
@@ -641,7 +641,7 @@ export class AttendanceApiService {
     attachmentId: string
   ): Promise<AttachmentViewResponse> {
     const response = await this.apiClient.get(
-      `/api/icalink/v1/attendance/attachments/${attachmentId}/view`
+      `/icalink/v1/attendance/attachments/${attachmentId}/view`
     );
     return response.data;
   }
@@ -651,7 +651,7 @@ export class AttendanceApiService {
    */
   async downloadLeaveAttachment(attachmentId: string): Promise<Blob> {
     const response = await fetch(
-      `${this.apiClient['baseUrl']}/api/icalink/v1/attendance/attachments/${attachmentId}/download`,
+      `${this.apiClient['baseUrl']}/icalink/v1/attendance/attachments/${attachmentId}/download`,
       {
         headers: {
           Authorization: `Bearer ${await this.getAccessToken()}`
@@ -748,13 +748,23 @@ export class AttendanceApiService {
    * 学生撤回请假申请
    */
   async studentWithdrawLeave(
-    request: StudentWithdrawLeaveRequest
+    applicationId: string
   ): Promise<StudentWithdrawLeaveResponse> {
     const response = await this.apiClient.post<StudentWithdrawLeaveResponse>(
-      '/api/icalink/v1/attendance/withdraw-leave',
-      request
+      `/icalink/v1/leave-applications/${applicationId}/withdraw`,
+      {} // 发送空对象作为请求体
     );
     return response as unknown as StudentWithdrawLeaveResponse;
+  }
+
+  /**
+   * 学生撤回请假申请（旧版本兼容）
+   * @deprecated 使用 studentWithdrawLeave(applicationId: string) 代替
+   */
+  async studentWithdrawLeaveByAttendanceId(): Promise<StudentWithdrawLeaveResponse> {
+    // 需要先通过attendance_record_id查找对应的leave application
+    // 这里需要调用查询接口来获取application_id
+    throw new Error('此方法已废弃，请使用新的撤回请假接口');
   }
 }
 

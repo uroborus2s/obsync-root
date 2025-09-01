@@ -4,7 +4,6 @@ import type {
   BatchCreateSchedulesParams,
   BatchCreateSchedulesResponse,
   CreateScheduleParams,
-  CreateScheduleResponse,
   DeleteScheduleParams,
   GetScheduleListParams,
   GetScheduleListResponse,
@@ -19,7 +18,7 @@ import type {
  */
 export interface WpsScheduleAdapter {
   // 核心日程管理功能
-  createSchedule(params: CreateScheduleParams): Promise<CreateScheduleResponse>;
+  createSchedule(params: CreateScheduleParams): Promise<ScheduleInfo>;
   batchCreateSchedules(
     params: BatchCreateSchedulesParams
   ): Promise<BatchCreateSchedulesResponse>;
@@ -44,13 +43,11 @@ export function createWpsScheduleAdapter(
     /**
      * 创建日程
      */
-    async createSchedule(
-      params: CreateScheduleParams
-    ): Promise<CreateScheduleResponse> {
+    async createSchedule(params: CreateScheduleParams): Promise<ScheduleInfo> {
       await httpClient.ensureAccessToken();
       const { calendar_id, ...eventData } = params;
 
-      const response = await httpClient.post<CreateScheduleResponse>(
+      const response = await httpClient.post<ScheduleInfo>(
         `/v7/calendars/${calendar_id}/events/create`,
         eventData
       );
@@ -105,9 +102,11 @@ export function createWpsScheduleAdapter(
       await httpClient.ensureAccessToken();
       const { calendar_id, ...queryParams } = params;
 
+      const headers = { 'X-Kso-Id-Type': 'external' };
       const response = await httpClient.get<GetScheduleListResponse>(
         `/v7/calendars/${calendar_id}/events`,
-        queryParams
+        queryParams,
+        headers
       );
       return response.data;
     },

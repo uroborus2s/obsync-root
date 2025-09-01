@@ -146,12 +146,24 @@ export function Approval() {
       }
 
       // 使用API服务调用
+      console.log('🔥 前端查询参数:', { activeTab, params });
       const response = await attendanceApi.getTeacherLeaveApplications(params);
       if (response.success && response.data) {
         // 如果API返回了特殊消息（通常是没有审批记录的情况），显示给用户
         if (response.message && response.data.total === 0) {
           setError(response.message);
         }
+
+        console.log('🔥 前端获取到申请数据:', {
+          activeTab,
+          total: response.data.total,
+          count: response.data.applications.length,
+          statuses: response.data.applications.map((app: any) => ({
+            id: app.id,
+            status: app.status,
+            student_name: app.student_name
+          }))
+        });
 
         // 转换数据格式以匹配我们的ApplicationItem接口
         const convertedApplications: ApplicationItem[] =
@@ -312,18 +324,149 @@ export function Approval() {
     fileName: string
   ) => {
     try {
-      // 构建图片URL
-      const imageUrl = `/api/icalink/v1/attendance/attachments/${attachmentId}/image`;
+      // 使用完整的API基础URL构建图片URL
+      const baseUrl =
+        import.meta.env.VITE_API_BASE_URL || 'http://localhost:8090/api';
+      const imageUrl = `${baseUrl}/icalink/v1/attendance/attachments/${attachmentId}/image`;
 
-      // 在模态框中显示图片
+      console.log('教师界面尝试查看附件:', {
+        attachmentId,
+        fileName,
+        imageUrl,
+        baseUrl
+      });
+
+      // 先测试图片是否可以访问
+      const response = await fetch(imageUrl, {
+        method: 'HEAD',
+        credentials: 'include' // 包含Cookie
+      });
+
+      console.log('教师界面HEAD请求响应:', {
+        status: response.status,
+        statusText: response.statusText,
+        contentType: response.headers.get('Content-Type'),
+        contentLength: response.headers.get('Content-Length'),
+        cacheControl: response.headers.get('Cache-Control')
+      });
+
+      if (!response.ok) {
+        console.error('教师界面附件访问失败:', {
+          status: response.status,
+          statusText: response.statusText,
+          url: imageUrl
+        });
+
+        if (response.status === 404) {
+          toast.error('附件不存在或已被删除');
+        } else if (response.status === 403) {
+          toast.error('没有权限查看此附件');
+        } else {
+          toast.error(`附件加载失败 (${response.status})`);
+        }
+        return;
+      }
+
+      // 直接获取blob数据并转换为Data URL
+      console.log('教师界面开始获取图片blob数据...');
+
+      const imageResponse = await fetch(imageUrl, {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (!imageResponse.ok) {
+        console.error('教师界面获取图片数据失败:', imageResponse.status);
+        toast.error('获取图片数据失败');
+        return;
+      }
+
+      // 检查响应Content-Type，判断是否是JSON格式的Buffer
+      const imageContentType = imageResponse.headers.get('Content-Type');
+      console.log('教师界面响应Content-Type:', imageContentType);
+
+      let blob: Blob;
+
+      if (imageContentType && imageContentType.includes('application/json')) {
+        // 处理JSON格式的Buffer数据
+        console.log('教师界面检测到JSON响应，解析Buffer数据...');
+        const jsonData = await imageResponse.json();
+
+        if (jsonData.type === 'Buffer' && Array.isArray(jsonData.data)) {
+          // 将数字数组转换为Uint8Array
+          const uint8Array = new Uint8Array(jsonData.data);
+          blob = new Blob([uint8Array], { type: 'image/png' });
+          console.log('教师界面成功从JSON Buffer创建blob:', {
+            originalSize: jsonData.data.length,
+            blobSize: blob.size,
+            type: blob.type
+          });
+        } else {
+          throw new Error('无效的Buffer JSON格式');
+        }
+      } else {
+        // 看起来是正常响应，但可能内容仍然是JSON格式的Buffer
+        // 先尝试作为文本读取，检查是否是JSON
+        const responseText = await imageResponse.text();
+
+        try {
+          // 尝试解析为JSON
+          const jsonData = JSON.parse(responseText);
+
+          if (jsonData.type === 'Buffer' && Array.isArray(jsonData.data)) {
+            // 确实是JSON格式的Buffer，即使Content-Type说是image/png
+            console.log(
+              '教师界面虽然Content-Type是image/png，但内容是JSON Buffer，进行转换...'
+            );
+            const uint8Array = new Uint8Array(jsonData.data);
+            blob = new Blob([uint8Array], { type: 'image/png' });
+            console.log('教师界面成功从伪装的JSON Buffer创建blob:', {
+              originalSize: jsonData.data.length,
+              blobSize: blob.size,
+              type: blob.type
+            });
+          } else {
+            throw new Error('不是有效的Buffer JSON格式');
+          }
+        } catch (parseError) {
+          // 不是JSON，说明真的是二进制数据，但已经被读取为文本了
+          // 需要重新获取
+          console.log('教师界面不是JSON，重新获取二进制数据...');
+          const newResponse = await fetch(imageUrl, {
+            method: 'GET',
+            credentials: 'include'
+          });
+          blob = await newResponse.blob();
+          console.log('教师界面获取到真正的blob数据:', {
+            size: blob.size,
+            type: blob.type
+          });
+        }
+      }
+
+      // 将blob转换为Data URL
+      const dataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(blob);
+      });
+
+      console.log('教师界面转换为Data URL成功，长度:', dataUrl.length);
+
+      // 使用Data URL显示图片
       setImageModal({
         isOpen: true,
-        imageUrl,
+        imageUrl: dataUrl,
         fileName
       });
+
+      console.log('教师界面附件查看成功:', {
+        fileName,
+        dataUrlLength: dataUrl.length
+      });
     } catch (error) {
-      console.error('查看附件失败:', error);
-      toast.error('查看附件失败');
+      console.error('教师界面查看附件失败:', error);
+      toast.error('查看附件失败，请稍后重试');
     }
   };
 
@@ -758,9 +901,17 @@ export function Approval() {
                 alt={imageModal.fileName}
                 className='mx-auto max-h-[70vh] max-w-full object-contain'
                 onError={(e) => {
-                  console.error('图片加载失败');
+                  console.error(
+                    '教师界面Data URL图片加载失败，这通常不应该发生:',
+                    imageModal.imageUrl.substring(0, 100) + '...'
+                  );
+                  // 显示错误占位图
                   e.currentTarget.src =
                     'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5YTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPuWbvueJh+WKoOi9veWksei0pTwvdGV4dD48L3N2Zz4=';
+                  toast.error('图片数据格式错误');
+                }}
+                onLoad={() => {
+                  console.log('教师界面Data URL图片加载成功');
                 }}
               />
             </div>

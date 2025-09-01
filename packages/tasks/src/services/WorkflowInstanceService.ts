@@ -551,11 +551,38 @@ export default class WorkflowInstanceService
   async findMany(
     filters?: QueryFilters,
     pagination?: PaginationOptions
-  ): Promise<ServiceResult<WorkflowInstance[]>> {
-    const result = await this.workflowInstanceRepository.findWithFilters({
+  ): Promise<
+    ServiceResult<{
+      items: WorkflowInstance[];
+      total: number;
+      page: number;
+      pageSize: number;
+      totalPages: number;
+      hasNext: boolean;
+      hasPrev: boolean;
+    }>
+  > {
+    // 添加调试日志
+    console.log(
+      '🔍 WorkflowInstanceService.findMany - Input filters:',
+      filters
+    );
+    console.log(
+      '🔍 WorkflowInstanceService.findMany - Input pagination:',
+      pagination
+    );
+
+    const repositoryParams = {
       ...filters,
       ...pagination
-    });
+    };
+    console.log(
+      '🔍 WorkflowInstanceService.findMany - Repository params:',
+      repositoryParams
+    );
+
+    const result =
+      await this.workflowInstanceRepository.findWithFilters(repositoryParams);
     if (!result.success) {
       return {
         success: false,
@@ -566,7 +593,15 @@ export default class WorkflowInstanceService
     }
     return {
       success: true,
-      data: result.data!.items.map((item) => this.mapToBusinessModel(item))
+      data: {
+        items: result.data!.items.map((item) => this.mapToBusinessModel(item)),
+        total: result.data!.total,
+        page: result.data!.page,
+        pageSize: result.data!.pageSize,
+        totalPages: result.data!.totalPages,
+        hasNext: result.data!.hasNext,
+        hasPrev: result.data!.hasPrev
+      }
     };
   }
 

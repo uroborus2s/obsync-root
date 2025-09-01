@@ -54,9 +54,6 @@ export function decodeStateFromBase64(encodedState: string): string {
   try {
     // 使用atob进行base64解码
     const decodedState = decodeURIComponent(atob(encodedState))
-    console.log('🔓 WPS认证配置: 状态参数解码')
-    console.log('  - 编码状态:', encodedState)
-    console.log('  - 解码后状态:', decodedState)
     return decodedState
   } catch (error) {
     console.error('❌ WPS认证配置: 状态参数解码失败', error)
@@ -75,14 +72,6 @@ export function buildWpsAuthUrl(state?: string): string {
 
   // 对状态参数进行base64编码，确保URL参数的安全传输
   const encodedState = encodeStateToBase64(finalState)
-
-  console.log('🔧 WPS认证配置: 构建授权URL参数')
-  console.log('  - appid:', WPS_AUTH_CONFIG.appid)
-  console.log('  - redirectUri:', WPS_AUTH_CONFIG.redirectUri)
-  console.log('  - scope:', WPS_AUTH_CONFIG.scope)
-  console.log('  - authUrl:', WPS_AUTH_CONFIG.authUrl)
-  console.log('  - 原始state:', finalState)
-  console.log('  - 编码后state:', encodedState)
 
   const params = new URLSearchParams({
     appid: WPS_AUTH_CONFIG.appid,
@@ -106,16 +95,12 @@ export function buildWpsAuthUrl(state?: string): string {
 export function redirectToWpsAuth(returnUrl?: string): void {
   const finalReturnUrl = returnUrl || window.location.href
   const authUrl = buildWpsAuthUrl(finalReturnUrl)
-  console.log('  - 授权URL:', authUrl)
 
   // 保存返回URL到sessionStorage，以防state参数丢失
   if (returnUrl) {
     sessionStorage.setItem('wps_auth_return_url', returnUrl)
-    console.log('💾 WPS认证配置: 已保存返回URL到sessionStorage')
   }
 
-  // 直接重定向到WPS授权页面
-  console.log('🚀 WPS认证配置: 即将重定向到WPS授权页面...')
   window.location.href = authUrl
 }
 

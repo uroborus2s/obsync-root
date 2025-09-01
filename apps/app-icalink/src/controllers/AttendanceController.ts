@@ -3,6 +3,7 @@
 
 import type { FastifyReply, FastifyRequest, Logger } from '@stratix/core';
 import { Controller, Get, Post } from '@stratix/core';
+import { format } from 'date-fns';
 import type { IAttendanceCourseRepository } from '../repositories/interfaces/IAttendanceCourseRepository.js';
 import type { IAttendanceRecordRepository } from '../repositories/interfaces/IAttendanceRecordRepository.js';
 import type { IAttendanceService } from '../services/interfaces/IAttendanceService.js';
@@ -16,6 +17,7 @@ import type {
 } from '../types/api.js';
 import type { LeaveStatus } from '../types/database.js';
 import { ServiceErrorCode, isSuccessResult } from '../types/service.js';
+import { formatDate, formatDateTimeCN } from '../utils/datetime.js';
 
 /**
  * 考勤控制器
@@ -276,7 +278,9 @@ export default class AttendanceController {
       const studentInfo: UserInfo = {
         id: userIdentity.userId,
         type: 'student',
-        name: userIdentity.username || ''
+        name: userIdentity.username || '',
+        className: userIdentity.class_name || '',
+        majorName: userIdentity.major_name || ''
       };
 
       // 执行签到
@@ -706,40 +710,49 @@ export default class AttendanceController {
           success: true,
           message: '获取请假申请列表成功',
           data: {
-            applications: applications.map((app: any) => ({
-              id: app.id,
-              course_name: app.course_name,
-              class_date: app.class_date,
-              class_time: app.class_time,
-              class_location: app.class_location,
-              teacher_name: app.teacher_name,
-              leave_type: app.leave_type,
-              leave_reason: app.leave_reason,
-              status: app.status,
-              application_time: app.application_time,
-              approval_time: app.approval_time,
-              approval_comment: app.approval_comment,
-              course_info: {
-                kcmc: app.course_name,
-                room_s: app.class_location,
-                xm_s: app.teacher_name,
-                jc_s: app.periods || '1-2',
-                jxz: app.teaching_week || null,
-                lq: app.building || null,
-                course_start_time:
-                  app.class_start_time ||
-                  app.class_date +
-                    ' ' +
-                    (app.class_time?.split('-')[0] || '08:00'),
-                course_end_time:
-                  app.class_end_time ||
-                  app.class_date +
-                    ' ' +
-                    (app.class_time?.split('-')[1] || '09:40')
-              },
-              attachments: app.attachments || [],
-              approvals: app.approvals || []
-            })),
+            applications: applications.map((app: any) => {
+              // 处理课程日期和时间
+              const classDate = app.class_date
+                ? new Date(app.class_date)
+                : null;
+              const classStartTime = app.class_start_time
+                ? new Date(app.class_start_time)
+                : null;
+              const classEndTime = app.class_end_time
+                ? new Date(app.class_end_time)
+                : null;
+
+              // 使用date-fns格式化课程日期 (YYYY-MM-DD)
+              const formattedClassDate = classDate
+                ? format(classDate, 'yyyy-MM-dd')
+                : classStartTime
+                  ? format(classStartTime, 'yyyy-MM-dd')
+                  : '';
+
+              // 使用date-fns格式化课程时间段 (HH:MM-HH:MM)
+              const formattedClassTime =
+                classStartTime && classEndTime
+                  ? `${format(classStartTime, 'HH:mm')}-${format(classEndTime, 'HH:mm')}`
+                  : app.class_time || '';
+
+              return {
+                id: app.id,
+                course_name: app.course_name,
+                class_date: formattedClassDate,
+                class_time: formattedClassTime,
+                class_location: app.class_location,
+                teacher_name: app.teacher_name,
+                leave_type: app.leave_type,
+                leave_reason: app.leave_reason,
+                status: app.status,
+                application_time: app.application_time,
+                approval_time: app.approval_time,
+                approval_comment: app.approval_comment,
+                course_info: app.course_info,
+                attachments: app.attachments || [],
+                approvals: app.approvals || []
+              };
+            }),
             total: result.data.pagination?.total || applications.length,
             page: result.data.pagination?.page || page,
             page_size: result.data.pagination?.page_size || page_size,
@@ -832,7 +845,7 @@ export default class AttendanceController {
           data: {
             deleted_attendance_id: attendance_record_id,
             cancelled_approval_ids: [],
-            withdraw_time: new Date().toISOString()
+            withdraw_time: formatDateTimeCN(new Date())
           }
         };
       } else {
@@ -855,7 +868,7 @@ export default class AttendanceController {
   }
 
   /**
-   * 获取整体考勤统计接口
+   * 获取系统级别的全局统计接口
    * GET /api/icalink/v1/attendance/overall-stats
    */
   @Get('/api/icalink/v1/attendance/overall-stats')
@@ -870,68 +883,44 @@ export default class AttendanceController {
     reply: FastifyReply
   ): Promise<ApiResponse<any>> {
     try {
-      // 获取用户身份信息
+      // 移除教师权限限制，允许管理员或系统级用户访问
       const userIdentity = (request as any).userIdentity;
-      if (
-        !userIdentity ||
-        !userIdentity.userId ||
-        userIdentity.userType !== 'teacher'
-      ) {
+      if (!userIdentity || !userIdentity.userId) {
         reply.status(401);
         return {
           success: false,
-          message: '用户身份验证失败：需要教师权限',
+          message: '用户身份验证失败',
           code: ServiceErrorCode.UNAUTHORIZED
         };
       }
 
-      const teacherInfo: UserInfo = {
-        id: userIdentity.userId,
-        type: 'teacher',
-        name: userIdentity.username || ''
-      };
-
-      const { xnxq, start_date, end_date } = request.query;
-
       this.logger.info(
         {
-          teacherId: teacherInfo.id,
-          xnxq,
-          start_date,
-          end_date
+          userId: userIdentity.userId,
+          userType: userIdentity.userType
         },
-        'Getting overall attendance stats'
+        'Getting system overall stats'
       );
 
-      // 调用服务层获取整体统计
-      const result = await this.attendanceService.getTeacherAttendanceOverview(
-        teacherInfo.id,
-        xnxq
-      );
+      // 调用服务层获取系统级别统计
+      const result = await this.attendanceService.getSystemOverallStats();
 
       if (isSuccessResult(result)) {
-        // 转换为前端期望的格式
         return {
           success: true,
-          message: '获取整体统计成功',
-          data: {
-            total_courses: result.data.totalCourses,
-            class_size: result.data.totalStudents,
-            average_attendance_rate: result.data.overallAttendanceRate / 100, // 转换为小数
-            total_leave_count: 0, // 需要从统计中计算
-            total_absent_count: 0 // 需要从统计中计算
-          }
+          message: '获取系统统计成功',
+          data: result.data
         };
       } else {
         reply.status(400);
         return {
           success: false,
-          message: result.error?.message || '获取整体统计失败',
+          message: result.error?.message || '获取系统统计失败',
           code: result.error?.code
         };
       }
     } catch (error) {
-      this.logger.error(error, 'Failed to get overall stats');
+      this.logger.error(error, 'Failed to get system overall stats');
       reply.status(500);
       return {
         success: false,
@@ -1169,13 +1158,13 @@ export default class AttendanceController {
               not_started: '未开始'
             };
 
-            csvContent += `"${course.course_name}","${record.student_id}","${record.student_name}","${record.class_name || ''}","${statusMap[record.status as keyof typeof statusMap] || record.status}","${record.checkin_time ? record.checkin_time.toLocaleString() : ''}"\n`;
+            csvContent += `"${course.course_name}","${record.student_id}","${record.student_name}","${record.class_name || ''}","${statusMap[record.status as keyof typeof statusMap] || record.status}","${record.checkin_time ? formatDateTimeCN(record.checkin_time) : ''}"\n`;
           }
         }
       }
 
       // 设置响应头
-      const fileName = `attendance_export_${new Date().toISOString().split('T')[0]}.csv`;
+      const fileName = `attendance_export_${formatDate(new Date())}.csv`;
       reply.header('Content-Type', 'text/csv; charset=utf-8');
       reply.header('Content-Disposition', `attachment; filename="${fileName}"`);
 
@@ -1199,6 +1188,99 @@ export default class AttendanceController {
    */
   @Get('/api/icalink/v1/attendance/attachments/:id/image')
   async getAttachmentImage(
+    request: FastifyRequest<{
+      Params: { id: string };
+      Querystring: { thumbnail?: boolean };
+    }>,
+    reply: FastifyReply
+  ): Promise<void> {
+    try {
+      // 获取用户身份信息
+      const userIdentity = (request as any).userIdentity;
+
+      const userInfo: UserInfo = {
+        id: userIdentity.userId,
+        type: userIdentity.userType,
+        name: userIdentity.username || ''
+      };
+
+      const { id } = request.params;
+      const { thumbnail = false } = request.query;
+
+      if (!id || isNaN(parseInt(id))) {
+        reply.status(400);
+        reply.send({
+          success: false,
+          message: '无效的附件ID',
+          code: 'INVALID_ATTACHMENT_ID'
+        });
+        return;
+      }
+
+      this.logger.info(
+        {
+          userId: userInfo.id,
+          userType: userInfo.type,
+          attachmentId: id,
+          thumbnail
+        },
+        '🔥 FIXED VERSION: Getting attachment image - using reply.raw.end()'
+      );
+
+      // 调用请假服务下载附件
+      const result = await this.leaveService.downloadAttachmentById(
+        parseInt(id),
+        userInfo,
+        thumbnail
+      );
+
+      if (isSuccessResult(result)) {
+        const { fileName, fileContent, mimeType } = result.data;
+
+        this.logger.info(
+          {
+            attachmentId: id,
+            fileName,
+            mimeType,
+            fileSize: fileContent.length,
+            isBuffer: Buffer.isBuffer(fileContent)
+          },
+          'Sending attachment image as raw binary data'
+        );
+
+        // 直接使用原始HTTP响应，避免Fastify的JSON序列化
+        reply.raw.writeHead(200, {
+          'Content-Type': mimeType,
+          'Content-Disposition': `inline; filename="${encodeURIComponent(fileName)}"`,
+          'Cache-Control': 'public, max-age=3600',
+          'Content-Length': fileContent.length.toString()
+        });
+        reply.raw.end(fileContent);
+      } else {
+        reply.status(404);
+        reply.send({
+          success: false,
+          message: result.error?.message || '附件不存在',
+          code: result.error?.code
+        });
+      }
+    } catch (error) {
+      this.logger.error(error, 'Failed to get attachment image');
+      reply.status(500);
+      reply.send({
+        success: false,
+        message: '服务器内部错误',
+        code: ServiceErrorCode.UNKNOWN_ERROR
+      });
+    }
+  }
+
+  /**
+   * 下载请假附件接口
+   * GET /api/icalink/v1/attendance/attachments/:id/download
+   */
+  @Get('/api/icalink/v1/attendance/attachments/:id/download')
+  async downloadAttachmentFile(
     request: FastifyRequest<{
       Params: { id: string };
       Querystring: { thumbnail?: boolean };
@@ -1248,7 +1330,7 @@ export default class AttendanceController {
           attachmentId: id,
           thumbnail
         },
-        'Getting attachment image'
+        'Downloading attachment file'
       );
 
       // 调用请假服务下载附件
@@ -1261,16 +1343,16 @@ export default class AttendanceController {
       if (isSuccessResult(result)) {
         const { fileName, fileContent, mimeType } = result.data;
 
-        // 设置响应头
-        reply.header('Content-Type', mimeType);
-        reply.header(
-          'Content-Disposition',
-          `inline; filename="${encodeURIComponent(fileName)}"`
-        );
-        reply.header('Cache-Control', 'public, max-age=3600');
+        // 设置下载响应头 - 使用 attachment 强制下载
+        const downloadFileName = thumbnail ? `thumbnail_${fileName}` : fileName;
 
-        // 发送文件内容
-        reply.send(fileContent);
+        // 确保发送原始二进制数据，不进行JSON序列化
+        reply.raw.writeHead(200, {
+          'Content-Type': mimeType,
+          'Content-Disposition': `attachment; filename="${encodeURIComponent(downloadFileName)}"`,
+          'Content-Length': fileContent.length.toString()
+        });
+        reply.raw.end(fileContent);
       } else {
         reply.status(404);
         reply.send({
@@ -1280,7 +1362,7 @@ export default class AttendanceController {
         });
       }
     } catch (error) {
-      this.logger.error(error, 'Failed to get attachment image');
+      this.logger.error(error, 'Failed to download attachment file');
       reply.status(500);
       reply.send({
         success: false,

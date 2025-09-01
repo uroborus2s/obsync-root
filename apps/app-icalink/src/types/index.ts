@@ -9,3 +9,6 @@ export * from './api.js';
 
 // 服务层相关类型
 export * from './service.js';
+
+// 签到统计相关类型
+export * from './attendance-stats.types.js';

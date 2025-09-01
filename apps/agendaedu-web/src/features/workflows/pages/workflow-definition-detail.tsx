@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from '@tanstack/react-router'
 import {
   AlertCircle,
@@ -145,11 +146,11 @@ export default function WorkflowDefinitionDetail() {
   }
 
   const runningInstances =
-    instances?.items?.filter((i) => i.status === 'running').length || 0
+    instances?.items?.filter((i: any) => i.status === 'running').length || 0
   const completedInstances =
-    instances?.items?.filter((i) => i.status === 'completed').length || 0
+    instances?.items?.filter((i: any) => i.status === 'completed').length || 0
   const failedInstances =
-    instances?.items?.filter((i) => i.status === 'failed').length || 0
+    instances?.items?.filter((i: any) => i.status === 'failed').length || 0
 
   return (
     <div className='flex h-screen flex-col'>

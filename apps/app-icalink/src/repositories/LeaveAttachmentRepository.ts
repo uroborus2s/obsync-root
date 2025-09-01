@@ -9,17 +9,14 @@ import type {
   IcalinkLeaveAttachment,
   ImageType
 } from '../types/database.js';
-import type {
-  QueryOptions,
-  ServiceResult
-} from '../types/service.js';
+import type { QueryOptions, ServiceResult } from '../types/service.js';
 import { ServiceErrorCode, wrapServiceCall } from '../types/service.js';
+import { extractOptionFromServiceResult } from '../utils/type-fixes.js';
 import type {
   CreateLeaveAttachmentData,
   ILeaveAttachmentRepository,
   UpdateLeaveAttachmentData
 } from './interfaces/ILeaveAttachmentRepository.js';
-import { extractOptionFromServiceResult } from '../utils/type-fixes.js';
 
 /**
  * 请假附件仓储实现类
@@ -52,13 +49,15 @@ export default class LeaveAttachmentRepository
     options?: QueryOptions
   ): Promise<ServiceResult<IcalinkLeaveAttachment[]>> {
     return wrapServiceCall(async () => {
-      const result = await this.findMany((qb) =>
-        qb.where('leave_application_id', '=', applicationId)
-      , options);
+      const result = await this.findMany(
+        (qb) => qb.where('leave_application_id', '=', applicationId),
+        options
+      );
 
       if (!result.success) {
         throw new Error(
-          result.error?.message || 'Failed to find attachments by application ID'
+          result.error?.message ||
+            'Failed to find attachments by application ID'
         );
       }
 
@@ -74,9 +73,10 @@ export default class LeaveAttachmentRepository
     options?: QueryOptions
   ): Promise<ServiceResult<IcalinkLeaveAttachment[]>> {
     return wrapServiceCall(async () => {
-      const result = await this.findMany((qb) =>
-        qb.where('image_type', '=', imageType)
-      , options);
+      const result = await this.findMany(
+        (qb) => qb.where('image_type', '=', imageType),
+        options
+      );
 
       if (!result.success) {
         throw new Error(
@@ -97,15 +97,18 @@ export default class LeaveAttachmentRepository
     options?: QueryOptions
   ): Promise<ServiceResult<IcalinkLeaveAttachment[]>> {
     return wrapServiceCall(async () => {
-      const result = await this.findMany((qb) =>
-        qb
-          .where('upload_time', '>=', startTime)
-          .where('upload_time', '<=', endTime)
-      , options);
+      const result = await this.findMany(
+        (qb) =>
+          qb
+            .where('upload_time', '>=', startTime)
+            .where('upload_time', '<=', endTime),
+        options
+      );
 
       if (!result.success) {
         throw new Error(
-          result.error?.message || 'Failed to find attachments by upload time range'
+          result.error?.message ||
+            'Failed to find attachments by upload time range'
         );
       }
 
@@ -160,10 +163,12 @@ export default class LeaveAttachmentRepository
   async validateAttachmentFormat(
     imageType: string,
     imageSize: number
-  ): Promise<ServiceResult<{
-    isValid: boolean;
-    reason?: string;
-  }>> {
+  ): Promise<
+    ServiceResult<{
+      isValid: boolean;
+      reason?: string;
+    }>
+  > {
     return wrapServiceCall(async () => {
       const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
       const maxSize = 10 * 1024 * 1024; // 10MB
@@ -208,15 +213,19 @@ export default class LeaveAttachmentRepository
     return wrapServiceCall(async () => {
       const result = await this.findMany((qb) => {
         let query = qb;
-        
+
         if (conditions.leave_application_id) {
-          query = query.where('leave_application_id', '=', conditions.leave_application_id);
+          query = query.where(
+            'leave_application_id',
+            '=',
+            conditions.leave_application_id
+          );
         }
-        
+
         if (conditions.image_type) {
           query = query.where('image_type', '=', conditions.image_type);
         }
-        
+
         return query;
       }, options);
 
@@ -261,9 +270,7 @@ export default class LeaveAttachmentRepository
   /**
    * 获取附件统计信息
    */
-  async getStatistics(
-    conditions?: any
-  ): Promise<ServiceResult<any>> {
+  async getStatistics(conditions?: any): Promise<ServiceResult<any>> {
     return wrapServiceCall(async () => {
       return {
         total_count: 0,
@@ -306,7 +313,11 @@ export default class LeaveAttachmentRepository
    */
   async getAttachmentList(
     leaveApplicationId: number
-  ): Promise<ServiceResult<Omit<IcalinkLeaveAttachment, 'image_content' | 'thumbnail_content'>[]>> {
+  ): Promise<
+    ServiceResult<
+      Omit<IcalinkLeaveAttachment, 'image_content' | 'thumbnail_content'>[]
+    >
+  > {
     return wrapServiceCall(async () => {
       const result = await this.findByApplicationId(leaveApplicationId);
       if (!result.success) {
@@ -318,7 +329,7 @@ export default class LeaveAttachmentRepository
       }
 
       // 移除内容字段
-      const attachmentsWithoutContent = result.data.map(att => {
+      const attachmentsWithoutContent = result.data.map((att) => {
         const { image_content, thumbnail_content, ...rest } = att;
         return rest;
       });
@@ -333,36 +344,43 @@ export default class LeaveAttachmentRepository
   async getAttachmentContent(
     attachmentId: number,
     thumbnail?: boolean
-  ): Promise<ServiceResult<{
-    fileName: string;
-    fileContent: Buffer;
-    mimeType: string;
-    fileSize: number;
-  }>> {
+  ): Promise<
+    ServiceResult<{
+      fileName: string;
+      fileContent: Buffer;
+      mimeType: string;
+      fileSize: number;
+    }>
+  > {
     return wrapServiceCall(async () => {
       const result = await this.findById(attachmentId);
-      
+
       if (!result.success) {
         throw new Error('Failed to find attachment');
       }
 
-      const attachment = extractOptionFromServiceResult<IcalinkLeaveAttachment>(result);
+      const attachment =
+        extractOptionFromServiceResult<IcalinkLeaveAttachment>(result);
       if (!attachment) {
         throw new Error('Attachment not found');
       }
 
-      const fileContent = thumbnail && attachment.thumbnail_content 
-        ? attachment.thumbnail_content 
-        : attachment.image_content;
+      const fileContent =
+        thumbnail && attachment.thumbnail_content
+          ? attachment.thumbnail_content
+          : attachment.image_content;
 
       if (!fileContent) {
         throw new Error('Attachment content not found');
       }
 
+      // 确保MIME类型正确
+      let mimeType = attachment.image_type;
+
       return {
         fileName: attachment.image_name,
         fileContent,
-        mimeType: attachment.image_type,
+        mimeType,
         fileSize: fileContent.length
       };
     }, ServiceErrorCode.DATABASE_ERROR);
@@ -403,14 +421,19 @@ export default class LeaveAttachmentRepository
    */
   async getInfo(
     id: number
-  ): Promise<ServiceResult<Omit<IcalinkLeaveAttachment, 'image_content' | 'thumbnail_content'>>> {
+  ): Promise<
+    ServiceResult<
+      Omit<IcalinkLeaveAttachment, 'image_content' | 'thumbnail_content'>
+    >
+  > {
     return wrapServiceCall(async () => {
       const result = await this.findById(id);
       if (!result.success) {
         throw new Error('Failed to find attachment');
       }
 
-      const attachment = extractOptionFromServiceResult<IcalinkLeaveAttachment>(result);
+      const attachment =
+        extractOptionFromServiceResult<IcalinkLeaveAttachment>(result);
       if (!attachment) {
         throw new Error('Attachment not found');
       }
@@ -453,11 +476,13 @@ export default class LeaveAttachmentRepository
     options?: QueryOptions
   ): Promise<ServiceResult<IcalinkLeaveAttachment[]>> {
     return wrapServiceCall(async () => {
-      const result = await this.findMany((qb) =>
-        qb
-          .where('image_size', '>=', minSize)
-          .where('image_size', '<=', maxSize)
-      , options);
+      const result = await this.findMany(
+        (qb) =>
+          qb
+            .where('image_size', '>=', minSize)
+            .where('image_size', '<=', maxSize),
+        options
+      );
 
       if (!result.success) {
         throw new Error('Failed to find attachments by size range');
@@ -476,11 +501,13 @@ export default class LeaveAttachmentRepository
     options?: QueryOptions
   ): Promise<ServiceResult<IcalinkLeaveAttachment[]>> {
     return wrapServiceCall(async () => {
-      const result = await this.findMany((qb) =>
-        qb
-          .where('upload_time', '>=', startDate)
-          .where('upload_time', '<=', endDate)
-      , options);
+      const result = await this.findMany(
+        (qb) =>
+          qb
+            .where('upload_time', '>=', startDate)
+            .where('upload_time', '<=', endDate),
+        options
+      );
 
       if (!result.success) {
         throw new Error('Failed to find attachments by date range');
@@ -503,10 +530,12 @@ export default class LeaveAttachmentRepository
   /**
    * 优化附件存储
    */
-  async optimizeStorage(): Promise<ServiceResult<{
-    compressedCount: number;
-    spaceSaved: number;
-  }>> {
+  async optimizeStorage(): Promise<
+    ServiceResult<{
+      compressedCount: number;
+      spaceSaved: number;
+    }>
+  > {
     return wrapServiceCall(async () => {
       return {
         compressedCount: 0,
@@ -518,12 +547,10 @@ export default class LeaveAttachmentRepository
   /**
    * 获取最大的附件
    */
-  async getLargestAttachments(
-    limit?: number
-  ): Promise<ServiceResult<any[]>> {
+  async getLargestAttachments(limit?: number): Promise<ServiceResult<any[]>> {
     return wrapServiceCall(async () => {
-      const result = await this.findMany(
-        (qb) => qb.orderBy('image_size', 'desc')
+      const result = await this.findMany((qb) =>
+        qb.orderBy('image_size', 'desc')
       );
 
       if (!result.success) {
@@ -537,12 +564,10 @@ export default class LeaveAttachmentRepository
   /**
    * 获取最近上传的附件
    */
-  async getRecentUploads(
-    limit?: number
-  ): Promise<ServiceResult<any[]>> {
+  async getRecentUploads(limit?: number): Promise<ServiceResult<any[]>> {
     return wrapServiceCall(async () => {
-      const result = await this.findMany(
-        (qb) => qb.orderBy('upload_time', 'desc')
+      const result = await this.findMany((qb) =>
+        qb.orderBy('upload_time', 'desc')
       );
 
       if (!result.success) {
@@ -583,9 +608,7 @@ export default class LeaveAttachmentRepository
   /**
    * 批量生成缩略图
    */
-  async generateThumbnailsBatch(
-    ids: number[]
-  ): Promise<ServiceResult<number>> {
+  async generateThumbnailsBatch(ids: number[]): Promise<ServiceResult<number>> {
     return wrapServiceCall(async () => {
       return ids.length; // 简化实现
     }, ServiceErrorCode.DATABASE_ERROR);
@@ -594,9 +617,7 @@ export default class LeaveAttachmentRepository
   /**
    * 清理过期的附件（软删除）
    */
-  async cleanupOldAttachments(
-    daysOld: number
-  ): Promise<ServiceResult<number>> {
+  async cleanupOldAttachments(daysOld: number): Promise<ServiceResult<number>> {
     const cutoffDate = new Date(Date.now() - daysOld * 24 * 60 * 60 * 1000);
     return this.cleanupExpiredAttachments(cutoffDate);
   }
@@ -604,22 +625,23 @@ export default class LeaveAttachmentRepository
   /**
    * 验证附件完整性
    */
-  async validateIntegrity(
-    id: number
-  ): Promise<ServiceResult<{
-    isValid: boolean;
-    actualSize: number;
-    expectedSize: number;
-    hasContent: boolean;
-    hasThumbnail: boolean;
-  }>> {
+  async validateIntegrity(id: number): Promise<
+    ServiceResult<{
+      isValid: boolean;
+      actualSize: number;
+      expectedSize: number;
+      hasContent: boolean;
+      hasThumbnail: boolean;
+    }>
+  > {
     return wrapServiceCall(async () => {
       const result = await this.findById(id);
       if (!result.success) {
         throw new Error('Attachment not found');
       }
 
-      const attachment = extractOptionFromServiceResult<IcalinkLeaveAttachment>(result);
+      const attachment =
+        extractOptionFromServiceResult<IcalinkLeaveAttachment>(result);
       if (!attachment) {
         throw new Error('Attachment not found');
       }

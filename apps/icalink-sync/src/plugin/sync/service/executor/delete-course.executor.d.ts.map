@@ -1,1 +1,0 @@
-{"version":3,"file":"delete-course.executor.d.ts","sourceRoot":"","sources":["delete-course.executor.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,yBAAyB,EAAE,MAAM,mDAAmD,CAAC;AAE9F;;;GAGG;AACH,eAAO,MAAM,oBAAoB,GAC/B,qBAAqB,yBAAyB;qBAGrB;QACrB,QAAQ,CAAC,EAAE,MAAM,CAAC;QAClB,GAAG,CAAC,EAAE,MAAM,CAAC;QACb,IAAI,CAAC,EAAE,MAAM,CAAC;KACf;;;;;;;;;;;;;CA2BJ,CAAC"}

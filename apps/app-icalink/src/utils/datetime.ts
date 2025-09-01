@@ -2,29 +2,28 @@
 // 基于 date-fns 库的时间处理工具
 
 import {
-  format,
-  parseISO,
-  parse,
-  isValid,
   addDays,
   addHours,
   addMinutes,
   differenceInDays,
-  differenceInMinutes,
   differenceInHours,
-  startOfDay,
+  differenceInMinutes,
   endOfDay,
-  startOfWeek,
-  endOfWeek,
-  startOfMonth,
   endOfMonth,
-  isWithinInterval,
+  endOfWeek,
+  format,
   formatDistanceToNow,
   getDay,
-  getWeek,
-  getYear,
   getMonth,
-  isWeekend as isWeekendFns
+  getYear,
+  isValid,
+  isWeekend as isWeekendFns,
+  isWithinInterval,
+  parse,
+  parseISO,
+  startOfDay,
+  startOfMonth,
+  startOfWeek
 } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 
@@ -34,7 +33,10 @@ import { zhCN } from 'date-fns/locale';
  * @param formatStr 格式字符串
  * @returns 格式化后的日期字符串
  */
-export function formatDate(date: Date, formatStr: string = 'yyyy-MM-dd'): string {
+export function formatDate(
+  date: Date,
+  formatStr: string = 'yyyy-MM-dd'
+): string {
   return format(date, formatStr, { locale: zhCN });
 }
 
@@ -45,6 +47,15 @@ export function formatDate(date: Date, formatStr: string = 'yyyy-MM-dd'): string
  */
 export function formatDateTime(date: Date): string {
   return date.toISOString();
+}
+
+/**
+ * 格式化日期时间为本地时间字符串，不做时区转换
+ * @param date 日期对象
+ * @returns 本地时间字符串，格式为 YYYY-MM-DD HH:mm:ss
+ */
+export function formatLocalDateTime(date: Date): string {
+  return format(date, 'yyyy-MM-dd HH:mm:ss');
 }
 
 /**
@@ -215,7 +226,11 @@ export function getEndOfMonth(date: Date): Date {
  * @param endDate 结束日期
  * @returns 是否在范围内
  */
-export function isDateInRange(date: Date, startDate: Date, endDate: Date): boolean {
+export function isDateInRange(
+  date: Date,
+  startDate: Date,
+  endDate: Date
+): boolean {
   return isWithinInterval(date, { start: startDate, end: endDate });
 }
 
@@ -226,7 +241,11 @@ export function isDateInRange(date: Date, startDate: Date, endDate: Date): boole
  * @param windowEnd 窗口结束时间
  * @returns 是否在窗口内
  */
-export function isTimeInWindow(time: Date, windowStart: Date, windowEnd: Date): boolean {
+export function isTimeInWindow(
+  time: Date,
+  windowStart: Date,
+  windowEnd: Date
+): boolean {
   return isWithinInterval(time, { start: windowStart, end: windowEnd });
 }
 
@@ -238,7 +257,7 @@ export function isTimeInWindow(time: Date, windowStart: Date, windowEnd: Date): 
 export function getSemester(date: Date): string {
   const year = getYear(date);
   const month = getMonth(date) + 1; // getMonth返回0-11
-  
+
   // 春季学期：2-7月，秋季学期：8月-次年1月
   if (month >= 2 && month <= 7) {
     return `${year}-2`; // 春季学期
@@ -288,7 +307,10 @@ export function formatTimeRange(startTime: Date, endTime: Date): string {
  * @param baseDate 基准日期
  * @returns 时间对象
  */
-export function parseTime(timeString: string, baseDate: Date = new Date()): Date {
+export function parseTime(
+  timeString: string,
+  baseDate: Date = new Date()
+): Date {
   return parse(timeString, 'HH:mm', baseDate);
 }
 
@@ -316,11 +338,14 @@ export function isWeekend(date: Date): boolean {
  * @param baseDate 基准日期
  * @returns 相对时间描述
  */
-export function getRelativeTime(date: Date, baseDate: Date = new Date()): string {
-  return formatDistanceToNow(date, { 
-    addSuffix: true, 
+export function getRelativeTime(
+  date: Date,
+  baseDate: Date = new Date()
+): string {
+  return formatDistanceToNow(date, {
+    addSuffix: true,
     locale: zhCN,
-    includeSeconds: true 
+    includeSeconds: true
   });
 }
 
@@ -330,7 +355,10 @@ export function getRelativeTime(date: Date, baseDate: Date = new Date()): string
  * @param timezone 目标时区
  * @returns 转换后的日期
  */
-export function convertToTimezone(date: Date, timezone: string = 'Asia/Shanghai'): Date {
+export function convertToTimezone(
+  date: Date,
+  timezone: string = 'Asia/Shanghai'
+): Date {
   // 简化版本：仅处理Asia/Shanghai时区 (+8)
   if (timezone === 'Asia/Shanghai') {
     return new Date(date.getTime() + 8 * 60 * 60 * 1000);
@@ -344,7 +372,10 @@ export function convertToTimezone(date: Date, timezone: string = 'Asia/Shanghai'
  * @param timezone 源时区
  * @returns UTC时间
  */
-export function convertToUTC(date: Date, timezone: string = 'Asia/Shanghai'): Date {
+export function convertToUTC(
+  date: Date,
+  timezone: string = 'Asia/Shanghai'
+): Date {
   // 简化版本：仅处理Asia/Shanghai时区 (+8)
   if (timezone === 'Asia/Shanghai') {
     return new Date(date.getTime() - 8 * 60 * 60 * 1000);

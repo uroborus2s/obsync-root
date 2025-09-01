@@ -4,13 +4,45 @@ import {
 } from '@/lib/icalink-api-client';
 import { AttendanceSheet } from '@/pages/AttendanceSheet';
 import { StudentDashboard } from '@/pages/StudentDashboard';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+
+function getAuthUrl(state?: string): string {
+  // 构建WPS授权URL，按照重构要求使用指定的参数
+  const currentUrl = state || window.location.href;
+  const encodedState = btoa(currentUrl); // 将当前页面URL进行base64编码
+
+  const params = new URLSearchParams({
+    appid: 'AK20250614WBSGPX',
+    response_type: 'code',
+    redirect_uri: 'https://kwps.jlufe.edu.cn/api/auth/authorization', // 不需要额外的encodeURIComponent，URLSearchParams会自动处理
+    scope: 'user_info',
+    state: encodedState
+  });
+
+  const authUrl = `https://openapi.wps.cn/oauthapi/v2/authorize?${params.toString()}`;
+  console.log('🔗 生成的授权URL:', authUrl);
+  return authUrl;
+}
+
+interface UserInfo {
+  userType?: string;
+  userId?: string;
+  userName?: string;
+  iss?: string;
+  sub?: string;
+  aud?: string | string[];
+  exp?: number;
+  nbf?: number;
+  iat?: number;
+  jti?: string;
+  [key: string]: unknown;
+}
 
 interface AttendanceViewState {
   loading: boolean;
   authenticated: boolean;
-  userInfo: any | null;
+  userInfo: UserInfo | null;
   courseInfo: AttendanceCourseInfo | null;
   error: string | null;
 }
@@ -27,26 +59,10 @@ export function AttendanceView() {
     error: null
   });
 
-  useEffect(() => {
-    console.log('🔄 useEffect 执行，externalId:', externalId);
-
-    if (!externalId) {
-      console.log('❌ 缺少课程ID参数');
-      setState((prev) => ({
-        ...prev,
-        loading: false,
-        error: '缺少课程ID参数'
-      }));
-      return;
-    }
-
-    checkAuthAndLoadData();
-  }, [externalId]);
-
   /**
    * 检查认证状态并加载数据
    */
-  const checkAuthAndLoadData = async () => {
+  const checkAuthAndLoadData = useCallback(async () => {
     try {
       console.log('🔍 开始认证检查流程...');
       setState((prev) => ({ ...prev, loading: true, error: null }));
@@ -56,12 +72,26 @@ export function AttendanceView() {
       console.log('🔐 认证结果:', authResult.success);
 
       if (!authResult.success) {
+        console.log('❌ 用户未登录，准备重定向到登录页面');
+
+        // 构建当前页面URL作为登录后的返回地址
+        const currentUrl = window.location.href;
+
+        // 设置短暂的错误状态，然后重定向
         setState((prev) => ({
           ...prev,
           loading: false,
           authenticated: false,
-          error: authResult.message || '用户未登录'
+          error: '用户未登录，正在跳转到登录页面...'
         }));
+
+        // 延迟1秒后重定向，让用户看到提示信息
+        setTimeout(() => {
+          const authUrl = getAuthUrl(currentUrl);
+          console.log('🔄 重定向到WPS授权页面:', authUrl);
+          window.location.href = authUrl;
+        }, 1000);
+
         return;
       }
 
@@ -100,7 +130,7 @@ export function AttendanceView() {
       setState({
         loading: false,
         authenticated: true,
-        userInfo,
+        userInfo: userInfo as unknown as UserInfo,
         courseInfo: courseResult.data!,
         error: null
       });
@@ -112,7 +142,23 @@ export function AttendanceView() {
         error: '系统异常，请稍后重试'
       }));
     }
-  };
+  }, [externalId]);
+
+  useEffect(() => {
+    console.log('🔄 useEffect 执行，externalId:', externalId);
+
+    if (!externalId) {
+      console.log('❌ 缺少课程ID参数');
+      setState((prev) => ({
+        ...prev,
+        loading: false,
+        error: '缺少课程ID参数'
+      }));
+      return;
+    }
+
+    checkAuthAndLoadData();
+  }, [externalId, checkAuthAndLoadData]);
 
   // 加载中状态
   if (state.loading) {
@@ -128,22 +174,47 @@ export function AttendanceView() {
 
   // 错误状态
   if (state.error) {
+    const isAuthError =
+      state.error.includes('未登录') || state.error.includes('登录');
+
     return (
       <div className='flex min-h-screen items-center justify-center bg-red-50'>
         <div className='p-8 text-center'>
-          <div className='mb-4 text-6xl text-red-500'>⚠️</div>
-          <h1 className='mb-4 text-2xl font-bold text-red-600'>加载失败</h1>
+          <div className='mb-4 text-6xl text-red-500'>
+            {isAuthError ? '🔐' : '⚠️'}
+          </div>
+          <h1 className='mb-4 text-2xl font-bold text-red-600'>
+            {isAuthError ? '需要登录' : '加载失败'}
+          </h1>
           <p className='mb-4 text-gray-600'>{state.error}</p>
-          <button
-            type='button'
-            onClick={() => {
-              setState((prev) => ({ ...prev, error: null }));
-              checkAuthAndLoadData();
-            }}
-            className='rounded bg-blue-500 px-6 py-2 text-white transition-colors hover:bg-blue-600'
-          >
-            重试
-          </button>
+
+          <div className='space-y-3'>
+            {isAuthError ? (
+              <button
+                type='button'
+                onClick={() => {
+                  const currentUrl = window.location.href;
+                  const authUrl = getAuthUrl(currentUrl);
+                  console.log('🔄 手动重定向到WPS授权页面:', authUrl);
+                  window.location.href = authUrl;
+                }}
+                className='rounded bg-green-500 px-6 py-2 text-white transition-colors hover:bg-green-600'
+              >
+                立即登录
+              </button>
+            ) : (
+              <button
+                type='button'
+                onClick={() => {
+                  setState((prev) => ({ ...prev, error: null }));
+                  checkAuthAndLoadData();
+                }}
+                className='rounded bg-blue-500 px-6 py-2 text-white transition-colors hover:bg-blue-600'
+              >
+                重试
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );

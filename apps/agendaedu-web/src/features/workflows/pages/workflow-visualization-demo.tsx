@@ -17,6 +17,7 @@ import { Main } from '@/components/layout/main'
 import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { UserNav } from '@/components/user-nav'
+import { SimplifiedWorkflowVisualizer } from '../components/simplified-workflow-visualizer'
 import { WorkflowInstancesTable } from '../components/workflow-instances-table'
 import { WorkflowNodeDetail } from '../components/workflow-node-detail'
 

@@ -22,9 +22,9 @@
     "@stratix/core": "1.0.0-beta.7",
     "@stratix/utils": "1.0.0-beta.1",
     "@stratix/database": "1.0.0-beta.3",
-    "@stratix/was-v7": "1.0.0-beta.1",
-    "@stratix/tasks": "1.0.0-beta.3",
-    "@stratix/icasync": "workspace:*",
+    "@stratix/was-v7": "1.0.0-beta.2",
+    "@stratix/tasks": "workspace:*",
+    "@stratix/icasync": "1.0.0-beta.6",
     "mysql2": "^3.14.1",
     "@fastify/under-pressure": "^9.0.3"
   },

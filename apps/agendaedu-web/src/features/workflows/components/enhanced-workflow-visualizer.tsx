@@ -1,426 +1,334 @@
-import { useEffect, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import {
-  AlertCircle,
-  Download,
-  Maximize2,
-  RefreshCw,
-  ZoomIn,
-  ZoomOut,
-} from 'lucide-react'
-import { toast } from 'sonner'
-import { workflowApi } from '@/lib/workflow-api'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+/**
+ * 增强的工作流可视化组件
+ * 基于真实工作流定义数据，支持节点实例查询和交互
+ */
+import { useMemo, useState } from 'react'
+import type {
+  WorkflowDefinition,
+  WorkflowInstance,
+} from '@/types/workflow.types'
+import { useEdgesState, useNodesState, type Node } from '@xyflow/react'
+import '@xyflow/react/dist/style.css'
+import { AlertCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
-import {
-  MermaidRenderer,
-  SimplifiedFlowChart,
-} from '@/components/mermaid-renderer'
+import { workflowVisualizer } from '../utils/workflow-visualizer'
 
 interface EnhancedWorkflowVisualizerProps {
-  workflowDefinitionId: number
-  instanceId?: number
-  className?: string
-  showControls?: boolean
+  definition: WorkflowDefinition
+  instance?: WorkflowInstance
+  onNodeClick?: (nodeId: string) => void
 }
 
-interface WorkflowNode {
+interface NodeInstanceInfo {
   nodeId: string
   nodeName: string
-  nodeType: 'simple' | 'task' | 'loop' | 'parallel' | 'subprocess'
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  startTime?: string
+  endTime?: string
   executor?: string
-  dependsOn?: string[]
-  position?: { x: number; y: number }
-  maxRetries: number
-  timeoutSeconds?: number
   inputData?: Record<string, any>
-  condition?: string
-}
-
-interface WorkflowConnection {
-  id: string
-  source: string
-  target: string
-  condition?: string
-  label?: string
-  type?: 'success' | 'failure' | 'conditional' | 'default'
-}
-
-interface WorkflowDefinitionData {
-  name: string
-  version: string
-  description?: string
-  nodes: WorkflowNode[]
-  connections?: WorkflowConnection[]
-  inputs?: any[]
-  outputs?: any[]
-  config?: any
+  outputData?: Record<string, any>
+  errorMessage?: string
 }
 
 export function EnhancedWorkflowVisualizer({
-  workflowDefinitionId,
-  instanceId,
-  className,
-  showControls = true,
+  definition,
+  instance,
+  onNodeClick,
 }: EnhancedWorkflowVisualizerProps) {
-  const mermaidRef = useRef<HTMLDivElement>(null)
-  const [mermaidLoaded, setMermaidLoaded] = useState(false)
-  const [zoom, setZoom] = useState(1)
-  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [selectedNode, setSelectedNode] = useState<Node | null>(null)
+  const [showNodeDetails, setShowNodeDetails] = useState(false)
 
-  // 获取工作流定义
-  const {
-    data: definition,
-    isLoading: definitionLoading,
-    error: definitionError,
-    refetch: refetchDefinition,
-  } = useQuery({
-    queryKey: ['workflow-definition', workflowDefinitionId],
-    queryFn: () => workflowApi.getWorkflowDefinitionById(workflowDefinitionId),
-    enabled: !!workflowDefinitionId,
-  })
+  // 转换工作流定义为可视化数据
+  const visualizationData = useMemo(() => {
+    return workflowVisualizer.convertToVisualization(definition)
+  }, [definition])
 
-  // 获取工作流实例（如果提供了instanceId）
-  const {
-    data: instance,
-    isLoading: instanceLoading,
-    error: instanceError,
-  } = useQuery({
-    queryKey: ['workflow-instance', instanceId],
-    queryFn: () => workflowApi.getWorkflowInstance(instanceId!),
-    enabled: !!instanceId,
-    refetchInterval: instanceId ? 5000 : false, // 实例数据每5秒刷新
-  })
+  // 应用实例执行状态到节点样式
+  const nodesWithExecutionState = useMemo(() => {
+    return visualizationData.nodes.map((node) => ({
+      ...node,
+      style: {
+        ...node.style,
+        ...workflowVisualizer.getNodeExecutionStyle(
+          node.id,
+          instance?.executionPath,
+          instance?.currentNodeId
+        ),
+      },
+    }))
+  }, [visualizationData.nodes, instance])
 
-  // 动态加载Mermaid
-  useEffect(() => {
-    const loadMermaid = async () => {
-      try {
-        const mermaid = await import('mermaid')
-        mermaid.default.initialize({
-          startOnLoad: false,
-          theme: 'default',
-          flowchart: {
-            useMaxWidth: true,
-            htmlLabels: true,
-            curve: 'basis',
-          },
-          themeVariables: {
-            primaryColor: '#3b82f6',
-            primaryTextColor: '#1f2937',
-            primaryBorderColor: '#2563eb',
-            lineColor: '#6b7280',
-            secondaryColor: '#f3f4f6',
-            tertiaryColor: '#ffffff',
-          },
-        })
-        setMermaidLoaded(true)
-      } catch (error) {
-        console.error('Failed to load Mermaid:', error)
-        toast.error('流程图渲染库加载失败')
-      }
+  const [nodes, setNodes, onNodesChange] = useNodesState(
+    nodesWithExecutionState
+  )
+  const [edges, setEdges, onEdgesChange] = useEdgesState(
+    visualizationData.edges
+  )
+
+  // 处理节点点击事件
+  const handleNodeClick: NodeMouseHandler = useCallback(
+    (event, node) => {
+      setSelectedNode(node)
+      setShowNodeDetails(true)
+      onNodeClick?.(node.id)
+    },
+    [onNodeClick]
+  )
+
+  // 获取节点状态图标
+  const getNodeStatusIcon = (status: string) => {
+    switch (status) {
+      case 'running':
+        return <Play className='h-4 w-4 text-blue-500' />
+      case 'completed':
+        return <CheckCircle className='h-4 w-4 text-green-500' />
+      case 'failed':
+        return <XCircle className='h-4 w-4 text-red-500' />
+      case 'pending':
+        return <Clock className='h-4 w-4 text-yellow-500' />
+      default:
+        return <AlertCircle className='h-4 w-4 text-gray-500' />
     }
+  }
 
-    loadMermaid()
-  }, [])
-
-  // 生成节点图标
-  const getNodeIcon = (nodeType: string): string => {
+  // 获取节点类型徽章颜色
+  const getNodeTypeBadgeVariant = (nodeType: string) => {
     switch (nodeType) {
       case 'simple':
-      case 'task':
-        return '📋'
+        return 'default'
       case 'loop':
-        return '🔄'
+        return 'secondary'
       case 'parallel':
-        return '⚡'
+        return 'outline'
       case 'subprocess':
-        return '📦'
+        return 'destructive'
       default:
-        return '⚪'
+        return 'default'
     }
   }
 
-  // 生成节点样式类
-  const getNodeStyleClass = (nodeId: string): string => {
-    if (!instance) return 'default'
+  // 模拟获取节点实例信息（实际应该从API获取）
+  const getNodeInstanceInfo = (nodeId: string): NodeInstanceInfo | null => {
+    if (!instance) return null
 
-    if (instance.currentNodeId === nodeId && instance.status === 'running') {
-      return 'running'
+    // 这里应该调用API获取具体的节点实例信息
+    // 目前返回模拟数据
+    const isExecuted = instance.executionPath?.includes(nodeId)
+    const isCurrent = instance.currentNodeId === nodeId
+
+    if (!isExecuted && !isCurrent) return null
+
+    return {
+      nodeId,
+      nodeName: selectedNode?.data.originalNode?.nodeName || nodeId,
+      status: isCurrent ? 'running' : 'completed',
+      startTime: new Date(Date.now() - Math.random() * 3600000).toISOString(),
+      endTime: isCurrent ? undefined : new Date().toISOString(),
+      executor: selectedNode?.data.executor,
+      inputData: selectedNode?.data.originalNode?.inputData,
+      outputData: isCurrent ? null : { result: 'success', processedItems: 42 },
+      errorMessage: null,
     }
-
-    if (instance.completedNodes?.includes(nodeId)) {
-      return 'completed'
-    }
-
-    if (instance.failedNodes?.includes(nodeId)) {
-      return 'failed'
-    }
-
-    return 'pending'
-  }
-
-  // 生成Mermaid图表定义
-  const generateMermaidDefinition = (): string => {
-    if (!definition?.definition) return ''
-
-    const workflowData = definition.definition as WorkflowDefinitionData
-    const nodes = workflowData.nodes || []
-    const connections = workflowData.connections || []
-
-    let mermaidDef = 'flowchart TD\n'
-
-    // 添加样式类定义
-    mermaidDef += `
-    classDef default fill:#f9f9f9,stroke:#333,stroke-width:2px,color:#333
-    classDef running fill:#dbeafe,stroke:#3b82f6,stroke-width:3px,color:#1e40af
-    classDef completed fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#166534
-    classDef failed fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#991b1b
-    classDef pending fill:#f3f4f6,stroke:#6b7280,stroke-width:1px,color:#374151
-    `
-
-    // 添加节点定义
-    nodes.forEach((node: WorkflowNode) => {
-      const icon = getNodeIcon(node.nodeType)
-      const styleClass = getNodeStyleClass(node.nodeId)
-      const label = `${icon} ${node.nodeName}<br/><small>${node.nodeType}</small>`
-
-      mermaidDef += `    ${node.nodeId}["${label}"]:::${styleClass}\n`
-    })
-
-    // 添加连接定义
-    if (connections.length > 0) {
-      connections.forEach((conn: WorkflowConnection) => {
-        const label = conn.label ? `|${conn.label}|` : ''
-        const arrow = conn.type === 'failure' ? '-.->|❌|' : '-->'
-        mermaidDef += `    ${conn.source} ${arrow}${label} ${conn.target}\n`
-      })
-    } else {
-      // 如果没有显式连接，根据dependsOn生成连接
-      nodes.forEach((node: WorkflowNode) => {
-        if (node.dependsOn && node.dependsOn.length > 0) {
-          node.dependsOn.forEach((depId: string) => {
-            mermaidDef += `    ${depId} --> ${node.nodeId}\n`
-          })
-        }
-      })
-    }
-
-    return mermaidDef
-  }
-
-  // 渲染Mermaid图表
-  useEffect(() => {
-    if (!mermaidLoaded || !definition || !mermaidRef.current) return
-
-    const renderChart = async () => {
-      try {
-        const mermaid = (await import('mermaid')).default
-        const mermaidDef = generateMermaidDefinition()
-
-        if (!mermaidDef.trim()) return
-
-        // 清空容器
-        mermaidRef.current!.innerHTML = ''
-
-        // 渲染图表
-        const { svg } = await mermaid.render('workflow-chart', mermaidDef)
-        mermaidRef.current!.innerHTML = svg
-
-        // 应用缩放
-        const svgElement = mermaidRef.current!.querySelector('svg')
-        if (svgElement) {
-          svgElement.style.transform = `scale(${zoom})`
-          svgElement.style.transformOrigin = 'top left'
-        }
-      } catch (error) {
-        console.error('Mermaid rendering error:', error)
-        mermaidRef.current!.innerHTML = `
-          <div class="flex items-center justify-center h-64 text-red-500">
-            <div class="text-center">
-              <AlertCircle className="h-8 w-8 mx-auto mb-2" />
-              <p>流程图渲染失败</p>
-            </div>
-          </div>
-        `
-      }
-    }
-
-    renderChart()
-  }, [mermaidLoaded, definition, instance, zoom])
-
-  // 处理缩放
-  const handleZoomIn = () => setZoom((prev) => Math.min(prev + 0.1, 2))
-  const handleZoomOut = () => setZoom((prev) => Math.max(prev - 0.1, 0.5))
-  const handleResetZoom = () => setZoom(1)
-
-  // 处理全屏
-  const handleFullscreen = () => {
-    setIsFullscreen(!isFullscreen)
-  }
-
-  // 导出图表
-  const handleExport = () => {
-    const svgElement = mermaidRef.current?.querySelector('svg')
-    if (!svgElement) return
-
-    const svgData = new XMLSerializer().serializeToString(svgElement)
-    const canvas = document.createElement('canvas')
-    const ctx = canvas.getContext('2d')
-    const img = new Image()
-
-    img.onload = () => {
-      canvas.width = img.width
-      canvas.height = img.height
-      ctx?.drawImage(img, 0, 0)
-
-      const link = document.createElement('a')
-      link.download = `workflow-${definition?.name || 'chart'}.png`
-      link.href = canvas.toDataURL()
-      link.click()
-    }
-
-    img.src = 'data:image/svg+xml;base64,' + btoa(svgData)
-  }
-
-  if (definitionLoading || instanceLoading) {
-    return (
-      <Card className={className}>
-        <CardHeader>
-          <Skeleton className='h-6 w-48' />
-        </CardHeader>
-        <CardContent>
-          <Skeleton className='h-64 w-full' />
-        </CardContent>
-      </Card>
-    )
-  }
-
-  if (definitionError || instanceError) {
-    return (
-      <Card className={className}>
-        <CardHeader>
-          <CardTitle className='text-red-600'>加载失败</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Alert>
-            <AlertCircle className='h-4 w-4' />
-            <AlertDescription>
-              {definitionError?.message || instanceError?.message || '未知错误'}
-            </AlertDescription>
-          </Alert>
-          <Button
-            onClick={() => refetchDefinition()}
-            className='mt-4'
-            variant='outline'
-          >
-            <RefreshCw className='mr-2 h-4 w-4' />
-            重试
-          </Button>
-        </CardContent>
-      </Card>
-    )
   }
 
   return (
-    <Card
-      className={`${className} ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}
-    >
-      <CardHeader>
-        <div className='flex items-center justify-between'>
-          <div>
-            <CardTitle className='text-lg'>
-              {definition?.name || '工作流程图'}
-            </CardTitle>
-            {definition?.description && (
-              <p className='text-muted-foreground mt-1 text-sm'>
-                {definition.description}
-              </p>
-            )}
-          </div>
-          <div className='flex items-center gap-2'>
-            {instance && (
-              <Badge
-                variant={
-                  instance.status === 'running' ? 'default' : 'secondary'
-                }
-                className={
-                  instance.status === 'running'
-                    ? 'bg-blue-500'
-                    : instance.status === 'completed'
-                      ? 'bg-green-500'
-                      : instance.status === 'failed'
-                        ? 'bg-red-500'
-                        : ''
-                }
-              >
-                {instance.status}
+    <div className="flex h-full">
+      {/* 主要的流程图区域 */}
+      <div className="flex-1 relative">
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onNodeClick={handleNodeClick}
+          fitView
+          attributionPosition="bottom-left"
+        >
+          <Background />
+          <Controls />
+          <MiniMap
+            nodeStrokeColor="#374151"
+            nodeColor="#6b7280"
+            nodeBorderRadius={8}
+            maskColor="rgba(0, 0, 0, 0.1)"
+          />
+        </ReactFlow>
+
+        {/* 工作流信息覆盖层 */}
+        <Card className="absolute top-4 left-4 w-80 bg-white/95 backdrop-blur-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">{definition.name}</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              {definition.description}
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">版本:</span>
+              <Badge variant="outline">{definition.version}</Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">状态:</span>
+              <Badge variant={definition.status === 'active' ? 'default' : 'secondary'}>
+                {definition.status}
               </Badge>
-            )}
-            {showControls && (
+            </div>
+            {instance && (
               <>
-                <Button size='sm' variant='outline' onClick={handleZoomOut}>
-                  <ZoomOut className='h-4 w-4' />
-                </Button>
-                <Button size='sm' variant='outline' onClick={handleResetZoom}>
-                  {Math.round(zoom * 100)}%
-                </Button>
-                <Button size='sm' variant='outline' onClick={handleZoomIn}>
-                  <ZoomIn className='h-4 w-4' />
-                </Button>
-                <Button size='sm' variant='outline' onClick={handleExport}>
-                  <Download className='h-4 w-4' />
-                </Button>
-                <Button size='sm' variant='outline' onClick={handleFullscreen}>
-                  <Maximize2 className='h-4 w-4' />
-                </Button>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">实例状态:</span>
+                  <div className="flex items-center gap-2">
+                    {getNodeStatusIcon(instance.status)}
+                    <span className="text-sm">{instance.status}</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">当前节点:</span>
+                  <Badge variant="outline">{instance.currentNodeId || '-'}</Badge>
+                </div>
               </>
             )}
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div
-          ref={mermaidRef}
-          className='min-h-[400px] overflow-auto rounded-lg border bg-white p-4'
-          style={{
-            height: isFullscreen ? 'calc(100vh - 200px)' : '500px',
-            maxHeight: isFullscreen ? 'none' : '500px',
-          }}
-        />
+          </CardContent>
+        </Card>
 
-        {/* 执行信息 */}
-        {instance && (
-          <div className='mt-4 rounded-lg bg-gray-50 p-4'>
-            <h4 className='mb-2 font-medium'>执行信息</h4>
-            <div className='grid grid-cols-2 gap-4 text-sm md:grid-cols-4'>
-              <div>
-                <span className='text-muted-foreground'>当前节点:</span>
-                <p className='font-medium'>{instance.currentNodeId || '无'}</p>
+      {/* 节点详情侧边栏 */}
+      {showNodeDetails && selectedNode && (
+        <div className="w-96 border-l bg-background">
+          <Card className="h-full rounded-none border-0">
+            <CardHeader className="border-b">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">节点详情</CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowNodeDetails(false)}
+                >
+                  ✕
+                </Button>
               </div>
-              <div>
-                <span className='text-muted-foreground'>已完成:</span>
-                <p className='font-medium'>
-                  {instance.completedNodes?.length || 0}
-                </p>
-              </div>
-              <div>
-                <span className='text-muted-foreground'>失败节点:</span>
-                <p className='font-medium'>
-                  {instance.failedNodes?.length || 0}
-                </p>
-              </div>
-              <div>
-                <span className='text-muted-foreground'>重试次数:</span>
-                <p className='font-medium'>{instance.retryCount || 0}</p>
-              </div>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+            </CardHeader>
+            <CardContent className="p-0">
+              <ScrollArea className="h-[calc(100vh-200px)]">
+                <div className="p-6 space-y-6">
+                  {/* 基本信息 */}
+                  <div className="space-y-3">
+                    <h3 className="font-semibold flex items-center gap-2">
+                      <Settings className="h-4 w-4" />
+                      基本信息
+                    </h3>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">节点ID:</span>
+                        <code className="text-xs bg-muted px-1 rounded">
+                          {selectedNode.id}
+                        </code>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">节点名称:</span>
+                        <span>{selectedNode.data.originalNode?.nodeName || selectedNode.id}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">节点类型:</span>
+                        <Badge variant={getNodeTypeBadgeVariant(selectedNode.data.nodeType)}>
+                          {selectedNode.data.nodeType}
+                        </Badge>
+                      </div>
+                      {selectedNode.data.executor && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">执行器:</span>
+                          <code className="text-xs bg-muted px-1 rounded">
+                            {selectedNode.data.executor}
+                          </code>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 执行状态 */}
+                  {instance && (
+                    <>
+                      <Separator />
+                      <div className="space-y-3">
+                        <h3 className="font-semibold flex items-center gap-2">
+                          <Zap className="h-4 w-4" />
+                          执行状态
+                        </h3>
+                        {(() => {
+                          const nodeInstanceInfo = getNodeInstanceInfo(selectedNode.id)
+                          if (!nodeInstanceInfo) {
+                            return (
+                              <p className="text-sm text-muted-foreground">
+                                该节点尚未执行
+                              </p>
+                            )
+                          }
+
+                          return (
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between items-center">
+                                <span className="text-muted-foreground">状态:</span>
+                                <div className="flex items-center gap-2">
+                                  {getNodeStatusIcon(nodeInstanceInfo.status)}
+                                  <span>{nodeInstanceInfo.status}</span>
+                                </div>
+                              </div>
+                              {nodeInstanceInfo.startTime && (
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">开始时间:</span>
+                                  <span className="text-xs">
+                                    {new Date(nodeInstanceInfo.startTime).toLocaleString()}
+                                  </span>
+                                </div>
+                              )}
+                              {nodeInstanceInfo.endTime && (
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">结束时间:</span>
+                                  <span className="text-xs">
+                                    {new Date(nodeInstanceInfo.endTime).toLocaleString()}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })()}
+                      </div>
+                    </>
+                  )}
+
+                  {/* 配置信息 */}
+                  <Separator />
+                  <div className="space-y-3">
+                    <h3 className="font-semibold flex items-center gap-2">
+                      <Database className="h-4 w-4" />
+                      配置信息
+                    </h3>
+                    {selectedNode.data.originalNode?.inputData && (
+                      <div>
+                        <p className="text-sm font-medium mb-2">输入数据:</p>
+                        <pre className="text-xs bg-muted p-2 rounded overflow-auto max-h-32">
+                          {JSON.stringify(selectedNode.data.originalNode.inputData, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                    {selectedNode.data.originalNode?.errorHandling && (
+                      <div>
+                        <p className="text-sm font-medium mb-2">错误处理:</p>
+                        <pre className="text-xs bg-muted p-2 rounded overflow-auto max-h-32">
+                          {JSON.stringify(selectedNode.data.originalNode.errorHandling, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
   )
-}
+

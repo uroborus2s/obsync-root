@@ -24,11 +24,11 @@ export function UserNav() {
     isAuthenticated,
     user,
     loading,
-    error,
+    error: _error,
     logout,
     getDisplayName,
     getAvatar,
-    getRoleDisplayText,
+    getRoleDisplayText: _getRoleDisplayText,
     getUserTypeDisplayText,
   } = useUser()
 

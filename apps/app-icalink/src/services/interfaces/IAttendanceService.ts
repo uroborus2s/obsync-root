@@ -250,23 +250,6 @@ export interface IAttendanceService {
   >;
 
   /**
-   * 批量初始化考勤记录
-   * @param courseId 课程ID
-   * @param teacherId 教师ID
-   * @returns 初始化结果
-   */
-  initializeAttendanceRecords(
-    courseId: string,
-    teacherId: string
-  ): Promise<
-    ServiceResult<{
-      totalStudents: number;
-      initializedRecords: number;
-      existingRecords: number;
-    }>
-  >;
-
-  /**
    * 自动标记缺勤
    * @param courseId 课程ID
    * @returns 标记结果
@@ -581,6 +564,22 @@ export interface IAttendanceService {
           leave_reason?: string;
         }>;
       }>;
+    }>
+  >;
+
+  /**
+   * 获取系统级别的全局统计数据
+   * @returns 系统全局统计数据
+   */
+  getSystemOverallStats(): Promise<
+    ServiceResult<{
+      total_courses: number;
+      total_students: number;
+      attendance_enabled_courses: number;
+      total_attendance_capacity: number;
+      average_attendance_rate: number;
+      active_courses_today: number;
+      total_checkin_records: number;
     }>
   >;
 }

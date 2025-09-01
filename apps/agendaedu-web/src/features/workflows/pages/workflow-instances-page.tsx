@@ -104,8 +104,8 @@ export default function WorkflowInstancesPage() {
 
   // 查看工作流实例
   const handleViewInstance = (instance: WorkflowInstance) => {
-    toast.info(`查看工作流实例 "${instance.name}" 详情功能开发中...`)
-    // TODO: 实现查看详情功能
+    // 跳转到实例详情页面，使用正确的base路径
+    window.location.href = `/web/workflows/instances/${instance.id}`
   }
 
   // 查看执行历史
@@ -264,7 +264,7 @@ export default function WorkflowInstancesPage() {
                       <SelectItem value='all'>全部定义</SelectItem>
                       {definitions.map((def) => (
                         <SelectItem key={def.id} value={def.name}>
-                          {def.displayName || def.name}
+                          {def.name}
                         </SelectItem>
                       ))}
                     </SelectContent>

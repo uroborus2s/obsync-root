@@ -9,6 +9,7 @@ import { StudentDashboard } from '@/pages/StudentDashboard';
 import { StudentMessages } from '@/pages/StudentMessages';
 import { useEffect } from 'react';
 import { Route, BrowserRouter as Router, Routes } from 'react-router-dom';
+import { LocationTestPage } from './pages/LocationTestPage';
 
 function AppContent() {
   return (
@@ -41,6 +42,9 @@ function AppContent() {
           {/* 原有的签到页面路由 - 保持向后兼容 */}
           <Route path='/attendance/student' element={<StudentDashboard />} />
           <Route path='/attendance/teacher' element={<AttendanceSheet />} />
+
+          {/* 测试页面路由 */}
+          <Route path='/test/location' element={<LocationTestPage />} />
 
           {/* 404 路由 */}
           <Route

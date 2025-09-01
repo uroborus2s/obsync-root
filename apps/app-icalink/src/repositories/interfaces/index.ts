@@ -24,3 +24,6 @@ export * from './IStudentRepository.js';
 
 // 教师信息仓储接口
 export * from './ITeacherRepository.js';
+
+// 签到统计仓储接口
+export * from './IAttendanceStatsRepository.js';

@@ -13,8 +13,8 @@ SET NAMES utf8mb4;
 
 INSERT INTO `icalink_system_configs` (`config_key`, `config_value`, `config_type`, `config_group`, `description`, `is_system`, `created_by`) VALUES
 -- 签到时间窗口配置
-('attendance.checkin_window_start', '-15', 'number', 'attendance', '签到开始时间偏移(分钟)，负数表示课程开始前', 1, 'system'),
-('attendance.checkin_window_end', '30', 'number', 'attendance', '签到结束时间偏移(分钟)，正数表示课程开始后', 1, 'system'),
+('attendance.checkin_window_start', '-10', 'number', 'attendance', '签到开始时间偏移(分钟)，负数表示课程开始前', 1, 'system'),
+('attendance.checkin_window_end', '10', 'number', 'attendance', '签到结束时间偏移(分钟)，正数表示课程开始后', 1, 'system'),
 ('attendance.late_threshold', '10', 'number', 'attendance', '迟到阈值(分钟)，超过此时间算迟到', 1, 'system'),
 ('attendance.auto_absent_after', '60', 'number', 'attendance', '自动标记缺勤时间(分钟)，超过此时间自动标记缺勤', 1, 'system'),
 

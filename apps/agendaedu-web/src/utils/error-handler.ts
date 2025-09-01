@@ -64,7 +64,7 @@ export function extractErrorInfo(error: AxiosError): ErrorInfo {
     url: error.config?.url,
     method: error.config?.method?.toUpperCase(),
     status: error.response?.status,
-    message: error.response?.data?.message || error.message,
+    message: (error.response?.data as any)?.message || error.message,
     timestamp: new Date().toISOString(),
     userAgent: navigator.userAgent,
     currentPath: window.location.href,
@@ -127,16 +127,16 @@ export function getFriendlyErrorMessage(
 /**
  * 记录错误日志
  */
-export function logError(errorInfo: ErrorInfo, errorType: ErrorType): void {
-  const logData = {
-    type: errorType,
-    ...errorInfo,
-    // 添加额外的调试信息
-    url_pathname: window.location.pathname,
-    url_search: window.location.search,
-    referrer: document.referrer,
-    timestamp_local: new Date().toLocaleString('zh-CN'),
-  }
+export function logError(_errorInfo: ErrorInfo, _errorType: ErrorType): void {
+  // const _logData = {
+  //   type: errorType,
+  //   ...errorInfo,
+  //   // 添加额外的调试信息
+  //   url_pathname: window.location.pathname,
+  //   url_search: window.location.search,
+  //   referrer: document.referrer,
+  //   timestamp_local: new Date().toLocaleString('zh-CN'),
+  // }
 
   // 在生产环境中，这些错误应该发送到日志服务
   // 开发环境可以根据需要启用控制台输出

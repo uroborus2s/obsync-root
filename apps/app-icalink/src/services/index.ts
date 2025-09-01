@@ -6,5 +6,6 @@ export * from './interfaces/index.js';
 
 // Service实现导出
 export { default as AttendanceService } from './AttendanceService.js';
+export { default as AttendanceStatsService } from './AttendanceStatsService.js';
 export { default as LeaveService } from './LeaveService.js';
 export { default as UserService } from './UserService.js';

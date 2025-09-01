@@ -7,6 +7,7 @@ export * from './interfaces/index.js';
 // Repository实现导出
 export { default as AttendanceCourseRepository } from './AttendanceCourseRepository.js';
 export { default as AttendanceRecordRepository } from './AttendanceRecordRepository.js';
+export { default as AttendanceStatsRepository } from './AttendanceStatsRepository.js';
 export { default as LeaveApplicationRepository } from './LeaveApplicationRepository.js';
 export { default as LeaveApprovalRepository } from './LeaveApprovalRepository.js';
 export { default as LeaveAttachmentRepository } from './LeaveAttachmentRepository.js';

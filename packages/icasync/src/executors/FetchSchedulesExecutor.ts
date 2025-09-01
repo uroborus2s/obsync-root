@@ -312,8 +312,8 @@ export default class FetchSchedulesExecutor implements TaskExecutor {
           periods: item.jc_s,
           time_period: item.sjd,
           attendance_enabled: 1, // 默认启用签到
-          attendance_start_offset: 0, // 提前15分钟开始签到
-          attendance_end_offset: 15, // 课程开始后30分钟内可签到
+          attendance_start_offset: -10, // 提前10分钟开始签到
+          attendance_end_offset: 10, // 课程开始后10分钟内可签到
           late_threshold: 10, // 10分钟内算迟到
           auto_absent_after: 30, // 30分钟后自动标记缺勤
           created_by: 'system'

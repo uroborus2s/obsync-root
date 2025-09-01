@@ -20,6 +20,9 @@ export interface UserInfo {
   id: string;
   type: UserType;
   name: string;
+  className?: string;
+  majorName?: string;
+  collegeMame?: string;
 }
 
 /**
@@ -157,7 +160,7 @@ export interface ImageAttachment {
  * 请假申请请求
  */
 export interface LeaveApplicationRequest {
-  attendance_record_id: number;
+  attendance_record_id: string;
   leave_type: LeaveType;
   leave_reason: string;
   images?: ImageAttachment[];
@@ -257,15 +260,16 @@ export interface AttachmentsPathParams {
  * 附件信息
  */
 export interface AttachmentInfo {
-  id: number;
-  image_name: string;
-  image_size: number;
-  image_type: ImageType;
+  id: string; // 改为string以匹配前端期望
+  file_name: string; // 统一字段名
+  file_size: number; // 统一字段名
+  file_type: ImageType; // 统一字段名
   image_width?: number;
   image_height?: number;
   upload_time: string;
   download_url: string;
   thumbnail_url?: string;
+  preview_url?: string; // 添加预览URL
 }
 
 /**

@@ -11,6 +11,7 @@ export enum AttendanceStatus {
   LEAVE = 'leave',
   PENDING_APPROVAL = 'pending_approval',
   LEAVE_PENDING = 'leave_pending',
+  LEAVE_REJECTED = 'leave_rejected',
   LATE = 'late'
 }
 

@@ -55,7 +55,7 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
       host: webConfig.host || '0.0.0.0',
       keepAliveTimeout: 30000, // 🔧 增加到30秒，减少连接重建
       requestTimeout: 30000,
-      bodyLimit: 5242880 * 4, // 🔧 增加到5MB
+      bodyLimit: 1024 * 1024 * 20, // 🔧 增加到5MB
       trustProxy: true,
       // 🔧 新增：连接管理配置
       connectionTimeout: 60000, // 连接超时60秒
@@ -105,7 +105,7 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
                 databaseConfig.default?.username ||
                 'root',
               password: databaseConfig.default?.password || ''
-            }
+            },
           }
         }
       },

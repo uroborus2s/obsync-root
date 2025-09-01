@@ -66,7 +66,7 @@ export default function WorkflowDefinitionsPage() {
     pageSize: 20,
     totalPages: 1,
   }
-  const _statsLoading = false
+  // const _statsLoading = false
   const _statsError = null
 
   // 处理搜索

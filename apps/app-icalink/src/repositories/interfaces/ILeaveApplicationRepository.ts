@@ -101,19 +101,30 @@ export interface LeaveApplicationStats {
  * 提供请假申请相关的数据访问方法
  */
 export interface ILeaveApplicationRepository
-  extends InstanceType<typeof BaseRepository<
-    IcalinkDatabase,
-    'icalink_leave_applications',
-    IcalinkLeaveApplication,
-    CreateLeaveApplicationData,
-    UpdateLeaveApplicationData
-  >> {
+  extends InstanceType<
+    typeof BaseRepository<
+      IcalinkDatabase,
+      'icalink_leave_applications',
+      IcalinkLeaveApplication,
+      CreateLeaveApplicationData,
+      UpdateLeaveApplicationData
+    >
+  > {
   /**
    * 根据签到记录ID查找请假申请
    * @param attendanceRecordId 签到记录ID
    * @returns 请假申请或null
    */
   findByAttendanceRecord(
+    attendanceRecordId: number
+  ): Promise<ServiceResult<IcalinkLeaveApplication | null>>;
+
+  /**
+   * 根据签到记录ID查找有效的请假申请（排除已取消的申请）
+   * @param attendanceRecordId 签到记录ID
+   * @returns 有效的请假申请或null
+   */
+  findActiveByAttendanceRecord(
     attendanceRecordId: number
   ): Promise<ServiceResult<IcalinkLeaveApplication | null>>;
 

@@ -2,15 +2,15 @@
 // 基于 Stratix 框架的仓储接口定义
 
 import { BaseRepository } from '@stratix/database';
-import type { 
-  IcalinkLeaveApproval, 
-  IcalinkDatabase, 
-  ApprovalResult 
+import type {
+  ApprovalResult,
+  IcalinkDatabase,
+  IcalinkLeaveApproval
 } from '../../types/database.js';
-import type { 
-  ServiceResult, 
-  PaginatedResult, 
-  QueryOptions 
+import type {
+  PaginatedResult,
+  QueryOptions,
+  ServiceResult
 } from '../../types/service.js';
 
 /**
@@ -20,6 +20,7 @@ export interface LeaveApprovalQueryConditions {
   leave_application_id?: number;
   approver_id?: string;
   approval_result?: ApprovalResult;
+  approval_result_in?: ApprovalResult[]; // 支持多状态查询
   approval_start_date?: Date;
   approval_end_date?: Date;
   is_final_approver?: boolean;
@@ -90,13 +91,16 @@ export interface LeaveApprovalWithDetails extends IcalinkLeaveApproval {
  * 请假审批仓储接口
  * 继承基础仓储接口，提供请假审批相关的数据访问方法
  */
-export interface ILeaveApprovalRepository extends InstanceType<typeof BaseRepository<
-  IcalinkDatabase,
-  'icalink_leave_approvals',
-  IcalinkLeaveApproval,
-  CreateLeaveApprovalData,
-  UpdateLeaveApprovalData
->> {
+export interface ILeaveApprovalRepository
+  extends InstanceType<
+    typeof BaseRepository<
+      IcalinkDatabase,
+      'icalink_leave_approvals',
+      IcalinkLeaveApproval,
+      CreateLeaveApprovalData,
+      UpdateLeaveApprovalData
+    >
+  > {
   /**
    * 根据请假申请ID查找审批记录
    * @param leaveApplicationId 请假申请ID
@@ -221,18 +225,14 @@ export interface ILeaveApprovalRepository extends InstanceType<typeof BaseReposi
    * @param leaveApplicationId 请假申请ID
    * @returns 是否已审批
    */
-  isApproved(
-    leaveApplicationId: number
-  ): Promise<ServiceResult<boolean>>;
+  isApproved(leaveApplicationId: number): Promise<ServiceResult<boolean>>;
 
   /**
    * 检查申请是否被拒绝
    * @param leaveApplicationId 请假申请ID
    * @returns 是否被拒绝
    */
-  isRejected(
-    leaveApplicationId: number
-  ): Promise<ServiceResult<boolean>>;
+  isRejected(leaveApplicationId: number): Promise<ServiceResult<boolean>>;
 
   /**
    * 更新审批结果
@@ -330,12 +330,14 @@ export interface ILeaveApprovalRepository extends InstanceType<typeof BaseReposi
     approverId?: string,
     startDate?: Date,
     endDate?: Date
-  ): Promise<ServiceResult<{
-    total_approvals: number;
-    avg_approval_time_hours: number;
-    fastest_approval_hours: number;
-    slowest_approval_hours: number;
-    approval_rate: number;
-    on_time_rate: number; // 24小时内审批的比例
-  }>>;
+  ): Promise<
+    ServiceResult<{
+      total_approvals: number;
+      avg_approval_time_hours: number;
+      fastest_approval_hours: number;
+      slowest_approval_hours: number;
+      approval_rate: number;
+      on_time_rate: number; // 24小时内审批的比例
+    }>
+  >;
 }

@@ -1,4 +1,3 @@
-import { FloatingApprovalButton } from '@/components/FloatingApprovalButton';
 import { Toaster, ToastProvider } from '@/components/ui/toast';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -35,6 +34,7 @@ function LeaveContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
     if (attendanceId) {
@@ -44,6 +44,15 @@ function LeaveContent() {
       setIsLoading(false);
     }
   }, [attendanceId]);
+
+  // 实时更新当前时间
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   const loadAttendanceData = async () => {
     if (!attendanceId) return;
@@ -163,9 +172,8 @@ function LeaveContent() {
 
         // 请假成功后导航到StudentDashboard页面
         setTimeout(() => {
-          navigate(
-            `/attendance/student?id=${encodeURIComponent(attendanceId)}`
-          );
+          navigate(`/attendance/view?id=${encodeURIComponent(attendanceId)}`);
+          // console.log('请假成功，返回上一页');
         }, 1500);
       } else {
         setError(response.message || '提交失败');
@@ -292,10 +300,55 @@ function LeaveContent() {
   };
 
   const canSubmitLeave = () => {
-    return (
-      attendanceData?.data?.attendance_status.can_leave &&
-      !attendanceData?.data?.attendance_status.is_checked_in
-    );
+    if (!attendanceData?.data) return false;
+
+    const { course, attendance_status } = attendanceData.data;
+
+    // 如果已经签到，不能请假
+    if (attendance_status.is_checked_in) {
+      return false;
+    }
+
+    // 如果已经请假或请假审批中，不能重复请假
+    if (
+      attendance_status.status === 'leave' ||
+      attendance_status.status === 'leave_pending'
+    ) {
+      return false;
+    }
+
+    // 获取课程开始时间
+    const courseStartTime = new Date(course.course_start_time);
+
+    // 只要在课程开始前，都可以请假
+    return currentTime < courseStartTime;
+  };
+
+  // 获取请假状态提示信息
+  const getLeaveStatusMessage = () => {
+    if (!attendanceData?.data) return '数据加载中...';
+
+    const { course, attendance_status } = attendanceData.data;
+
+    if (attendance_status.is_checked_in) {
+      return '已签到的课程无法请假';
+    }
+
+    if (attendance_status.status === 'leave') {
+      return '已申请请假，请假已通过';
+    }
+
+    if (attendance_status.status === 'leave_pending') {
+      return '请假申请审批中';
+    }
+
+    const courseStartTime = new Date(course.course_start_time);
+
+    if (currentTime >= courseStartTime) {
+      return '课程已开始，无法请假';
+    }
+
+    return '可以申请请假';
   };
 
   if (isLoading) {
@@ -565,9 +618,7 @@ function LeaveContent() {
                 <div className='flex items-center'>
                   <AlertCircle className='mr-2 h-4 w-4 text-yellow-500' />
                   <span className='text-sm text-yellow-700'>
-                    {attendanceData?.data?.attendance_status.is_checked_in
-                      ? '已签到的课程无法请假'
-                      : '当前时间不允许请假'}
+                    {getLeaveStatusMessage()}
                   </span>
                 </div>
               </div>
@@ -587,8 +638,6 @@ function LeaveContent() {
           </div>
         </div>
       </div>
-
-      <FloatingApprovalButton />
     </div>
   );
 }

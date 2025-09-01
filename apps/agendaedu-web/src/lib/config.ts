@@ -37,9 +37,12 @@ function getApiBaseUrl(): string {
     return 'https://kwps.jlufe.edu.cn'
   }
 
-  // 开发环境：本地开发时也使用统一的API地址
+  // 开发环境：根据环境模式决定
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'https://kwps.jlufe.edu.cn'
+    // 开发模式使用本地API，生产模式使用生产API
+    return import.meta.env.DEV
+      ? 'http://localhost:8090'
+      : 'https://kwps.jlufe.edu.cn'
   }
 
   // 默认情况：统一使用kwps.jlufe.edu.cn

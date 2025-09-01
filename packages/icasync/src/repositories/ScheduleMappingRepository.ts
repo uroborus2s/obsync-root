@@ -70,6 +70,7 @@ export interface IScheduleMappingRepository {
   deleteByKkh(kkh: string): Promise<DatabaseResult<number>>;
   deleteByCalendarId(calendarId: string): Promise<DatabaseResult<number>>;
   deleteSoftDeletedSchedules(): Promise<DatabaseResult<number>>;
+  deleteById(id: number): Promise<DatabaseResult<boolean>>;
 }
 
 /**
@@ -441,5 +442,12 @@ export default class ScheduleMappingRepository
     this.logOperation('delete', { id });
 
     return await super.delete(id);
+  }
+
+  /**
+   * 根据ID删除映射记录 (别名方法)
+   */
+  async deleteById(id: number): Promise<DatabaseResult<boolean>> {
+    return await this.delete(id);
   }
 }

@@ -21,7 +21,12 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
     // 服务器配置
     server: {
       port: webConfig.port || '3001',
-      host: webConfig.host || '0.0.0.0'
+      host: webConfig.host || '0.0.0.0',
+      // 增加请求体大小限制，支持大文件上传
+      bodyLimit: 10 * 1024 * 1024, // 50MB，支持多个大图片上传
+      requestTimeout: 60000, // 60秒请求超时
+      keepAliveTimeout: 30000, // 30秒保持连接
+      maxParamLength: 1000 // 增加参数长度限制
     },
     hooks: {
       afterFastifyCreated: async (fastify: any) => {

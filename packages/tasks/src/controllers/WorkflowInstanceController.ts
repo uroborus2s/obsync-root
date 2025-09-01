@@ -16,7 +16,8 @@ import type {
 
 import type {
   IWorkflowDefinitionService,
-  IWorkflowExecutionService
+  IWorkflowExecutionService,
+  IWorkflowInstanceService
 } from '../interfaces/index.js';
 
 /**
@@ -138,7 +139,8 @@ interface WorkflowStatusResponse {
 export default class WorkflowInstanceController {
   constructor(
     private readonly workflowExecutionService: IWorkflowExecutionService,
-    private readonly workflowDefinitionService: IWorkflowDefinitionService
+    private readonly workflowDefinitionService: IWorkflowDefinitionService,
+    private readonly workflowInstanceService: IWorkflowInstanceService
   ) {}
 
   /**
@@ -179,18 +181,75 @@ export default class WorkflowInstanceController {
       // 解析分页参数，确保类型正确
       const { page, pageSize } = this.parsePaginationParams(request.query);
 
-      // TODO: 实现实例查询逻辑
-      // 这里需要调用WorkflowInstanceService的查询方法
-      // 由于当前Service层没有直接的查询接口，需要通过Repository层实现
+      // 构建查询过滤器
+      const filters: any = {};
+      if (status) {
+        filters.status = Array.isArray(status) ? status : [status];
+      }
+      if (workflowDefinitionId) {
+        filters.workflowDefinitionId = workflowDefinitionId;
+      }
+      if (instanceType) {
+        filters.instanceType = instanceType;
+      }
+      if (businessKey) {
+        filters.businessKey = businessKey;
+      }
+      if (externalId) {
+        filters.externalId = externalId;
+      }
 
-      const response: PaginatedResponse<WorkflowInstance> = {
+      // 修复时间范围过滤器的字段名映射
+      if (startedAfter || startedBefore) {
+        filters.startedAt = {};
+        if (startedAfter) {
+          filters.startedAt.from = new Date(startedAfter);
+        }
+        if (startedBefore) {
+          filters.startedAt.to = new Date(startedBefore);
+        }
+      }
+
+      // 构建分页参数
+      const pagination = { page, pageSize };
+
+      // 添加调试日志
+      console.log('🔍 WorkflowInstanceController - Query filters:', filters);
+      console.log('🔍 WorkflowInstanceController - Pagination:', pagination);
+
+      // 调用服务层查询工作流实例
+      const result = await this.workflowInstanceService.findMany(
+        filters,
+        pagination
+      );
+
+      if (!result.success) {
+        return this.sendErrorResponse(
+          reply,
+          500,
+          'Failed to get workflow instances',
+          result.error
+        );
+      }
+
+      const paginatedData = result.data || {
         items: [],
         total: 0,
-        page,
-        pageSize,
+        page: 1,
+        pageSize: 20,
         totalPages: 0,
         hasNext: false,
         hasPrev: false
+      };
+
+      const response: PaginatedResponse<WorkflowInstance> = {
+        items: paginatedData.items,
+        total: paginatedData.total,
+        page: paginatedData.page,
+        pageSize: paginatedData.pageSize,
+        totalPages: paginatedData.totalPages,
+        hasNext: paginatedData.hasNext,
+        hasPrev: paginatedData.hasPrev
       };
 
       this.sendSuccessResponse(reply, 200, response);

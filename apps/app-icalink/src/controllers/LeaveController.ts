@@ -122,51 +122,32 @@ export default class LeaveController {
   ): Promise<ApiResponse<LeaveApplicationResponse>> {
     try {
       const applicationRequest = request.body;
+      const userIdentity = (request as any).userIdentity;
 
-      // 获取学生身份信息
-      let studentInfo: UserInfo;
-      try {
-        studentInfo = getStudentIdentityFromRequest(request);
-      } catch (error) {
-        reply.status(401);
-        return {
-          success: false,
-          message: error instanceof Error ? error.message : '用户身份验证失败',
-          code: ServiceErrorCode.UNAUTHORIZED
-        };
-      }
-
-      // 验证学生身份
-      const userValidation = await this.userService.validateUser(
-        studentInfo.id,
-        'student'
-      );
-      if (!isSuccessResult(userValidation) || !userValidation.data.isValid) {
-        reply.status(401);
-        return {
-          success: false,
-          message: '学生身份验证失败',
-          code: ServiceErrorCode.UNAUTHORIZED
-        };
-      }
-
-      // 检查提交请假权限
-      const hasPermission = await this.userService.hasPermission(
-        studentInfo.id,
-        'student',
-        'canSubmitLeave'
-      );
-      if (!isSuccessResult(hasPermission) || !hasPermission.data) {
-        reply.status(403);
-        return {
-          success: false,
-          message: '没有提交请假申请的权限',
-          code: ServiceErrorCode.FORBIDDEN
-        };
-      }
+      // // 检查提交请假权限
+      // const hasPermission = await this.userService.hasPermission(
+      //   studentInfo.id,
+      //   'student',
+      //   'canSubmitLeave'
+      // );
+      // if (!isSuccessResult(hasPermission) || !hasPermission.data) {
+      //   reply.status(403);
+      //   return {
+      //     success: false,
+      //     message: '没有提交请假申请的权限',
+      //     code: ServiceErrorCode.FORBIDDEN
+      //   };
+      // }
 
       const result = await this.leaveService.submitLeaveApplication(
-        studentInfo,
+        {
+          id: userIdentity.userId,
+          type: userIdentity.type,
+          name: userIdentity.username,
+          className: userIdentity.className,
+          majorName: userIdentity.majorName,
+          collegeMame: userIdentity.collegeName
+        },
         applicationRequest
       );
 
@@ -196,11 +177,12 @@ export default class LeaveController {
   }
 
   /**
-   * API_04: 撤回请假申请接口
+   * API_04: 撤回请假申请接口 (原DELETE接口保持兼容)
    * DELETE /api/icalink/v1/leave-applications/:application_id
+   * 注意：此接口不需要请求体，如果前端设置了Content-Type: application/json，请确保发送空的JSON对象 {}
    */
   @Delete('/api/icalink/v1/leave-applications/:application_id')
-  async withdrawLeaveApplication(
+  async withdrawLeaveApplicationDelete(
     request: FastifyRequest<{
       Params: { application_id: string };
     }>,
@@ -248,6 +230,64 @@ export default class LeaveController {
       const result = await this.leaveService.withdrawLeaveApplication(
         applicationId,
         studentInfo
+      );
+
+      if (isSuccessResult(result)) {
+        return {
+          success: true,
+          message: '请假申请撤回成功',
+          data: result.data
+        };
+      } else {
+        reply.status(400);
+        return {
+          success: false,
+          message: result.error?.message || '请假申请撤回失败',
+          code: result.error?.code
+        };
+      }
+    } catch (error) {
+      reply.status(500);
+      return {
+        success: false,
+        message: '服务器内部错误',
+        code: ServiceErrorCode.UNKNOWN_ERROR
+      };
+    }
+  }
+
+  /**
+   * API_04: 撤回请假申请接口 (新POST接口)
+   * POST /api/icalink/v1/leave-applications/:application_id/withdraw
+   */
+  @Post('/api/icalink/v1/leave-applications/:application_id/withdraw')
+  async withdrawLeaveApplication(
+    request: FastifyRequest<{
+      Params: { application_id: string };
+      Body?: { reason?: string }; // 可选的撤回原因
+    }>,
+    reply: FastifyReply
+  ): Promise<ApiResponse<WithdrawResponse>> {
+    try {
+      const applicationId = parseInt(request.params.application_id);
+
+      if (isNaN(applicationId)) {
+        reply.status(400);
+        return {
+          success: false,
+          message: '无效的申请ID',
+          code: ServiceErrorCode.INVALID_PARAMETER
+        };
+      }
+      const userIdentity = (request as any).userIdentity;
+
+      const result = await this.leaveService.withdrawLeaveApplication(
+        applicationId,
+        {
+          id: userIdentity.userId,
+          type: userIdentity.type,
+          name: userIdentity.username
+        }
       );
 
       if (isSuccessResult(result)) {
@@ -361,7 +401,7 @@ export default class LeaveController {
         leave_date: app.class_date || new Date().toISOString().split('T')[0],
         leave_reason: app.leave_reason,
         leave_type: app.leave_type,
-        status: this.mapLeaveStatusToFrontend(app.status),
+        status: app.status, // 直接使用服务层返回的状态，已经是正确格式
         approval_comment: app.approval_comment || null,
         approval_time: app.approval_time || null,
         application_time: app.application_time || app.created_at,
@@ -443,29 +483,30 @@ export default class LeaveController {
         };
       }
 
-      // 验证教师身份
-      const userValidation = await this.userService.validateUser(
-        teacherInfo.id,
-        'teacher'
-      );
-      if (!isSuccessResult(userValidation) || !userValidation.data.isValid) {
-        reply.status(401);
-        return {
-          success: false,
-          message: '教师身份验证失败',
-          code: ServiceErrorCode.UNAUTHORIZED
-        };
-      }
-
-      const applicationId = parseInt(approval_id);
-      if (isNaN(applicationId)) {
+      // 🔥 修复：approval_id是审批记录ID，需要先获取对应的application_id
+      const approvalIdNum = parseInt(approval_id);
+      if (isNaN(approvalIdNum)) {
         reply.status(400);
         return {
           success: false,
-          message: '无效的审批ID',
+          message: '无效的审批记录ID',
           code: ServiceErrorCode.INVALID_PARAMETER
         };
       }
+
+      // 通过审批记录ID获取审批记录，从中提取application_id
+      const approvalRecord =
+        await this.leaveService.getApprovalRecord(approvalIdNum);
+      if (!approvalRecord.success || !approvalRecord.data) {
+        reply.status(404);
+        return {
+          success: false,
+          message: '审批记录不存在',
+          code: ServiceErrorCode.INVALID_PARAMETER
+        };
+      }
+
+      const applicationId = approvalRecord.data.leave_application_id;
 
       // 执行审批操作
       const approvalRequest: ApprovalRequest = {
@@ -507,95 +548,6 @@ export default class LeaveController {
         message: '服务器内部错误',
         code: ServiceErrorCode.UNKNOWN_ERROR
       };
-    }
-  }
-
-  /**
-   * 查看附件图片接口
-   * GET /api/icalink/v1/attendance/attachments/:id/image
-   */
-  @Get('/api/icalink/v1/attendance/attachments/:id/image')
-  async viewAttachmentImage(
-    request: FastifyRequest<{
-      Params: { id: string };
-    }>,
-    reply: FastifyReply
-  ): Promise<void> {
-    try {
-      const attachmentId = parseInt(request.params.id);
-
-      if (isNaN(attachmentId)) {
-        reply.status(400).send({
-          success: false,
-          message: '无效的附件ID'
-        });
-        return;
-      }
-
-      // 获取用户身份信息（教师或学生都可以查看）
-      let userInfo: UserInfo;
-      try {
-        userInfo = getUserIdentityWithTypeCheck(request, [
-          'student',
-          'teacher'
-        ]);
-      } catch (error) {
-        reply.status(401).send({
-          success: false,
-          message: error instanceof Error ? error.message : '用户身份验证失败'
-        });
-        return;
-      }
-
-      // 通过附件ID下载附件
-      const result = await this.leaveService.downloadAttachmentById(
-        attachmentId,
-        userInfo,
-        false // 不是缩略图
-      );
-
-      if (!isSuccessResult(result)) {
-        reply.status(404).send({
-          success: false,
-          message: result.error?.message || '附件不存在'
-        });
-        return;
-      }
-
-      const attachment = result.data;
-
-      // 设置响应头
-      reply
-        .type(attachment.mimeType)
-        .header('Content-Length', attachment.fileSize.toString())
-        .header(
-          'Content-Disposition',
-          `inline; filename="${attachment.fileName}"`
-        )
-        .send(attachment.fileContent);
-    } catch (error) {
-      reply.status(500).send({
-        success: false,
-        message: '服务器内部错误'
-      });
-    }
-  }
-
-  /**
-   * 映射请假状态到前端格式
-   */
-  private mapLeaveStatusToFrontend(status: string): string {
-    switch (status) {
-      case 'leave_pending':
-        return 'pending';
-      case 'leave':
-        return 'approved';
-      case 'leave_rejected':
-        return 'rejected';
-      case 'cancelled':
-        return 'cancelled';
-      default:
-        return 'pending';
     }
   }
 

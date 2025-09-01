@@ -6,8 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:dev": "tsc -b && vite build --mode development",
+    "build:prod": "tsc -b && vite build --mode production",
     "lint": "eslint .",
     "preview": "vite preview",
+    "preview:prod": "vite preview --mode production",
     "format:check": "prettier --check .",
     "format": "prettier --write .",
     "knip": "knip"
@@ -52,6 +55,7 @@
     "react-dom": "^19.1.0",
     "react-hook-form": "^7.55.0",
     "react-top-loading-bar": "^3.0.2",
+    "reactflow": "^11.11.4",
     "recharts": "^2.15.2",
     "sonner": "^2.0.3",
     "tailwind-merge": "^3.2.0",

@@ -70,18 +70,16 @@ export function StudentMessages() {
   };
 
   // 撤回请假申请
-  const handleWithdrawLeave = async (attendanceRecordId: string) => {
-    const isWithdrawing = withdrawingIds.has(attendanceRecordId);
+  const handleWithdrawLeave = async (applicationId: string) => {
+    const isWithdrawing = withdrawingIds.has(applicationId);
     if (isWithdrawing) {
       return; // 防止重复点击
     }
 
-    setWithdrawingIds((prev) => new Set(prev).add(attendanceRecordId));
+    setWithdrawingIds((prev) => new Set(prev).add(applicationId));
 
     try {
-      const response = await attendanceApi.studentWithdrawLeave({
-        attendance_record_id: attendanceRecordId
-      });
+      const response = await attendanceApi.studentWithdrawLeave(applicationId);
 
       if (response.success) {
         toast.success('请假申请撤回成功', {
@@ -98,7 +96,7 @@ export function StudentMessages() {
     } finally {
       setWithdrawingIds((prev) => {
         const newSet = new Set(prev);
-        newSet.delete(attendanceRecordId);
+        newSet.delete(applicationId);
         return newSet;
       });
     }
@@ -107,24 +105,49 @@ export function StudentMessages() {
   // 检查是否可以撤回（课程开始时间之前且状态允许）
   const canWithdraw = (application: StudentLeaveApplicationItem): boolean => {
     // 检查状态是否允许撤回
-    const allowedStatuses: StudentLeaveApplicationItem['status'][] = [
+    // 注意：后端返回的状态可能是 'approved'、'pending' 等
+    const allowedStatuses = [
       'leave_pending',
       'leave_rejected',
-      'leave'
-    ];
+      'leave',
+      'approved', // 已批准状态
+      'pending' // 待审批状态
+    ] as const;
 
     if (!allowedStatuses.includes(application.status)) {
+      console.log('🚫 撤回失败：状态不允许', application.status);
       return false;
     }
 
     // 检查课程开始时间
     const courseStartTime = application.course_info?.course_start_time;
     if (!courseStartTime) {
+      console.log('🚫 撤回失败：没有课程开始时间', application.course_info);
       return false;
     }
 
     const now = new Date();
-    const startTime = new Date(courseStartTime);
+    // 处理 "YYYY-MM-DD HH:mm:ss" 格式的时间字符串
+    // 确保正确解析为本地时间
+    let startTime: Date;
+    if (courseStartTime.includes('T')) {
+      // ISO格式
+      startTime = new Date(courseStartTime);
+    } else {
+      // "YYYY-MM-DD HH:mm:ss" 格式，需要转换为ISO格式
+      startTime = new Date(courseStartTime.replace(' ', 'T'));
+    }
+
+    console.log('⏰ 撤回时间检查:', {
+      applicationId: application.id,
+      status: application.status,
+      courseStartTime,
+      now: now.toISOString(),
+      startTime: startTime.toISOString(),
+      nowLocal: now.toLocaleString('zh-CN'),
+      startTimeLocal: startTime.toLocaleString('zh-CN'),
+      canWithdraw: now < startTime
+    });
 
     // 只有在课程开始时间之前才能撤回
     return now < startTime;
@@ -235,12 +258,150 @@ export function StudentMessages() {
     fileName: string
   ) => {
     try {
-      // 直接使用图片接口URL，浏览器会自动处理图片加载
-      const imageUrl = `/api/icalink/v1/attendance/attachments/${attachmentId}/image`;
+      // 使用完整的API基础URL构建图片URL
+      const baseUrl =
+        import.meta.env.VITE_API_BASE_URL || 'http://localhost:8090/api';
+      const imageUrl = `${baseUrl}/icalink/v1/attendance/attachments/${attachmentId}/image`;
+
+      console.log('尝试查看附件:', {
+        attachmentId,
+        fileName,
+        imageUrl,
+        baseUrl
+      });
+
+      // 先测试图片是否可以访问
+      const response = await fetch(imageUrl, {
+        method: 'HEAD',
+        credentials: 'include' // 包含Cookie
+      });
+
+      console.log('HEAD请求响应:', {
+        status: response.status,
+        statusText: response.statusText,
+        contentType: response.headers.get('Content-Type'),
+        contentLength: response.headers.get('Content-Length'),
+        cacheControl: response.headers.get('Cache-Control')
+      });
+
+      if (!response.ok) {
+        console.error('附件访问失败:', {
+          status: response.status,
+          statusText: response.statusText,
+          url: imageUrl
+        });
+
+        if (response.status === 404) {
+          toast.error('附件不存在或已被删除');
+        } else if (response.status === 403) {
+          toast.error('没有权限查看此附件');
+        } else {
+          toast.error(`附件加载失败 (${response.status})`);
+        }
+        return;
+      }
+
+      // 检查Content-Type是否正确
+      const contentType = response.headers.get('Content-Type');
+      if (contentType && !contentType.startsWith('image/')) {
+        console.warn('Content-Type不是图片类型:', contentType);
+        toast.error('附件不是有效的图片格式');
+        return;
+      }
+
+      // 直接获取blob数据并转换为Data URL
+      console.log('开始获取图片blob数据...');
+
+      const imageResponse = await fetch(imageUrl, {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (!imageResponse.ok) {
+        console.error('获取图片数据失败:', imageResponse.status);
+        toast.error('获取图片数据失败');
+        return;
+      }
+
+      // 检查响应Content-Type，判断是否是JSON格式的Buffer
+      const imageContentType = imageResponse.headers.get('Content-Type');
+      console.log('响应Content-Type:', imageContentType);
+
+      let blob: Blob;
+
+      if (imageContentType && imageContentType.includes('application/json')) {
+        // 处理JSON格式的Buffer数据
+        console.log('检测到JSON响应，解析Buffer数据...');
+        const jsonData = await imageResponse.json();
+
+        if (jsonData.type === 'Buffer' && Array.isArray(jsonData.data)) {
+          // 将数字数组转换为Uint8Array
+          const uint8Array = new Uint8Array(jsonData.data);
+          blob = new Blob([uint8Array], { type: 'image/png' });
+          console.log('成功从JSON Buffer创建blob:', {
+            originalSize: jsonData.data.length,
+            blobSize: blob.size,
+            type: blob.type
+          });
+        } else {
+          throw new Error('无效的Buffer JSON格式');
+        }
+      } else {
+        // 看起来是正常响应，但可能内容仍然是JSON格式的Buffer
+        // 先尝试作为文本读取，检查是否是JSON
+        const responseText = await imageResponse.text();
+
+        try {
+          // 尝试解析为JSON
+          const jsonData = JSON.parse(responseText);
+
+          if (jsonData.type === 'Buffer' && Array.isArray(jsonData.data)) {
+            // 确实是JSON格式的Buffer，即使Content-Type说是image/png
+            console.log(
+              '虽然Content-Type是image/png，但内容是JSON Buffer，进行转换...'
+            );
+            const uint8Array = new Uint8Array(jsonData.data);
+            blob = new Blob([uint8Array], { type: 'image/png' });
+            console.log('成功从伪装的JSON Buffer创建blob:', {
+              originalSize: jsonData.data.length,
+              blobSize: blob.size,
+              type: blob.type
+            });
+          } else {
+            throw new Error('不是有效的Buffer JSON格式');
+          }
+        } catch (parseError) {
+          // 不是JSON，说明真的是二进制数据，但已经被读取为文本了
+          // 需要重新获取
+          console.log('不是JSON，重新获取二进制数据...');
+          const newResponse = await fetch(imageUrl, {
+            method: 'GET',
+            credentials: 'include'
+          });
+          blob = await newResponse.blob();
+          console.log('获取到真正的blob数据:', {
+            size: blob.size,
+            type: blob.type
+          });
+        }
+      }
+
+      // 将blob转换为Data URL
+      const dataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(blob);
+      });
+
+      console.log('转换为Data URL成功，长度:', dataUrl.length);
+
+      // 使用Data URL显示图片
       setSelectedImage({
-        url: imageUrl,
+        url: dataUrl,
         name: fileName
       });
+
+      console.log('附件查看成功:', { fileName, dataUrlLength: dataUrl.length });
     } catch (error) {
       console.error('查看附件失败:', error);
       toast.error('查看附件失败，请稍后重试');
@@ -636,9 +797,18 @@ export function StudentMessages() {
                 src={selectedImage.url}
                 alt={selectedImage.name}
                 className='max-h-[70vh] max-w-full object-contain'
-                onError={() => {
-                  console.error('图片加载失败:', selectedImage.url);
-                  setSelectedImage(null);
+                onError={(e) => {
+                  console.error(
+                    'Data URL图片加载失败，这通常不应该发生:',
+                    selectedImage.url.substring(0, 100) + '...'
+                  );
+                  // 显示错误占位图
+                  e.currentTarget.src =
+                    'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5YTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPuWbvueJh+WKoOi9veWksei0pTwvdGV4dD48L3N2Zz4=';
+                  toast.error('图片数据格式错误');
+                }}
+                onLoad={() => {
+                  console.log('Data URL图片加载成功');
                 }}
               />
             </div>

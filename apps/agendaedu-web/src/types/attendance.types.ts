@@ -196,6 +196,64 @@ export interface StudentPersonalStats {
 }
 
 /**
+ * 课程维度统计（与后端保持一致）
+ */
+export interface CourseAttendanceStats {
+  /** 课程代码 */
+  course_code: string
+  /** 课程名称 */
+  course_name: string
+  /** 学期 */
+  semester: string
+  /** 教师姓名 */
+  teacher_names: string
+  /** 教师工号列表 */
+  teacher_codes: string
+  /** 总课次数 */
+  class_count: number
+  /** 应签到人数 */
+  total_should_attend: number
+  /** 实际出勤人数 */
+  actual_attended: number
+  /** 请假人数 */
+  leave_count: number
+  /** 缺勤人数 */
+  absent_count: number
+  /** 出勤率 */
+  attendance_rate: number
+  /** 最近上课时间 */
+  last_class_time?: Date
+}
+
+/**
+ * 学生维度统计（与后端保持一致）
+ */
+export interface StudentAttendanceStats {
+  /** 学号 */
+  student_id: string
+  /** 姓名 */
+  student_name: string
+  /** 班级 */
+  class_name?: string
+  /** 专业 */
+  major_name?: string
+  /** 选课数量 */
+  course_count: number
+  /** 应签到人数 */
+  total_should_attend: number
+  /** 实际出勤人数 */
+  actual_attended: number
+  /** 请假人数 */
+  leave_count: number
+  /** 缺勤人数 */
+  absent_count: number
+  /** 出勤率 */
+  attendance_rate: number
+  /** 最近签到时间 */
+  last_checkin_time?: Date
+}
+
+/**
  * 课程考勤详情接口
  */
 export interface CourseAttendanceDetail {

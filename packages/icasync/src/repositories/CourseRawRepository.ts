@@ -1,7 +1,7 @@
 // @stratix/icasync 原始课程数据仓储
 import { Logger } from '@stratix/core';
 import type { DatabaseAPI, DatabaseResult } from '@stratix/database';
-import { QueryError, sql } from '@stratix/database';
+import { DatabaseErrorHandler, QueryError, sql } from '@stratix/database';
 import type {
   CourseChange,
   CourseRaw,
@@ -121,6 +121,29 @@ export interface ICourseRawRepository {
     juheRenwuIds: number[],
     gxZt: string
   ): Promise<DatabaseResult<number>>;
+
+  // 增量同步相关方法
+  updateJuheRenwuByIncrementalData(xnxq?: string): Promise<
+    DatabaseResult<{
+      updatedJuheRenwu: number;
+      updatedCourseRaw: number;
+    }>
+  >;
+  getIncrementalDataStats(xnxq: string): Promise<
+    DatabaseResult<{
+      totalCount: number;
+      amCount: number;
+      pmCount: number;
+      distinctKkhs: string[];
+    }>
+  >;
+  validateIncrementalUpdate(xnxq: string): Promise<
+    DatabaseResult<{
+      matchedJuheRenwu: number;
+      updatedJuheRenwu: number;
+      pendingIncrementalData: number;
+    }>
+  >;
 }
 
 /**
@@ -188,9 +211,10 @@ export default class CourseRawRepository
           .execute();
       };
 
-      return await this.databaseApi.executeQuery(operation, {
-        connectionName: 'syncdb'
-      });
+      return await DatabaseErrorHandler.execute(async () => {
+        const db = this.readConnection;
+        return await operation(db);
+      }, 'find-by-kkh-and-semester');
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -240,7 +264,10 @@ export default class CourseRawRepository
           .execute();
       };
 
-      return await this.databaseApi.executeQuery(operation);
+      return await DatabaseErrorHandler.execute(async () => {
+        const db = this.readConnection;
+        return await operation(db);
+      }, 'find-by-kkh-and-date');
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -350,7 +377,10 @@ export default class CourseRawRepository
           .execute();
       };
 
-      return await this.databaseApi.executeQuery(operation);
+      return await DatabaseErrorHandler.execute(async () => {
+        const db = this.readConnection;
+        return await operation(db);
+      }, 'find-changes-by-type');
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -382,7 +412,10 @@ export default class CourseRawRepository
           .execute();
       };
 
-      return await this.databaseApi.executeQuery(operation);
+      return await DatabaseErrorHandler.execute(async () => {
+        const db = this.readConnection;
+        return await operation(db);
+      }, 'find-changes-after-time');
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -633,8 +666,10 @@ export default class CourseRawRepository
           .orderBy('jc', 'asc')
           .execute();
       };
-
-      return await this.databaseApi.executeQuery(operation);
+      return await DatabaseErrorHandler.execute(async () => {
+        const db = this.readConnection;
+        return await operation(db);
+      }, 'find-courses-for-aggregation');
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -711,9 +746,10 @@ export default class CourseRawRepository
         return results.rows;
       };
 
-      const result = await this.databaseApi.executeQuery(operation, {
-        connectionName: 'syncdb'
-      });
+      const result = await DatabaseErrorHandler.execute(async () => {
+        const db = this.readConnection;
+        return await operation(db);
+      }, 'execute-full-aggregation-sql');
 
       if (result.success) {
         this.logOperation('执行全量聚合查询完成', {
@@ -1291,6 +1327,356 @@ export default class CourseRawRepository
       return {
         success: false,
         error: QueryError.create(`批量更新原始课程记录失败: ${errorMessage}`)
+      };
+    }
+  }
+
+  /**
+   * 通过事务同时更新juhe_renwu和u_jw_kcb_cur表的状态
+   * 根据u_jw_kcb_cur的增量数据（gx_zt is null）匹配juhe_renwu记录并更新状态
+   *
+   * 业务规则：
+   * - jc < 5 的记录匹配 sjd = 'am' 的juhe_renwu记录
+   * - jc > 4 的记录匹配 sjd = 'pm' 的juhe_renwu记录
+   * - juhe_renwu.gx_zt 更新为 '4'（软删除未处理）
+   * - u_jw_kcb_cur.gx_zt 更新为 '2'（已处理）
+   */
+  async updateJuheRenwuByIncrementalData(xnxq?: string): Promise<
+    DatabaseResult<{
+      updatedJuheRenwu: number;
+      updatedCourseRaw: number;
+    }>
+  > {
+    try {
+      this.logOperation('updateJuheRenwuByIncrementalData', { xnxq });
+
+      const result = await DatabaseErrorHandler.execute(async () => {
+        const db = this.writeConnection;
+
+        // 使用事务确保数据一致性
+        return await db.transaction().execute(async (trx) => {
+          // 1. 更新 juhe_renwu 表
+          const updateJuheRenwuQuery = sql`
+            UPDATE juhe_renwu j
+            SET gx_zt = '4', gx_sj = NOW()
+            WHERE EXISTS (
+                SELECT 1
+                FROM u_jw_kcb_cur u
+                WHERE u.gx_zt IS NULL
+                  AND u.kkh IS NOT NULL
+                  AND u.kkh != ''
+                  AND u.rq IS NOT NULL
+                  AND u.rq != ''
+                  AND u.st IS NOT NULL
+                  AND u.ed IS NOT NULL
+                  AND u.kcmc IS NOT NULL
+                  ${xnxq ? sql`AND u.xnxq = ${xnxq}` : sql``}
+                  AND j.kkh = u.kkh
+                  AND j.rq = u.rq
+                  AND (
+                      (CAST(u.jc AS UNSIGNED) < 5 AND j.sjd = 'am') OR
+                      (CAST(u.jc AS UNSIGNED) > 4 AND j.sjd = 'pm')
+                  )
+            )
+          `;
+
+          const juheResult = await updateJuheRenwuQuery.execute(trx);
+
+          // 2. 更新 u_jw_kcb_cur 表
+          const updateCourseRawQuery = sql`
+            UPDATE u_jw_kcb_cur u
+            SET gx_zt = '2', gx_sj = NOW()
+            WHERE u.gx_zt IS NULL
+              AND u.kkh IS NOT NULL
+              AND u.kkh != ''
+              AND u.rq IS NOT NULL
+              AND u.rq != ''
+              AND u.st IS NOT NULL
+              AND u.ed IS NOT NULL
+              AND u.kcmc IS NOT NULL
+              ${xnxq ? sql`AND u.xnxq = ${xnxq}` : sql``}
+              AND EXISTS (
+                  SELECT 1
+                  FROM juhe_renwu j
+                  WHERE j.kkh = u.kkh
+                    AND j.rq = u.rq
+                    AND j.gx_zt = '4'
+                    AND (
+                        (CAST(u.jc AS UNSIGNED) < 5 AND j.sjd = 'am') OR
+                        (CAST(u.jc AS UNSIGNED) > 4 AND j.sjd = 'pm')
+                    )
+              )
+          `;
+
+          const courseResult = await updateCourseRawQuery.execute(trx);
+
+          return {
+            updatedJuheRenwu: Number(juheResult.numAffectedRows || 0),
+            updatedCourseRaw: Number(courseResult.numAffectedRows || 0)
+          };
+        });
+      }, 'update-juhe-renwu-and-course-raw-by-incremental-data');
+
+      if (!result.success) {
+        return result;
+      }
+
+      this.logOperation('updateJuheRenwuByIncrementalData完成', {
+        xnxq,
+        updatedJuheRenwu: result.data.updatedJuheRenwu,
+        updatedCourseRaw: result.data.updatedCourseRaw
+      });
+
+      return result;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logOperation('updateJuheRenwuByIncrementalData失败', {
+        xnxq,
+        error: errorMessage
+      });
+
+      return {
+        success: false,
+        error: QueryError.create(
+          `通过增量数据更新juhe_renwu失败: ${errorMessage}`,
+          'TRANSACTION: UPDATE juhe_renwu and u_jw_kcb_cur',
+          xnxq ? [xnxq] : []
+        )
+      };
+    }
+  }
+
+  /**
+   * 获取增量数据详情用于分析和验证
+   * 返回u_jw_kcb_cur中gx_zt为null的记录统计信息
+   */
+  async getIncrementalDataStats(xnxq: string): Promise<
+    DatabaseResult<{
+      totalCount: number;
+      amCount: number; // jc < 5 的记录数
+      pmCount: number; // jc > 4 的记录数
+      distinctKkhs: string[];
+    }>
+  > {
+    if (!xnxq) {
+      throw new Error('学年学期不能为空');
+    }
+
+    try {
+      this.logOperation('getIncrementalDataStats', { xnxq });
+
+      const operation = async (db: any) => {
+        // 获取总数和时段统计
+        const statsQuery = sql`
+          SELECT 
+            COUNT(*) as totalCount,
+            SUM(CASE WHEN CAST(jc AS UNSIGNED) < 5 THEN 1 ELSE 0 END) as amCount,
+            SUM(CASE WHEN CAST(jc AS UNSIGNED) > 4 THEN 1 ELSE 0 END) as pmCount
+          FROM u_jw_kcb_cur
+          WHERE gx_zt IS NULL
+            AND kkh IS NOT NULL 
+            AND kkh != ''
+            AND rq IS NOT NULL 
+            AND rq != ''
+            AND xnxq = ${xnxq}
+            AND st is not null
+            AND ed is not null
+            AND kcmc is not null
+        `;
+
+        // 获取不重复的开课号
+        const kkhQuery = sql`
+          SELECT DISTINCT kkh
+          FROM u_jw_kcb_cur
+          WHERE gx_zt IS NULL
+            AND kkh IS NOT NULL 
+            AND kkh != ''
+            AND rq IS NOT NULL 
+            AND rq != ''
+            AND xnxq = ${xnxq}
+            AND st is not null
+            AND ed is not null
+            AND kcmc is not null
+          ORDER BY kkh
+        `;
+
+        const [statsResult, kkhResult] = await Promise.all([
+          statsQuery.execute(db),
+          kkhQuery.execute(db)
+        ]);
+
+        const stats = statsResult.rows[0] as any;
+        const kkhs = kkhResult.rows.map((row: any) => row.kkh);
+
+        return {
+          totalCount: parseInt(stats.totalCount) || 0,
+          amCount: parseInt(stats.amCount) || 0,
+          pmCount: parseInt(stats.pmCount) || 0,
+          distinctKkhs: kkhs
+        };
+      };
+
+      const result = await this.databaseApi.executeQuery(operation, {
+        connectionName: 'syncdb'
+      });
+
+      if (!result.success) {
+        return result;
+      }
+
+      const stats = result.data;
+
+      this.logOperation('getIncrementalDataStats完成', {
+        xnxq,
+        stats
+      });
+
+      return {
+        success: true,
+        data: stats
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logOperation('getIncrementalDataStats失败', {
+        xnxq,
+        error: errorMessage
+      });
+
+      return {
+        success: false,
+        error: QueryError.create(
+          `获取增量数据统计失败: ${errorMessage}`,
+          'SELECT COUNT(*), SUM(...) FROM u_jw_kcb_cur WHERE gx_zt IS NULL...',
+          [xnxq]
+        )
+      };
+    }
+  }
+
+  /**
+   * 验证增量数据更新结果
+   * 检查有多少juhe_renwu记录被成功匹配和更新
+   */
+  async validateIncrementalUpdate(xnxq: string): Promise<
+    DatabaseResult<{
+      matchedJuheRenwu: number;
+      updatedJuheRenwu: number;
+      pendingIncrementalData: number;
+    }>
+  > {
+    if (!xnxq) {
+      throw new Error('学年学期不能为空');
+    }
+
+    try {
+      this.logOperation('validateIncrementalUpdate', { xnxq });
+
+      const operation = async (db: any) => {
+        // 检查匹配的juhe_renwu记录数
+        const matchQuery = sql`
+          SELECT COUNT(DISTINCT j.id) as matchedCount
+          FROM juhe_renwu j
+          WHERE EXISTS (
+              SELECT 1 
+              FROM u_jw_kcb_cur u
+              WHERE u.gx_zt IS NULL
+                AND u.kkh IS NOT NULL 
+                AND u.kkh != ''
+                AND u.rq IS NOT NULL 
+                AND u.rq != ''
+                AND u.xnxq = ${xnxq}
+                AND j.kkh = u.kkh
+                AND j.rq = u.rq
+                AND (
+                    (CAST(u.jc AS UNSIGNED) < 5 AND j.sjd = 'am') OR
+                    (CAST(u.jc AS UNSIGNED) > 4 AND j.sjd = 'pm')
+                )
+          )
+        `;
+
+        // 检查已更新的juhe_renwu记录数（gx_zt = '4'）
+        const updatedQuery = sql`
+          SELECT COUNT(DISTINCT j.id) as updatedCount
+          FROM juhe_renwu j
+          WHERE j.gx_zt = '4'
+            AND EXISTS (
+                SELECT 1 
+                FROM u_jw_kcb_cur u
+                WHERE u.gx_zt IS NULL
+                  AND u.kkh IS NOT NULL 
+                  AND u.kkh != ''
+                  AND u.rq IS NOT NULL 
+                  AND u.rq != ''
+                  AND u.xnxq = ${xnxq}
+                  AND j.kkh = u.kkh
+                  AND j.rq = u.rq
+                  AND (
+                      (CAST(u.jc AS UNSIGNED) < 5 AND j.sjd = 'am') OR
+                      (CAST(u.jc AS UNSIGNED) > 4 AND j.sjd = 'pm')
+                  )
+            )
+        `;
+
+        // 检查剩余待处理的增量数据
+        const pendingQuery = sql`
+          SELECT COUNT(*) as pendingCount
+          FROM u_jw_kcb_cur
+          WHERE gx_zt IS NULL
+            AND kkh IS NOT NULL 
+            AND kkh != ''
+            AND rq IS NOT NULL 
+            AND rq != ''
+            AND xnxq = ${xnxq}
+        `;
+
+        const [matchResult, updatedResult, pendingResult] = await Promise.all([
+          db.execute(matchQuery),
+          db.execute(updatedQuery),
+          db.execute(pendingQuery)
+        ]);
+
+        return {
+          matchedJuheRenwu: parseInt(matchResult.rows[0].matchedCount) || 0,
+          updatedJuheRenwu: parseInt(updatedResult.rows[0].updatedCount) || 0,
+          pendingIncrementalData:
+            parseInt(pendingResult.rows[0].pendingCount) || 0
+        };
+      };
+
+      const result = await this.databaseApi.executeQuery(operation);
+
+      if (!result.success) {
+        return result;
+      }
+
+      const validation = result.data;
+
+      this.logOperation('validateIncrementalUpdate完成', {
+        xnxq,
+        validation
+      });
+
+      return {
+        success: true,
+        data: validation
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logOperation('validateIncrementalUpdate失败', {
+        xnxq,
+        error: errorMessage
+      });
+
+      return {
+        success: false,
+        error: QueryError.create(
+          `验证增量更新结果失败: ${errorMessage}`,
+          'SELECT COUNT(...) validation queries',
+          [xnxq]
+        )
       };
     }
   }

@@ -15,6 +15,10 @@ import type {
   ServiceResult
 } from '../types/service.js';
 import { ServiceErrorCode, wrapServiceCall } from '../types/service.js';
+import {
+  convertToPaginatedResult,
+  extractOptionFromServiceResult
+} from '../utils/type-fixes.js';
 import type {
   CreateLeaveApplicationData,
   ILeaveApplicationRepository,
@@ -22,7 +26,6 @@ import type {
   LeaveApplicationWithDetails,
   UpdateLeaveApplicationData
 } from './interfaces/ILeaveApplicationRepository.js';
-import { extractOptionFromServiceResult, convertToPaginatedResult } from '../utils/type-fixes.js';
 
 /**
  * 请假申请仓储实现类
@@ -61,6 +64,29 @@ export default class LeaveApplicationRepository
       if (!result.success) {
         throw new Error(
           result.error?.message || 'Failed to find leave application'
+        );
+      }
+
+      return extractOptionFromServiceResult<IcalinkLeaveApplication>(result);
+    }, ServiceErrorCode.DATABASE_ERROR);
+  }
+
+  /**
+   * 根据签到记录ID查找有效的请假申请（排除已取消的申请）
+   */
+  async findActiveByAttendanceRecord(
+    attendanceRecordId: number
+  ): Promise<ServiceResult<IcalinkLeaveApplication | null>> {
+    return wrapServiceCall(async () => {
+      const result = await this.findOne((qb) =>
+        qb
+          .where('attendance_record_id', '=', attendanceRecordId)
+          .where('status', '!=', 'cancelled')
+      );
+
+      if (!result.success) {
+        throw new Error(
+          result.error?.message || 'Failed to find active leave application'
         );
       }
 
@@ -128,6 +154,15 @@ export default class LeaveApplicationRepository
     options?: QueryOptions
   ): Promise<ServiceResult<PaginatedResult<IcalinkLeaveApplication>>> {
     return wrapServiceCall(async () => {
+      // 转换分页参数格式以匹配BaseRepository期望的结构
+      const paginationOptions = options?.pagination
+        ? {
+            page: Number(options.pagination.page || 1),
+            pageSize: Number(options.pagination.page_size || 10),
+            maxPageSize: 100
+          }
+        : undefined;
+
       const result = await this.paginate((qb) => {
         let query = qb;
 
@@ -160,7 +195,7 @@ export default class LeaveApplicationRepository
         }
 
         return query;
-      }, options?.pagination as any);
+      }, paginationOptions);
 
       if (!result.success) {
         throw new Error(
@@ -191,14 +226,14 @@ export default class LeaveApplicationRepository
       }
 
       // 转换为详细信息格式
-      const detailsData: LeaveApplicationWithDetails[] = (basicResult.data || []).map(
-        (app: any) => ({
-          ...app,
-          attachment_count: 0, // 需要查询附件数量
-          class_date: new Date(), // 需要从课程信息获取
-          class_time: '' // 需要从课程信息获取
-        })
-      );
+      const detailsData: LeaveApplicationWithDetails[] = (
+        basicResult.data || []
+      ).map((app: any) => ({
+        ...app,
+        attachment_count: 0, // 需要查询附件数量
+        class_date: new Date(), // 需要从课程信息获取
+        class_time: '' // 需要从课程信息获取
+      }));
 
       return detailsData;
     }, ServiceErrorCode.DATABASE_ERROR);
@@ -212,7 +247,7 @@ export default class LeaveApplicationRepository
     options?: QueryOptions
   ): Promise<ServiceResult<PaginatedResult<LeaveApplicationWithDetails>>> {
     return wrapServiceCall(async () => {
-      const paginatedResult =   await this.findByConditionsPaginated(
+      const paginatedResult = await this.findByConditionsPaginated(
         conditions,
         options
       );
@@ -225,13 +260,14 @@ export default class LeaveApplicationRepository
       }
 
       // 转换为详细信息格式
-      const detailsData: LeaveApplicationWithDetails[] =
-        (paginatedResult.data?.data || []).map((app: any) => ({
-          ...app,
-          attachment_count: 0,
-          class_date: new Date(),
-          class_time: ''
-        }));
+      const detailsData: LeaveApplicationWithDetails[] = (
+        paginatedResult.data?.data || []
+      ).map((app: any) => ({
+        ...app,
+        attachment_count: 0,
+        class_date: new Date(),
+        class_time: ''
+      }));
 
       return convertToPaginatedResult({
         ...paginatedResult.data,
@@ -287,8 +323,6 @@ export default class LeaveApplicationRepository
 
     return this.findByConditions(conditions, options);
   }
-
-
 
   /**
    * 软删除请假申请
@@ -379,7 +413,7 @@ export default class LeaveApplicationRepository
       if (courseId) {
         conditions.course_id = courseId;
       }
-      
+
       const result = await this.findByConditions(conditions);
       return result.success && result.data != null && result.data.length > 0;
     }, ServiceErrorCode.DATABASE_ERROR);
@@ -442,7 +476,8 @@ export default class LeaveApplicationRepository
         throw new Error('Failed to update leave application status');
       }
 
-      const application = extractOptionFromServiceResult<IcalinkLeaveApplication>(result);
+      const application =
+        extractOptionFromServiceResult<IcalinkLeaveApplication>(result);
       if (!application) {
         throw new Error('Update result is null');
       }
@@ -460,14 +495,11 @@ export default class LeaveApplicationRepository
     updatedBy?: string
   ): Promise<ServiceResult<number>> {
     return wrapServiceCall(async () => {
-      const result = await this.updateMany(
-        (qb) => qb.whereIn('id', ids),
-        {
-          status,
-          updated_by: updatedBy,
-          updated_at: new Date()
-        } as UpdateLeaveApplicationData
-      );
+      const result = await this.updateMany((qb) => qb.whereIn('id', ids), {
+        status,
+        updated_by: updatedBy,
+        updated_at: new Date()
+      } as UpdateLeaveApplicationData);
 
       return result.success ? result.data : 0;
     }, ServiceErrorCode.DATABASE_ERROR);
@@ -533,17 +565,21 @@ export default class LeaveApplicationRepository
   ): Promise<ServiceResult<boolean>> {
     return wrapServiceCall(async () => {
       const result = await this.findOne((qb) => qb.where('id', '=', id));
-      
+
       if (!result.success) {
         return false;
       }
 
-      const application = extractOptionFromServiceResult<IcalinkLeaveApplication>(result);
+      const application =
+        extractOptionFromServiceResult<IcalinkLeaveApplication>(result);
       if (!application) {
         return false;
       }
 
-      return application.student_id === studentId && application.status === 'leave_pending';
+      return (
+        application.student_id === studentId &&
+        application.status === 'leave_pending'
+      );
     }, ServiceErrorCode.DATABASE_ERROR);
   }
 
@@ -556,17 +592,21 @@ export default class LeaveApplicationRepository
   ): Promise<ServiceResult<boolean>> {
     return wrapServiceCall(async () => {
       const result = await this.findOne((qb) => qb.where('id', '=', id));
-      
+
       if (!result.success) {
         return false;
       }
 
-      const application = extractOptionFromServiceResult<IcalinkLeaveApplication>(result);
+      const application =
+        extractOptionFromServiceResult<IcalinkLeaveApplication>(result);
       if (!application) {
         return false;
       }
 
-      return application.teacher_id === teacherId && application.status === 'leave_pending';
+      return (
+        application.teacher_id === teacherId &&
+        application.status === 'leave_pending'
+      );
     }, ServiceErrorCode.DATABASE_ERROR);
   }
 
@@ -579,7 +619,7 @@ export default class LeaveApplicationRepository
   ): Promise<ServiceResult<IcalinkLeaveApplication[]>> {
     return this.findByConditions(
       { student_id: studentId },
-      { 
+      {
         pagination: { page: 1, page_size: limit || 10 },
         sort: { field: 'application_time', direction: 'desc' }
       }
@@ -595,7 +635,7 @@ export default class LeaveApplicationRepository
   ): Promise<ServiceResult<IcalinkLeaveApplication[]>> {
     return this.findByConditions(
       { teacher_id: teacherId },
-      { 
+      {
         pagination: { page: 1, page_size: limit || 10 },
         sort: { field: 'application_time', direction: 'desc' }
       }
@@ -627,10 +667,13 @@ export default class LeaveApplicationRepository
     endDate: Date,
     options?: QueryOptions
   ): Promise<ServiceResult<IcalinkLeaveApplication[]>> {
-    return this.findByConditions({
-      start_date: startDate,
-      end_date: endDate
-    }, options);
+    return this.findByConditions(
+      {
+        start_date: startDate,
+        end_date: endDate
+      },
+      options
+    );
   }
 
   /**

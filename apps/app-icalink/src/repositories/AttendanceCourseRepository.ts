@@ -974,7 +974,7 @@ export default class AttendanceCourseRepository
     return wrapServiceCall(async () => {
       this.logger.info({ kkh, semester }, 'Getting personal course stats');
 
-      // 首先获取课程基本信息
+      // 首先获取课程基本信息（仅从default数据库查询）
       const courseInfoResult = await this.advancedQuery(async (db) => {
         let query = sql`
           SELECT
@@ -983,15 +983,8 @@ export default class AttendanceCourseRepository
             c.semester as xnxq,
             c.teacher_names,
             c.teacher_codes,
-            COUNT(DISTINCT c.id) as total_classes,
-            COUNT(DISTINCT ar.student_id) as total_students,
-            CASE
-              WHEN COUNT(DISTINCT ar.student_id) > 0
-              THEN ROUND(AVG(CASE WHEN ar.status = 'present' THEN 100.0 ELSE 0 END), 2)
-              ELSE 0
-            END as overall_attendance_rate
+            COUNT(DISTINCT c.id) as total_classes
           FROM icasync_attendance_courses c
-          LEFT JOIN icalink_attendance_records ar ON c.id = ar.attendance_course_id
           WHERE c.course_code = ${kkh}
             AND c.deleted_at IS NULL
         `;
@@ -1000,7 +993,7 @@ export default class AttendanceCourseRepository
           query = sql`${query} AND c.semester = ${semester}`;
         }
 
-        query = sql`${query} GROUP BY c.course_code, c.course_name, c.semester, c.teacher_names,teacher_codes`;
+        query = sql`${query} GROUP BY c.course_code, c.course_name, c.semester, c.teacher_names, c.teacher_codes`;
 
         const result = await query.execute(db);
         return result.rows;
@@ -1016,49 +1009,85 @@ export default class AttendanceCourseRepository
 
       const courseInfo = courseInfoResult.data[0] as any;
 
-      // 获取学生统计数据
-      const studentStatsResult = await this.advancedQuery(async (db) => {
+      // 第一步：从syncdb数据库获取选课学生列表
+      const enrolledStudentsResult = await this.advancedQuery(async (db) => {
         let query = sql`
-          SELECT
+          SELECT DISTINCT
             s.xh,
             s.xm,
             s.bjmc,
-            s.zymc,
-            COUNT(ar.id) as total_classes,
-            COUNT(CASE WHEN ar.status = 'present' THEN 1 END) as present_count,
-            COUNT(CASE WHEN ar.status = 'absent' THEN 1 END) as absent_count,
-            COUNT(CASE WHEN ar.status = 'leave' THEN 1 END) as leave_count,
-            CASE
-              WHEN COUNT(ar.id) > 0
-              THEN ROUND(COUNT(CASE WHEN ar.status = 'present' THEN 1 END) * 100.0 / COUNT(ar.id), 2)
-              ELSE 0
-            END as attendance_rate
-          FROM out_xsxx s
-          INNER JOIN icalink_attendance_records ar ON s.xh = ar.student_id
-          INNER JOIN icasync_attendance_courses c ON ar.attendance_course_id = c.id
-          WHERE c.course_code = ${kkh}
-            AND c.deleted_at IS NULL
+            s.zymc
+          FROM out_jw_kcb_xs kcb
+          INNER JOIN out_xsxx s ON kcb.xh = s.xh
+          WHERE kcb.kkh = ${kkh}
+            AND (s.zt IS NULL OR (s.zt != '毕业' AND s.zt != '退学'))
         `;
 
         if (semester) {
-          query = sql`${query} AND c.semester = ${semester}`;
+          query = sql`${query} AND kcb.xnxq = ${semester}`;
         }
 
-        query = sql`${query} GROUP BY s.xh, s.xm, s.bjmc, s.zymc ORDER BY s.xh`;
+        query = sql`${query} ORDER BY s.xh ASC`;
 
         const result = await query.execute(db);
         return result.rows;
-      });
+      }, { connectionName: 'syncdb' });
 
-      if (!studentStatsResult.success) {
-        throw new Error('Failed to query student stats');
+      if (!enrolledStudentsResult.success) {
+        throw new Error('Failed to query enrolled students');
       }
 
-      const studentStatsData = (studentStatsResult.data as any[]) || [];
+      const enrolledStudents = (enrolledStudentsResult.data as any[]) || [];
+      
+      if (enrolledStudents.length === 0) {
+        // 如果没有选课学生，返回空结果
+        return {
+          course_info: {
+            kkh: courseInfo.kkh,
+            course_name: courseInfo.course_name,
+            xnxq: courseInfo.xnxq,
+            total_classes: courseInfo.total_classes || 0,
+            total_students: 0,
+            overall_attendance_rate: 0,
+            teachers: courseInfo.teacher_names || '',
+            teacher_codes: courseInfo.teacher_codes || ''
+          },
+          student_stats: []
+        };
+      }
 
-      // 为每个学生获取最近的考勤记录
+      // 第二步：为每个学生查询考勤统计数据
       const studentStats = await Promise.all(
-        studentStatsData.map(async (student) => {
+        enrolledStudents.map(async (student) => {
+          // 查询学生的考勤统计
+          const attendanceStatsResult = await this.advancedQuery(async (db) => {
+            let query = sql`
+              SELECT
+                COUNT(ar.id) as total_classes,
+                COUNT(CASE WHEN ar.status = 'present' THEN 1 END) as present_count,
+                COUNT(CASE WHEN ar.status = 'absent' THEN 1 END) as absent_count,
+                COUNT(CASE WHEN ar.status = 'leave' THEN 1 END) as leave_count,
+                CASE
+                  WHEN COUNT(ar.id) > 0
+                  THEN ROUND(COUNT(CASE WHEN ar.status = 'present' THEN 1 END) * 100.0 / COUNT(ar.id), 2)
+                  ELSE 0
+                END as attendance_rate
+              FROM icalink_attendance_records ar
+              INNER JOIN icasync_attendance_courses c ON ar.attendance_course_id = c.id
+              WHERE ar.student_id = ${student.xh}
+                AND c.course_code = ${kkh}
+                AND c.deleted_at IS NULL
+            `;
+
+            if (semester) {
+              query = sql`${query} AND c.semester = ${semester}`;
+            }
+
+            const result = await query.execute(db);
+            return result.rows;
+          });
+
+          // 查询学生的最近考勤记录
           const recentResult = await this.advancedQuery(async (db) => {
             let query = sql`
               SELECT
@@ -1084,23 +1113,35 @@ export default class AttendanceCourseRepository
             return result.rows;
           });
 
+          // 处理考勤统计数据
+          const statsData = attendanceStatsResult.success && attendanceStatsResult.data && attendanceStatsResult.data.length > 0
+            ? attendanceStatsResult.data[0] as any
+            : {
+                total_classes: 0,
+                present_count: 0,
+                absent_count: 0,
+                leave_count: 0,
+                attendance_rate: 0
+              };
+
+          // 处理最近考勤记录
           const recentRecords = (
             recentResult.success ? recentResult.data : []
           ) as any[];
 
           return {
             xh: student.xh,
-            xm: student.xm,
-            bjmc: student.bjmc,
-            zymc: student.zymc,
-            attendance_rate: student.attendance_rate || 0,
-            present_count: student.present_count || 0,
-            absent_count: student.absent_count || 0,
-            leave_count: student.leave_count || 0,
-            total_classes: student.total_classes || 0,
+            xm: student.xm || '',
+            bjmc: student.bjmc || '',
+            zymc: student.zymc || '',
+            attendance_rate: Number(statsData.attendance_rate) || 0,
+            present_count: Number(statsData.present_count) || 0,
+            absent_count: Number(statsData.absent_count) || 0,
+            leave_count: Number(statsData.leave_count) || 0,
+            total_classes: Number(statsData.total_classes) || 0,
             recent_records: recentRecords.map((record) => ({
               class_date: record.class_date,
-              status: record.status,
+              status: record.status || 'not_started',
               checkin_time: record.checkin_time,
               leave_reason: record.leave_reason
             }))
@@ -1108,14 +1149,24 @@ export default class AttendanceCourseRepository
         })
       );
 
+      // 计算总体统计
+      const totalStudents = enrolledStudents.length;
+      const studentsWithAttendance = studentStats.filter(s => s.total_classes > 0);
+      const overallAttendanceRate = studentsWithAttendance.length > 0
+        ? Math.round(
+            studentsWithAttendance.reduce((sum, student) => sum + student.attendance_rate, 0) / 
+            studentsWithAttendance.length * 100
+          ) / 100
+        : 0;
+
       return {
         course_info: {
           kkh: courseInfo.kkh,
           course_name: courseInfo.course_name,
           xnxq: courseInfo.xnxq,
           total_classes: courseInfo.total_classes || 0,
-          total_students: courseInfo.total_students || 0,
-          overall_attendance_rate: courseInfo.overall_attendance_rate || 0,
+          total_students: totalStudents,
+          overall_attendance_rate: overallAttendanceRate,
           teachers: courseInfo.teacher_names || '',
           teacher_codes: courseInfo.teacher_codes || ''
         },

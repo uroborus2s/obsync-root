@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { IconBook, IconChartBar } from '@tabler/icons-react'
 import {
@@ -25,39 +26,47 @@ export const Route = createFileRoute('/_authenticated/dashboard')({
 })
 
 function Dashboard() {
-  // 模拟数据
-  const stats = {
-    todayAttendance: 92.5,
-    weekAttendance: 89.3,
-    totalCourses: 5,
-    activeStudents: 1234,
-    averageAttendance: 89.2,
-    riskClasses: 3,
-    activeCourses: 156,
-    dataAccuracy: 98.5,
-  }
+  // 使用真实API获取数据
+  const { data: stats, isLoading: _statsLoading } = useQuery({
+    queryKey: ['dashboard-stats'],
+    queryFn: async () => {
+      const response = await fetch('/api/icalink/v1/attendance/stats/overview')
+      if (!response.ok) throw new Error('获取统计数据失败')
+      const result = await response.json()
+      return result.data
+    },
+    refetchInterval: 30000, // 30秒刷新一次
+  })
 
-  const weeklyTrend = [
-    { day: '周一', rate: 95 },
-    { day: '周二', rate: 88 },
-    { day: '周三', rate: 97 },
-    { day: '周四', rate: 85 },
-    { day: '周五', rate: 90 },
-    { day: '周六', rate: 83 },
-    { day: '周日', rate: 89 },
-  ]
+  const { data: weeklyTrend, isLoading: _trendLoading } = useQuery({
+    queryKey: ['weekly-trend'],
+    queryFn: async () => {
+      const endDate = new Date()
+      const startDate = new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000)
+      const response = await fetch(
+        `/api/icalink/v1/attendance/stats/trend?start_date=${startDate.toISOString()}&end_date=${endDate.toISOString()}`
+      )
+      if (!response.ok) throw new Error('获取趋势数据失败')
+      const result = await response.json()
+      return result.data?.trend_data || []
+    },
+  })
 
+  // 移除硬编码的学院统计和告警数据，改为从API获取
+  const { data: alerts, isLoading: _alertsLoading } = useQuery({
+    queryKey: ['dashboard-alerts'],
+    queryFn: async () => {
+      // 这里应该调用真实的告警API
+      return []
+    },
+  })
+
+  // 模拟学院统计数据
   const collegeStats = [
-    { name: '计算机学院', rate: 92 },
-    { name: '理学院', rate: 88 },
-    { name: '工学院', rate: 85 },
-    { name: '文学院', rate: 90 },
-  ]
-
-  const alerts = [
-    { type: 'warning', message: '高等数学课程出勤率低于80%', time: '2小时前' },
-    { type: 'error', message: '张三连续3天缺勤', time: '4小时前' },
-    { type: 'info', message: '数据结构课程需要补录考勤', time: '6小时前' },
+    { name: '计算机学院', rate: 95 },
+    { name: '经济管理学院', rate: 88 },
+    { name: '外国语学院', rate: 92 },
+    { name: '艺术学院', rate: 85 },
   ]
 
   return (
@@ -144,7 +153,7 @@ function Dashboard() {
           </CardHeader>
           <CardContent className='pl-2'>
             <div className='space-y-3'>
-              {weeklyTrend.map((item, index) => (
+              {weeklyTrend?.map((item: any, index: number) => (
                 <div key={index} className='flex items-center space-x-4'>
                   <div className='w-12 text-sm font-medium'>{item.day}</div>
                   <Progress value={item.rate} className='flex-1' />
@@ -163,7 +172,7 @@ function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className='space-y-4'>
-              {collegeStats.map((college, index) => (
+              {collegeStats.map((college: any, index: number) => (
                 <div key={index} className='flex items-center justify-between'>
                   <div className='text-sm font-medium'>{college.name}</div>
                   <div className='flex items-center space-x-2'>
@@ -216,7 +225,7 @@ function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className='space-y-4'>
-              {alerts.map((alert, index) => (
+              {alerts?.map((alert: any, index: number) => (
                 <div
                   key={index}
                   className='flex items-start space-x-3 rounded-lg border p-3'

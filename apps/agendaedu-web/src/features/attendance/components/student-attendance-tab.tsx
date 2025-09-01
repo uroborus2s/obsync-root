@@ -45,54 +45,70 @@ export function StudentAttendanceTab() {
   const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
-    // 默认加载一些示例数据
-    loadSampleData()
+    // 默认加载真实学生数据
+    loadStudentData()
   }, [])
 
-  const loadSampleData = () => {
-    // 模拟学生数据，对应手机端截图显示的学生
-    const sampleStudents: StudentPersonalStats[] = [
-      {
-        student: {
-          xh: '2401',
-          xm: '庄凯',
-          bjmc: '数据科学2401',
-          zymc: '数据科学',
-        },
-        total_courses: 8,
-        present_count: 1,
-        leave_count: 0,
-        absent_count: 7,
-        attendance_rate: 0.125,
-        recent_record: {
-          date: '2025/6/19',
-          status: AttendanceStatus.PRESENT,
-        },
-      },
-      {
-        student: {
-          xh: '2402',
-          xm: '刘子杰',
-          bjmc: '数据科学2401',
-          zymc: '数据科学',
-        },
-        total_courses: 8,
-        present_count: 1,
-        leave_count: 0,
-        absent_count: 7,
-        attendance_rate: 0.125,
-        recent_record: {
-          date: '2025/6/19',
-          status: AttendanceStatus.PRESENT,
-        },
-      },
-    ]
-    setStudents(sampleStudents)
+  const loadStudentData = async () => {
+    try {
+      setLoading(true)
+      // 调用学生排行榜接口获取学生列表
+      const response = await attendanceApi.getStudentAttendanceRankings({
+        page_size: 20, // 默认显示前20名学生
+      })
+
+      if (response.success && response.data) {
+        // 转换数据格式以兼容现有界面
+        const studentData: StudentPersonalStats[] = response.data.data.map(
+          (ranking: any) => ({
+            student_id: ranking.id,
+            student_name: ranking.name,
+            class_name: ranking.extra_info?.split(' - ')[0] || '',
+            major_name: ranking.extra_info?.split(' - ')[1] || '',
+            total_courses: ranking.total_count,
+            total_classes: ranking.total_count,
+            attendance_count: Math.round(
+              (ranking.total_count * ranking.attendance_rate) / 100
+            ),
+            leave_count: 0,
+            absent_count:
+              ranking.total_count -
+              Math.round((ranking.total_count * ranking.attendance_rate) / 100),
+            attendance_rate: ranking.attendance_rate / 100, // 转换为小数
+            last_checkin_time: null,
+            // 兼容旧格式
+            student: {
+              xh: ranking.id,
+              xm: ranking.name,
+              bjmc: ranking.extra_info?.split(' - ')[0] || '',
+              zymc: ranking.extra_info?.split(' - ')[1] || '',
+            },
+            present_count: Math.round(
+              (ranking.total_count * ranking.attendance_rate) / 100
+            ),
+            recent_record: {
+              date: new Date().toLocaleDateString('zh-CN'),
+              status:
+                ranking.attendance_rate > 80
+                  ? AttendanceStatus.PRESENT
+                  : AttendanceStatus.ABSENT,
+            },
+          })
+        )
+
+        setStudents(studentData)
+      }
+    } catch (error) {
+      console.error('加载学生数据失败:', error)
+      setStudents([])
+    } finally {
+      setLoading(false)
+    }
   }
 
   const searchStudents = async () => {
     if (!searchQuery.trim()) {
-      loadSampleData()
+      await loadStudentData() // 重新加载所有学生数据
       return
     }
 
@@ -100,10 +116,45 @@ export function StudentAttendanceTab() {
       setLoading(true)
       const response = await attendanceApi.searchStudents(searchQuery)
       if (response.success && response.data) {
-        setStudents(response.data)
+        // 转换搜索结果数据格式
+        const studentData: StudentPersonalStats[] = response.data.map(
+          (student: any) => ({
+            student_id: student.student_id,
+            student_name: student.student_name,
+            class_name: student.class_name || '',
+            major_name: student.major_name || '',
+            total_courses: student.total_courses,
+            total_classes: student.total_classes,
+            attendance_count: student.attendance_count,
+            leave_count: student.leave_count,
+            absent_count: student.absent_count,
+            attendance_rate: student.attendance_rate / 100, // 转换为小数
+            last_checkin_time: student.last_checkin_time,
+            // 兼容旧格式
+            student: {
+              xh: student.student_id,
+              xm: student.student_name,
+              bjmc: student.class_name || '',
+              zymc: student.major_name || '',
+            },
+            present_count: student.attendance_count,
+            recent_record: {
+              date: student.last_checkin_time
+                ? new Date(student.last_checkin_time).toLocaleDateString(
+                    'zh-CN'
+                  )
+                : new Date().toLocaleDateString('zh-CN'),
+              status:
+                student.attendance_rate > 80
+                  ? AttendanceStatus.PRESENT
+                  : AttendanceStatus.ABSENT,
+            },
+          })
+        )
+        setStudents(studentData)
       }
-    } catch (_error) {
-      // 静默处理错误，不使用console
+    } catch (error) {
+      console.error('搜索学生失败:', error)
       setStudents([])
     } finally {
       setLoading(false)
@@ -391,15 +442,27 @@ export function StudentAttendanceTab() {
                       <TableBody>
                         {studentRecords.map((record) => (
                           <TableRow key={record.id}>
-                            <TableCell>{record.created_at}</TableCell>
-                            <TableCell>数据库技术及应用实践</TableCell>
-                            <TableCell>15:30-17:05</TableCell>
+                            <TableCell>
+                              {record.created_at
+                                ? new Date(
+                                    record.created_at
+                                  ).toLocaleDateString('zh-CN')
+                                : '-'}
+                            </TableCell>
+                            <TableCell>
+                              {(record as any).course_name || '未知课程'}
+                            </TableCell>
+                            <TableCell>
+                              {(record as any).class_time || '时间待定'}
+                            </TableCell>
                             <TableCell>
                               {getStatusBadge(record.status)}
                             </TableCell>
                             <TableCell>
                               {record.checkin_time
-                                ? new Date(record.checkin_time).toLocaleString()
+                                ? new Date(record.checkin_time).toLocaleString(
+                                    'zh-CN'
+                                  )
                                 : '-'}
                             </TableCell>
                           </TableRow>

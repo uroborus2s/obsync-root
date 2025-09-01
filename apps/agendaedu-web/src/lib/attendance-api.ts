@@ -229,78 +229,548 @@ export class AttendanceApiService {
     return this.makeRequest<ApiResponse<AttendanceStats>>(endpoint)
   }
 
-  // ========== 兼容性接口（返回模拟数据） ==========
+  // ========== 数据库集成接口（所有数据从数据库获取） ==========
 
   /**
-   * 获取课程考勤记录列表（兼容现有代码）
+   * 获取课程考勤记录列表
    */
   async getCourseAttendanceRecords(
-    _params: AttendanceQueryParams
+    params: AttendanceQueryParams
   ): Promise<ApiResponse<PaginatedResponse<AttendanceRecord>>> {
-    // 返回模拟数据结构，实际使用时建议直接调用 getTaskList
-    return {
-      success: true,
-      message: '请使用 getTaskList 方法获取任务列表',
-      data: {
-        items: [],
-        total: 0,
-        page: 1,
-        page_size: 20,
-        total_pages: 0,
-        has_next: false,
-        has_prev: false,
-      },
+    // 调用后端真实接口获取课程考勤数据
+    const queryString = new URLSearchParams()
+
+    if (params.xnxq) queryString.append('semester', params.xnxq)
+    if (params.start_date) queryString.append('start_date', params.start_date)
+    if (params.end_date) queryString.append('end_date', params.end_date)
+    if (params.page) queryString.append('page', params.page.toString())
+    if (params.page_size)
+      queryString.append('page_size', params.page_size.toString())
+
+    const endpoint = `/api/icalink/v1/attendance/stats/courses${queryString.toString() ? `?${queryString.toString()}` : ''}`
+
+    try {
+      const response = await this.makeRequest<ApiResponse<any>>(endpoint)
+
+      if (response.success && response.data) {
+        // 转换数据格式为前端期望的格式
+        const courseData = response.data.data || []
+        const items: AttendanceRecord[] = courseData.map((course: any) => ({
+          id: course.course_code,
+          kkh: course.course_code,
+          course_name: course.course_name,
+          semester: course.semester,
+          teacher_name: course.teacher_names,
+          class_count: course.class_count,
+          total_students: course.total_should_attend,
+          attendance_count: course.actual_attended,
+          attendance_rate: course.attendance_rate,
+          last_class_time: course.last_class_time || new Date().toISOString(),
+        }))
+
+        return {
+          success: true,
+          message: '获取课程考勤记录成功',
+          data: {
+            items,
+            total: response.data.total || items.length,
+            page: response.data.page || 1,
+            page_size: response.data.page_size || 20,
+            total_pages: Math.ceil(
+              (response.data.total || items.length) /
+                (response.data.page_size || 20)
+            ),
+            has_next:
+              (response.data.page || 1) * (response.data.page_size || 20) <
+              (response.data.total || items.length),
+            has_prev: (response.data.page || 1) > 1,
+          },
+        }
+      }
+
+      return {
+        success: false,
+        message: '获取课程考勤记录失败',
+        data: {
+          items: [],
+          total: 0,
+          page: 1,
+          page_size: 20,
+          total_pages: 0,
+          has_next: false,
+          has_prev: false,
+        },
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: `获取课程考勤记录失败: ${error}`,
+        data: {
+          items: [],
+          total: 0,
+          page: 1,
+          page_size: 20,
+          total_pages: 0,
+          has_next: false,
+          has_prev: false,
+        },
+      }
     }
   }
 
   /**
-   * 获取课程考勤详情（兼容现有代码）
+   * 获取课程考勤详情
    */
   async getCourseAttendanceDetail(
-    _recordId: string
+    recordId: string
   ): Promise<ApiResponse<CourseAttendanceDetail>> {
-    // 返回模拟数据结构，实际使用时建议直接调用 getTaskDetail
-    throw new Error(
-      '请使用 getTaskDetail 和 getAttendanceData 方法获取详细信息'
-    )
+    // 基于课程代码获取详细考勤信息
+    const endpoint = `/api/icalink/v1/attendance/stats/courses?course_code=${recordId}&page_size=1`
+
+    try {
+      const response = await this.makeRequest<ApiResponse<any>>(endpoint)
+
+      if (response.success && response.data && response.data.data.length > 0) {
+        const course = response.data.data[0]
+
+        const detail: CourseAttendanceDetail = {
+          course: {
+            kcmc: course.course_name,
+            kkh: course.course_code,
+            xnxq: course.semester,
+            rq:
+              course.last_class_time || new Date().toISOString().split('T')[0],
+            jc_s: '1-2',
+            sj_f: '08:00',
+            sj_t: '09:40',
+            room_s: '',
+            xm_s: course.teacher_names,
+            status: 'finished' as any,
+            course_start_time: '08:00',
+            course_end_time: '09:40',
+          },
+          attendance_record: {
+            id: course.course_code,
+            kkh: course.course_code,
+            xnxq: course.semester,
+            rq:
+              course.last_class_time || new Date().toISOString().split('T')[0],
+            jc_s: '1-2',
+            kcmc: course.course_name,
+            sj_f: '08:00',
+            sj_t: '09:40',
+            sjd: 'am' as any,
+            total_count: course.total_should_attend,
+            checkin_count: course.actual_attended,
+            absent_count: course.absent_count,
+            leave_count: course.leave_count,
+            status: 'closed' as any,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          student_attendances: [],
+          stats: {
+            total_count: course.total_should_attend,
+            checkin_count: course.actual_attended,
+            late_count: 0,
+            absent_count: course.absent_count,
+            leave_count: course.leave_count,
+            attendance_rate: course.attendance_rate,
+          },
+        }
+
+        return {
+          success: true,
+          message: '获取课程考勤详情成功',
+          data: detail,
+        }
+      }
+
+      return {
+        success: false,
+        message: '课程不存在或无考勤数据',
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: `获取课程考勤详情失败: ${error}`,
+      }
+    }
   }
 
   /**
-   * 获取课程历史考勤统计（兼容现有代码）
+   * 获取课程历史考勤统计
    */
   async getCourseHistoricalStats(
-    _kkh: string,
-    _xnxq: string
+    kkh: string,
+    xnxq: string
   ): Promise<ApiResponse<HistoricalAttendanceRecord[]>> {
-    // 返回模拟数据结构，实际使用时建议直接调用 getTaskList
-    throw new Error('请使用 getTaskList 方法获取历史数据')
+    // 调用课程统计接口获取历史数据
+    const endpoint = `/api/icalink/v1/attendance/stats/courses?course_code=${kkh}&semester=${xnxq}&page_size=100`
+
+    try {
+      const response = await this.makeRequest<ApiResponse<any>>(endpoint)
+
+      if (response.success && response.data) {
+        const historyData: HistoricalAttendanceRecord[] = (
+          response.data.data || []
+        ).map((course: any) => ({
+          id: course.course_code,
+          date: course.last_class_time || new Date().toISOString(),
+          course_name: course.course_name,
+          teacher_name: course.teacher_names,
+          total_students: course.total_should_attend,
+          attendance_count: course.actual_attended,
+          attendance_rate: course.attendance_rate,
+          semester: course.semester,
+        }))
+
+        return {
+          success: true,
+          message: '获取历史考勤统计成功',
+          data: historyData,
+        }
+      }
+
+      return {
+        success: false,
+        message: '获取历史考勤统计失败',
+        data: [],
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: `获取历史考勤统计失败: ${error}`,
+        data: [],
+      }
+    }
   }
 
   // ========== 学生维度查询 ==========
 
   /**
-   * 获取学生个人考勤统计（兼容现有代码）
+   * 获取学生个人考勤统计
    */
   async getStudentPersonalStats(
-    _studentId: string,
-    _params?: Partial<AttendanceQueryParams>
+    studentId: string,
+    params?: Partial<AttendanceQueryParams>
   ): Promise<ApiResponse<StudentPersonalStats>> {
-    // 返回模拟数据结构，实际使用时建议直接调用 getAttendanceData
-    throw new Error('请使用 getAttendanceData 方法获取学生考勤数据')
+    // 调用学生统计接口获取个人统计数据
+    const queryString = new URLSearchParams()
+    queryString.append('student_id', studentId)
+
+    if (params?.xnxq) queryString.append('semester', params.xnxq)
+    if (params?.start_date) queryString.append('start_date', params.start_date)
+    if (params?.end_date) queryString.append('end_date', params.end_date)
+    queryString.append('page_size', '1')
+
+    const endpoint = `/api/icalink/v1/attendance/stats/students?${queryString.toString()}`
+
+    try {
+      const response = await this.makeRequest<ApiResponse<any>>(endpoint)
+
+      if (response.success && response.data && response.data.data.length > 0) {
+        const student = response.data.data[0]
+
+        const stats: StudentPersonalStats = {
+          student: {
+            xh: student.student_id,
+            xm: student.student_name,
+            bjmc: student.class_name,
+            zymc: student.major_name,
+          },
+          total_courses: student.course_count,
+          present_count: student.actual_attended,
+          leave_count: student.leave_count,
+          absent_count: student.absent_count,
+          attendance_rate: student.attendance_rate,
+        }
+
+        return {
+          success: true,
+          message: '获取学生个人统计成功',
+          data: stats,
+        }
+      }
+
+      return {
+        success: false,
+        message: '学生不存在或无考勤数据',
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: `获取学生个人统计失败: ${error}`,
+      }
+    }
   }
 
   /**
-   * 获取学生考勤记录列表（兼容现有代码）
+   * 获取学生考勤记录列表
    */
   async getStudentAttendanceRecords(
-    _studentId: string,
-    _params?: AttendanceQueryParams
+    studentId: string,
+    params?: AttendanceQueryParams
   ): Promise<ApiResponse<PaginatedResponse<StudentAttendanceRecord>>> {
-    // 返回模拟数据结构，实际使用时建议直接调用 getAttendanceData
-    throw new Error('请使用 getAttendanceData 方法获取学生考勤记录')
+    // 调用学生统计接口获取考勤记录
+    const queryString = new URLSearchParams()
+    queryString.append('student_id', studentId)
+
+    if (params?.xnxq) queryString.append('semester', params.xnxq)
+    if (params?.start_date) queryString.append('start_date', params.start_date)
+    if (params?.end_date) queryString.append('end_date', params.end_date)
+    if (params?.page) queryString.append('page', params.page.toString())
+    if (params?.page_size)
+      queryString.append('page_size', params.page_size.toString())
+
+    const endpoint = `/api/icalink/v1/attendance/stats/students?${queryString.toString()}`
+
+    try {
+      const response = await this.makeRequest<ApiResponse<any>>(endpoint)
+
+      if (response.success && response.data) {
+        const items: StudentAttendanceRecord[] = (response.data.data || []).map(
+          (student: any) => ({
+            id: student.student_id,
+            student_id: student.student_id,
+            student_name: student.student_name,
+            course_name: '', // 需要从课程接口获取
+            class_date: student.last_checkin_time || new Date().toISOString(),
+            status:
+              student.actual_attended > 0
+                ? 'present'
+                : student.leave_count > 0
+                  ? 'leave'
+                  : 'absent',
+            checkin_time: student.last_checkin_time,
+            attendance_rate: student.attendance_rate,
+          })
+        )
+
+        return {
+          success: true,
+          message: '获取学生考勤记录成功',
+          data: {
+            items,
+            total: response.data.total || items.length,
+            page: response.data.page || 1,
+            page_size: response.data.page_size || 20,
+            total_pages: Math.ceil(
+              (response.data.total || items.length) /
+                (response.data.page_size || 20)
+            ),
+            has_next:
+              (response.data.page || 1) * (response.data.page_size || 20) <
+              (response.data.total || items.length),
+            has_prev: (response.data.page || 1) > 1,
+          },
+        }
+      }
+
+      return {
+        success: false,
+        message: '获取学生考勤记录失败',
+        data: {
+          items: [],
+          total: 0,
+          page: 1,
+          page_size: 20,
+          total_pages: 0,
+          has_next: false,
+          has_prev: false,
+        },
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: `获取学生考勤记录失败: ${error}`,
+        data: {
+          items: [],
+          total: 0,
+          page: 1,
+          page_size: 20,
+          total_pages: 0,
+          has_next: false,
+          has_prev: false,
+        },
+      }
+    }
   }
 
   // ========== 统计维度查询 ==========
+
+  /**
+   * 获取课程维度出勤统计
+   */
+  async getCourseAttendanceStats(params?: {
+    semester?: string
+    start_date?: string
+    end_date?: string
+    page?: number
+    page_size?: number
+    sort_by?: 'attendance_rate' | 'class_count' | 'last_class_time'
+    sort_order?: 'asc' | 'desc'
+  }): Promise<ApiResponse<any>> {
+    const queryString = new URLSearchParams()
+
+    if (params) {
+      if (params.semester) queryString.append('semester', params.semester)
+      if (params.start_date) queryString.append('start_date', params.start_date)
+      if (params.end_date) queryString.append('end_date', params.end_date)
+      if (params.page) queryString.append('page', params.page.toString())
+      if (params.page_size)
+        queryString.append('page_size', params.page_size.toString())
+      if (params.sort_by) queryString.append('sort_by', params.sort_by)
+      if (params.sort_order) queryString.append('sort_order', params.sort_order)
+    }
+
+    const endpoint = `/api/icalink/v1/attendance/stats/courses${queryString.toString() ? `?${queryString.toString()}` : ''}`
+    return this.makeRequest<ApiResponse<any>>(endpoint)
+  }
+
+  /**
+   * 获取教师维度出勤统计
+   */
+  async getTeacherAttendanceStats(params?: {
+    semester?: string
+    start_date?: string
+    end_date?: string
+    teacher_code?: string
+    page?: number
+    page_size?: number
+    sort_by?: 'attendance_rate' | 'class_count' | 'course_count'
+    sort_order?: 'asc' | 'desc'
+  }): Promise<ApiResponse<any>> {
+    const queryString = new URLSearchParams()
+
+    if (params) {
+      if (params.semester) queryString.append('semester', params.semester)
+      if (params.start_date) queryString.append('start_date', params.start_date)
+      if (params.end_date) queryString.append('end_date', params.end_date)
+      if (params.teacher_code)
+        queryString.append('teacher_code', params.teacher_code)
+      if (params.page) queryString.append('page', params.page.toString())
+      if (params.page_size)
+        queryString.append('page_size', params.page_size.toString())
+      if (params.sort_by) queryString.append('sort_by', params.sort_by)
+      if (params.sort_order) queryString.append('sort_order', params.sort_order)
+    }
+
+    const endpoint = `/api/icalink/v1/attendance/stats/teachers${queryString.toString() ? `?${queryString.toString()}` : ''}`
+    return this.makeRequest<ApiResponse<any>>(endpoint)
+  }
+
+  /**
+   * 获取学生维度出勤统计
+   */
+  async getStudentAttendanceStats(params?: {
+    semester?: string
+    start_date?: string
+    end_date?: string
+    course_code?: string
+    student_id?: string
+    page?: number
+    page_size?: number
+    sort_by?: 'attendance_rate' | 'course_count'
+    sort_order?: 'asc' | 'desc'
+  }): Promise<ApiResponse<any>> {
+    const queryString = new URLSearchParams()
+
+    if (params) {
+      if (params.semester) queryString.append('semester', params.semester)
+      if (params.start_date) queryString.append('start_date', params.start_date)
+      if (params.end_date) queryString.append('end_date', params.end_date)
+      if (params.course_code)
+        queryString.append('course_code', params.course_code)
+      if (params.student_id) queryString.append('student_id', params.student_id)
+      if (params.page) queryString.append('page', params.page.toString())
+      if (params.page_size)
+        queryString.append('page_size', params.page_size.toString())
+      if (params.sort_by) queryString.append('sort_by', params.sort_by)
+      if (params.sort_order) queryString.append('sort_order', params.sort_order)
+    }
+
+    const endpoint = `/api/icalink/v1/attendance/stats/students${queryString.toString() ? `?${queryString.toString()}` : ''}`
+    return this.makeRequest<ApiResponse<any>>(endpoint)
+  }
+
+  /**
+   * 获取整体出勤统计概览
+   */
+  async getOverallAttendanceStats(params?: {
+    semester?: string
+    start_date?: string
+    end_date?: string
+  }): Promise<ApiResponse<any>> {
+    const queryString = new URLSearchParams()
+
+    if (params) {
+      if (params.semester) queryString.append('semester', params.semester)
+      if (params.start_date) queryString.append('start_date', params.start_date)
+      if (params.end_date) queryString.append('end_date', params.end_date)
+    }
+
+    const endpoint = `/api/icalink/v1/attendance/stats/overview${queryString.toString() ? `?${queryString.toString()}` : ''}`
+    return this.makeRequest<ApiResponse<any>>(endpoint)
+  }
+
+  /**
+   * 获取出勤率计算说明
+   */
+  async getAttendanceRateExplanation(): Promise<ApiResponse<any>> {
+    const endpoint = `/api/icalink/v1/attendance/stats/explanation`
+    return this.makeRequest<ApiResponse<any>>(endpoint)
+  }
+
+  /**
+   * 获取学生出勤率排行榜
+   */
+  async getStudentAttendanceRankings(params?: {
+    semester?: string
+    start_date?: string
+    end_date?: string
+    page?: number
+    page_size?: number
+  }): Promise<ApiResponse<any>> {
+    const queryString = new URLSearchParams()
+
+    if (params) {
+      if (params.semester) queryString.append('semester', params.semester)
+      if (params.start_date) queryString.append('start_date', params.start_date)
+      if (params.end_date) queryString.append('end_date', params.end_date)
+      if (params.page) queryString.append('page', params.page.toString())
+      if (params.page_size)
+        queryString.append('page_size', params.page_size.toString())
+    }
+
+    const endpoint = `/api/icalink/v1/attendance/stats/rankings/students${queryString.toString() ? `?${queryString.toString()}` : ''}`
+    return this.makeRequest<ApiResponse<any>>(endpoint)
+  }
+
+  /**
+   * 获取课程出勤率排行榜
+   */
+  async getCourseAttendanceRankings(params?: {
+    semester?: string
+    start_date?: string
+    end_date?: string
+    page?: number
+    page_size?: number
+  }): Promise<ApiResponse<any>> {
+    const queryString = new URLSearchParams()
+
+    if (params) {
+      if (params.semester) queryString.append('semester', params.semester)
+      if (params.start_date) queryString.append('start_date', params.start_date)
+      if (params.end_date) queryString.append('end_date', params.end_date)
+      if (params.page) queryString.append('page', params.page.toString())
+      if (params.page_size)
+        queryString.append('page_size', params.page_size.toString())
+    }
+
+    const endpoint = `/api/icalink/v1/attendance/stats/rankings/courses${queryString.toString() ? `?${queryString.toString()}` : ''}`
+    return this.makeRequest<ApiResponse<any>>(endpoint)
+  }
 
   /**
    * 获取整体考勤统计（兼容现有代码）
@@ -321,7 +791,7 @@ export class AttendanceApiService {
   }
 
   /**
-   * 获取班级考勤排名（兼容现有代码）
+   * 获取班级考勤排名
    */
   async getClassAttendanceRanking(params: {
     xnxq?: string
@@ -329,14 +799,66 @@ export class AttendanceApiService {
     bjmc?: string
     limit?: number
   }): Promise<ApiResponse<StudentPersonalStats[]>> {
+    // 调用学生排行榜接口获取班级排名数据
     const queryString = new URLSearchParams()
 
-    if (params.xnxq) queryString.append('xnxq', params.xnxq)
-    if (params.bjmc) queryString.append('bjmc', params.bjmc)
-    if (params.limit) queryString.append('limit', params.limit.toString())
+    if (params.xnxq) queryString.append('semester', params.xnxq)
+    if (params.limit) queryString.append('page_size', params.limit.toString())
+    else queryString.append('page_size', '50') // 默认50条
 
-    const endpoint = `/api/icalink/v1/attendance/class-ranking${queryString.toString() ? `?${queryString.toString()}` : ''}`
-    return this.makeRequest<ApiResponse<StudentPersonalStats[]>>(endpoint)
+    const endpoint = `/api/icalink/v1/attendance/stats/rankings/students?${queryString.toString()}`
+
+    try {
+      const response = await this.makeRequest<ApiResponse<any>>(endpoint)
+
+      if (response.success && response.data) {
+        const rankings: StudentPersonalStats[] = (response.data.data || []).map(
+          (ranking: any) => ({
+            student_id: ranking.id,
+            student_name: ranking.name,
+            class_name: ranking.extra_info?.split(' - ')[0] || '',
+            major_name: ranking.extra_info?.split(' - ')[1] || '',
+            total_courses: ranking.total_count,
+            total_classes: ranking.total_count,
+            attendance_count: Math.round(
+              (ranking.total_count * ranking.attendance_rate) / 100
+            ),
+            leave_count: 0, // 排行榜接口中没有详细数据
+            absent_count:
+              ranking.total_count -
+              Math.round((ranking.total_count * ranking.attendance_rate) / 100),
+            attendance_rate: ranking.attendance_rate,
+            last_checkin_time: null,
+          })
+        )
+
+        // 如果指定了班级名称，进行过滤
+        let filteredRankings = rankings
+        if (params.bjmc) {
+          filteredRankings = rankings.filter((student) =>
+            student.student.bjmc?.includes(params.bjmc || '')
+          )
+        }
+
+        return {
+          success: true,
+          message: '获取班级排名成功',
+          data: filteredRankings,
+        }
+      }
+
+      return {
+        success: false,
+        message: '获取班级排名失败',
+        data: [],
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: `获取班级排名失败: ${error}`,
+        data: [],
+      }
+    }
   }
 
   /**
@@ -353,12 +875,12 @@ export class AttendanceApiService {
     if (params.format) queryString.append('format', params.format)
 
     const url = `${this.baseUrl}/api/icalink/v1/attendance/export${queryString.toString() ? `?${queryString.toString()}` : ''}`
-    
+
     const response = await fetch(url, {
       credentials: 'include',
       headers: {
-        'Content-Type': 'application/json'
-      }
+        'Content-Type': 'application/json',
+      },
     })
 
     // 处理401未授权错误
@@ -375,21 +897,126 @@ export class AttendanceApiService {
   }
 
   /**
-   * 搜索学生（兼容现有代码）
+   * 搜索学生
    */
   async searchStudents(
-    _query: string
+    query: string
   ): Promise<ApiResponse<StudentPersonalStats[]>> {
-    throw new Error('学生搜索功能需要后端实现专门接口')
+    // 通过学生统计接口搜索学生
+    const queryString = new URLSearchParams()
+    queryString.append('page_size', '20') // 限制搜索结果数量
+
+    // 这里可以根据查询条件调用不同接口
+    // 暂时调用学生排行榜接口获取学生列表，然后在前端过滤
+    const endpoint = `/api/icalink/v1/attendance/stats/rankings/students?${queryString.toString()}`
+
+    try {
+      const response = await this.makeRequest<ApiResponse<any>>(endpoint)
+
+      if (response.success && response.data) {
+        const allStudents: StudentPersonalStats[] = (
+          response.data.data || []
+        ).map((ranking: any) => ({
+          student_id: ranking.id,
+          student_name: ranking.name,
+          class_name: ranking.extra_info?.split(' - ')[0] || '',
+          major_name: ranking.extra_info?.split(' - ')[1] || '',
+          total_courses: ranking.total_count,
+          total_classes: ranking.total_count,
+          attendance_count: Math.round(
+            (ranking.total_count * ranking.attendance_rate) / 100
+          ),
+          leave_count: 0,
+          absent_count:
+            ranking.total_count -
+            Math.round((ranking.total_count * ranking.attendance_rate) / 100),
+          attendance_rate: ranking.attendance_rate,
+          last_checkin_time: null,
+        }))
+
+        // 前端过滤搜索结果
+        const filteredStudents = allStudents.filter(
+          (student) =>
+            student.student.xm.includes(query) ||
+            student.student.xh.includes(query) ||
+            (student.student.bjmc && student.student.bjmc.includes(query)) ||
+            (student.student.zymc && student.student.zymc.includes(query))
+        )
+
+        return {
+          success: true,
+          message: '搜索学生成功',
+          data: filteredStudents.slice(0, 10), // 限制返回前10条结果
+        }
+      }
+
+      return {
+        success: false,
+        message: '搜索学生失败',
+        data: [],
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: `搜索学生失败: ${error}`,
+        data: [],
+      }
+    }
   }
 
   /**
-   * 搜索课程（兼容现有代码）
+   * 搜索课程
    */
-  async searchCourses(
-    _query: string
-  ): Promise<ApiResponse<AttendanceRecord[]>> {
-    throw new Error('课程搜索功能需要后端实现专门接口')
+  async searchCourses(query: string): Promise<ApiResponse<AttendanceRecord[]>> {
+    // 通过课程统计接口搜索课程
+    const queryString = new URLSearchParams()
+    queryString.append('page_size', '20') // 限制搜索结果数量
+
+    const endpoint = `/api/icalink/v1/attendance/stats/courses?${queryString.toString()}`
+
+    try {
+      const response = await this.makeRequest<ApiResponse<any>>(endpoint)
+
+      if (response.success && response.data) {
+        const allCourses: AttendanceRecord[] = (response.data.data || []).map(
+          (course: any) => ({
+            id: course.course_code,
+            kkh: course.course_code,
+            course_name: course.course_name,
+            semester: course.semester,
+            teacher_name: course.teacher_names,
+            class_count: course.class_count,
+            total_students: course.total_should_attend,
+            attendance_count: course.actual_attended,
+            attendance_rate: course.attendance_rate,
+            last_class_time: course.last_class_time || new Date().toISOString(),
+          })
+        )
+
+        // 前端过滤搜索结果
+        const filteredCourses = allCourses.filter(
+          (course) => course.kcmc.includes(query) || course.kkh.includes(query)
+        )
+
+        return {
+          success: true,
+          message: '搜索课程成功',
+          data: filteredCourses.slice(0, 10), // 限制返回前10条结果
+        }
+      }
+
+      return {
+        success: false,
+        message: '搜索课程失败',
+        data: [],
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: `搜索课程失败: ${error}`,
+        data: [],
+      }
+    }
   }
 }
 

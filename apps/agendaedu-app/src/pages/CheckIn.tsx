@@ -33,23 +33,14 @@ interface LocationInfo {
   address?: string;
 }
 
-// 固定的测试位置信息
-const FIXED_LOCATION: LocationInfo = {
-  latitude: 39.9042,
-  longitude: 116.4074,
-  address: '教学楼A座 201教室'
-};
+// 移除固定测试位置，使用真实位置获取
 
 export function CheckIn() {
   const navigate = useNavigate();
   const { attendanceId } = useParams<{ attendanceId: string }>();
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [location, setLocation] = useState<string>(
-    FIXED_LOCATION.address || ''
-  );
-  const [locationInfo, setLocationInfo] = useState<LocationInfo | null>(
-    FIXED_LOCATION
-  );
+  const [location, setLocation] = useState<string>('');
+  const [locationInfo, setLocationInfo] = useState<LocationInfo | null>(null);
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [attendanceData, setAttendanceData] =
@@ -81,9 +72,7 @@ export function CheckIn() {
       setIsLoadingData(false);
     }
 
-    // 自动设置固定位置信息
-    setLocationInfo(FIXED_LOCATION);
-    setLocation(FIXED_LOCATION.address || '');
+    // 移除自动设置固定位置，需要用户手动获取位置
 
     return () => clearInterval(timer);
   }, [attendanceId]);
@@ -235,14 +224,33 @@ export function CheckIn() {
 
         await wpsAuthService.showToast('位置获取成功！', 'success');
       } else {
-        console.log('🔍 使用固定位置（模拟模式）...');
-        // 使用固定位置信息，用于测试
-        setLocationInfo(FIXED_LOCATION);
-        setLocation(
-          FIXED_LOCATION.address ||
-            `${FIXED_LOCATION.latitude.toFixed(6)}, ${FIXED_LOCATION.longitude.toFixed(6)}`
-        );
-        alert('位置获取成功（模拟模式）');
+        console.log('🔍 使用浏览器原生API获取位置...');
+        // 使用浏览器原生地理位置API
+        try {
+          const position = await new Promise<GeolocationPosition>(
+            (resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 60000
+              });
+            }
+          );
+
+          const browserLocation = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            address: `${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}`,
+            accuracy: position.coords.accuracy
+          };
+
+          setLocationInfo(browserLocation);
+          setLocation(browserLocation.address);
+          alert('位置获取成功');
+        } catch (browserError) {
+          console.error('浏览器API获取位置失败:', browserError);
+          alert('获取位置失败，请检查浏览器位置权限设置');
+        }
       }
     } catch (error) {
       console.error('获取位置失败:', error);
@@ -271,10 +279,16 @@ export function CheckIn() {
       if (wpsAuthService.isWPSEnvironment() && wpsAuthStatus.isAuthorized) {
         console.log('🎯 使用WPS协作API进行智能打卡...');
 
-        // 获取课程目标位置（这里使用固定位置作为示例）
+        // 获取课程目标位置（从课程房间信息解析）
+        // 使用locationUtils来解析房间信息获取目标位置
+        const roomInfo = attendanceData?.data?.course?.room_s || '';
+        console.log('课程房间信息:', roomInfo);
+
+        // 这里应该根据房间信息解析出目标位置
+        // 暂时使用默认位置（第一教学楼）
         const targetLocation = {
-          latitude: FIXED_LOCATION.latitude,
-          longitude: FIXED_LOCATION.longitude
+          latitude: 43.820859, // 第一教学楼纬度
+          longitude: 125.43551 // 第一教学楼经度
         };
 
         try {
@@ -305,9 +319,13 @@ export function CheckIn() {
         }
       }
 
-      // 使用验证后的位置或默认位置进行签到
-      const finalLocationInfo =
-        checkInLocationResult?.location || locationInfo || FIXED_LOCATION;
+      // 使用验证后的位置或当前位置进行签到
+      const finalLocationInfo = checkInLocationResult?.location || locationInfo;
+
+      if (!finalLocationInfo) {
+        alert('请先获取位置信息');
+        return;
+      }
 
       const checkInRequest: StudentCheckInRequest = {
         location: finalLocationInfo.address || '默认位置',

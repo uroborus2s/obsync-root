@@ -27,13 +27,13 @@ import { UserNav } from '@/components/user-nav'
 import { SimplifiedWorkflowVisualizer } from '../components/simplified-workflow-visualizer'
 import { WorkflowInstancesTable } from '../components/workflow-instances-table'
 
-interface WorkflowDetailPageProps {
-  workflowDefinitionId: string
-}
+// interface WorkflowDetailPageProps {
+//   workflowDefinitionId: string
+// }
 
 export default function WorkflowDetailPage() {
   const { workflowDefinitionId } = useParams({
-    from: '/_authenticated/workflows/$workflowDefinitionId',
+    from: '/_authenticated/workflows/definitions/$definitionId' as any,
   })
   const [activeTab, setActiveTab] = useState('overview')
 
@@ -63,7 +63,7 @@ export default function WorkflowDetailPage() {
   })
 
   // 获取工作流统计信息
-  const { data: stats } = useQuery({
+  const { data: _stats } = useQuery({
     queryKey: ['workflow-stats', workflowDefinitionId],
     queryFn: () => workflowApi.getWorkflowStats(),
     enabled: !!workflowDefinitionId,

@@ -496,7 +496,24 @@ export class TasksWorkflowAdapter implements ITasksWorkflowAdapter {
     try {
       this.logger.info('Getting workflow instances', { filters, pagination });
 
-      return await this.workflowInstanceService.findMany(filters, pagination);
+      const result = await this.workflowInstanceService.findMany(
+        filters,
+        pagination
+      );
+
+      if (!result.success) {
+        return {
+          success: false,
+          error: result.error,
+          errorDetails: result.errorDetails
+        };
+      }
+
+      // 从分页结果中提取items数组
+      return {
+        success: true,
+        data: result.data?.items || []
+      };
     } catch (error) {
       this.logger.error('Failed to get workflow instances', {
         error,

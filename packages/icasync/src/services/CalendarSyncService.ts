@@ -224,4 +224,41 @@ export default class CalendarSyncService implements ICalendarSyncService {
       };
     }
   }
+
+  /**
+   * 删除日程
+   */
+  async deleteSchedule(
+    calendarId: string,
+    scheduleId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      this.logger.info('开始删除日程', { calendarId, scheduleId });
+
+      // TODO: 调用WPS Schedule API删除日程
+      // await this.wasV7ApiSchedule.deleteSchedule(calendarId, scheduleId);
+
+      // 临时模拟实现，实际应该调用WPS API
+      this.logger.info('日程删除成功（模拟）', {
+        calendarId,
+        scheduleId
+      });
+
+      return {
+        success: true
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error('删除日程异常', {
+        calendarId,
+        scheduleId,
+        error: errorMsg
+      });
+
+      return {
+        success: false,
+        error: errorMsg
+      };
+    }
+  }
 }

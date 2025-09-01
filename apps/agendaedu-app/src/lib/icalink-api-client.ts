@@ -260,9 +260,12 @@ export class IcaLinkApiClient {
     endpoint: string,
     options?: RequestOptions
   ): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { ...options, method: 'DELETE' });
+    return this.request<T>(endpoint, {
+      ...options,
+      method: 'DELETE',
+      body: options?.body || '{}' // 确保DELETE请求有body，避免Content-Type问题
+    });
   }
-
   /**
    * 检查用户登录状态
    */

@@ -5,17 +5,16 @@ import { attendanceApi } from '@/lib/attendance-api';
 import { authManager } from '@/lib/auth-manager';
 import { icaLinkApiClient } from '@/lib/icalink-api-client';
 import { getUserInfoFromCookie, type JWTPayload } from '@/lib/jwt-utils';
+import { LocationHelper } from '@/utils/location-helper';
+import {
+  formatDistance,
+  validateLocationForCheckIn
+} from '@/utils/locationUtils';
 import { BookOpen, Calendar, Clock, MapPin, User } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
-// 固定的测试位置信息
-const FIXED_LOCATION = {
-  latitude: 39.9042,
-  longitude: 116.4074,
-  address: '教学楼A座 201教室',
-  accuracy: 10
-};
+// 移除固定测试位置，使用真实位置获取
 
 interface CourseData {
   kcmc: string;
@@ -77,8 +76,85 @@ function StudentDashboardContent() {
   const [checkinLoading, setCheckinLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [userInfo, setUserInfo] = useState<JWTPayload | null>(null);
+  // const [wpsInitialized, setWpsInitialized] = useState(false);
 
   const id = searchParams.get('id');
+
+  // // 初始化WPS JSAPI
+  // useEffect(() => {
+  //   const initializeWPS = async () => {
+  //     try {
+  //       console.log('🔧 开始初始化WPS JSAPI...');
+
+  //       // 检查是否在WPS环境中
+  //       if (wpsAuthService.isWPSEnvironment()) {
+  //         console.log('📱 检测到WPS环境，开始授权...');
+
+  //         // 检查WPS SDK是否已加载
+  //         if (typeof window !== 'undefined' && window.ksoxz_sdk) {
+  //           console.log('✅ WPS SDK已加载，尝试初始化...');
+
+  //           // 首先获取WPS配置
+  //           try {
+  //             // 获取当前页面URL
+  //             const currentUrl = window.location.href;
+
+  //             const response = await fetch(
+  //               `/api/auth/wps/jsapi-ticket?url=${encodeURIComponent(currentUrl)}`
+  //             );
+  //             const config = await response.json();
+
+  //             if (config && config.appId) {
+  //               console.log('📋 获取到WPS配置:', config);
+
+  //               // 使用获取的配置初始化WPS SDK
+  //               if (window.ksoxz_sdk.config) {
+  //                 window.ksoxz_sdk.config({
+  //                   params: {
+  //                     appId: config.appId,
+  //                     timeStamp: config.timeStamp,
+  //                     nonceStr: config.nonceStr,
+  //                     signature: config.signature
+  //                   },
+  //                   onSuccess: function () {
+  //                     console.log('✅ WPS SDK配置成功');
+  //                     setWpsInitialized(true);
+  //                   },
+  //                   onError: function (error: unknown) {
+  //                     console.error('❌ WPS SDK配置失败:', error);
+  //                     setWpsInitialized(true); // 标记为已初始化，回退到浏览器API
+  //                   }
+  //                 });
+  //               } else {
+  //                 console.warn(
+  //                   '⚠️ WPS SDK不支持config方法，直接标记为已初始化'
+  //                 );
+  //                 setWpsInitialized(true);
+  //               }
+  //             } else {
+  //               console.warn('⚠️ WPS配置获取失败，使用默认配置');
+  //               setWpsInitialized(true);
+  //             }
+  //           } catch (configError) {
+  //             console.error('❌ 获取WPS配置失败:', configError);
+  //             setWpsInitialized(true);
+  //           }
+  //         } else {
+  //           console.warn('⚠️ WPS SDK未加载，请检查script标签');
+  //           setWpsInitialized(true);
+  //         }
+  //       } else {
+  //         console.log('🌐 非WPS环境，将使用浏览器原生API');
+  //         setWpsInitialized(true); // 标记为已初始化，使用浏览器API
+  //       }
+  //     } catch (error) {
+  //       console.error('❌ WPS JSAPI初始化异常:', error);
+  //       setWpsInitialized(true); // 即使失败也标记为已初始化，回退到浏览器API
+  //     }
+  //   };
+
+  //   // initializeWPS();
+  // }, []);
 
   useEffect(() => {
     // 从cookie获取用户信息
@@ -163,20 +239,68 @@ function StudentDashboardContent() {
   };
 
   const handleCheckin = async () => {
-    if (!id || checkinLoading) return;
+    if (!id || checkinLoading || !attendanceData) return;
 
     try {
       setCheckinLoading(true);
+      // 获取真实位置信息进行签到
+      let locationData;
+      try {
+        locationData = await LocationHelper.getCurrentLocation();
+        console.log('📍 获取到当前位置:', locationData);
+      } catch (error) {
+        console.error('获取位置失败:', error);
+        toast.error('获取位置失败，请检查位置权限设置');
+        return;
+      }
 
-      // 使用固定位置信息进行签到（测试模式）
-      const testLocation = FIXED_LOCATION;
+      // 进行位置验证
+      const roomInfo = attendanceData.course.room_s;
+      console.log('🏫 课程房间信息:', roomInfo);
 
-      // 使用正确的签到API接口
+      if (!roomInfo) {
+        toast.error('课程房间信息缺失，无法进行位置验证');
+        return;
+      }
+
+      // 验证用户位置是否在允许的签到范围内（500米）
+      const locationValidation = validateLocationForCheckIn(
+        {
+          lng: locationData.longitude,
+          lat: locationData.latitude
+        },
+        roomInfo
+      );
+
+      console.log('🎯 位置验证结果:', locationValidation);
+
+      if (!locationValidation.valid) {
+        // 位置验证失败，显示详细错误信息
+        const errorMsg = locationValidation.error || '不在签到范围内';
+        const distanceInfo = locationValidation.distance
+          ? `当前距离: ${formatDistance(locationValidation.distance)}`
+          : '';
+
+        toast.error('签到失败', {
+          description: `${errorMsg}${distanceInfo ? '\n' + distanceInfo : ''}`,
+          duration: 5000
+        });
+        return;
+      }
+
+      // 位置验证通过，显示成功信息
+      const successMsg = locationValidation.matchedBuilding
+        ? `位置验证通过，距离${locationValidation.matchedBuilding.name} ${formatDistance(locationValidation.distance || 0)}`
+        : '位置验证通过';
+
+      console.log('✅ ' + successMsg);
+
+      // 使用真实位置信息进行签到
       const response = await attendanceApi.studentCheckIn(id, {
-        location: testLocation.address,
-        latitude: testLocation.latitude,
-        longitude: testLocation.longitude,
-        accuracy: testLocation.accuracy
+        location: locationData.address,
+        latitude: locationData.latitude,
+        longitude: locationData.longitude,
+        accuracy: locationData.accuracy
       });
 
       if (response.success) {
@@ -184,7 +308,7 @@ function StudentDashboardContent() {
         await loadAttendanceData();
         // 使用Toast显示成功消息
         toast.success('签到成功！', {
-          description: '您已成功完成课程签到（测试模式）',
+          description: successMsg,
           duration: 3000
         });
       } else {
@@ -250,23 +374,56 @@ function StudentDashboardContent() {
   if (id && attendanceData) {
     const { course, attendance_status } = attendanceData;
 
-    // 计算签到时间窗口（上课前5分钟到上课后5分钟）
+    // 计算签到时间窗口（上课前10分钟到上课后10分钟）
     const courseStartTime = new Date(course.course_start_time);
     const checkinStartTime = new Date(
-      courseStartTime.getTime() - 5 * 60 * 1000
-    ); // 上课前5分钟
-    const checkinEndTime = new Date(courseStartTime.getTime() + 30 * 60 * 1000); // 上课后5分钟
+      courseStartTime.getTime() - 10 * 60 * 1000
+    ); // 上课前10分钟
+    const checkinEndTime = new Date(courseStartTime.getTime() + 10 * 60 * 1000); // 上课后10分钟
 
     // 判断当前是否在签到时间窗口内
     const isInCheckinWindow =
       currentTime >= checkinStartTime && currentTime <= checkinEndTime;
 
-    // 判断是否可以签到：在时间窗口内 且 未签到 且 未请假 且 非审批中
-    const canCheckin =
-      isInCheckinWindow &&
+    // 计算请假截止时间（课程开始前8小时）
+    const leaveDeadlineTime = new Date(courseStartTime.getTime()); // 课程开始前8小时
+
+    // 判断当前是否可以申请请假：在截止时间前 且 未签到 且 未请假 且 非审批中
+    const canApplyLeave =
+      currentTime <= leaveDeadlineTime &&
       !attendance_status.is_checked_in &&
       attendance_status.status !== 'leave' &&
       attendance_status.status !== 'leave_pending';
+
+    // 测试模式：临时开放签到按钮用于测试
+    const isTestMode = false; // 设置为 false 恢复正常模式
+
+    // 判断是否可以签到：在时间窗口内 且 未签到 且 未请假 且 非审批中
+    const canCheckin = isTestMode
+      ? !attendance_status.is_checked_in &&
+        attendance_status.status !== 'leave' &&
+        attendance_status.status !== 'leave_pending'
+      : isInCheckinWindow &&
+        !attendance_status.is_checked_in &&
+        attendance_status.status !== 'leave' &&
+        attendance_status.status !== 'leave_pending';
+
+    // 计算请假状态提示信息
+    const getLeaveButtonText = () => {
+      if (attendance_status.is_checked_in) {
+        return '已签到无法请假';
+      }
+      if (
+        attendance_status.status === 'leave' ||
+        attendance_status.status === 'leave_pending'
+      ) {
+        return '已申请请假';
+      }
+      if (currentTime > leaveDeadlineTime) {
+        return '请假时间已过';
+      }
+      return '请假';
+    };
 
     return (
       <div className='min-h-screen bg-gray-50'>
@@ -412,6 +569,22 @@ function StudentDashboardContent() {
                   <div className='mt-2 text-sm text-gray-500'>
                     当前时间：{currentTime.toLocaleTimeString()}
                   </div>
+                  {/* 测试模式下显示详细的时间窗口信息 */}
+                  {isTestMode && (
+                    <div className='mt-3 rounded bg-yellow-50 p-3 text-left text-xs text-gray-600'>
+                      <div className='mb-1 font-semibold text-yellow-700'>
+                        🧪 测试模式
+                      </div>
+                      <div>
+                        签到窗口: {checkinStartTime.toLocaleTimeString()} -{' '}
+                        {checkinEndTime.toLocaleTimeString()}
+                      </div>
+                      <div>
+                        在窗口内: {isInCheckinWindow ? '✅ 是' : '❌ 否'}
+                      </div>
+                      <div>可以签到: {canCheckin ? '✅ 是' : '❌ 否'}</div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -435,24 +608,28 @@ function StudentDashboardContent() {
                     {checkinLoading
                       ? '签到中...'
                       : !canCheckin
-                        ? isInCheckinWindow
+                        ? isTestMode
                           ? '已签到或已请假'
-                          : '不在签到时间'
-                        : '签到（测试模式）'}
+                          : isInCheckinWindow
+                            ? '已签到或已请假'
+                            : '不在签到时间'
+                        : isTestMode
+                          ? '签到 (测试模式)'
+                          : '签到'}
                   </button>
 
                   {/* 请假按钮 */}
                   <button
                     type='button'
                     onClick={() => navigate(`/leave/${encodeURIComponent(id)}`)}
-                    disabled={!isInCheckinWindow}
+                    disabled={!canApplyLeave}
                     className={`w-full rounded-lg px-4 py-3 font-semibold transition-colors ${
-                      !isInCheckinWindow
+                      !canApplyLeave
                         ? 'cursor-not-allowed bg-gray-300 text-gray-500'
                         : 'bg-orange-600 text-white hover:bg-orange-700'
                     }`}
                   >
-                    {!isInCheckinWindow ? '不在请假时间' : '请假'}
+                    {getLeaveButtonText()}
                   </button>
                 </div>
               )}
@@ -465,13 +642,17 @@ function StudentDashboardContent() {
 
           {/* 时间提示卡片 */}
           <div className='rounded-lg bg-gray-50 p-4 text-sm text-gray-700'>
-            <p>
-              <strong>请假时间：</strong>
-              {new Date(
-                attendance_status.auto_start_time
-              ).toLocaleString()}{' '}
-              之前
-            </p>
+            <div className='space-y-2'>
+              <p>
+                <strong>请假截止时间：</strong>
+                {leaveDeadlineTime.toLocaleString('zh-CN', {
+                  month: '2-digit',
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </p>
+            </div>
           </div>
         </div>
         <StudentFloatingMessageButton />

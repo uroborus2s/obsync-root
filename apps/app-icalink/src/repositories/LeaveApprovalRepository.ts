@@ -11,13 +11,13 @@ import {
 } from '../types/database.js';
 import type { QueryOptions, ServiceResult } from '../types/service.js';
 import { ServiceErrorCode, wrapServiceCall } from '../types/service.js';
+import { extractOptionFromServiceResult } from '../utils/type-fixes.js';
 import type {
   CreateLeaveApprovalData,
   ILeaveApprovalRepository,
   LeaveApprovalQueryConditions,
   UpdateLeaveApprovalData
 } from './interfaces/ILeaveApprovalRepository.js';
-import { extractOptionFromServiceResult } from '../utils/type-fixes.js';
 
 /**
  * 请假审批仓储实现类
@@ -122,8 +122,24 @@ export default class LeaveApprovalRepository
           );
         }
 
+        // 支持多状态查询
+        if (
+          conditions.approval_result_in &&
+          Array.isArray(conditions.approval_result_in)
+        ) {
+          query = query.where(
+            'approval_result',
+            'in',
+            conditions.approval_result_in
+          );
+        }
+
         if (conditions.approval_start_date) {
-          query = query.where('created_at', '>=', conditions.approval_start_date);
+          query = query.where(
+            'created_at',
+            '>=',
+            conditions.approval_start_date
+          );
         }
 
         if (conditions.approval_end_date) {
@@ -242,8 +258,24 @@ export default class LeaveApprovalRepository
           );
         }
 
+        // 支持多状态查询
+        if (
+          conditions.approval_result_in &&
+          Array.isArray(conditions.approval_result_in)
+        ) {
+          query = query.where(
+            'approval_result',
+            'in',
+            conditions.approval_result_in
+          );
+        }
+
         if (conditions.approval_start_date) {
-          query = query.where('created_at', '>=', conditions.approval_start_date);
+          query = query.where(
+            'created_at',
+            '>=',
+            conditions.approval_start_date
+          );
         }
 
         if (conditions.approval_end_date) {
@@ -442,7 +474,8 @@ export default class LeaveApprovalRepository
         throw new Error('Failed to update approval result');
       }
 
-      const approval = extractOptionFromServiceResult<IcalinkLeaveApproval>(updateResult);
+      const approval =
+        extractOptionFromServiceResult<IcalinkLeaveApproval>(updateResult);
       if (!approval) {
         throw new Error('Update result is null');
       }
@@ -454,7 +487,9 @@ export default class LeaveApprovalRepository
   /**
    * 检查是否已审批
    */
-  async isApproved(leaveApplicationId: number): Promise<ServiceResult<boolean>> {
+  async isApproved(
+    leaveApplicationId: number
+  ): Promise<ServiceResult<boolean>> {
     return wrapServiceCall(async () => {
       const result = await this.findByConditions({
         leave_application_id: leaveApplicationId,
@@ -468,7 +503,9 @@ export default class LeaveApprovalRepository
   /**
    * 检查是否被拒绝
    */
-  async isRejected(leaveApplicationId: number): Promise<ServiceResult<boolean>> {
+  async isRejected(
+    leaveApplicationId: number
+  ): Promise<ServiceResult<boolean>> {
     return wrapServiceCall(async () => {
       const result = await this.findByConditions({
         leave_application_id: leaveApplicationId,
@@ -521,8 +558,201 @@ export default class LeaveApprovalRepository
     conditions: LeaveApprovalQueryConditions,
     options?: QueryOptions
   ): Promise<ServiceResult<any>> {
-    // 简化实现，直接调用findByConditions
-    return this.findByConditions(conditions, options);
+    return wrapServiceCall(async () => {
+      this.logger.info(
+        { conditions, options },
+        'Finding approval records with details (paginated)'
+      );
+
+      // 使用JOIN查询获取完整的审批和请假申请信息
+      // 确保参数类型正确，避免SQL语法错误
+      const page = Number(options?.pagination?.page || 1);
+      const pageSize = Number(options?.pagination?.page_size || 10);
+      const offset = (page - 1) * pageSize;
+
+      this.logger.debug(
+        { page, pageSize, offset, originalOptions: options?.pagination },
+        'Pagination parameters for approval records query'
+      );
+
+      // 使用databaseApi执行JOIN查询
+      const queryOperation = async (db: any) => {
+        let query = db
+          .selectFrom('icalink_leave_approvals as la')
+          .leftJoin(
+            'icalink_leave_applications as app',
+            'la.leave_application_id',
+            'app.id'
+          )
+          .leftJoin(
+            'icasync_attendance_courses as course',
+            'app.course_id',
+            'course.course_code'
+          )
+          .select([
+            // 审批记录字段
+            'la.id as approval_id',
+            'la.leave_application_id',
+            'la.approver_id',
+            'la.approver_name',
+            'la.approval_result',
+            'la.approval_comment',
+            'la.approval_time',
+            'la.created_at as approval_created_at',
+
+            // 请假申请字段
+            'app.id as application_id',
+            'app.student_id',
+            'app.student_name',
+            'app.course_id',
+            'app.course_name',
+            'app.teacher_id',
+            'app.teacher_name',
+            'app.leave_type',
+            'app.leave_reason',
+            'app.status',
+            'app.application_time',
+
+            // 课程信息字段
+            'course.course_name as course_full_name',
+            'course.class_location as course_location',
+            'course.teacher_names as course_teachers',
+            'course.start_time as course_start_time',
+            'course.end_time as course_end_time'
+          ]);
+
+        // 添加查询条件
+        if (conditions.approver_id) {
+          query = query.where('la.approver_id', '=', conditions.approver_id);
+        }
+
+        if (conditions.approval_result) {
+          query = query.where(
+            'la.approval_result',
+            '=',
+            conditions.approval_result
+          );
+        }
+
+        if (
+          conditions.approval_result_in &&
+          Array.isArray(conditions.approval_result_in)
+        ) {
+          query = query.where(
+            'la.approval_result',
+            'in',
+            conditions.approval_result_in
+          );
+        }
+
+        if (conditions.leave_application_id) {
+          query = query.where(
+            'la.leave_application_id',
+            '=',
+            conditions.leave_application_id
+          );
+        }
+
+        // 添加排序和分页 - 移除可能有问题的GROUP BY，使用简单的ORDER BY
+        query = query.orderBy('la.created_at', 'desc');
+
+        if (pageSize > 0) {
+          query = query.limit(pageSize);
+        }
+
+        if (offset > 0) {
+          query = query.offset(offset);
+        }
+
+        return query.execute();
+      };
+
+      // 计数查询
+      const countOperation = async (db: any) => {
+        let countQuery = db
+          .selectFrom('icalink_leave_approvals as la')
+          .select(db.fn.count('la.id').as('total'));
+
+        // 添加相同的条件到计数查询
+        if (conditions.approver_id) {
+          countQuery = countQuery.where(
+            'la.approver_id',
+            '=',
+            conditions.approver_id
+          );
+        }
+
+        if (conditions.approval_result) {
+          countQuery = countQuery.where(
+            'la.approval_result',
+            '=',
+            conditions.approval_result
+          );
+        }
+
+        if (
+          conditions.approval_result_in &&
+          Array.isArray(conditions.approval_result_in)
+        ) {
+          countQuery = countQuery.where(
+            'la.approval_result',
+            'in',
+            conditions.approval_result_in
+          );
+        }
+
+        if (conditions.leave_application_id) {
+          countQuery = countQuery.where(
+            'la.leave_application_id',
+            '=',
+            conditions.leave_application_id
+          );
+        }
+
+        return countQuery.executeTakeFirst();
+      };
+
+      // 执行查询
+      const [countResult, dataResult] = await Promise.all([
+        this.databaseApi.executeQuery(countOperation, { readonly: true }),
+        this.databaseApi.executeQuery(queryOperation, { readonly: true })
+      ]);
+
+      if (!countResult.success || !dataResult.success) {
+        throw new Error('查询审批记录失败');
+      }
+
+      const total = Number(countResult.data?.total || 0);
+      const totalPages = Math.ceil(total / pageSize);
+
+      // 🔥 添加详细的数据调试日志
+      this.logger.info(
+        {
+          total,
+          dataCount: dataResult.data.length,
+          page,
+          pageSize,
+          sampleApprovalResults: dataResult.data
+            .slice(0, 3)
+            .map((record: any) => ({
+              approval_id: record.approval_id,
+              application_id: record.leave_application_id,
+              approval_result: record.approval_result,
+              student_name: record.student_name,
+              course_name: record.course_name
+            }))
+        },
+        '🔥 DEBUGGING: Successfully found approval records with details - CHECK APPROVAL_RESULT VALUES'
+      );
+
+      return {
+        data: dataResult.data,
+        total,
+        page,
+        page_size: pageSize,
+        total_pages: totalPages
+      };
+    }, ServiceErrorCode.DATABASE_ERROR);
   }
 
   /**
@@ -562,7 +792,9 @@ export default class LeaveApprovalRepository
     approverId: string,
     limit?: number
   ): Promise<ServiceResult<any[]>> {
-    return this.findByApprover(approverId, { pagination: { page: 1, page_size: limit || 10 } });
+    return this.findByApprover(approverId, {
+      pagination: { page: 1, page_size: limit || 10 }
+    });
   }
 
   /**
@@ -573,10 +805,13 @@ export default class LeaveApprovalRepository
     endDate: Date,
     options?: QueryOptions
   ): Promise<ServiceResult<any[]>> {
-    return this.findByConditions({
-      approval_start_date: startDate,
-      approval_end_date: endDate
-    }, options);
+    return this.findByConditions(
+      {
+        approval_start_date: startDate,
+        approval_end_date: endDate
+      },
+      options
+    );
   }
 
   /**

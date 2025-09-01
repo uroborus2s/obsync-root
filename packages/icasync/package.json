@@ -1,6 +1,6 @@
 {
   "name": "@stratix/icasync",
-  "version": "1.0.0-beta.5",
+  "version": "1.0.0-beta.6",
   "description": "Stratix 课表同步插件 - 将数据库课程数据同步到 WPS 日历",
   "type": "module",
   "main": "./dist/index.js",

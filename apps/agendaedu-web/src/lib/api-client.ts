@@ -99,7 +99,7 @@ export class ApiClient {
   /**
    * 处理权限不足情况 - 导航到403页面
    */
-  private handleForbidden(error: AxiosError): void {
+  private handleForbidden(_error: AxiosError): void {
     // 导航到403错误页面
     // 使用setTimeout避免在请求处理过程中立即导航
     setTimeout(() => {

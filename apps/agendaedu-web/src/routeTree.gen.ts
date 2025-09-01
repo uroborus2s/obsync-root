@@ -46,7 +46,6 @@ import { Route as AuthenticatedWorkflowsTestRouteImport } from './routes/_authen
 import { Route as AuthenticatedWorkflowsSchedulesRouteImport } from './routes/_authenticated/workflows/schedules'
 import { Route as AuthenticatedWorkflowsQuickTestRouteImport } from './routes/_authenticated/workflows/quick-test'
 import { Route as AuthenticatedWorkflowsLogsRouteImport } from './routes/_authenticated/workflows/logs'
-import { Route as AuthenticatedWorkflowsInstancesRouteImport } from './routes/_authenticated/workflows/instances'
 import { Route as AuthenticatedWorkflowsDefinitionsRouteImport } from './routes/_authenticated/workflows/definitions'
 import { Route as AuthenticatedTasksSyncRouteImport } from './routes/_authenticated/tasks/sync'
 import { Route as AuthenticatedTasksSettingsRouteImport } from './routes/_authenticated/tasks/settings'
@@ -56,6 +55,13 @@ import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_a
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
 import { Route as AuthenticatedCoursesSettingsRouteImport } from './routes/_authenticated/courses/settings'
 import { Route as AuthenticatedCoursesScheduleRouteImport } from './routes/_authenticated/courses/schedule'
+import { Route as AuthenticatedAttendanceStudentsRouteImport } from './routes/_authenticated/attendance/students'
+import { Route as AuthenticatedAttendanceRankingsRouteImport } from './routes/_authenticated/attendance/rankings'
+import { Route as AuthenticatedAttendanceOverviewRouteImport } from './routes/_authenticated/attendance/overview'
+import { Route as AuthenticatedAttendanceCoursesRouteImport } from './routes/_authenticated/attendance/courses'
+import { Route as AuthenticatedAttendanceAnalyticsRouteImport } from './routes/_authenticated/attendance/analytics'
+import { Route as AuthenticatedWorkflowsInstancesIndexRouteImport } from './routes/_authenticated/workflows/instances/index'
+import { Route as AuthenticatedWorkflowsInstancesInstanceIdRouteImport } from './routes/_authenticated/workflows/instances/$instanceId'
 import { Route as AuthenticatedWorkflowsDefinitionsDefinitionIdRouteImport } from './routes/_authenticated/workflows/definitions/$definitionId'
 
 const ClerkRouteRoute = ClerkRouteRouteImport.update({
@@ -252,12 +258,6 @@ const AuthenticatedWorkflowsLogsRoute =
     path: '/logs',
     getParentRoute: () => AuthenticatedWorkflowsRouteRoute,
   } as any)
-const AuthenticatedWorkflowsInstancesRoute =
-  AuthenticatedWorkflowsInstancesRouteImport.update({
-    id: '/instances',
-    path: '/instances',
-    getParentRoute: () => AuthenticatedWorkflowsRouteRoute,
-  } as any)
 const AuthenticatedWorkflowsDefinitionsRoute =
   AuthenticatedWorkflowsDefinitionsRouteImport.update({
     id: '/definitions',
@@ -311,6 +311,48 @@ const AuthenticatedCoursesScheduleRoute =
     path: '/schedule',
     getParentRoute: () => AuthenticatedCoursesRoute,
   } as any)
+const AuthenticatedAttendanceStudentsRoute =
+  AuthenticatedAttendanceStudentsRouteImport.update({
+    id: '/students',
+    path: '/students',
+    getParentRoute: () => AuthenticatedAttendanceRoute,
+  } as any)
+const AuthenticatedAttendanceRankingsRoute =
+  AuthenticatedAttendanceRankingsRouteImport.update({
+    id: '/rankings',
+    path: '/rankings',
+    getParentRoute: () => AuthenticatedAttendanceRoute,
+  } as any)
+const AuthenticatedAttendanceOverviewRoute =
+  AuthenticatedAttendanceOverviewRouteImport.update({
+    id: '/overview',
+    path: '/overview',
+    getParentRoute: () => AuthenticatedAttendanceRoute,
+  } as any)
+const AuthenticatedAttendanceCoursesRoute =
+  AuthenticatedAttendanceCoursesRouteImport.update({
+    id: '/courses',
+    path: '/courses',
+    getParentRoute: () => AuthenticatedAttendanceRoute,
+  } as any)
+const AuthenticatedAttendanceAnalyticsRoute =
+  AuthenticatedAttendanceAnalyticsRouteImport.update({
+    id: '/analytics',
+    path: '/analytics',
+    getParentRoute: () => AuthenticatedAttendanceRoute,
+  } as any)
+const AuthenticatedWorkflowsInstancesIndexRoute =
+  AuthenticatedWorkflowsInstancesIndexRouteImport.update({
+    id: '/instances/',
+    path: '/instances/',
+    getParentRoute: () => AuthenticatedWorkflowsRouteRoute,
+  } as any)
+const AuthenticatedWorkflowsInstancesInstanceIdRoute =
+  AuthenticatedWorkflowsInstancesInstanceIdRouteImport.update({
+    id: '/instances/$instanceId',
+    path: '/instances/$instanceId',
+    getParentRoute: () => AuthenticatedWorkflowsRouteRoute,
+  } as any)
 const AuthenticatedWorkflowsDefinitionsDefinitionIdRoute =
   AuthenticatedWorkflowsDefinitionsDefinitionIdRouteImport.update({
     id: '/$definitionId',
@@ -330,7 +372,7 @@ export interface FileRoutesByFullPath {
   '/500': typeof errors500Route
   '/503': typeof errors503Route
   '/analytics': typeof AuthenticatedAnalyticsRoute
-  '/attendance': typeof AuthenticatedAttendanceRoute
+  '/attendance': typeof AuthenticatedAttendanceRouteWithChildren
   '/basic-management': typeof AuthenticatedBasicManagementRoute
   '/courses': typeof AuthenticatedCoursesRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -339,6 +381,11 @@ export interface FileRoutesByFullPath {
   '/tasks': typeof AuthenticatedTasksRouteWithChildren
   '/teachers': typeof AuthenticatedTeachersRoute
   '/': typeof AuthenticatedIndexRoute
+  '/attendance/analytics': typeof AuthenticatedAttendanceAnalyticsRoute
+  '/attendance/courses': typeof AuthenticatedAttendanceCoursesRoute
+  '/attendance/overview': typeof AuthenticatedAttendanceOverviewRoute
+  '/attendance/rankings': typeof AuthenticatedAttendanceRankingsRoute
+  '/attendance/students': typeof AuthenticatedAttendanceStudentsRoute
   '/courses/schedule': typeof AuthenticatedCoursesScheduleRoute
   '/courses/settings': typeof AuthenticatedCoursesSettingsRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
@@ -348,7 +395,6 @@ export interface FileRoutesByFullPath {
   '/tasks/settings': typeof AuthenticatedTasksSettingsRoute
   '/tasks/sync': typeof AuthenticatedTasksSyncRoute
   '/workflows/definitions': typeof AuthenticatedWorkflowsDefinitionsRouteWithChildren
-  '/workflows/instances': typeof AuthenticatedWorkflowsInstancesRoute
   '/workflows/logs': typeof AuthenticatedWorkflowsLogsRoute
   '/workflows/quick-test': typeof AuthenticatedWorkflowsQuickTestRoute
   '/workflows/schedules': typeof AuthenticatedWorkflowsSchedulesRoute
@@ -365,6 +411,8 @@ export interface FileRoutesByFullPath {
   '/users': typeof AuthenticatedUsersIndexRoute
   '/workflows/': typeof AuthenticatedWorkflowsIndexRoute
   '/workflows/definitions/$definitionId': typeof AuthenticatedWorkflowsDefinitionsDefinitionIdRoute
+  '/workflows/instances/$instanceId': typeof AuthenticatedWorkflowsInstancesInstanceIdRoute
+  '/workflows/instances': typeof AuthenticatedWorkflowsInstancesIndexRoute
 }
 export interface FileRoutesByTo {
   '/clerk': typeof ClerkAuthenticatedRouteRouteWithChildren
@@ -375,7 +423,7 @@ export interface FileRoutesByTo {
   '/500': typeof errors500Route
   '/503': typeof errors503Route
   '/analytics': typeof AuthenticatedAnalyticsRoute
-  '/attendance': typeof AuthenticatedAttendanceRoute
+  '/attendance': typeof AuthenticatedAttendanceRouteWithChildren
   '/basic-management': typeof AuthenticatedBasicManagementRoute
   '/courses': typeof AuthenticatedCoursesRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -383,6 +431,11 @@ export interface FileRoutesByTo {
   '/students': typeof AuthenticatedStudentsRoute
   '/teachers': typeof AuthenticatedTeachersRoute
   '/': typeof AuthenticatedIndexRoute
+  '/attendance/analytics': typeof AuthenticatedAttendanceAnalyticsRoute
+  '/attendance/courses': typeof AuthenticatedAttendanceCoursesRoute
+  '/attendance/overview': typeof AuthenticatedAttendanceOverviewRoute
+  '/attendance/rankings': typeof AuthenticatedAttendanceRankingsRoute
+  '/attendance/students': typeof AuthenticatedAttendanceStudentsRoute
   '/courses/schedule': typeof AuthenticatedCoursesScheduleRoute
   '/courses/settings': typeof AuthenticatedCoursesSettingsRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
@@ -392,7 +445,6 @@ export interface FileRoutesByTo {
   '/tasks/settings': typeof AuthenticatedTasksSettingsRoute
   '/tasks/sync': typeof AuthenticatedTasksSyncRoute
   '/workflows/definitions': typeof AuthenticatedWorkflowsDefinitionsRouteWithChildren
-  '/workflows/instances': typeof AuthenticatedWorkflowsInstancesRoute
   '/workflows/logs': typeof AuthenticatedWorkflowsLogsRoute
   '/workflows/quick-test': typeof AuthenticatedWorkflowsQuickTestRoute
   '/workflows/schedules': typeof AuthenticatedWorkflowsSchedulesRoute
@@ -409,6 +461,8 @@ export interface FileRoutesByTo {
   '/users': typeof AuthenticatedUsersIndexRoute
   '/workflows': typeof AuthenticatedWorkflowsIndexRoute
   '/workflows/definitions/$definitionId': typeof AuthenticatedWorkflowsDefinitionsDefinitionIdRoute
+  '/workflows/instances/$instanceId': typeof AuthenticatedWorkflowsInstancesInstanceIdRoute
+  '/workflows/instances': typeof AuthenticatedWorkflowsInstancesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -425,7 +479,7 @@ export interface FileRoutesById {
   '/(errors)/500': typeof errors500Route
   '/(errors)/503': typeof errors503Route
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
-  '/_authenticated/attendance': typeof AuthenticatedAttendanceRoute
+  '/_authenticated/attendance': typeof AuthenticatedAttendanceRouteWithChildren
   '/_authenticated/basic-management': typeof AuthenticatedBasicManagementRoute
   '/_authenticated/courses': typeof AuthenticatedCoursesRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -434,6 +488,11 @@ export interface FileRoutesById {
   '/_authenticated/tasks': typeof AuthenticatedTasksRouteWithChildren
   '/_authenticated/teachers': typeof AuthenticatedTeachersRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/attendance/analytics': typeof AuthenticatedAttendanceAnalyticsRoute
+  '/_authenticated/attendance/courses': typeof AuthenticatedAttendanceCoursesRoute
+  '/_authenticated/attendance/overview': typeof AuthenticatedAttendanceOverviewRoute
+  '/_authenticated/attendance/rankings': typeof AuthenticatedAttendanceRankingsRoute
+  '/_authenticated/attendance/students': typeof AuthenticatedAttendanceStudentsRoute
   '/_authenticated/courses/schedule': typeof AuthenticatedCoursesScheduleRoute
   '/_authenticated/courses/settings': typeof AuthenticatedCoursesSettingsRoute
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
@@ -443,7 +502,6 @@ export interface FileRoutesById {
   '/_authenticated/tasks/settings': typeof AuthenticatedTasksSettingsRoute
   '/_authenticated/tasks/sync': typeof AuthenticatedTasksSyncRoute
   '/_authenticated/workflows/definitions': typeof AuthenticatedWorkflowsDefinitionsRouteWithChildren
-  '/_authenticated/workflows/instances': typeof AuthenticatedWorkflowsInstancesRoute
   '/_authenticated/workflows/logs': typeof AuthenticatedWorkflowsLogsRoute
   '/_authenticated/workflows/quick-test': typeof AuthenticatedWorkflowsQuickTestRoute
   '/_authenticated/workflows/schedules': typeof AuthenticatedWorkflowsSchedulesRoute
@@ -460,6 +518,8 @@ export interface FileRoutesById {
   '/_authenticated/users/': typeof AuthenticatedUsersIndexRoute
   '/_authenticated/workflows/': typeof AuthenticatedWorkflowsIndexRoute
   '/_authenticated/workflows/definitions/$definitionId': typeof AuthenticatedWorkflowsDefinitionsDefinitionIdRoute
+  '/_authenticated/workflows/instances/$instanceId': typeof AuthenticatedWorkflowsInstancesInstanceIdRoute
+  '/_authenticated/workflows/instances/': typeof AuthenticatedWorkflowsInstancesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -484,6 +544,11 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/teachers'
     | '/'
+    | '/attendance/analytics'
+    | '/attendance/courses'
+    | '/attendance/overview'
+    | '/attendance/rankings'
+    | '/attendance/students'
     | '/courses/schedule'
     | '/courses/settings'
     | '/settings/account'
@@ -493,7 +558,6 @@ export interface FileRouteTypes {
     | '/tasks/settings'
     | '/tasks/sync'
     | '/workflows/definitions'
-    | '/workflows/instances'
     | '/workflows/logs'
     | '/workflows/quick-test'
     | '/workflows/schedules'
@@ -510,6 +574,8 @@ export interface FileRouteTypes {
     | '/users'
     | '/workflows/'
     | '/workflows/definitions/$definitionId'
+    | '/workflows/instances/$instanceId'
+    | '/workflows/instances'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/clerk'
@@ -528,6 +594,11 @@ export interface FileRouteTypes {
     | '/students'
     | '/teachers'
     | '/'
+    | '/attendance/analytics'
+    | '/attendance/courses'
+    | '/attendance/overview'
+    | '/attendance/rankings'
+    | '/attendance/students'
     | '/courses/schedule'
     | '/courses/settings'
     | '/settings/account'
@@ -537,7 +608,6 @@ export interface FileRouteTypes {
     | '/tasks/settings'
     | '/tasks/sync'
     | '/workflows/definitions'
-    | '/workflows/instances'
     | '/workflows/logs'
     | '/workflows/quick-test'
     | '/workflows/schedules'
@@ -554,6 +624,8 @@ export interface FileRouteTypes {
     | '/users'
     | '/workflows'
     | '/workflows/definitions/$definitionId'
+    | '/workflows/instances/$instanceId'
+    | '/workflows/instances'
   id:
     | '__root__'
     | '/_authenticated'
@@ -578,6 +650,11 @@ export interface FileRouteTypes {
     | '/_authenticated/tasks'
     | '/_authenticated/teachers'
     | '/_authenticated/'
+    | '/_authenticated/attendance/analytics'
+    | '/_authenticated/attendance/courses'
+    | '/_authenticated/attendance/overview'
+    | '/_authenticated/attendance/rankings'
+    | '/_authenticated/attendance/students'
     | '/_authenticated/courses/schedule'
     | '/_authenticated/courses/settings'
     | '/_authenticated/settings/account'
@@ -587,7 +664,6 @@ export interface FileRouteTypes {
     | '/_authenticated/tasks/settings'
     | '/_authenticated/tasks/sync'
     | '/_authenticated/workflows/definitions'
-    | '/_authenticated/workflows/instances'
     | '/_authenticated/workflows/logs'
     | '/_authenticated/workflows/quick-test'
     | '/_authenticated/workflows/schedules'
@@ -604,6 +680,8 @@ export interface FileRouteTypes {
     | '/_authenticated/users/'
     | '/_authenticated/workflows/'
     | '/_authenticated/workflows/definitions/$definitionId'
+    | '/_authenticated/workflows/instances/$instanceId'
+    | '/_authenticated/workflows/instances/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -878,13 +956,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedWorkflowsLogsRouteImport
       parentRoute: typeof AuthenticatedWorkflowsRouteRoute
     }
-    '/_authenticated/workflows/instances': {
-      id: '/_authenticated/workflows/instances'
-      path: '/instances'
-      fullPath: '/workflows/instances'
-      preLoaderRoute: typeof AuthenticatedWorkflowsInstancesRouteImport
-      parentRoute: typeof AuthenticatedWorkflowsRouteRoute
-    }
     '/_authenticated/workflows/definitions': {
       id: '/_authenticated/workflows/definitions'
       path: '/definitions'
@@ -948,6 +1019,55 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCoursesScheduleRouteImport
       parentRoute: typeof AuthenticatedCoursesRoute
     }
+    '/_authenticated/attendance/students': {
+      id: '/_authenticated/attendance/students'
+      path: '/students'
+      fullPath: '/attendance/students'
+      preLoaderRoute: typeof AuthenticatedAttendanceStudentsRouteImport
+      parentRoute: typeof AuthenticatedAttendanceRoute
+    }
+    '/_authenticated/attendance/rankings': {
+      id: '/_authenticated/attendance/rankings'
+      path: '/rankings'
+      fullPath: '/attendance/rankings'
+      preLoaderRoute: typeof AuthenticatedAttendanceRankingsRouteImport
+      parentRoute: typeof AuthenticatedAttendanceRoute
+    }
+    '/_authenticated/attendance/overview': {
+      id: '/_authenticated/attendance/overview'
+      path: '/overview'
+      fullPath: '/attendance/overview'
+      preLoaderRoute: typeof AuthenticatedAttendanceOverviewRouteImport
+      parentRoute: typeof AuthenticatedAttendanceRoute
+    }
+    '/_authenticated/attendance/courses': {
+      id: '/_authenticated/attendance/courses'
+      path: '/courses'
+      fullPath: '/attendance/courses'
+      preLoaderRoute: typeof AuthenticatedAttendanceCoursesRouteImport
+      parentRoute: typeof AuthenticatedAttendanceRoute
+    }
+    '/_authenticated/attendance/analytics': {
+      id: '/_authenticated/attendance/analytics'
+      path: '/analytics'
+      fullPath: '/attendance/analytics'
+      preLoaderRoute: typeof AuthenticatedAttendanceAnalyticsRouteImport
+      parentRoute: typeof AuthenticatedAttendanceRoute
+    }
+    '/_authenticated/workflows/instances/': {
+      id: '/_authenticated/workflows/instances/'
+      path: '/instances'
+      fullPath: '/workflows/instances'
+      preLoaderRoute: typeof AuthenticatedWorkflowsInstancesIndexRouteImport
+      parentRoute: typeof AuthenticatedWorkflowsRouteRoute
+    }
+    '/_authenticated/workflows/instances/$instanceId': {
+      id: '/_authenticated/workflows/instances/$instanceId'
+      path: '/instances/$instanceId'
+      fullPath: '/workflows/instances/$instanceId'
+      preLoaderRoute: typeof AuthenticatedWorkflowsInstancesInstanceIdRouteImport
+      parentRoute: typeof AuthenticatedWorkflowsRouteRoute
+    }
     '/_authenticated/workflows/definitions/$definitionId': {
       id: '/_authenticated/workflows/definitions/$definitionId'
       path: '/$definitionId'
@@ -998,20 +1118,20 @@ const AuthenticatedWorkflowsDefinitionsRouteWithChildren =
 
 interface AuthenticatedWorkflowsRouteRouteChildren {
   AuthenticatedWorkflowsDefinitionsRoute: typeof AuthenticatedWorkflowsDefinitionsRouteWithChildren
-  AuthenticatedWorkflowsInstancesRoute: typeof AuthenticatedWorkflowsInstancesRoute
   AuthenticatedWorkflowsLogsRoute: typeof AuthenticatedWorkflowsLogsRoute
   AuthenticatedWorkflowsQuickTestRoute: typeof AuthenticatedWorkflowsQuickTestRoute
   AuthenticatedWorkflowsSchedulesRoute: typeof AuthenticatedWorkflowsSchedulesRoute
   AuthenticatedWorkflowsTestRoute: typeof AuthenticatedWorkflowsTestRoute
   AuthenticatedWorkflowsVisualizationDemoRoute: typeof AuthenticatedWorkflowsVisualizationDemoRoute
   AuthenticatedWorkflowsIndexRoute: typeof AuthenticatedWorkflowsIndexRoute
+  AuthenticatedWorkflowsInstancesInstanceIdRoute: typeof AuthenticatedWorkflowsInstancesInstanceIdRoute
+  AuthenticatedWorkflowsInstancesIndexRoute: typeof AuthenticatedWorkflowsInstancesIndexRoute
 }
 
 const AuthenticatedWorkflowsRouteRouteChildren: AuthenticatedWorkflowsRouteRouteChildren =
   {
     AuthenticatedWorkflowsDefinitionsRoute:
       AuthenticatedWorkflowsDefinitionsRouteWithChildren,
-    AuthenticatedWorkflowsInstancesRoute: AuthenticatedWorkflowsInstancesRoute,
     AuthenticatedWorkflowsLogsRoute: AuthenticatedWorkflowsLogsRoute,
     AuthenticatedWorkflowsQuickTestRoute: AuthenticatedWorkflowsQuickTestRoute,
     AuthenticatedWorkflowsSchedulesRoute: AuthenticatedWorkflowsSchedulesRoute,
@@ -1019,11 +1139,38 @@ const AuthenticatedWorkflowsRouteRouteChildren: AuthenticatedWorkflowsRouteRoute
     AuthenticatedWorkflowsVisualizationDemoRoute:
       AuthenticatedWorkflowsVisualizationDemoRoute,
     AuthenticatedWorkflowsIndexRoute: AuthenticatedWorkflowsIndexRoute,
+    AuthenticatedWorkflowsInstancesInstanceIdRoute:
+      AuthenticatedWorkflowsInstancesInstanceIdRoute,
+    AuthenticatedWorkflowsInstancesIndexRoute:
+      AuthenticatedWorkflowsInstancesIndexRoute,
   }
 
 const AuthenticatedWorkflowsRouteRouteWithChildren =
   AuthenticatedWorkflowsRouteRoute._addFileChildren(
     AuthenticatedWorkflowsRouteRouteChildren,
+  )
+
+interface AuthenticatedAttendanceRouteChildren {
+  AuthenticatedAttendanceAnalyticsRoute: typeof AuthenticatedAttendanceAnalyticsRoute
+  AuthenticatedAttendanceCoursesRoute: typeof AuthenticatedAttendanceCoursesRoute
+  AuthenticatedAttendanceOverviewRoute: typeof AuthenticatedAttendanceOverviewRoute
+  AuthenticatedAttendanceRankingsRoute: typeof AuthenticatedAttendanceRankingsRoute
+  AuthenticatedAttendanceStudentsRoute: typeof AuthenticatedAttendanceStudentsRoute
+}
+
+const AuthenticatedAttendanceRouteChildren: AuthenticatedAttendanceRouteChildren =
+  {
+    AuthenticatedAttendanceAnalyticsRoute:
+      AuthenticatedAttendanceAnalyticsRoute,
+    AuthenticatedAttendanceCoursesRoute: AuthenticatedAttendanceCoursesRoute,
+    AuthenticatedAttendanceOverviewRoute: AuthenticatedAttendanceOverviewRoute,
+    AuthenticatedAttendanceRankingsRoute: AuthenticatedAttendanceRankingsRoute,
+    AuthenticatedAttendanceStudentsRoute: AuthenticatedAttendanceStudentsRoute,
+  }
+
+const AuthenticatedAttendanceRouteWithChildren =
+  AuthenticatedAttendanceRoute._addFileChildren(
+    AuthenticatedAttendanceRouteChildren,
   )
 
 interface AuthenticatedCoursesRouteChildren {
@@ -1058,7 +1205,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
   AuthenticatedWorkflowsRouteRoute: typeof AuthenticatedWorkflowsRouteRouteWithChildren
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
-  AuthenticatedAttendanceRoute: typeof AuthenticatedAttendanceRoute
+  AuthenticatedAttendanceRoute: typeof AuthenticatedAttendanceRouteWithChildren
   AuthenticatedBasicManagementRoute: typeof AuthenticatedBasicManagementRoute
   AuthenticatedCoursesRoute: typeof AuthenticatedCoursesRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
@@ -1078,7 +1225,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedWorkflowsRouteRoute:
     AuthenticatedWorkflowsRouteRouteWithChildren,
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
-  AuthenticatedAttendanceRoute: AuthenticatedAttendanceRoute,
+  AuthenticatedAttendanceRoute: AuthenticatedAttendanceRouteWithChildren,
   AuthenticatedBasicManagementRoute: AuthenticatedBasicManagementRoute,
   AuthenticatedCoursesRoute: AuthenticatedCoursesRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,

@@ -145,14 +145,16 @@ export interface ILeaveService {
     teacherId?: string;
     startDate?: Date;
     endDate?: Date;
-  }): Promise<ServiceResult<{
-    totalApplications: number;
-    pendingCount: number;
-    approvedCount: number;
-    rejectedCount: number;
-    cancelledCount: number;
-    approvalRate: number;
-  }>>;
+  }): Promise<
+    ServiceResult<{
+      totalApplications: number;
+      pendingCount: number;
+      approvedCount: number;
+      rejectedCount: number;
+      cancelledCount: number;
+      approvalRate: number;
+    }>
+  >;
 
   /**
    * 验证请假申请权限
@@ -388,4 +390,11 @@ export interface ILeaveService {
       mimeType: string;
     }>
   >;
+
+  /**
+   * 获取审批记录
+   * @param approvalId 审批记录ID
+   * @returns 审批记录
+   */
+  getApprovalRecord(approvalId: number): Promise<ServiceResult<any>>;
 }

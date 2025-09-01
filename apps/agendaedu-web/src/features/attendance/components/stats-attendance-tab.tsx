@@ -41,14 +41,14 @@ export function StatsAttendanceTab() {
   const [stats, setStats] = useState<AttendanceStats | null>(null)
   const [ranking, setRanking] = useState<StudentPersonalStats[]>([])
   const [loading, setLoading] = useState(false)
-  const [selectedSemester, setSelectedSemester] = useState<string>('')
-  const [selectedClass, setSelectedClass] = useState<string>('')
+  const [selectedSemester, setSelectedSemester] = useState<string>('all')
+  const [selectedClass, setSelectedClass] = useState<string>('all')
 
   const fetchStats = useCallback(async () => {
     try {
       setLoading(true)
       const response = await attendanceApi.getOverallStats({
-        xnxq: selectedSemester || undefined,
+        xnxq: selectedSemester === 'all' ? undefined : selectedSemester,
       })
       if (response.success && response.data) {
         setStats(response.data)
@@ -63,7 +63,7 @@ export function StatsAttendanceTab() {
   const fetchRanking = useCallback(async () => {
     try {
       const response = await attendanceApi.getClassAttendanceRanking({
-        xnxq: selectedSemester || undefined,
+        xnxq: selectedSemester === 'all' ? undefined : selectedSemester,
         bjmc: selectedClass || undefined,
         limit: 10,
       })
@@ -83,7 +83,7 @@ export function StatsAttendanceTab() {
   const handleExport = async () => {
     try {
       const blob = await attendanceApi.exportAttendanceData({
-        xnxq: selectedSemester || undefined,
+        xnxq: selectedSemester === 'all' ? undefined : selectedSemester,
       })
 
       const url = window.URL.createObjectURL(blob)
@@ -121,7 +121,7 @@ export function StatsAttendanceTab() {
             <SelectValue placeholder='选择学期' />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value=''>全部学期</SelectItem>
+            <SelectItem value='all'>全部学期</SelectItem>
             <SelectItem value='2024-2025-1'>2024-2025第一学期</SelectItem>
             <SelectItem value='2024-2025-2'>2024-2025第二学期</SelectItem>
           </SelectContent>
@@ -131,7 +131,7 @@ export function StatsAttendanceTab() {
             <SelectValue placeholder='选择班级' />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value=''>全部班级</SelectItem>
+            <SelectItem value='all'>全部班级</SelectItem>
             <SelectItem value='数据科学2401'>数据科学2401</SelectItem>
             <SelectItem value='数据科学2402'>数据科学2402</SelectItem>
           </SelectContent>

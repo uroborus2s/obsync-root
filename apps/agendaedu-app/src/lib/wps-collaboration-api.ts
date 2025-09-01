@@ -118,6 +118,18 @@ interface ClassAttendanceStats {
 declare global {
   interface Window {
     ksoxz_sdk: {
+      // SDK配置方法
+      config: (params: {
+        params: {
+          appId: string;
+          timeStamp: number;
+          nonceStr: string;
+          signature: string;
+        };
+        onSuccess: () => void;
+        onError: (error: any) => void;
+      }) => void;
+
       // 位置相关API
       getLocationInfo: (params: {
         type?: 'wgs84' | 'gcj02';

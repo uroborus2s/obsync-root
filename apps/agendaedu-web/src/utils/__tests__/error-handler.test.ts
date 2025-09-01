@@ -1,17 +1,16 @@
 /**
  * 错误处理工具函数测试
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { AxiosError } from 'axios'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  ErrorType,
   extractErrorInfo,
   getErrorType,
   getFriendlyErrorMessage,
-  handleError,
   handle401Error,
   handle403Error,
-  ErrorType,
-  type ErrorInfo
+  handleError,
 } from '../error-handler'
 
 // Mock sessionStorage
@@ -19,18 +18,18 @@ const mockSessionStorage = {
   getItem: vi.fn(),
   setItem: vi.fn(),
   removeItem: vi.fn(),
-  clear: vi.fn()
+  clear: vi.fn(),
 }
 
 Object.defineProperty(window, 'sessionStorage', {
-  value: mockSessionStorage
+  value: mockSessionStorage,
 })
 
 // Mock console methods
 const mockConsole = {
   log: vi.fn(),
   warn: vi.fn(),
-  error: vi.fn()
+  error: vi.fn(),
 }
 
 Object.defineProperty(console, 'log', { value: mockConsole.log })
@@ -42,13 +41,13 @@ Object.defineProperty(window, 'location', {
   value: {
     href: 'https://example.com/test-page',
     pathname: '/test-page',
-    search: '?param=value'
-  }
+    search: '?param=value',
+  },
 })
 
 // Mock navigator
 Object.defineProperty(navigator, 'userAgent', {
-  value: 'Mozilla/5.0 (Test Browser)'
+  value: 'Mozilla/5.0 (Test Browser)',
 })
 
 describe('错误处理工具函数', () => {
@@ -61,16 +60,16 @@ describe('错误处理工具函数', () => {
       const mockAxiosError = {
         config: {
           url: '/api/test',
-          method: 'GET'
+          method: 'GET',
         },
         response: {
           status: 403,
           data: {
-            message: '权限不足'
-          }
+            message: '权限不足',
+          },
         },
         message: 'Request failed',
-        stack: 'Error stack trace'
+        stack: 'Error stack trace',
       } as AxiosError
 
       const errorInfo = extractErrorInfo(mockAxiosError)
@@ -81,7 +80,7 @@ describe('错误处理工具函数', () => {
         status: 403,
         message: '权限不足',
         userAgent: 'Mozilla/5.0 (Test Browser)',
-        currentPath: 'https://example.com/test-page'
+        currentPath: 'https://example.com/test-page',
       })
       expect(errorInfo.timestamp).toBeDefined()
       expect(errorInfo.stack).toBe('Error stack trace')
@@ -103,20 +102,25 @@ describe('错误处理工具函数', () => {
 
   describe('getFriendlyErrorMessage', () => {
     it('应该返回用户友好的错误消息', () => {
-      expect(getFriendlyErrorMessage(ErrorType.UNAUTHORIZED))
-        .toBe('您需要登录才能访问此功能')
-      
-      expect(getFriendlyErrorMessage(ErrorType.FORBIDDEN))
-        .toBe('您没有权限执行此操作')
-      
-      expect(getFriendlyErrorMessage(ErrorType.NOT_FOUND))
-        .toBe('请求的资源不存在')
-      
-      expect(getFriendlyErrorMessage(ErrorType.SERVER_ERROR))
-        .toBe('服务器暂时无法处理您的请求，请稍后重试')
-      
-      expect(getFriendlyErrorMessage(ErrorType.VALIDATION_ERROR, '自定义消息'))
-        .toBe('自定义消息')
+      expect(getFriendlyErrorMessage(ErrorType.UNAUTHORIZED)).toBe(
+        '您需要登录才能访问此功能'
+      )
+
+      expect(getFriendlyErrorMessage(ErrorType.FORBIDDEN)).toBe(
+        '您没有权限执行此操作'
+      )
+
+      expect(getFriendlyErrorMessage(ErrorType.NOT_FOUND)).toBe(
+        '请求的资源不存在'
+      )
+
+      expect(getFriendlyErrorMessage(ErrorType.SERVER_ERROR)).toBe(
+        '服务器暂时无法处理您的请求，请稍后重试'
+      )
+
+      expect(
+        getFriendlyErrorMessage(ErrorType.VALIDATION_ERROR, '自定义消息')
+      ).toBe('自定义消息')
     })
   })
 
@@ -125,29 +129,29 @@ describe('错误处理工具函数', () => {
       const mockAxiosError = {
         config: { url: '/api/test', method: 'POST' },
         response: { status: 422, data: { message: '验证失败' } },
-        message: 'Validation failed'
+        message: 'Validation failed',
       } as AxiosError
 
-      const result = handleError(mockAxiosError, { 
-        showToast: false, 
-        logToConsole: true 
+      const result = handleError(mockAxiosError, {
+        showToast: false,
+        logToConsole: true,
       })
 
       expect(result).toMatchObject({
         url: '/api/test',
         method: 'POST',
         status: 422,
-        message: '验证失败'
+        message: '验证失败',
       })
       expect(mockConsole.error).toHaveBeenCalled()
     })
 
     it('应该正确处理普通Error', () => {
       const error = new Error('测试错误')
-      
-      const result = handleError(error, { 
-        showToast: false, 
-        logToConsole: true 
+
+      const result = handleError(error, {
+        showToast: false,
+        logToConsole: true,
       })
 
       expect(result.message).toBe('测试错误')
@@ -155,9 +159,9 @@ describe('错误处理工具函数', () => {
     })
 
     it('应该正确处理字符串错误', () => {
-      const result = handleError('字符串错误', { 
-        showToast: false, 
-        logToConsole: true 
+      const result = handleError('字符串错误', {
+        showToast: false,
+        logToConsole: true,
       })
 
       expect(result.message).toBe('字符串错误')
@@ -170,7 +174,7 @@ describe('错误处理工具函数', () => {
       const mockAxiosError = {
         config: { url: '/api/protected', method: 'GET' },
         response: { status: 401, data: { message: '未授权' } },
-        message: 'Unauthorized'
+        message: 'Unauthorized',
       } as AxiosError
 
       handle401Error(mockAxiosError)
@@ -180,7 +184,7 @@ describe('错误处理工具函数', () => {
         expect.objectContaining({
           type: ErrorType.UNAUTHORIZED,
           url: '/api/protected',
-          status: 401
+          status: 401,
         })
       )
     })
@@ -191,7 +195,7 @@ describe('错误处理工具函数', () => {
       const mockAxiosError = {
         config: { url: '/api/admin', method: 'DELETE' },
         response: { status: 403, data: { message: '权限不足' } },
-        message: 'Forbidden'
+        message: 'Forbidden',
       } as AxiosError
 
       handle403Error(mockAxiosError)
@@ -201,7 +205,7 @@ describe('错误处理工具函数', () => {
         expect.objectContaining({
           type: ErrorType.FORBIDDEN,
           url: '/api/admin',
-          status: 403
+          status: 403,
         })
       )
 

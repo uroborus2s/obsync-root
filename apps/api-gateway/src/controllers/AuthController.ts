@@ -257,13 +257,14 @@ export default class AuthController {
     // 根据提供的userInfo生成JWT token 并设置cookie ，和生产方式一样
 
     const userInfo = {
-      id: '0304062400128',
-      name: '高誉宁',
+      id: '0306012409318',
+      name: '刘中昊',
       userType: 'student' as 'student',
-      userNumber: '0304062400128',
-      collegeName: '统计学院',
-      majorName: '数据科学',
-      className: '数据科学2401'
+      userNumber: '0306012409318',
+      collegeName: '国际经济贸易学院',
+      majorName: '国际经济与贸易',
+      className: '国际贸易2493',
+      studentInfo: {} as any
     };
     const jwtPayload = this.createEnhancedJWTPayload(userInfo);
     const config = this.jwtService.getConfig();
@@ -431,7 +432,7 @@ export default class AuthController {
     // Cookie配置
     const cookieOptions: CookieOptions = {
       maxAge: expiresIn,
-      httpOnly: true,
+      httpOnly: false,
       secure: true,
       sameSite: 'none',
       path: '/',
@@ -481,6 +482,77 @@ export default class AuthController {
     });
 
     SafeResponse.safeRedirect(reply, errorRedirectUrl);
+  }
+
+  /**
+   * 获取WPS JSAPI服务端访问令牌
+   * 用于服务端调用WPS API，不依赖用户授权
+   */
+  @Get('/api/auth/wps/server-token')
+  async getWPSServerToken(_request: FastifyRequest, reply: FastifyReply) {
+    try {
+      this.logger.info('Requesting WPS server access token for JSAPI');
+
+      // 获取服务端访问令牌
+      const tokenResponse = await this.wpsApiService.getServerAccessToken();
+
+      return reply.send({
+        success: true,
+        data: {
+          jsapi_token: tokenResponse.jsapi_token,
+          expires_in: tokenResponse.expires_in,
+          token_type: 'Bearer'
+        },
+        message: '服务端访问令牌获取成功'
+      });
+    } catch (error) {
+      this.logger.error('Failed to get WPS server access token:', error);
+      return reply.code(500).send({
+        success: false,
+        error: 'SERVER_TOKEN_ERROR',
+        message: '获取服务端访问令牌失败'
+      });
+    }
+  }
+
+  /**
+   * 获取WPS JSAPI配置信息
+   * 返回前端初始化WPS JSAPI所需的完整配置
+   */
+  @Get('/api/auth/wps/jsapi-ticket')
+  async getWPSJSAPITicket(
+    request: FastifyRequest<{ Querystring: { url?: string } }>,
+    reply: FastifyReply
+  ) {
+    try {
+      const { url } = request.query;
+
+      if (!url) {
+        return reply.code(400).send({
+          success: false,
+          error: 'MISSING_URL',
+          message: '缺少页面URL参数'
+        });
+      }
+
+      this.logger.info('Generating WPS JSAPI config', { url });
+
+      // 调用WPSApiService的getWPSJSAPIConfig方法获取完整配置
+      const config = await this.wpsApiService.getWPSJSAPIConfig(url);
+
+      return reply.send({
+        success: true,
+        data: config,
+        message: 'WPS JSAPI配置获取成功'
+      });
+    } catch (error) {
+      this.logger.error('Failed to get WPS JSAPI config:', error);
+      return reply.code(500).send({
+        success: false,
+        error: 'JSAPI_CONFIG_ERROR',
+        message: '获取WPS JSAPI配置失败'
+      });
+    }
   }
 
   /**

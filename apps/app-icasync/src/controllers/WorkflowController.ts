@@ -2,6 +2,7 @@ import {
   Controller,
   FastifyReply,
   FastifyRequest,
+  Get,
   Logger,
   Post
 } from '@stratix/core';
@@ -36,6 +37,42 @@ interface DeleteOldCalendarsRequest {
   limit?: number;
   /** 业务键，用于实例锁检查 */
   businessKey?: string;
+}
+
+/**
+ * 增量同步请求体
+ */
+interface IncrementalSyncRequest {
+  /** 学年学期标识，格式：YYYY-YYYY-S（如：2024-2025-1） */
+  xnxq: string;
+  /** 是否仅测试运行，默认false */
+  dryRun?: boolean;
+  /** 批处理大小，默认100 */
+  batchSize?: number;
+  /** 业务键，用于实例锁检查 */
+  businessKey?: string;
+}
+
+/**
+ * 增量数据检测请求体
+ */
+interface IncrementalDetectionRequest {
+  /** 学年学期标识，格式：YYYY-YYYY-S（如：2024-2025-1） */
+  xnxq: string;
+  /** 检测模式: "check" | "mark" | "summary" */
+  mode: 'check' | 'mark' | 'summary';
+}
+
+/**
+ * 工作流状态查询请求
+ */
+interface WorkflowStatusRequest {
+  /** 工作流实例ID */
+  workflowInstanceId?: string;
+  /** 业务键 */
+  businessKey?: string;
+  /** 工作流名称 */
+  workflowName?: string;
 }
 
 /**
@@ -189,6 +226,242 @@ export default class WorkflowController {
     } catch (error) {
       this.logger.error('启动删除旧日历工作流失败', { error });
       this.sendErrorResponse(reply, 500, '启动删除旧日历工作流失败', error);
+    }
+  }
+
+  @Post('/api/workflows/icasync/incremental/detect')
+  async detectIncrementalChanges(
+    request: FastifyRequest<{ Body: IncrementalDetectionRequest }>,
+    reply: FastifyReply
+  ): Promise<void> {
+    try {
+      const { xnxq, mode = 'check' } = request.body;
+
+      if (!xnxq) {
+        return this.sendErrorResponse(
+          reply,
+          400,
+          'Missing required field: xnxq'
+        );
+      }
+
+      this.logger.info('开始增量数据检测', { xnxq, mode });
+
+      // 准备工作流选项
+      const workflowOptions = {
+        workflowName: 'incremental-sync-workflow',
+        workflowVersion: '1.0.0',
+        businessKey: `incremental-detect-${xnxq}-${Date.now()}`,
+        inputData: {
+          xnxq,
+          dryRun: mode !== 'mark',
+          batchSize: 100,
+          mode,
+          triggeredBy: 'detection-api',
+          triggeredAt: new Date().toISOString()
+        },
+        contextData: {
+          instanceType: 'incremental-detection',
+          createdBy: 'api-trigger',
+          syncMode: 'detection',
+          priority: 'normal' as const,
+          metadata: {
+            detectionMode: mode,
+            targetSemester: xnxq
+          }
+        }
+      };
+
+      const workflowResult = await this.tasksWorkflow.startWorkflowByName(
+        workflowOptions.workflowName,
+        workflowOptions
+      );
+
+      if (!workflowResult.success) {
+        this.logger.error('增量数据检测失败', {
+          error: workflowResult.error,
+          errorDetails: workflowResult.errorDetails
+        });
+
+        return this.sendErrorResponse(
+          reply,
+          500,
+          '增量数据检测失败',
+          workflowResult.error
+        );
+      }
+
+      const workflowInstance = workflowResult.data;
+
+      this.logger.info('增量数据检测启动成功', {
+        instanceId: workflowInstance?.id,
+        mode,
+        xnxq
+      });
+
+      this.sendSuccessResponse(reply, 200, {
+        message: '增量数据检测启动成功',
+        detectionMode: mode,
+        workflowInstance: {
+          id: workflowInstance?.id,
+          name: workflowInstance?.name,
+          status: workflowInstance?.status,
+          startedAt: workflowInstance?.startedAt
+        }
+      });
+    } catch (error) {
+      this.logger.error('增量数据检测失败', { error });
+      this.sendErrorResponse(reply, 500, '增量数据检测失败', error);
+    }
+  }
+
+  @Post('/api/workflows/icasync/incremental/sync')
+  async startIncrementalSyncWorkflow(
+    request: FastifyRequest<{ Body: IncrementalSyncRequest }>,
+    reply: FastifyReply
+  ): Promise<void> {
+    try {
+      const { xnxq, dryRun = false, batchSize = 100 } = request.body;
+
+      if (!xnxq) {
+        return this.sendErrorResponse(
+          reply,
+          400,
+          'Missing required field: xnxq'
+        );
+      }
+
+      this.logger.info('启动增量同步工作流', { xnxq, dryRun, batchSize });
+
+      const workflowOptions = {
+        workflowName: 'incremental-sync-workflow',
+        workflowVersion: '1.0.0',
+        inputData: {
+          xnxq,
+          dryRun,
+          batchSize,
+          triggeredBy: 'manual',
+          triggeredAt: new Date().toISOString()
+        },
+        contextData: {
+          instanceType: 'incremental-sync',
+          createdBy: 'manual-trigger',
+          syncMode: 'incremental',
+          priority: 'normal' as const,
+          metadata: {
+            targetSemester: xnxq,
+            batchProcessing: true
+          }
+        }
+      };
+
+      const workflowResult = await this.tasksWorkflow.startWorkflowByName(
+        workflowOptions.workflowName,
+        workflowOptions
+      );
+
+      if (!workflowResult.success) {
+        this.logger.error('启动增量同步工作流失败', {
+          error: workflowResult.error,
+          errorDetails: workflowResult.errorDetails
+        });
+
+        return this.sendErrorResponse(
+          reply,
+          500,
+          '启动增量同步工作流失败',
+          workflowResult.error
+        );
+      }
+
+      const workflowInstance = workflowResult.data;
+
+      this.logger.info('增量同步工作流启动成功', {
+        instanceId: workflowInstance?.id,
+        workflowName: workflowInstance?.name,
+        status: workflowInstance?.status
+      });
+
+      this.sendSuccessResponse(reply, 200, {
+        message: '增量同步工作流启动成功',
+        workflowInstance: {
+          id: workflowInstance?.id,
+          name: workflowInstance?.name,
+          status: workflowInstance?.status,
+          startedAt: workflowInstance?.startedAt,
+          inputData: workflowOptions.inputData
+        }
+      });
+    } catch (error) {
+      this.logger.error('启动增量同步工作流失败', { error });
+      this.sendErrorResponse(reply, 500, '启动增量同步工作流失败', error);
+    }
+  }
+
+  @Get('/api/workflows/status')
+  async getWorkflowStatus(
+    request: FastifyRequest<{ Querystring: WorkflowStatusRequest }>,
+    reply: FastifyReply
+  ): Promise<void> {
+    try {
+      const { workflowInstanceId, businessKey, workflowName } = request.query;
+
+      if (!workflowInstanceId && !businessKey && !workflowName) {
+        return this.sendErrorResponse(
+          reply,
+          400,
+          'At least one of workflowInstanceId, businessKey, or workflowName is required'
+        );
+      }
+
+      this.logger.info('查询工作流状态', {
+        workflowInstanceId,
+        businessKey,
+        workflowName
+      });
+
+      let statusResult;
+
+      if (workflowInstanceId) {
+        statusResult = await this.tasksWorkflow.getWorkflowInstance(
+          parseInt(workflowInstanceId)
+        );
+      } else if (businessKey) {
+        // 使用通用的 getWorkflowInstances 方法查询特定的业务键
+        statusResult = await this.tasksWorkflow.getWorkflowInstances({
+          businessKey
+        });
+      } else if (workflowName) {
+        // 返回200
+        this.sendSuccessResponse(reply, 200, {
+          message: '工作流状态查询成功',
+          workflowStatus: []
+        });
+        return;
+      }
+
+      if (!statusResult?.success) {
+        this.logger.warn('未找到匹配的工作流实例', {
+          workflowInstanceId,
+          businessKey,
+          workflowName
+        });
+
+        return this.sendErrorResponse(
+          reply,
+          404,
+          '未找到匹配的工作流实例',
+          statusResult?.error
+        );
+      }
+
+      this.sendSuccessResponse(reply, 200, {
+        message: '工作流状态查询成功',
+        workflowStatus: statusResult.data
+      });
+    } catch (error) {
+      this.logger.error('查询工作流状态失败', { error });
+      this.sendErrorResponse(reply, 500, '查询工作流状态失败', error);
     }
   }
 

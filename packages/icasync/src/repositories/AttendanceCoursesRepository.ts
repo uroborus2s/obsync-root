@@ -51,6 +51,9 @@ export interface IAttendanceCoursesRepository {
   createBatch(
     courses: NewAttendanceCourse[]
   ): Promise<DatabaseResult<AttendanceCourse[]>>;
+  createBatchWithDuplicateHandling(
+    courses: NewAttendanceCourse[]
+  ): Promise<DatabaseResult<{ createdCount: number; skippedCount: number }>>;
   updateAttendanceStatus(
     ids: number[],
     enabled: boolean
@@ -318,6 +321,122 @@ export default class AttendanceCoursesRepository
     this.logOperation('createBatch', { count: courses.length });
 
     return await this.createMany(createData as NewAttendanceCourse[]);
+  }
+
+  /**
+   * 批量创建签到课程（处理重复记录）
+   * 使用批量查询和过滤来避免重复插入，返回创建和跳过的记录数量
+   */
+  async createBatchWithDuplicateHandling(
+    courses: NewAttendanceCourse[]
+  ): Promise<DatabaseResult<{ createdCount: number; skippedCount: number }>> {
+    if (!courses || courses.length === 0) {
+      throw new Error('Courses array cannot be empty');
+    }
+
+    // 验证每个课程的必需字段
+    courses.forEach((course, index) => {
+      try {
+        this.validateRequired(course, [
+          'juhe_renwu_id',
+          'external_id',
+          'course_code',
+          'course_name',
+          'semester',
+          'teaching_week',
+          'week_day',
+          'start_time',
+          'end_time',
+          'time_period'
+        ]);
+
+        // 应用层验证：检查juhe_renwu_id的有效性
+        this.validateJuheRenwuId(course.juhe_renwu_id);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`Course at index ${index}: ${message}`);
+      }
+    });
+
+    try {
+      const totalCount = courses.length;
+
+      // 批量查询已存在的external_id
+      const externalIds = courses.map((course) => course.external_id);
+      const existingResult = await this.findMany((qb: any) =>
+        qb
+          .where('external_id', 'in', externalIds)
+          .where('deleted_at', 'is', null)
+          .select(['external_id'])
+      );
+
+      if (!existingResult.success) {
+        throw new Error(`查询已存在记录失败: ${existingResult.error?.message}`);
+      }
+
+      // 获取已存在的external_id集合
+      const existingExternalIds = new Set(
+        existingResult.data?.map((item) => item.external_id) || []
+      );
+
+      // 过滤出不存在的记录
+      const newCourses = courses.filter(
+        (course) => !existingExternalIds.has(course.external_id)
+      );
+
+      const skippedCount = totalCount - newCourses.length;
+      let createdCount = 0;
+
+      if (newCourses.length > 0) {
+        // 批量插入新记录
+        const createData = newCourses.map((course) =>
+          this.buildCreateData(course)
+        );
+        const insertResult = await this.createMany(
+          createData as NewAttendanceCourse[]
+        );
+
+        if (insertResult.success) {
+          createdCount = insertResult.data?.length || 0;
+        } else {
+          throw new Error(`批量插入失败: ${insertResult.error?.message}`);
+        }
+      }
+
+      this.logOperation('createBatchWithDuplicateHandling', {
+        totalCount,
+        createdCount,
+        skippedCount
+      });
+
+      return {
+        success: true,
+        data: {
+          createdCount,
+          skippedCount
+        }
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logError(
+        'createBatchWithDuplicateHandling',
+        new Error(errorMessage),
+        {
+          count: courses.length
+        }
+      );
+
+      return {
+        success: false,
+        error: {
+          type: 'DATABASE_ERROR' as any,
+          message: `批量创建签到课程失败: ${errorMessage}`,
+          timestamp: new Date(),
+          retryable: true
+        }
+      };
+    }
   }
 
   /**

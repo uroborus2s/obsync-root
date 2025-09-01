@@ -9,3 +9,6 @@ export * from './ILeaveService.js';
 
 // 用户服务接口
 export * from './IUserService.js';
+
+// 签到统计服务接口
+export * from './IAttendanceStatsService.js';

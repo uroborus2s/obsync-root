@@ -1,7 +1,7 @@
 // @stratix/icasync 聚合任务仓储
 import { Logger } from '@stratix/core';
 import type { DatabaseAPI, DatabaseResult } from '@stratix/database';
-import { QueryError, sql } from '@stratix/database';
+import { DatabaseErrorHandler, QueryError, sql } from '@stratix/database';
 import type {
   JuheRenwu,
   JuheRenwuUpdate,
@@ -107,6 +107,20 @@ export interface IJuheRenwuRepository {
   ): Promise<DatabaseResult<{ kkh: string | null; kcmc: string | null }[]>>;
   findCoursesForCalendarCreation(
     xnxq: string
+  ): Promise<DatabaseResult<JuheRenwu[]>>;
+
+  // 增量同步相关方法
+  updateGxZtById(
+    id: number,
+    gxZt: string
+  ): Promise<DatabaseResult<JuheRenwu | null>>;
+  softDeleteById(
+    id: number,
+    deletedBy: string
+  ): Promise<DatabaseResult<boolean>>;
+  findUnprocessed(
+    xnxq: string,
+    limit?: number
   ): Promise<DatabaseResult<JuheRenwu[]>>;
 }
 
@@ -655,8 +669,10 @@ export default class JuheRenwuRepository
 
   /**
    * 原子化聚合插入操作
-   * 使用 INSERT INTO ... SELECT 直接从源表聚合并插入到目标表
-   * 这是一个原子操作，避免了内存中缓存大量数据的问题
+   * 使用事务确保原子性：
+   * 1. INSERT INTO ... SELECT 直接从源表聚合并插入到目标表
+   * 2. 更新参与聚合的u_jw_kcb_cur记录的gx_zt字段为'3'（已聚合）
+   * 这是一个原子操作，避免了内存中缓存大量数据的问题，同时确保数据一致性
    */
   async executeAtomicAggregationInsert(
     xnxq: string
@@ -664,13 +680,16 @@ export default class JuheRenwuRepository
     try {
       this.logOperation('开始原子化聚合插入', {
         xnxq,
-        note: '使用CAST(kkh AS CHAR)确保kkh字段为字符串类型'
+        note: '使用事务确保聚合插入和状态更新的原子性'
       });
 
-      // 直接使用数据库连接，不使用事务包装
+      // 使用事务确保原子性
       const db = this.writeConnection;
 
-      const result = await sql`
+      // 使用事务确保聚合插入和状态更新的原子性
+      const result = await db.transaction().execute(async (trx) => {
+        // 1. 执行聚合插入操作
+        const insertResult = await sql`
           INSERT INTO juhe_renwu (
             kkh, xnxq, jxz, zc, rq, kcmc, sfdk,
             jc_s, room_s, gh_s, xm_s, lq, sj_f, sj_t, sjd, gx_zt
@@ -693,14 +712,14 @@ export default class JuheRenwuRepository
             'am' as sjd,
             '0' as gx_zt
           FROM u_jw_kcb_cur
-          WHERE xnxq = ${xnxq} 
-            AND gx_zt IS NULL 
-            AND jc < 5 
+          WHERE xnxq = ${xnxq}
+            AND (gx_zt = '2' OR gx_zt IS NULL)
+            AND IFNULL(zt, '') != 'delete'
+            AND jc < 5
             AND rq is not null
             AND st is not null
             AND ed is not null
             AND kcmc is not null
-            AND xms = '孙永锐'
           GROUP BY kkh, xnxq, jxz, zc, rq, kcmc, sfdk
           UNION
           SELECT
@@ -721,26 +740,50 @@ export default class JuheRenwuRepository
             'pm' as sjd,
             '0' as gx_zt
           FROM u_jw_kcb_cur
-          WHERE xnxq = ${xnxq} 
-            AND gx_zt IS NULL 
+          WHERE xnxq = ${xnxq}
+            AND (gx_zt = '2' OR gx_zt IS NULL)
+            AND IFNULL(zt, '') != 'delete'
             AND jc >= 5
             AND rq is not null
             AND st is not null
             AND ed is not null
             AND kcmc is not null
-            AND xms = '孙永锐'
           GROUP BY kkh, xnxq, jxz, zc, rq, kcmc, sfdk
-        `.execute(db);
+        `.execute(trx);
 
-      const insertedCount = Number(result.numAffectedRows) || 0;
+        const insertedCount = Number(insertResult.numAffectedRows) || 0;
+
+        // 2. 更新参与聚合的u_jw_kcb_cur记录状态为'3'（已聚合）
+        const updateResult = await sql`
+          UPDATE u_jw_kcb_cur
+          SET gx_zt = '3', gx_sj = NOW()
+          WHERE xnxq = ${xnxq}
+            AND (gx_zt = '2' OR gx_zt IS NULL)
+            AND IFNULL(zt, '') != 'delete'
+            AND rq is not null
+            AND st is not null
+            AND ed is not null
+            AND kcmc is not null
+        `.execute(trx);
+
+        const updatedCount = Number(updateResult.numAffectedRows) || 0;
+
+        return {
+          insertedCount,
+          updatedCount
+        };
+      });
+
+      const insertedCount = result.insertedCount;
 
       this.logOperation('原子化聚合插入完成', {
         xnxq,
         insertedCount,
+        updatedCount: result.updatedCount,
         performance: {
-          operation: 'atomic_insert_select',
+          operation: 'atomic_insert_select_with_update',
           memoryEfficient: true,
-          transactional: false
+          transactional: true
         }
       });
 
@@ -951,6 +994,168 @@ export default class JuheRenwuRepository
       return {
         success: false,
         error: QueryError.create(`批量查询ID失败: ${errorMessage}`)
+      };
+    }
+  }
+
+  /**
+   * 根据ID更新gx_zt状态
+   */
+  async updateGxZtById(
+    id: number,
+    gxZt: string
+  ): Promise<DatabaseResult<JuheRenwu | null>> {
+    if (!id || id <= 0) {
+      throw new Error('ID must be a positive number');
+    }
+
+    if (!gxZt) {
+      throw new Error('Status cannot be empty');
+    }
+
+    try {
+      this.logOperation('updateGxZtById', { id, gxZt });
+
+      const updateData: JuheRenwuUpdate = {
+        gx_zt: gxZt,
+        gx_sj: new Date().toISOString().slice(0, 19).replace('T', ' ')
+      };
+
+      const result = await this.updateNullable(id, updateData);
+
+      this.logOperation('updateGxZtById完成', {
+        id,
+        gxZt,
+        success: result.success
+      });
+
+      return result;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logOperation('updateGxZtById失败', {
+        id,
+        gxZt,
+        error: errorMessage
+      });
+      return {
+        success: false,
+        error: QueryError.create(`更新状态失败: ${errorMessage}`)
+      };
+    }
+  }
+
+  /**
+   * 根据ID软删除记录
+   */
+  async softDeleteById(
+    id: number,
+    deletedBy: string
+  ): Promise<DatabaseResult<boolean>> {
+    if (!id || id <= 0) {
+      throw new Error('ID must be a positive number');
+    }
+
+    try {
+      this.logOperation('softDeleteById', { id, deletedBy });
+
+      const updateData: JuheRenwuUpdate = {
+        gx_zt: 'deleted',
+        gx_sj: new Date().toISOString().slice(0, 19).replace('T', ' ')
+      };
+
+      const result = await this.updateNullable(id, updateData);
+
+      this.logOperation('softDeleteById完成', {
+        id,
+        deletedBy,
+        success: result.success
+      });
+
+      return result.success
+        ? ({
+            success: true,
+            data: true
+          } as const)
+        : {
+            success: false,
+            error: result.error
+          };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logOperation('softDeleteById失败', {
+        id,
+        deletedBy,
+        error: errorMessage
+      });
+      return {
+        success: false,
+        error: QueryError.create(`软删除失败: ${errorMessage}`)
+      };
+    }
+  }
+
+  /**
+   * 查找未处理的记录
+   */
+  async findUnprocessed(
+    xnxq: string,
+    limit?: number
+  ): Promise<DatabaseResult<JuheRenwu[]>> {
+    if (!xnxq) {
+      throw new Error('学年学期不能为空');
+    }
+
+    try {
+      this.logOperation('findUnprocessed', { xnxq, limit });
+
+      const operation = async (db: any) => {
+        let query = db
+          .selectFrom(this.tableName)
+          .selectAll()
+          .where('xnxq', '=', xnxq)
+          .where((eb: any) =>
+            eb.or([eb('gx_sj', 'is', null), eb('gx_sj', '=', '')])
+          )
+          .orderBy('gx_sj', 'desc');
+
+        if (limit && limit > 0) {
+          query = query.limit(limit);
+        }
+
+        return await query.execute();
+      };
+      const records = await DatabaseErrorHandler.execute(async () => {
+        const db = this.readConnection;
+        return await operation(db);
+      }, 'find-unprocessed');
+
+      if (!records.success) {
+        return records;
+      }
+
+      this.logOperation('findUnprocessed完成', {
+        xnxq,
+        limit,
+        foundCount: records.data?.length || 0
+      });
+
+      return {
+        success: true,
+        data: records.data || []
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logOperation('findUnprocessed失败', {
+        xnxq,
+        limit,
+        error: errorMessage
+      });
+      return {
+        success: false,
+        error: QueryError.create(`查询未处理记录失败: ${errorMessage}`)
       };
     }
   }

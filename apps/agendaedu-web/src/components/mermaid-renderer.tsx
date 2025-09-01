@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import { AlertCircle } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
-import { AlertCircle } from 'lucide-react'
 
 interface MermaidRendererProps {
   definition: string
@@ -9,11 +9,15 @@ interface MermaidRendererProps {
   style?: React.CSSProperties
 }
 
-export function MermaidRenderer({ definition, className, style }: MermaidRendererProps) {
+export function MermaidRenderer({
+  definition,
+  className,
+  style,
+}: MermaidRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [mermaidLoaded, setMermaidLoaded] = useState(false)
+  const [, setMermaidLoaded] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -25,7 +29,7 @@ export function MermaidRenderer({ definition, className, style }: MermaidRendere
 
         // 动态导入Mermaid
         const mermaid = await import('mermaid')
-        
+
         if (!mounted) return
 
         // 初始化Mermaid
@@ -35,7 +39,7 @@ export function MermaidRenderer({ definition, className, style }: MermaidRendere
           flowchart: {
             useMaxWidth: true,
             htmlLabels: true,
-            curve: 'basis'
+            curve: 'basis',
           },
           themeVariables: {
             primaryColor: '#3b82f6',
@@ -43,8 +47,8 @@ export function MermaidRenderer({ definition, className, style }: MermaidRendere
             primaryBorderColor: '#2563eb',
             lineColor: '#6b7280',
             secondaryColor: '#f3f4f6',
-            tertiaryColor: '#ffffff'
-          }
+            tertiaryColor: '#ffffff',
+          },
         })
 
         setMermaidLoaded(true)
@@ -62,7 +66,7 @@ export function MermaidRenderer({ definition, className, style }: MermaidRendere
 
         // 渲染图表
         const { svg } = await mermaid.default.render(id, definition)
-        
+
         if (!mounted || !containerRef.current) return
 
         containerRef.current.innerHTML = svg
@@ -70,7 +74,7 @@ export function MermaidRenderer({ definition, className, style }: MermaidRendere
         setIsLoading(false)
       } catch (err) {
         if (!mounted) return
-        
+
         console.error('Mermaid rendering error:', err)
         setError(err instanceof Error ? err.message : '渲染失败')
         setIsLoading(false)
@@ -87,7 +91,7 @@ export function MermaidRenderer({ definition, className, style }: MermaidRendere
   if (isLoading) {
     return (
       <div className={className} style={style}>
-        <Skeleton className="h-64 w-full" />
+        <Skeleton className='h-64 w-full' />
       </div>
     )
   }
@@ -96,10 +100,8 @@ export function MermaidRenderer({ definition, className, style }: MermaidRendere
     return (
       <div className={className} style={style}>
         <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            流程图渲染失败: {error}
-          </AlertDescription>
+          <AlertCircle className='h-4 w-4' />
+          <AlertDescription>流程图渲染失败: {error}</AlertDescription>
         </Alert>
       </div>
     )
@@ -108,7 +110,7 @@ export function MermaidRenderer({ definition, className, style }: MermaidRendere
   if (!definition.trim()) {
     return (
       <div className={className} style={style}>
-        <div className="flex items-center justify-center h-64 text-muted-foreground">
+        <div className='text-muted-foreground flex h-64 items-center justify-center'>
           <p>暂无流程图定义</p>
         </div>
       </div>
@@ -116,7 +118,7 @@ export function MermaidRenderer({ definition, className, style }: MermaidRendere
   }
 
   return (
-    <div 
+    <div
       ref={containerRef}
       className={`mermaid-container ${className || ''}`}
       style={style}
@@ -125,10 +127,10 @@ export function MermaidRenderer({ definition, className, style }: MermaidRendere
 }
 
 // 简化版本，使用CSS绘制基本流程图
-export function SimplifiedFlowChart({ 
-  nodes, 
-  connections, 
-  className 
+export function SimplifiedFlowChart({
+  nodes,
+  connections: _connections,
+  className,
 }: {
   nodes: Array<{
     id: string
@@ -145,9 +147,10 @@ export function SimplifiedFlowChart({
 }) {
   const getNodeColor = (type: string, status?: string) => {
     if (status === 'running') return 'bg-blue-100 border-blue-500 text-blue-800'
-    if (status === 'completed') return 'bg-green-100 border-green-500 text-green-800'
+    if (status === 'completed')
+      return 'bg-green-100 border-green-500 text-green-800'
     if (status === 'failed') return 'bg-red-100 border-red-500 text-red-800'
-    
+
     switch (type) {
       case 'task':
         return 'bg-blue-50 border-blue-300 text-blue-700'
@@ -164,35 +167,39 @@ export function SimplifiedFlowChart({
 
   const getNodeIcon = (type: string) => {
     switch (type) {
-      case 'task': return '📋'
-      case 'loop': return '🔄'
-      case 'parallel': return '⚡'
-      case 'subprocess': return '📦'
-      default: return '⚪'
+      case 'task':
+        return '📋'
+      case 'loop':
+        return '🔄'
+      case 'parallel':
+        return '⚡'
+      case 'subprocess':
+        return '📦'
+      default:
+        return '⚪'
     }
   }
 
   return (
     <div className={`p-6 ${className || ''}`}>
-      <div className="flex flex-col space-y-8">
+      <div className='flex flex-col space-y-8'>
         {nodes.map((node, index) => (
-          <div key={node.id} className="flex flex-col items-center">
+          <div key={node.id} className='flex flex-col items-center'>
             {/* 节点 */}
-            <div className={`
-              px-4 py-3 rounded-lg border-2 min-w-[120px] text-center
-              ${getNodeColor(node.type, node.status)}
-            `}>
-              <div className="text-lg mb-1">{getNodeIcon(node.type)}</div>
-              <div className="font-medium text-sm">{node.name}</div>
-              <div className="text-xs opacity-75">{node.type}</div>
+            <div
+              className={`min-w-[120px] rounded-lg border-2 px-4 py-3 text-center ${getNodeColor(node.type, node.status)} `}
+            >
+              <div className='mb-1 text-lg'>{getNodeIcon(node.type)}</div>
+              <div className='text-sm font-medium'>{node.name}</div>
+              <div className='text-xs opacity-75'>{node.type}</div>
             </div>
-            
+
             {/* 连接线 */}
             {index < nodes.length - 1 && (
-              <div className="flex flex-col items-center my-2">
-                <div className="w-0.5 h-6 bg-gray-300"></div>
-                <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                <div className="w-0.5 h-6 bg-gray-300"></div>
+              <div className='my-2 flex flex-col items-center'>
+                <div className='h-6 w-0.5 bg-gray-300'></div>
+                <div className='h-2 w-2 rounded-full bg-gray-400'></div>
+                <div className='h-6 w-0.5 bg-gray-300'></div>
               </div>
             )}
           </div>

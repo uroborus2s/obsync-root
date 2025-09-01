@@ -24,17 +24,17 @@ interface SimplifiedWorkflowVisualizerProps {
   showControls?: boolean
 }
 
-interface WorkflowNode {
-  nodeId: string
-  nodeName: string
-  nodeType: 'simple' | 'task' | 'loop' | 'parallel' | 'subprocess'
-  executor?: string
-  dependsOn?: string[]
-  maxRetries: number
-  timeoutSeconds?: number
-  inputData?: Record<string, any>
-  condition?: string
-}
+// interface WorkflowNode {
+//   nodeId: string
+//   nodeName: string
+//   nodeType: 'simple' | 'task' | 'loop' | 'parallel' | 'subprocess'
+//   executor?: string
+//   dependsOn?: string[]
+//   maxRetries: number
+//   timeoutSeconds?: number
+//   inputData?: Record<string, any>
+//   condition?: string
+// }
 
 export function SimplifiedWorkflowVisualizer({
   workflowDefinitionId,
@@ -331,8 +331,11 @@ export function SimplifiedWorkflowVisualizer({
           {/* 简化的流程图展示 */}
           {displayNodes.length > 0 ? (
             <div className='flex flex-col items-center space-y-8'>
-              {displayNodes.map((node: WorkflowNode, index: number) => (
-                <div key={node.nodeId} className='flex flex-col items-center'>
+              {displayNodes.map((node: any, index: number) => (
+                <div
+                  key={node.id || node.nodeId}
+                  className='flex flex-col items-center'
+                >
                   {/* 节点 */}
                   <div
                     className={`min-w-[160px] rounded-lg border-2 px-6 py-4 text-center transition-all ${getNodeStyle(node.nodeId)} `}

@@ -162,7 +162,7 @@ export default class StudentRepository
         `.execute(db);
 
         return queryResult.rows;
-      });
+      }, { connectionName: 'syncdb' });
 
       if (!result.success) {
         throw new Error(result.error?.message || 'Database query failed');
@@ -342,7 +342,7 @@ export default class StudentRepository
         `.execute(db);
 
         return queryResult.rows;
-      });
+      }, { connectionName: 'syncdb' });
 
       if (!result.success) {
         throw new Error(result.error?.message || 'Database query failed');

@@ -98,7 +98,17 @@ export interface IWorkflowInstanceService {
   findMany(
     filters?: QueryFilters,
     pagination?: PaginationOptions
-  ): Promise<ServiceResult<WorkflowInstance[]>>;
+  ): Promise<
+    ServiceResult<{
+      items: WorkflowInstance[];
+      total: number;
+      page: number;
+      pageSize: number;
+      totalPages: number;
+      hasNext: boolean;
+      hasPrev: boolean;
+    }>
+  >;
 
   /**
    * 查找中断的工作流实例

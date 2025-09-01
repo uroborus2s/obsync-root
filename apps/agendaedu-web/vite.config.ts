@@ -15,9 +15,24 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  build: {
+    rollupOptions: {
+      onwarn(warning, warn) {
+        // 忽略 TypeScript 相关警告
+        if (warning.code === 'UNRESOLVED_IMPORT') return
+        warn(warning)
+      },
+    },
+  },
   server: {
     proxy: {
-      // 代理API请求到生产环境，保持Cookie
+      // 代理签到统计API到本地app-icalink服务
+      '/api/icalink/v1/attendance/stats': {
+        target: 'http://localhost:8090',
+        changeOrigin: true,
+        secure: false,
+      },
+      // 代理其他API请求到生产环境，保持Cookie
       '/api': {
         target: 'https://kwps.jlufe.edu.cn',
         changeOrigin: true,

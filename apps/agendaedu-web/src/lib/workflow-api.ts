@@ -492,7 +492,7 @@ export class WorkflowApiService {
     search?: string
     enabled?: boolean
     workflowDefinitionName?: string
-  }): Promise<PaginatedResponse<WorkflowSchedule>> {
+  }): Promise<PaginatedResponse<any>> {
     const queryParams = new URLSearchParams()
 
     if (params?.page) queryParams.append('page', params.page.toString())
@@ -507,7 +507,7 @@ export class WorkflowApiService {
         params.workflowDefinitionName
       )
 
-    const url = `${this.baseUrl}/schedules${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+    // const url = `${this.baseUrl}/schedules${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
 
     // TODO: 实现真实的API调用，目前返回模拟数据
     return {
@@ -535,6 +535,71 @@ export class WorkflowApiService {
   async toggleSchedule(_id: string, _enabled: boolean): Promise<void> {
     // TODO: 实现切换定时任务状态功能
     throw new Error('切换定时任务状态功能尚未实现')
+  }
+
+  // ==================== 工作流实例可视化 ====================
+
+  /**
+   * 获取工作流实例详情
+   */
+  async getWorkflowInstanceById(instanceId: number): Promise<WorkflowInstance> {
+    const response = await apiClient.get<ApiResponse<WorkflowInstance>>(
+      `${this.baseUrl}/instances/${instanceId}`
+    )
+
+    if (!response.success) {
+      throw new Error(response.error || '获取工作流实例失败')
+    }
+
+    return response.data!
+  }
+
+  /**
+   * 获取工作流执行状态
+   */
+  async getWorkflowExecutions(instanceId: number): Promise<any[]> {
+    const response = await apiClient.get<ApiResponse<any[]>>(
+      `${this.baseUrl}/instances/${instanceId}/executions`
+    )
+
+    if (!response.success) {
+      throw new Error(response.error || '获取执行状态失败')
+    }
+
+    return response.data || []
+  }
+
+  /**
+   * 获取循环节点执行详情
+   */
+  async getLoopExecutions(instanceId: number): Promise<any[]> {
+    const response = await apiClient.get<ApiResponse<any[]>>(
+      `${this.baseUrl}/instances/${instanceId}/loops`
+    )
+
+    if (!response.success) {
+      throw new Error(response.error || '获取循环执行详情失败')
+    }
+
+    return response.data || []
+  }
+
+  /**
+   * 获取节点执行日志
+   */
+  async getNodeExecutionLogs(
+    instanceId: number,
+    nodeId: string
+  ): Promise<any[]> {
+    const response = await apiClient.get<ApiResponse<any[]>>(
+      `${this.baseUrl}/instances/${instanceId}/nodes/${nodeId}/logs`
+    )
+
+    if (!response.success) {
+      throw new Error(response.error || '获取节点执行日志失败')
+    }
+
+    return response.data || []
   }
 }
 
