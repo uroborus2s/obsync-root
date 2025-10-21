@@ -865,8 +865,6 @@ export interface QueryOptions<T = any> {
   readonly readonly?: boolean;
   readonly timeout?: number;
   readonly connectionName?: string;
-  /** 选择特定字段（如果不指定则返回所有字段） */
-  readonly select?: ReadonlyArray<keyof T>;
 }
 
 /**
@@ -1108,14 +1106,8 @@ export interface IRepository<
   UpdateT = Updateable<DB[TB]>
 > {
   // 基础查询
-  findById(
-    id: string | number,
-    options?: { select?: ReadonlyArray<keyof T> }
-  ): Promise<Maybe<T>>;
-  findOne(
-    criteria: WhereExpression<DB, TB>,
-    options?: { select?: ReadonlyArray<keyof T> }
-  ): Promise<Maybe<T>>;
+  findById(id: string | number): Promise<Maybe<T>>;
+  findOne(criteria: WhereExpression<DB, TB>): Promise<Maybe<T>>;
   findMany(
     criteria?: WhereExpression<DB, TB>,
     options?: QueryOptions<T>
@@ -1283,23 +1275,13 @@ export abstract class BaseRepository<
     return eitherRight(data);
   }
 
-  async findById(
-    id: string | number,
-    options?: { select?: ReadonlyArray<keyof T> }
-  ): Promise<Maybe<T>> {
+  async findById(id: string | number): Promise<Maybe<T>> {
     try {
       const connection = await this.getQueryConnection();
-      let query = connection.selectFrom(this.tableName) as any;
-
-      // 如果指定了字段选择，使用 select()；否则使用 selectAll()
-      if (options?.select && options.select.length > 0) {
-        query = query.select(options.select as any);
-      } else {
-        query = query.selectAll();
-      }
+      const query: any = connection.selectFrom(this.tableName).selectAll();
 
       const result = await query
-        .where(this.primaryKey as any, '=', id)
+        .where(this.primaryKey, '=', id)
         .executeTakeFirst();
       return fromNullable(result as T | undefined);
     } catch (error) {
@@ -1310,21 +1292,10 @@ export abstract class BaseRepository<
     }
   }
 
-  async findOne(
-    criteria: WhereExpression<DB, TB>,
-    options?: { select?: ReadonlyArray<keyof T> }
-  ): Promise<Maybe<T>> {
+  async findOne(criteria: WhereExpression<DB, TB>): Promise<Maybe<T>> {
     try {
       const connection = await this.getQueryConnection();
-      let baseQuery = connection.selectFrom(this.tableName) as any;
-
-      // 如果指定了字段选择，使用 select()；否则使用 selectAll()
-      if (options?.select && options.select.length > 0) {
-        baseQuery = baseQuery.select(options.select as any);
-      } else {
-        baseQuery = baseQuery.selectAll();
-      }
-
+      let baseQuery = connection.selectFrom(this.tableName).selectAll();
       const query = criteria(baseQuery);
       const result = await query.executeTakeFirst();
       return fromNullable(result as T | undefined);
@@ -1340,14 +1311,7 @@ export abstract class BaseRepository<
   ): Promise<T[]> {
     try {
       const connection = await this.getQueryConnection();
-      let query = connection.selectFrom(this.tableName) as any;
-
-      // 如果指定了字段选择，使用 select()；否则使用 selectAll()
-      if (options?.select && options.select.length > 0) {
-        query = query.select(options.select as any);
-      } else {
-        query = query.selectAll();
-      }
+      let query: any = connection.selectFrom(this.tableName).selectAll();
 
       if (criteria) {
         query = criteria(query);
@@ -1358,7 +1322,7 @@ export abstract class BaseRepository<
           ? options.orderBy
           : [options.orderBy];
         for (const clause of orderClauses) {
-          query = query.orderBy(clause.field as any, clause.direction);
+          query = query.orderBy(clause.field, clause.direction);
         }
       }
 
