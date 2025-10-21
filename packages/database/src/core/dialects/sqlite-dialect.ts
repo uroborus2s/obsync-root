@@ -1,17 +1,19 @@
 // @stratix/database SQLite方言实现
 // 基于Kysely和better-sqlite3驱动的SQLite数据库支持
 
-import type { Logger } from '@stratix/core';
+import { type Logger } from '@stratix/core';
+import {
+  eitherChain,
+  eitherMap,
+  isLeft,
+  tryCatch
+} from '@stratix/utils/functional';
 import Database from 'better-sqlite3';
 import { existsSync, mkdirSync } from 'fs';
-import { Kysely, SqliteDialect } from 'kysely';
+import { Kysely, sql, SqliteDialect } from 'kysely';
 import { dirname, resolve } from 'path';
 import type { ConnectionConfig, DatabaseType } from '../../types/index.js';
-import {
-  DatabaseResult,
-  failureResult,
-  successResult
-} from '../../utils/helpers.js';
+import { DatabaseResult } from '../../utils/error-handler.js';
 import { BaseDialect } from './base-dialect.js';
 
 /**
@@ -31,17 +33,17 @@ export class SQLiteDialect extends BaseDialect {
     return this.wrapConnectionCreation(async () => {
       // 验证配置
       const configResult = this.validateConfig(config);
-      if (!configResult.success) {
+      if (isLeft(configResult)) {
         throw new Error(
-          configResult.error?.message || 'Configuration validation failed'
+          configResult.left?.message || 'Configuration validation failed'
         );
       }
 
       // 检查better-sqlite3驱动是否可用
       const driverResult = await this.checkDriverAvailability();
-      if (!driverResult.success) {
+      if (isLeft(driverResult)) {
         throw new Error(
-          driverResult.error?.message || 'Driver availability check failed'
+          driverResult.left?.message || 'Driver availability check failed'
         );
       }
 
@@ -52,13 +54,12 @@ export class SQLiteDialect extends BaseDialect {
       await this.ensureDirectoryExists(dbPath);
 
       // 创建SQLite数据库连接选项
-      const options = this.createDatabaseOptions(config);
+      const options = this.createDatabaseOptions(config, logger);
 
-      // 创建better-sqlite3数据库实例
-      const database = new Database(dbPath, options);
+      const database = new Database(dbPath);
 
       // 设置Pragma选项
-      this.setPragmaOptions(database, config);
+      this.setPragmaOptions(database!, config);
 
       // 创建Kysely实例
       const kysely = new Kysely({
@@ -71,11 +72,9 @@ export class SQLiteDialect extends BaseDialect {
       // 测试连接
       try {
         // 执行简单的健康检查查询
-        const healthQuery = this.getHealthCheckQuery();
-        const stmt = database.prepare(healthQuery);
-        const result = stmt.get();
+        const result = await sql`SELECT 1 as health`.execute(kysely);
 
-        if (!result || (result as any).health !== 1) {
+        if (!result || (result as any).rows[0].health !== 1) {
           throw new Error('SQLite health check failed');
         }
       } catch (error) {
@@ -93,11 +92,8 @@ export class SQLiteDialect extends BaseDialect {
   validateConfig(config: ConnectionConfig): DatabaseResult<boolean> {
     // 基础验证
     const baseResult = this.validateBaseConfig(config);
-    if (!baseResult.success) {
-      return baseResult;
-    }
 
-    try {
+    const onSuccess = () => {
       // SQLite特定验证
       const dbPath = this.getDatabasePath(config);
 
@@ -116,11 +112,11 @@ export class SQLiteDialect extends BaseDialect {
       if (config.sqlite?.pragma) {
         this.validatePragmaOptions(config.sqlite.pragma);
       }
-
-      return successResult(true);
-    } catch (error) {
-      return failureResult(this.handleConnectionError(error as Error));
-    }
+      return true;
+    };
+    const onError = (error: unknown) =>
+      this.handleConnectionError(error as Error);
+    return eitherChain(() => tryCatch(onSuccess, onError))(baseResult as any);
   }
 
   /**
@@ -135,11 +131,8 @@ export class SQLiteDialect extends BaseDialect {
    */
   async checkDriverAvailability(): Promise<DatabaseResult<boolean>> {
     const sqliteResult = await this.checkRequiredModule('better-sqlite3');
-    if (!sqliteResult.success) {
-      return sqliteResult;
-    }
 
-    return successResult(true);
+    return eitherMap(() => true)(sqliteResult) as DatabaseResult<boolean>;
   }
 
   /**
@@ -279,7 +272,7 @@ export class SQLiteDialect extends BaseDialect {
   /**
    * 创建数据库选项
    */
-  private createDatabaseOptions(config: ConnectionConfig): any {
+  private createDatabaseOptions(config: ConnectionConfig, logger: Logger): any {
     const options: any = {};
 
     // 基本选项
@@ -297,16 +290,7 @@ export class SQLiteDialect extends BaseDialect {
 
     if (config.options?.verbose) {
       options.verbose = (message: string) => {
-        try {
-          // 尝试从框架获取日志器
-          const {
-            getLogger: getFrameworkLogger
-          } = require('@stratix/core/logger');
-          const logger = getFrameworkLogger();
-          logger.debug({ dialect: 'SQLite', message }, '[SQLITE] Verbose');
-        } catch {
-          console.log(`[SQLite] ${message}`);
-        }
+        logger.debug({ dialect: 'SQLite', message }, '[SQLITE] Verbose');
       };
     }
 

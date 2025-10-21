@@ -20,7 +20,10 @@ import type {
   WorkflowDefinitionTableUpdate
 } from '../types/database.js';
 import type { InputProcessingOptions } from '../types/input-validation.js';
-import type { NodeInstance } from '../types/unified-node.js';
+import type {
+  NodeInstance,
+  NodeInstanceWithChildren
+} from '../types/unified-node.js';
 import type { ExecutionContext, WorkflowInput } from '../types/workflow.js';
 
 /**
@@ -111,9 +114,57 @@ export interface IWorkflowInstanceService {
   >;
 
   /**
+   * 获取流程分组列表
+   * 按工作流定义聚合根实例，返回分组统计信息
+   */
+  getWorkflowGroups(
+    filters?: QueryFilters,
+    options?: {
+      page?: number;
+      pageSize?: number;
+      sortBy?: string;
+      sortOrder?: 'asc' | 'desc';
+    }
+  ): Promise<
+    ServiceResult<{
+      groups: Array<{
+        workflowDefinitionId: number;
+        workflowDefinitionName: string;
+        workflowDefinitionDescription?: string;
+        workflowDefinitionVersion?: string;
+        rootInstanceCount: number;
+        totalInstanceCount: number;
+        runningInstanceCount: number;
+        completedInstanceCount: number;
+        failedInstanceCount: number;
+        latestActivity?: string;
+        latestInstanceStatus?: string;
+      }>;
+      total: number;
+      page: number;
+      pageSize: number;
+      totalPages: number;
+      hasNext: boolean;
+      hasPrev: boolean;
+    }>
+  >;
+
+  /**
    * 查找中断的工作流实例
    */
   findInterruptedInstances(): Promise<ServiceResult<WorkflowInstance[]>>;
+
+  /**
+   * 获取工作流实例的节点实例（包含子节点层次结构）
+   * 用于流程图展示，如果节点有子节点，会在节点中包含完整的子节点信息
+   *
+   * @param workflowInstanceId 工作流实例ID
+   * @param nodeId 可选，指定节点ID。如果提供，则只返回该节点及其子节点；如果不提供，返回所有顶级节点
+   */
+  getNodeInstances(
+    workflowInstanceId: number,
+    nodeId?: string
+  ): Promise<ServiceResult<NodeInstanceWithChildren[]>>;
 }
 
 /**

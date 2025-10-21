@@ -42,6 +42,30 @@ interface WorkflowInstanceQueryParams {
   startedAfter?: string;
   /** 结束时间范围 */
   startedBefore?: string;
+  /** 是否按流程分组 */
+  groupByWorkflow?: string | boolean;
+  /** 是否只返回根实例（external_id为空） */
+  rootInstancesOnly?: string | boolean;
+}
+
+/**
+ * 流程分组查询参数
+ */
+interface WorkflowGroupQueryParams {
+  /** 页码，默认1 */
+  page?: number;
+  /** 每页大小，默认20 */
+  pageSize?: number;
+  /** 状态过滤 */
+  status?: WorkflowInstanceStatus;
+  /** 搜索关键词 */
+  search?: string;
+  /** 工作流定义名称过滤 */
+  workflowDefinitionName?: string;
+  /** 排序字段 */
+  sortBy?: 'name' | 'instanceCount' | 'latestActivity' | 'createdAt';
+  /** 排序方向 */
+  sortOrder?: 'asc' | 'desc';
 }
 
 /**
@@ -175,7 +199,9 @@ export default class WorkflowInstanceController {
         businessKey,
         externalId,
         startedAfter,
-        startedBefore
+        startedBefore,
+        groupByWorkflow,
+        rootInstancesOnly
       } = request.query;
 
       // 解析分页参数，确保类型正确
@@ -198,6 +224,17 @@ export default class WorkflowInstanceController {
       if (externalId) {
         filters.externalId = externalId;
       }
+
+      // 新增：根实例过滤（external_id为空）
+      if (rootInstancesOnly === 'true' || rootInstancesOnly === true) {
+        filters.externalId = null; // 只查询external_id为空的根实例
+      }
+
+      // 新增：分组查询处理（暂时跳过，使用独立的分组接口）
+      // if (groupByWorkflow === 'true' || groupByWorkflow === true) {
+      //   // 如果是分组查询，重定向到分组接口
+      //   return this.getWorkflowGroups(request as any, reply);
+      // }
 
       // 修复时间范围过滤器的字段名映射
       if (startedAfter || startedBefore) {
@@ -259,6 +296,65 @@ export default class WorkflowInstanceController {
   }
 
   /**
+   * 获取流程分组列表
+   * GET /api/workflows/instances/groups
+   */
+  @Get('/api/workflows/instances/groups')
+  async getWorkflowGroups(
+    request: FastifyRequest<{ Querystring: WorkflowGroupQueryParams }>,
+    reply: FastifyReply
+  ): Promise<void> {
+    try {
+      const {
+        status,
+        search,
+        workflowDefinitionName,
+        sortBy = 'latestActivity',
+        sortOrder = 'desc'
+      } = request.query;
+
+      // 解析分页参数
+      const { page, pageSize } = this.parsePaginationParams(request.query);
+
+      // 构建查询过滤器
+      const filters: any = {
+        externalId: null // 只查询根实例
+      };
+
+      if (status) {
+        filters.status = Array.isArray(status) ? status : [status];
+      }
+
+      if (search) {
+        filters.search = search;
+      }
+
+      if (workflowDefinitionName) {
+        filters.workflowDefinitionName = workflowDefinitionName;
+      }
+
+      // 调用服务层获取分组数据
+      const result = await this.workflowInstanceService.getWorkflowGroups(
+        filters,
+        { page, pageSize, sortBy, sortOrder }
+      );
+
+      if (!result.success) {
+        return this.sendErrorResponse(
+          reply,
+          500,
+          'Failed to get workflow groups',
+          result.error
+        );
+      }
+
+      this.sendSuccessResponse(reply, 200, result.data);
+    } catch (error) {
+      this.sendErrorResponse(reply, 500, 'Internal server error', error);
+    }
+  }
+
+  /**
    * 根据ID获取工作流实例
    * GET /api/workflows/instances/:id
    */
@@ -273,10 +369,28 @@ export default class WorkflowInstanceController {
         return this.sendErrorResponse(reply, 400, 'Invalid instance ID');
       }
 
-      // TODO: 实现通过WorkflowInstanceService获取实例详情
-      // const result = await this.workflowInstanceService.getById(id);
+      const result = await this.workflowInstanceService.getById(id);
 
-      this.sendErrorResponse(reply, 501, 'Not implemented yet');
+      if (!result.success) {
+        if (
+          result.error?.includes('not found') ||
+          result.error?.includes('Not found')
+        ) {
+          return this.sendErrorResponse(
+            reply,
+            404,
+            'Workflow instance not found'
+          );
+        }
+        return this.sendErrorResponse(
+          reply,
+          500,
+          'Failed to get workflow instance',
+          result.error
+        );
+      }
+
+      this.sendSuccessResponse(reply, 200, result.data);
     } catch (error) {
       this.sendErrorResponse(reply, 500, 'Internal server error', error);
     }
@@ -594,6 +708,61 @@ export default class WorkflowInstanceController {
         failed: failureCount,
         results
       });
+    } catch (error) {
+      this.sendErrorResponse(reply, 500, 'Internal server error', error);
+    }
+  }
+
+  /**
+   * 获取工作流实例的节点实例（包含子节点层次结构）
+   * GET /api/workflows/instances/:id/nodes?nodeId=xxx
+   *
+   * 如果提供nodeId查询参数，返回指定节点及其所有子节点；
+   * 如果不提供nodeId，返回所有顶级节点，如果节点有子节点（如循环节点的子任务），
+   * 会在节点的children字段中包含完整的子节点信息
+   */
+  @Get('/api/workflows/instances/:id/nodes')
+  async getNodeInstances(
+    request: FastifyRequest<{
+      Params: { id: string };
+      Querystring: { nodeId?: string };
+    }>,
+    reply: FastifyReply
+  ): Promise<void> {
+    try {
+      const id = parseInt(request.params.id);
+      if (isNaN(id)) {
+        return this.sendErrorResponse(reply, 400, 'Invalid instance ID');
+      }
+
+      const nodeId = request.query.nodeId;
+
+      const result = await this.workflowInstanceService.getNodeInstances(
+        id,
+        nodeId
+      );
+
+      if (!result.success) {
+        if (
+          result.error?.includes('not found') ||
+          result.error?.includes('Not found')
+        ) {
+          return this.sendErrorResponse(
+            reply,
+            404,
+            nodeId ? 'Node not found' : 'Workflow instance not found',
+            result.error
+          );
+        }
+        return this.sendErrorResponse(
+          reply,
+          500,
+          'Failed to get node instances',
+          result.error
+        );
+      }
+
+      this.sendSuccessResponse(reply, 200, result.data);
     } catch (error) {
       this.sendErrorResponse(reply, 500, 'Internal server error', error);
     }

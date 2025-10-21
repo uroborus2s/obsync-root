@@ -1,6 +1,8 @@
 // @wps/app-icalink 签到统计服务接口
 // 定义签到数据统计相关的业务逻辑接口
 
+import type { ServiceError } from '@stratix/core';
+import type { Either } from '@stratix/utils/functional';
 import {
   AttendanceRateExplanation,
   AttendanceStatsQuery,
@@ -10,7 +12,6 @@ import {
   StudentAttendanceStats,
   TeacherAttendanceStats
 } from '../../types/attendance-stats.types.js';
-import { ServiceResult } from '../../types/service.js';
 
 /**
  * 签到统计服务接口
@@ -24,7 +25,9 @@ export interface IAttendanceStatsService {
    */
   getCourseAttendanceStats(
     query: AttendanceStatsQuery
-  ): Promise<ServiceResult<AttendanceStatsResponse<CourseAttendanceStats>>>;
+  ): Promise<
+    Either<ServiceError, AttendanceStatsResponse<CourseAttendanceStats>>
+  >;
 
   /**
    * 获取教师维度的出勤统计
@@ -33,7 +36,9 @@ export interface IAttendanceStatsService {
    */
   getTeacherAttendanceStats(
     query: AttendanceStatsQuery
-  ): Promise<ServiceResult<AttendanceStatsResponse<TeacherAttendanceStats>>>;
+  ): Promise<
+    Either<ServiceError, AttendanceStatsResponse<TeacherAttendanceStats>>
+  >;
 
   /**
    * 获取学生维度的出勤统计
@@ -42,7 +47,9 @@ export interface IAttendanceStatsService {
    */
   getStudentAttendanceStats(
     query: AttendanceStatsQuery
-  ): Promise<ServiceResult<AttendanceStatsResponse<StudentAttendanceStats>>>;
+  ): Promise<
+    Either<ServiceError, AttendanceStatsResponse<StudentAttendanceStats>>
+  >;
 
   /**
    * 获取学生出勤率排行榜
@@ -51,7 +58,7 @@ export interface IAttendanceStatsService {
    */
   getStudentAttendanceRankings(
     query: AttendanceStatsQuery
-  ): Promise<ServiceResult<AttendanceStatsResponse<RankingItem>>>;
+  ): Promise<Either<ServiceError, AttendanceStatsResponse<RankingItem>>>;
 
   /**
    * 获取课程出勤率排行榜
@@ -60,7 +67,7 @@ export interface IAttendanceStatsService {
    */
   getCourseAttendanceRankings(
     query: AttendanceStatsQuery
-  ): Promise<ServiceResult<AttendanceStatsResponse<RankingItem>>>;
+  ): Promise<Either<ServiceError, AttendanceStatsResponse<RankingItem>>>;
 
   /**
    * 获取整体出勤统计概览
@@ -68,17 +75,20 @@ export interface IAttendanceStatsService {
    * @returns 整体统计数据
    */
   getOverallAttendanceStats(query: AttendanceStatsQuery): Promise<
-    ServiceResult<{
-      total_courses: number;
-      total_students: number;
-      total_classes: number;
-      overall_attendance_rate: number;
-      trend_data: Array<{
-        date: string;
-        attendance_rate: number;
-        class_count: number;
-      }>;
-    }>
+    Either<
+      ServiceError,
+      {
+        total_courses: number;
+        total_students: number;
+        total_classes: number;
+        overall_attendance_rate: number;
+        trend_data: Array<{
+          date: string;
+          attendance_rate: number;
+          class_count: number;
+        }>;
+      }
+    >
   >;
 
   /**
@@ -86,7 +96,7 @@ export interface IAttendanceStatsService {
    * @returns 出勤率计算规则说明
    */
   getAttendanceRateExplanation(): Promise<
-    ServiceResult<AttendanceRateExplanation>
+    Either<ServiceError, AttendanceRateExplanation>
   >;
 
   /**
@@ -94,5 +104,22 @@ export interface IAttendanceStatsService {
    * @param query 查询条件
    * @returns 验证结果
    */
-  validateQuery(query: AttendanceStatsQuery): Promise<ServiceResult<boolean>>;
+  validateQuery(
+    query: AttendanceStatsQuery
+  ): Promise<Either<ServiceError, boolean>>;
+  /**
+   * @description Archives and summarizes daily attendance data for a given date.
+   * This is the main entry point for the daily cron job.
+   * @param date - The target date in 'YYYY-MM-DD' format.
+   */
+  archiveAndSummarizeDailyData(date: string): Promise<
+    Either<
+      ServiceError,
+      {
+        processedCourses: number;
+        archivedRecords: bigint;
+        deletedRecords: bigint;
+      }
+    >
+  >;
 }

@@ -64,6 +64,7 @@ interface ApplicationItem {
   teacher_info: TeacherInfo;
   attachments: AttachmentInfo[];
   jxz?: number | null;
+  jc?: string | null;
 }
 
 export function Approval() {
@@ -167,55 +168,48 @@ export function Approval() {
 
         // 转换数据格式以匹配我们的ApplicationItem接口
         const convertedApplications: ApplicationItem[] =
-          response.data.applications.map(
-            (app: TeacherLeaveApplicationItem) => ({
-              id: app.id,
+          response.data.applications.map((app: TeacherLeaveApplicationItem) => {
+            return {
+              id: String(app.id), // 转换为string类型
               student_id: app.student_id,
               student_name: app.student_name,
-              course_id: app.course_id || '',
+              course_id: app.course_id,
               course_name: app.course_name,
               class_date: app.class_date,
               class_time: app.class_time,
-              class_location: app.class_location || '',
-              teacher_name: app.teacher_name || '',
+              class_location: app.class_location,
+              teacher_name: app.teacher_name,
               leave_date: app.leave_date,
               leave_reason: app.leave_reason,
               leave_type: app.leave_type,
-              status: app.status,
-              approval_comment: app.approval_comment || null,
-              approval_time: app.approval_time || null,
+              status: app.approval_result,
+              approval_comment: app.approval_comment,
+              approval_time: app.approval_time,
               application_time: app.application_time,
-              approval_id: app.approval_id || '',
+              approval_id: app.approval_record_id.toString(),
               student_info: {
-                student_id: app.student_info?.student_id || app.student_id,
-                student_name:
-                  app.student_info?.student_name || app.student_name,
-                class_name: app.student_info?.class_name || '',
-                major_name: app.student_info?.major_name || ''
+                student_id: app.student_id,
+                student_name: app.student_name,
+                class_name: '',
+                major_name: ''
               },
               teacher_info: {
-                teacher_id: app.teacher_info?.teacher_id || '',
-                teacher_name:
-                  app.teacher_info?.teacher_name || app.teacher_name || '',
-                teacher_department: app.teacher_info?.teacher_department || ''
+                teacher_id: app.teacher_info.teacher_id,
+                teacher_name: app.teacher_info.teacher_name,
+                teacher_department: app.teacher_info.teacher_department
               },
               attachments:
-                app.attachments?.map(
-                  (
-                    att: NonNullable<
-                      TeacherLeaveApplicationItem['attachments']
-                    >[0]
-                  ) => ({
-                    id: att.id,
-                    file_name: att.file_name,
-                    file_size: att.file_size,
-                    file_type: att.file_type,
-                    upload_time: att.upload_time || ''
-                  })
-                ) || [],
-              jxz: app.jxz
-            })
-          );
+                app.attachments?.map((att) => ({
+                  id: String(att.id), // 转换为string类型
+                  file_name: att.file_name,
+                  file_size: att.file_size,
+                  file_type: att.file_type,
+                  upload_time: att.upload_time
+                })) || [],
+              jxz: app.jxz,
+              jc: app.jc
+            };
+          });
 
         setApplications(convertedApplications);
         setStats(response.data.stats);
@@ -674,13 +668,13 @@ export function Approval() {
           )}
 
           {/* 教学周/节次 */}
-          <div className='flex items-center'>
-            <span className='mr-2 h-4 w-4'>📖</span>
-            <span>
-              {application.jxz ? `第${application.jxz}教学周` : '第17教学周'}{' '}
-              3/4节
-            </span>
-          </div>
+
+          {application.jxz && (
+            <div className='flex items-center'>
+              <span className='mr-2 h-4 w-4'>📖</span>
+              <span>{`第${application.jxz}教学周 ${application.jc}节`}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -762,6 +756,7 @@ export function Approval() {
       )}
 
       {/* 审批按钮 - 移除查看详情按钮 */}
+
       {application.status === 'pending' && (
         <div className='flex space-x-2'>
           <button

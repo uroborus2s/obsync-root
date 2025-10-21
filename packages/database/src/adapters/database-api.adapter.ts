@@ -2,14 +2,16 @@
 // 提供统一的数据库访问接口，支持事务管理和错误处理
 
 import { type AwilixContainer } from '@stratix/core';
+import { isLeft } from '@stratix/utils/functional';
 import type { Kysely, Transaction } from 'kysely';
-import DatabaseManager from '../core/database-manager.js';
+import DatabaseManager, {
+  setGlobalDatabaseManager
+} from '../core/database-manager.js';
 import {
   DatabaseErrorHandler,
   DatabaseResult
 } from '../utils/error-handler.js';
 import { transactionContextManager } from '../utils/transaction-context.js';
-
 /**
  * 数据库操作上下文
  */
@@ -103,6 +105,9 @@ export default class ApiAdapter implements DatabaseAPI {
   constructor(container: AwilixContainer) {
     console.log(container.registrations);
     this.databaseManager = container.resolve('databaseManager');
+
+    // 设置全局数据库管理器，供BaseRepository使用
+    setGlobalDatabaseManager(this.databaseManager);
   }
 
   /**
@@ -115,12 +120,10 @@ export default class ApiAdapter implements DatabaseAPI {
     return await DatabaseErrorHandler.execute(async () => {
       const connectionResult = await this.getConnection(context.connectionName);
 
-      if (!connectionResult.success) {
-        throw connectionResult.error;
+      if (isLeft(connectionResult)) {
+        throw connectionResult.left;
       }
-
-      const db = connectionResult.data;
-
+      const db = connectionResult.right;
       // 设置超时
       if (context.timeout) {
         // 注意：这里简化实现，实际应该设置查询超时
@@ -140,11 +143,11 @@ export default class ApiAdapter implements DatabaseAPI {
     return await DatabaseErrorHandler.execute(async () => {
       const connectionResult = await this.getConnection(context.connectionName);
 
-      if (!connectionResult.success) {
-        throw connectionResult.error;
+      if (isLeft(connectionResult)) {
+        throw connectionResult.left;
       }
 
-      const db = connectionResult.data;
+      const db = connectionResult.right;
       const results: T[] = [];
 
       // 顺序执行批量操作
@@ -167,11 +170,11 @@ export default class ApiAdapter implements DatabaseAPI {
     return await DatabaseErrorHandler.execute(async () => {
       const connectionResult = await this.getConnection(context.connectionName);
 
-      if (!connectionResult.success) {
-        throw connectionResult.error;
+      if (isLeft(connectionResult)) {
+        throw connectionResult.left;
       }
 
-      const db = connectionResult.data;
+      const db = connectionResult.right;
 
       // 并行执行操作
       const promises = operations.map((operation) => operation(db));
@@ -190,11 +193,11 @@ export default class ApiAdapter implements DatabaseAPI {
     return await DatabaseErrorHandler.execute(async () => {
       const connectionResult = await this.getConnection();
 
-      if (!connectionResult.success) {
-        throw connectionResult.error;
+      if (isLeft(connectionResult)) {
+        throw connectionResult.left;
       }
 
-      const db = connectionResult.data;
+      const db = connectionResult.right;
 
       return await db.transaction().execute(async (trx) => {
         // 设置隔离级别
@@ -274,11 +277,11 @@ export default class ApiAdapter implements DatabaseAPI {
     return await DatabaseErrorHandler.execute(async () => {
       const connectionResult = await this.getConnection(connectionName);
 
-      if (!connectionResult.success) {
+      if (isLeft(connectionResult)) {
         return false;
       }
 
-      const db = connectionResult.data;
+      const db = connectionResult.right;
 
       // 执行简单的健康检查查询
       await db

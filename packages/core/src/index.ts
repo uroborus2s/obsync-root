@@ -8,23 +8,17 @@ export * from './types/index.js';
 // Bootstrap 功能
 export * from './bootstrap/index.js';
 
-// 工具模块
-export { NamingConvention } from './utils/index.js';
-
 // 高级功能模块 - 装饰器
 export {
+  CONTROLLER_METADATA_KEY,
   // 装饰器
   Controller,
-  CONTROLLER_METADATA_KEY,
   Delete,
-  Executor,
   EXECUTOR_METADATA_KEY,
+  Executor,
   Get,
-  getExecutorMetadata,
-  getExecutorName,
   Head,
   IsEmail,
-  isExecutor,
   IsNumber,
   IsString,
   METADATA_KEYS,
@@ -34,8 +28,11 @@ export {
   Patch,
   Post,
   Put,
-  Required,
   ROUTE_METADATA_KEY,
+  Required,
+  getExecutorMetadata,
+  getExecutorName,
+  isExecutor,
   type ControllerMetadata,
   type ControllerOptions,
   type ExecutorMetadata,
@@ -50,9 +47,9 @@ export {
 export {
   // 生命周期管理
   ConventionBasedLifecycleManager,
+  FASTIFY_LIFECYCLE_METHODS,
   // 模块发现和分类
   ensureAwilixPlugin,
-  FASTIFY_LIFECYCLE_METHODS,
   getCallerFilePath,
   getPluginName,
   isAsyncPlugin,
@@ -93,8 +90,8 @@ export {
   // 应用级错误处理
   ApplicationErrorHandler,
   ApplicationErrorType,
-  createApplicationLifecycleManager,
   DEFAULT_APPLICATION_AUTO_DI_CONFIG,
+  createApplicationLifecycleManager,
   // 应用级模块发现和处理
   discoverAndProcessApplicationModules,
   // 应用级自动依赖注入
@@ -109,6 +106,9 @@ export {
   // 注意：ConventionBasedLifecycleManager等已在plugin模块中导出
 } from './bootstrap/index.js';
 
+// Service 层功能模块
+export * from './service/index.js';
+
 export { default as fp } from 'fastify-plugin';
 
 export { RESOLVER } from 'awilix';
@@ -121,7 +121,7 @@ export type {
   FastifyRequest
 } from 'fastify';
 
-export { asFunction, asValue, Lifetime } from 'awilix';
+export { Lifetime, asFunction, asValue } from 'awilix';
 export type { AwilixContainer, InjectorFunction } from 'awilix';
 
 export type { Logger } from 'pino';

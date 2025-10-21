@@ -4,6 +4,7 @@
 import { Logger, RESOLVER } from '@stratix/core';
 import { isDevelopment } from '@stratix/utils/environment';
 import {
+  eitherFold,
   eitherLeft,
   eitherRight,
   isLeft,
@@ -47,6 +48,8 @@ interface RecoveryStatus {
   backoffMs: number;
 }
 
+let databaseManager: DatabaseManager;
+
 /**
  * 增强的数据库管理器
  * 使用新的双层生命周期架构，实现数据库连接预创建和智能错误恢复
@@ -71,6 +74,7 @@ export default class DatabaseManager {
   private preCreationStatus: PreCreationStatus;
   private recoveryStatus: RecoveryStatus;
   private debugEnabled: boolean;
+  private isReady: boolean = false;
 
   /**
    * 构造函数 - 使用 Awilix CLASSIC 注入模式
@@ -98,6 +102,7 @@ export default class DatabaseManager {
       maxAttempts: 3,
       backoffMs: 1000
     };
+    databaseManager = this;
   }
 
   /**
@@ -197,60 +202,10 @@ export default class DatabaseManager {
   }
 
   /**
-   * 🎯 beforeStart 生命周期 - 数据库配置验证和环境检查
-   * 在服务注册前执行，确保数据库配置正确且环境满足要求
+   * 🎯 onReady 生命周期 - 一次性创建和初始化所有数据库连接
+   * 在应用启动完成后执行，确保所有连接都已建立并可用
    */
-  async validateEnvironment(): Promise<void> {
-    if (this.debugEnabled) {
-      this.logger.info(
-        '🔍 EnhancedDatabaseManager: Starting environment validation...'
-      );
-    }
-
-    try {
-      // 1. 验证数据库配置
-      await this.validateDatabaseConfig();
-
-      // 2. 检查数据库驱动可用性
-      await this.checkDriverAvailability();
-
-      // 3. 验证连接配置
-      await this.validateConnectionConfigs();
-
-      // 4. 检查系统资源
-      await this.checkSystemResources();
-
-      if (this.debugEnabled) {
-        this.logger.info(
-          '✅ EnhancedDatabaseManager: Environment validation completed'
-        );
-      }
-    } catch (error) {
-      const errorMessage = `Database environment validation failed: ${error instanceof Error ? error.message : String(error)}`;
-      this.logger.error('❌ EnhancedDatabaseManager:', errorMessage);
-      throw new Error(errorMessage);
-    }
-  }
-
-  /**
-   * 🎯 afterStart 生命周期 - 连接工厂初始化和依赖服务设置
-   * 在服务注册完成后执行，初始化连接工厂和相关依赖
-   */
-  async initializeConnectionFactory(): Promise<void> {
-    this.log('Initializing connection factory...');
-
-    try {
-      // 连接工厂和管理器已经在构造函数中初始化
-      // 这里可以进行额外的配置设置
-      this.log('Connection factory initialized');
-    } catch (error) {
-      const errorMessage = `Connection factory initialization failed: ${error instanceof Error ? error.message : String(error)}`;
-      this.logger.error('❌ EnhancedDatabaseManager:', errorMessage);
-      throw new Error(errorMessage);
-    }
-  }
-
-  async initializeConnection(): Promise<void> {
+  async onReady(): Promise<void> {
     if (this.debugEnabled) {
       this.logger.info(
         '🚀 EnhancedDatabaseManager: Starting connection pre-creation...'
@@ -262,12 +217,12 @@ export default class DatabaseManager {
     this.preCreationStatus.enabled = true;
 
     try {
-      // 并行预创建所有连接
+      // 并行预创建所有连接（包括读写分离连接）
       const result = await this.preCreateAllConnections();
 
-      if (!result.success) {
+      if (isLeft(result)) {
         throw new Error(
-          `Failed to pre-create connections: ${result.error?.message}`
+          `Failed to pre-create connections: ${result.left?.message}`
         );
       }
 
@@ -283,6 +238,9 @@ export default class DatabaseManager {
 
       // 启动连接健康监控
       await this.startHealthMonitoring();
+
+      // 标记管理器为就绪状态
+      this.isReady = true;
     } catch (error) {
       this.preCreationStatus.errors.push(
         error instanceof Error ? error.message : String(error)
@@ -300,11 +258,9 @@ export default class DatabaseManager {
    * 在应用关闭时执行，确保所有连接正确关闭和资源释放
    */
   async onClose(): Promise<void> {
-    if (this.debugEnabled) {
-      this.logger.info(
-        '🔄 EnhancedDatabaseManager: Starting graceful connection shutdown...'
-      );
-    }
+    this.log(
+      '🔄 EnhancedDatabaseManager: Starting graceful connection shutdown...'
+    );
 
     try {
       // 停止健康监控
@@ -359,12 +315,11 @@ export default class DatabaseManager {
    * 在发生错误时执行，实现智能的连接重试和恢复逻辑
    */
   async handleDatabaseError(error: Error, context?: any): Promise<void> {
-    if (this.debugEnabled) {
-      this.logger.error(
-        '💥 EnhancedDatabaseManager: Database error occurred:',
-        error
-      );
-    }
+    this.logError(
+      '💥 EnhancedDatabaseManager: Database error occurred:',
+      error,
+      context
+    );
 
     try {
       // 记录错误统计
@@ -381,18 +336,18 @@ export default class DatabaseManager {
         // 执行连接恢复
         const recoveryResult = await this.attemptConnectionRecovery(error);
 
-        if (recoveryResult.success) {
-          if (this.debugEnabled) {
+        eitherFold(
+          (left) =>
+            this.logger.error(
+              '❌ EnhancedDatabaseManager: Connection recovery failed:',
+              left
+            ),
+          () =>
+            this.debugEnabled &&
             this.logger.info(
               '✅ EnhancedDatabaseManager: Connection recovery successful'
-            );
-          }
-        } else {
-          this.logger.error(
-            '❌ EnhancedDatabaseManager: Connection recovery failed:',
-            recoveryResult.error
-          );
-        }
+            )
+        )(recoveryResult);
       }
 
       // 检查是否需要触发断路器
@@ -402,99 +357,6 @@ export default class DatabaseManager {
         '❌ EnhancedDatabaseManager: Error recovery failed:',
         recoveryError
       );
-    }
-  }
-
-  /**
-   * 验证数据库配置
-   */
-  private async validateDatabaseConfig(): Promise<void> {
-    if (
-      !this.config.connections ||
-      Object.keys(this.config.connections).length === 0
-    ) {
-      throw new Error('No database connections configured');
-    }
-
-    // 检查是否有默认连接
-    const defaultConnectionName = this.config.defaultConnection || 'default';
-    if (!this.config.connections[defaultConnectionName]) {
-      throw new Error(
-        `Default database connection '${defaultConnectionName}' not configured`
-      );
-    }
-
-    // 验证所有连接配置
-    const allConnections = this.getAllConnections();
-    for (const [name, config] of Object.entries(allConnections)) {
-      if (!config.type || !config.database) {
-        throw new Error(
-          `Invalid configuration for connection '${name}': missing type or database`
-        );
-      }
-    }
-  }
-
-  /**
-   * 检查数据库驱动可用性
-   */
-  private async checkDriverAvailability(): Promise<void> {
-    const requiredDrivers = new Set<string>();
-    const allConnections = this.getAllConnections();
-
-    Object.values(allConnections).forEach((conn) => {
-      requiredDrivers.add(conn.type);
-    });
-
-    for (const driverType of requiredDrivers) {
-      try {
-        switch (driverType) {
-          case 'postgresql':
-            await import('pg');
-            break;
-          case 'mysql':
-            await import('mysql2');
-            break;
-          case 'sqlite':
-            await import('better-sqlite3');
-            break;
-          case 'mssql':
-            await import('tedious');
-            break;
-          default:
-            throw new Error(`Unsupported database type: ${driverType}`);
-        }
-      } catch (error) {
-        throw new Error(
-          `Database driver '${driverType}' is not available: ${error instanceof Error ? error.message : String(error)}`
-        );
-      }
-    }
-  }
-
-  /**
-   * 验证连接配置
-   */
-  private async validateConnectionConfigs(): Promise<void> {
-    const allConnections = this.getAllConnections();
-
-    for (const [name, config] of Object.entries(allConnections)) {
-      if (!config.type) {
-        throw new Error(`Connection '${name}' missing database type`);
-      }
-
-      if (config.type !== 'sqlite') {
-        if (!config.host) {
-          throw new Error(`Connection '${name}' missing host`);
-        }
-        if (!config.database) {
-          throw new Error(`Connection '${name}' missing database name`);
-        }
-      } else {
-        if (!config.database) {
-          throw new Error(`SQLite connection '${name}' missing database path`);
-        }
-      }
     }
   }
 
@@ -522,72 +384,75 @@ export default class DatabaseManager {
   // 移除了不存在的配置方法，简化实现
 
   /**
-   * 预创建所有数据库连接
+   * 预创建所有数据库连接（包括读写分离连接）
    */
   private async preCreateAllConnections(): Promise<DatabaseResult<void>> {
     try {
+      this.checkSystemResources();
       const allConnections = this.getAllConnections();
-      const connectionNames = Object.keys(allConnections);
-      const configs = connectionNames.map((name) => ({
-        name,
-        config: allConnections[name]
-      }));
+      const connectionConfigs =
+        this.expandConnectionsForReadWriteSeparation(allConnections);
 
       if (this.debugEnabled) {
         this.logger.info(
-          `🔧 Pre-creating ${configs.length} database connections...`
+          `🔧 Pre-creating ${connectionConfigs.length} database connections (including read/write separation)...`
         );
       }
 
       // 并行创建所有连接
-      const connectionPromises = configs.map(async ({ name, config }) => {
-        const startTime = Date.now();
-        try {
-          const connectionResult =
-            await this.connectionFactory.createConnection(config);
-          const duration = Date.now() - startTime;
+      const connectionPromises = connectionConfigs.map(
+        async ({ name, config }) => {
+          const startTime = Date.now();
+          try {
+            const connectionResult =
+              await this.connectionFactory.createConnection(config);
+            const duration = Date.now() - startTime;
 
-          if (!connectionResult.success) {
-            throw connectionResult.error;
-          }
+            if (isLeft(connectionResult)) {
+              throw connectionResult.left;
+            }
 
-          this.connections.set(name, connectionResult.data);
-          this.healthStatus.set(name, true);
-          this.connectionStats.set(name, {
-            name,
-            type: config.type,
-            status: 'connected',
-            activeConnections: 1,
-            idleConnections: 0,
-            waitingConnections: 0,
-            totalQueries: 0,
-            slowQueries: 0,
-            failedQueries: 0,
-            avgResponseTime: 0,
-            lastActivity: new Date()
-          });
+            this.connections.set(name, connectionResult.right);
+            this.healthStatus.set(name, true);
+            this.connectionStats.set(name, {
+              name,
+              type: config.type,
+              status: 'connected',
+              activeConnections: 1,
+              idleConnections: 0,
+              waitingConnections: 0,
+              totalQueries: 0,
+              slowQueries: 0,
+              failedQueries: 0,
+              avgResponseTime: 0,
+              lastActivity: new Date()
+            });
 
-          if (this.debugEnabled) {
-            this.logger.info(
-              `✅ Connection '${name}' created in ${duration}ms`
+            if (this.debugEnabled) {
+              this.logger.info(
+                `✅ Connection '${name}' created in ${duration}ms`
+              );
+            }
+
+            return { name, success: true, duration };
+          } catch (error) {
+            const duration = Date.now() - startTime;
+            this.logger.error(
+              `❌ Failed to create connection '${name}':`,
+              error
             );
+
+            this.healthStatus.set(name, false);
+
+            return {
+              name,
+              success: false,
+              duration,
+              error: error instanceof Error ? error.message : String(error)
+            };
           }
-
-          return { name, success: true, duration };
-        } catch (error) {
-          const duration = Date.now() - startTime;
-          this.logger.error(`❌ Failed to create connection '${name}':`, error);
-
-          this.healthStatus.set(name, false);
-
-          return {
-            name,
-            success: false,
-            duration,
-            error: error instanceof Error ? error.message : String(error)
-          };
         }
-      });
+      );
 
       const results = await Promise.allSettled(connectionPromises);
       const failures = results.filter(
@@ -613,6 +478,52 @@ export default class DatabaseManager {
         )
       );
     }
+  }
+
+  /**
+   * 扩展连接配置以支持读写分离
+   */
+  private expandConnectionsForReadWriteSeparation(
+    connections: Record<string, ConnectionConfig>
+  ): Array<{ name: string; config: ConnectionConfig }> {
+    const expandedConfigs: Array<{ name: string; config: ConnectionConfig }> =
+      [];
+
+    for (const [name, config] of Object.entries(connections)) {
+      // 添加主连接
+      expandedConfigs.push({ name, config });
+
+      // 检查是否配置了读写分离
+      if (this.config.readWriteSeparation?.enabled) {
+        const rwConfig = this.config.readWriteSeparation;
+
+        // 为读连接创建配置（基于主连接配置）
+        if (rwConfig.readConnections && rwConfig.readConnections.length > 0) {
+          rwConfig.readConnections.forEach((_, index) => {
+            expandedConfigs.push({
+              name: `${name}-read-${index}`,
+              config: { ...config } // 使用主连接配置作为基础
+            });
+          });
+
+          // 创建一个主要的读连接别名
+          expandedConfigs.push({
+            name: `${name}-read`,
+            config: { ...config }
+          });
+        }
+
+        // 为写连接创建配置（基于主连接配置）
+        if (rwConfig.writeConnection) {
+          expandedConfigs.push({
+            name: `${name}-write`,
+            config: { ...config } // 使用主连接配置作为基础
+          });
+        }
+      }
+    }
+
+    return expandedConfigs;
   }
 
   /**
@@ -755,8 +666,8 @@ export default class DatabaseManager {
           const connectionResult =
             await this.connectionFactory.createConnection(config);
 
-          if (!connectionResult.success) {
-            throw connectionResult.error;
+          if (isLeft(connectionResult)) {
+            throw connectionResult.left;
           }
 
           // 关闭旧连接（如果存在）
@@ -773,7 +684,7 @@ export default class DatabaseManager {
           }
 
           // 更新连接
-          this.connections.set(name, connectionResult.data);
+          this.connections.set(name, connectionResult.right);
           this.healthStatus.set(name, true);
 
           if (this.debugEnabled) {
@@ -991,11 +902,11 @@ export default class DatabaseManager {
 
     const duration = Date.now() - startTime;
 
-    if (!connectionResult.success) {
+    if (isLeft(connectionResult)) {
       this.logError(
         `Connection factory failed to create connection`,
-        connectionResult.error instanceof Error
-          ? connectionResult.error
+        connectionResult.left instanceof Error
+          ? connectionResult.left
           : new Error('Unknown connection creation error'),
         {
           connectionName,
@@ -1005,7 +916,7 @@ export default class DatabaseManager {
         }
       );
       throw (
-        connectionResult.error || new Error('Unknown connection creation error')
+        connectionResult.left || new Error('Unknown connection creation error')
       );
     }
 
@@ -1014,7 +925,7 @@ export default class DatabaseManager {
       connectionType: config.type
     });
 
-    return connectionResult.data;
+    return connectionResult.right;
   }
 
   /**
@@ -1222,4 +1133,71 @@ export default class DatabaseManager {
       );
     }
   }
+
+  /**
+   * 检查管理器是否已就绪
+   */
+  public isManagerReady(): boolean {
+    return this.isReady && this.preCreationStatus.completed;
+  }
+
+  /**
+   * 等待管理器就绪
+   */
+  public async waitForReady(timeoutMs: number = 30000): Promise<void> {
+    const startTime = Date.now();
+
+    while (!this.isManagerReady()) {
+      if (Date.now() - startTime > timeoutMs) {
+        throw new Error(
+          `DatabaseManager failed to become ready within ${timeoutMs}ms`
+        );
+      }
+
+      // 等待100ms后重试
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
+}
+
+// ========== 全局连接访问函数 ==========
+
+let globalDatabaseManager: DatabaseManager | null = null;
+
+/**
+ * 设置全局数据库管理器实例
+ * 这个函数应该在应用启动时由DI容器调用
+ */
+export function setGlobalDatabaseManager(manager: DatabaseManager): void {
+  globalDatabaseManager = manager;
+}
+
+/**
+ * 获取指定名称的数据库连接
+ * 这是一个全局函数，可以在任何地方调用
+ */
+export async function getConnection(
+  connectionName: string = 'default'
+): Promise<Kysely<any>> {
+  return await databaseManager.getConnection(connectionName);
+}
+
+/**
+ * 获取读连接（支持读写分离）
+ * 这是一个全局函数，可以在任何地方调用
+ */
+export async function getReadConnection(
+  connectionName: string = 'default'
+): Promise<Kysely<any>> {
+  return await databaseManager.getReadConnection(connectionName);
+}
+
+/**
+ * 获取写连接（支持读写分离）
+ * 这是一个全局函数，可以在任何地方调用
+ */
+export async function getWriteConnection(
+  connectionName: string = 'default'
+): Promise<Kysely<any>> {
+  return await databaseManager.getWriteConnection(connectionName);
 }

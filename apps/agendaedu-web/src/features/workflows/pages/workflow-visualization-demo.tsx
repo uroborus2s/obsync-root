@@ -335,7 +335,7 @@ export default function WorkflowVisualizationDemo() {
                       <div>
                         <span className='font-medium'>URL:</span>
                         <code className='ml-2 rounded bg-white px-2 py-1'>
-                          https://kwps.jlufe.edu.cn/api/workflows/definitions/1
+                          /api/workflows/definitions/1
                         </code>
                       </div>
                       <div>

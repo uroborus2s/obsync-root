@@ -9,6 +9,7 @@ import {
   Shield,
   Users,
 } from 'lucide-react'
+import { createAdminRouteCheck } from '@/utils/route-permission'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -20,6 +21,7 @@ import {
 } from '@/components/ui/card'
 
 export const Route = createFileRoute('/_authenticated/basic-management')({
+  beforeLoad: createAdminRouteCheck(),
   component: BasicManagement,
 })
 

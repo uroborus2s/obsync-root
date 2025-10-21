@@ -211,6 +211,42 @@ export interface IWorkflowInstanceRepository {
   ): Promise<DatabaseResult<PaginatedResult<WorkflowInstanceTable>>>;
 
   /**
+   * 获取流程分组列表
+   * 按工作流定义聚合根实例，返回分组统计信息
+   */
+  getWorkflowGroups(
+    filters: any,
+    options: {
+      page: number;
+      pageSize: number;
+      sortBy: string;
+      sortOrder: 'asc' | 'desc';
+    }
+  ): Promise<
+    DatabaseResult<{
+      groups: Array<{
+        workflowDefinitionId: number;
+        workflowDefinitionName: string;
+        workflowDefinitionDescription?: string;
+        workflowDefinitionVersion?: string;
+        rootInstanceCount: number;
+        totalInstanceCount: number;
+        runningInstanceCount: number;
+        completedInstanceCount: number;
+        failedInstanceCount: number;
+        latestActivity?: string;
+        latestInstanceStatus?: string;
+      }>;
+      total: number;
+      page: number;
+      pageSize: number;
+      totalPages: number;
+      hasNext: boolean;
+      hasPrev: boolean;
+    }>
+  >;
+
+  /**
    * 创建工作流实例
    */
   create(
@@ -327,6 +363,23 @@ export interface INodeInstanceRepository {
    */
   findChildNodes(
     parentNodeId: number
+  ): Promise<DatabaseResult<WorkflowNodeInstance[]>>;
+
+  /**
+   * 根据工作流实例ID和节点ID查找特定节点实例（用于SQL层面的节点查询）
+   * 第一步：获取根节点
+   */
+  findSpecificNodeByWorkflowAndNodeId(
+    workflowInstanceId: number,
+    nodeId: string
+  ): Promise<DatabaseResult<WorkflowNodeInstance | null>>;
+
+  /**
+   * 根据父节点实例ID递归查找所有子节点（用于SQL层面的子节点查询）
+   * 第二步：获取所有子节点
+   */
+  findAllChildNodesByParentInstanceId(
+    parentInstanceId: number
   ): Promise<DatabaseResult<WorkflowNodeInstance[]>>;
 
   /**

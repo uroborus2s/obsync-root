@@ -51,7 +51,7 @@ const stratixWasV7Plugin: FastifyPluginAsync<any> = withRegisterAutoDI(
     },
     services: {
       enabled: true,
-      patterns: []
+      patterns: ['adapters/*.{ts,js}']
     },
     routing: {
       enabled: false, // 不启用路由注册

@@ -116,6 +116,47 @@ server {
         # 使用通用代理配置（包含错误处理）
         include /etc/nginx/proxy_params;
     }
+
+    # 请假附件文件服务 - X-Accel-Redirect 内部重定向
+    location /files/ {
+        # 内部重定向，只能通过 X-Accel-Redirect 访问
+        internal;
+
+        # 文件根目录
+        alias /var/www/icalink-files/;
+
+        # 安全配置 - 禁止执行脚本
+        location ~ \.(php|jsp|asp|sh|py|exe|pl|cgi)$ {
+            deny all;
+        }
+
+        # CDN优化缓存配置
+        expires 1y;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        add_header X-Content-Type-Options nosniff;
+        add_header X-Frame-Options DENY;
+
+        # CDN缓存标识
+        add_header X-Cache-Status "ORIGIN";
+        add_header Vary "Accept-Encoding";
+
+        # 性能优化
+        sendfile on;
+        tcp_nopush on;
+        tcp_nodelay on;
+
+        # 文件不存在时返回404
+        try_files $uri =404;
+
+        # 日志配置
+        access_log /var/log/nginx/icalink_files_access.log main;
+        error_log /var/log/nginx/icalink_files_error.log warn;
+    }
+
+    # 防止直接访问文件目录
+    location ~ ^/var/www/icalink-files/ {
+        deny all;
+    }
     
     # 其他 API 接口 - 临时使用高性能限流配置
     location /api/ {

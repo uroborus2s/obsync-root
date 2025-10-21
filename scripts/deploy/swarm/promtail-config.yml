@@ -1,0 +1,165 @@
+# Promtail 配置文件
+# 用于采集 Docker 容器日志并发送到 Loki
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+  log_level: info
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+    batchwait: 1s
+    batchsize: 1048576
+    timeout: 10s
+
+scrape_configs:
+  # Docker 容器日志采集
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+        filters:
+          - name: label
+            values: ["com.docker.swarm.service.name"]
+    
+    relabel_configs:
+      # 仅采集 Swarm 服务容器
+      - source_labels: ['__meta_docker_container_label_com_docker_swarm_service_name']
+        regex: '(.+)'
+        action: keep
+      
+      # 服务名称
+      - source_labels: ['__meta_docker_container_label_com_docker_swarm_service_name']
+        target_label: 'swarm_service'
+      
+      # 任务名称
+      - source_labels: ['__meta_docker_container_label_com_docker_swarm_task_name']
+        target_label: 'swarm_task'
+      
+      # 节点名称
+      - source_labels: ['__meta_docker_container_label_com_docker_swarm_node_id']
+        target_label: 'swarm_node_id'
+      
+      # 容器名称
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)'
+        target_label: 'container_name'
+      
+      # 容器 ID
+      - source_labels: ['__meta_docker_container_id']
+        target_label: 'container_id'
+      
+      # 镜像名称
+      - source_labels: ['__meta_docker_container_label_com_docker_swarm_service_name']
+        target_label: 'image'
+      
+      # ObSync 服务标签
+      - source_labels: ['__meta_docker_container_label_com_obsync_service']
+        target_label: 'obsync_service'
+      
+      # ObSync 版本标签
+      - source_labels: ['__meta_docker_container_label_com_obsync_version']
+        target_label: 'obsync_version'
+      
+      # 环境标签
+      - source_labels: ['__meta_docker_container_label_com_docker_stack_namespace']
+        target_label: 'stack'
+      
+      # 日志路径
+      - source_labels: ['__meta_docker_container_id']
+        target_label: '__path__'
+        replacement: '/var/lib/docker/containers/$1/*.log'
+
+    pipeline_stages:
+      # 解析 Docker JSON 日志格式
+      - docker: {}
+      
+      # 提取日志级别
+      - regex:
+          expression: '(?P<level>DEBUG|INFO|WARN|WARNING|ERROR|FATAL|TRACE)'
+      
+      - labels:
+          level:
+      
+      # 时间戳处理
+      - timestamp:
+          source: time
+          format: RFC3339Nano
+      
+      # 输出格式化
+      - output:
+          source: log
+
+  # 系统日志采集 (可选)
+  - job_name: system
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: varlogs
+          host: ${HOSTNAME}
+          __path__: /var/log/*.log
+
+    pipeline_stages:
+      - regex:
+          expression: '(?P<timestamp>\w+ \d+ \d+:\d+:\d+) (?P<hostname>\S+) (?P<service>\S+)(\[(?P<pid>\d+)\])?: (?P<message>.*)'
+      
+      - labels:
+          service:
+          hostname:
+      
+      - timestamp:
+          source: timestamp
+          format: 'Jan 02 15:04:05'
+      
+      - output:
+          source: message
+
+  # Nginx 访问日志采集 (可选)
+  - job_name: nginx_access
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: nginx
+          log_type: access
+          host: ${HOSTNAME}
+          __path__: /var/log/nginx/access.log
+
+    pipeline_stages:
+      - regex:
+          expression: '^(?P<remote_addr>[\w\.]+) - (?P<remote_user>[^ ]*) \[(?P<time_local>.*)\] "(?P<method>[^ ]*) (?P<request>[^ ]*) (?P<protocol>[^ ]*)" (?P<status>[\d]+) (?P<body_bytes_sent>[\d]+) "(?P<http_referer>[^"]*)" "(?P<http_user_agent>[^"]*)"'
+      
+      - labels:
+          method:
+          status:
+      
+      - timestamp:
+          source: time_local
+          format: '02/Jan/2006:15:04:05 -0700'
+
+  # Nginx 错误日志采集 (可选)
+  - job_name: nginx_error
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: nginx
+          log_type: error
+          host: ${HOSTNAME}
+          __path__: /var/log/nginx/error.log
+
+    pipeline_stages:
+      - regex:
+          expression: '^(?P<timestamp>\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}) \[(?P<level>\w+)\] (?P<message>.*)'
+      
+      - labels:
+          level:
+      
+      - timestamp:
+          source: timestamp
+          format: '2006/01/02 15:04:05'
+

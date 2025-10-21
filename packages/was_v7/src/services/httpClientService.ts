@@ -8,17 +8,18 @@ import type {
   WpsConfig,
   WpsErrorResponse
 } from '../types/index.js';
+import type { ITokenCacheService } from './interfaces/ITokenCacheService.js';
 import { SignatureService } from './signatureService.js';
 
 /**
  * WPS API HTTP客户端
  */
 export class HttpClientService {
-  static [RESOLVER] = {};
+  static [RESOLVER] = {
+    tokenCacheService: 'tokenCacheService'
+  };
 
   private axiosInstance: AxiosInstance;
-  private accessToken?: AccessToken;
-  private tokenExpireTime?: number;
 
   // 签名白名单：这些路径不需要添加签名信息
   private readonly signatureWhitelist = ['/oauth2/token'];
@@ -26,6 +27,7 @@ export class HttpClientService {
   constructor(
     private readonly signatureService: SignatureService,
     private readonly logger: Logger,
+    private readonly tokenCacheService: ITokenCacheService,
     private config: WpsConfig
   ) {
     this.axiosInstance = this.createAxiosInstance(
@@ -79,6 +81,25 @@ export class HttpClientService {
    */
   async getAppAccessToken(): Promise<string> {
     try {
+      // 首先检查缓存中是否有有效的 token
+      const cachedTokenResult = await this.tokenCacheService.getToken(
+        this.config.appId
+      );
+      if (cachedTokenResult.success && cachedTokenResult.data) {
+        const cachedToken = cachedTokenResult.data;
+        this.logger.debug('Using cached access token', {
+          appId: this.config.appId
+        });
+
+        // 设置到HTTP客户端
+        this.setAccessToken(cachedToken.access_token);
+        return cachedToken.access_token;
+      }
+
+      this.logger.debug('Fetching new access token from WPS API', {
+        appId: this.config.appId
+      });
+
       // 使用form-urlencoded格式发送请求
       const formData = new URLSearchParams();
       formData.append('grant_type', 'client_credentials');
@@ -93,20 +114,36 @@ export class HttpClientService {
         }
       );
 
-      // 🔧 修复：保存完整的AccessToken对象，而不是字符串
-      this.accessToken = {
+      // 构建完整的AccessToken对象
+      const accessToken: AccessToken = {
         access_token: response.access_token,
         token_type: response.token_type || 'bearer',
         expires_in: response.expires_in,
         refresh_token: response.refresh_token,
         scope: response.scope
       };
-      this.tokenExpireTime = Date.now() + response.expires_in * 1000;
+
+      // 存储到缓存
+      const cacheResult = await this.tokenCacheService.setToken(
+        this.config.appId,
+        accessToken
+      );
+      if (!cacheResult.success) {
+        this.logger.warn('Failed to cache access token', {
+          appId: this.config.appId,
+          error: cacheResult.error
+        });
+      }
 
       // 设置到HTTP客户端
-      this.setAccessToken(response.access_token);
+      this.setAccessToken(accessToken.access_token);
 
-      return this.accessToken.access_token;
+      this.logger.info('New access token obtained and cached', {
+        appId: this.config.appId,
+        expiresIn: accessToken.expires_in
+      });
+
+      return accessToken.access_token;
     } catch (error) {
       throw createError.auth('获取应用访问凭证失败', error);
     }
@@ -344,28 +381,60 @@ export class HttpClientService {
   /**
    * 检查token是否有效
    */
-  isTokenValid(): boolean {
-    if (!this.accessToken || !this.tokenExpireTime) {
+  async isTokenValid(): Promise<boolean> {
+    try {
+      const result = await this.tokenCacheService.isTokenValid(
+        this.config.appId
+      );
+      return result.success ? (result.data ?? false) : false;
+    } catch (error) {
+      this.logger.error('Error checking token validity', { error });
       return false;
     }
-
-    // 提前15分钟过期
-    return Date.now() < this.tokenExpireTime - 15 * 60 * 1000;
   }
 
   /**
    * 获取当前访问凭证
    */
-  getCurrentAccessToken(): AccessToken | undefined {
-    return this.accessToken;
+  async getCurrentAccessToken(): Promise<AccessToken | undefined> {
+    try {
+      const result = await this.tokenCacheService.getToken(this.config.appId);
+      return result.success ? result.data || undefined : undefined;
+    } catch (error) {
+      this.logger.error('Error getting current access token', { error });
+      return undefined;
+    }
   }
 
   // 确保访问令牌有效的辅助函数
   async ensureAccessToken(): Promise<void> {
-    if (!this.isTokenValid()) {
-      this.logger.debug('Token expired, refreshing...');
+    const isValid = await this.isTokenValid();
+
+    if (!isValid) {
+      // Token 无效，需要重新获取
+      this.logger.debug('Token expired or invalid, refreshing...', {
+        appId: this.config.appId
+      });
       await this.getAppAccessToken();
-      this.logger.debug('Token refreshed successfully');
+      this.logger.debug('Token refreshed successfully', {
+        appId: this.config.appId
+      });
+    } else {
+      // Token 有效，但需要确保 HTTP 请求头已正确设置
+      const currentToken = await this.getCurrentAccessToken();
+      if (currentToken) {
+        const currentAuthHeader =
+          this.axiosInstance.defaults.headers.common['Authorization'];
+        const expectedAuthHeader = `Bearer ${currentToken.access_token}`;
+
+        // 检查当前请求头是否与有效 token 匹配
+        if (currentAuthHeader !== expectedAuthHeader) {
+          this.logger.debug('Setting cached token to HTTP client', {
+            appId: this.config.appId
+          });
+          this.setAccessToken(currentToken.access_token);
+        }
+      }
     }
   }
 }

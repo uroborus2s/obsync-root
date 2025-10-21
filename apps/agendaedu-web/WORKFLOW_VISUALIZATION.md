@@ -7,9 +7,9 @@
 ## 功能特性
 
 ### 1. 数据源支持
-- ✅ 支持从外部API获取工作流定义数据
-- ✅ API端点：`https://kwps.jlufe.edu.cn/api/workflows/definitions/1`
-- ✅ 自动降级到本地API（如果外部API不可用）
+- ✅ 统一通过本地API获取工作流定义数据
+- ✅ API端点：`/api/workflows/definitions/1`
+- ✅ 标准化的数据接口和错误处理
 - ✅ 实时数据刷新和缓存管理
 
 ### 2. 节点类型支持
@@ -66,10 +66,10 @@ src/lib/
 
 ## API集成
 
-### 外部API接口
+### 本地API接口
 ```typescript
 // 获取工作流定义
-GET https://kwps.jlufe.edu.cn/api/workflows/definitions/1
+GET /api/workflows/definitions/1
 
 // 响应格式
 {
@@ -103,24 +103,17 @@ GET https://kwps.jlufe.edu.cn/api/workflows/definitions/1
 
 ### API服务实现
 ```typescript
-// 支持外部API获取
+// 统一使用本地API
 async getWorkflowDefinitionById(id: number): Promise<WorkflowDefinition> {
-  // 优先尝试外部API
-  if (id === 1) {
-    try {
-      const externalResponse = await fetch(
-        'https://kwps.jlufe.edu.cn/api/workflows/definitions/1'
-      )
-      if (externalResponse.ok) {
-        return await externalResponse.json()
-      }
-    } catch (error) {
-      console.warn('External API failed, falling back to local API')
-    }
+  const response = await apiClient.get<ApiResponse<WorkflowDefinition>>(
+    `${this.baseUrl}/definitions/${id}`
+  )
+
+  if (!response.success || !response.data) {
+    throw new Error(response.error || '获取工作流定义失败')
   }
-  
-  // 降级到本地API
-  return await this.localApiCall(id)
+
+  return response.data
 }
 ```
 
@@ -217,8 +210,8 @@ async getWorkflowExecutionLogs(instanceId: number) {
 
 ### 2. API测试
 ```bash
-# 测试外部API
-curl -X GET "https://kwps.jlufe.edu.cn/api/workflows/definitions/1"
+# 测试本地API
+curl -X GET "/api/workflows/definitions/1"
 
 # 验证响应格式
 {

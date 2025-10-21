@@ -2,9 +2,8 @@
 // 负责执行器的发现、验证和注册到 tasks 插件
 
 import type { FastifyInstance } from 'fastify';
-import type { AwilixContainer } from 'awilix';
-import { getLogger } from '../logger/index.js';
 import { MetadataManager } from '../decorators/metadata.js';
+import { getLogger } from '../logger/index.js';
 import type { ModuleInfo } from './module-discovery.js';
 
 /**
@@ -25,7 +24,7 @@ export interface ExecutorRegistrationResult {
 
 /**
  * 处理执行器注册
- * 
+ *
  * @param fastify - Fastify 实例
  * @param executorModules - 执行器模块列表
  * @param debugEnabled - 是否启用调试模式
@@ -46,14 +45,18 @@ export async function processExecutorRegistration(
 
   if (debugEnabled) {
     const logger = getLogger();
-    logger.info(`🎯 Starting executor registration for ${executorModules.length} executors...`);
+    logger.info(
+      `🎯 Starting executor registration for ${executorModules.length} executors...`
+    );
   }
 
   // 检查 Fastify 实例是否已注册 tasks 插件的装饰器方法
   if (!fastify.hasDecorator('registerTaskExecutor')) {
     if (debugEnabled) {
       const logger = getLogger();
-      logger.warn('⚠️ Tasks plugin decorators not found, skipping executor registration');
+      logger.warn(
+        '⚠️ Tasks plugin decorators not found, skipping executor registration'
+      );
     }
     result.skippedCount = executorModules.length;
     return result;
@@ -72,7 +75,10 @@ export async function processExecutorRegistration(
 
       if (debugEnabled) {
         const logger = getLogger();
-        logger.error(`❌ Failed to register executor: ${moduleInfo.name}`, error);
+        logger.error(
+          `❌ Failed to register executor: ${moduleInfo.name}`,
+          error
+        );
       }
     }
   }
@@ -92,7 +98,7 @@ export async function processExecutorRegistration(
 
 /**
  * 注册单个执行器
- * 
+ *
  * @param fastify - Fastify 实例
  * @param moduleInfo - 模块信息
  * @param result - 注册结果对象
@@ -130,7 +136,9 @@ async function registerSingleExecutor(
   if (!validateExecutorInterface(instance)) {
     if (debugEnabled) {
       const logger = getLogger();
-      logger.warn(`⚠️ Executor ${name} does not implement TaskExecutor interface, skipping`);
+      logger.warn(
+        `⚠️ Executor ${name} does not implement TaskExecutor interface, skipping`
+      );
     }
     result.skippedCount++;
     return;
@@ -158,7 +166,7 @@ async function registerSingleExecutor(
 
 /**
  * 验证执行器接口
- * 
+ *
  * @param instance - 执行器实例
  * @returns 是否实现了 TaskExecutor 接口
  */
@@ -174,7 +182,7 @@ function validateExecutorInterface(instance: any): boolean {
 
 /**
  * 批量注册执行器域
- * 
+ *
  * @param fastify - Fastify 实例
  * @param domain - 域名
  * @param executorModules - 执行器模块列表

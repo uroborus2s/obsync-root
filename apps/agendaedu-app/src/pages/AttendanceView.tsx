@@ -90,7 +90,7 @@ export function AttendanceView() {
           const authUrl = getAuthUrl(currentUrl);
           console.log('🔄 重定向到WPS授权页面:', authUrl);
           window.location.href = authUrl;
-        }, 1000);
+        }, 100);
 
         return;
       }
@@ -148,7 +148,6 @@ export function AttendanceView() {
     console.log('🔄 useEffect 执行，externalId:', externalId);
 
     if (!externalId) {
-      console.log('❌ 缺少课程ID参数');
       setState((prev) => ({
         ...prev,
         loading: false,

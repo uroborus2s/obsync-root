@@ -113,7 +113,7 @@ export default function WorkflowTest() {
             <CardContent>
               <div className="text-sm text-muted-foreground">
                 {selectedWorkflowId === 1 && (
-                  <p>此工作流将尝试从外部API获取定义数据：https://kwps.jlufe.edu.cn/api/workflows/definitions/1</p>
+                  <p>此工作流将通过本地API获取定义数据：/api/workflows/definitions/1</p>
                 )}
                 {selectedWorkflowId === 2 && (
                   <p>此工作流使用本地示例数据，展示基本的节点类型和连接关系</p>
@@ -139,9 +139,9 @@ export default function WorkflowTest() {
             <CardContent>
               <div className="space-y-4">
                 <div>
-                  <h4 className="font-medium mb-2">外部API端点：</h4>
+                  <h4 className="font-medium mb-2">本地API端点：</h4>
                   <div className="bg-gray-50 p-3 rounded-lg font-mono text-sm">
-                    GET https://kwps.jlufe.edu.cn/api/workflows/definitions/1
+                    GET /api/workflows/definitions/1
                   </div>
                 </div>
                 

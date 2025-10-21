@@ -184,6 +184,7 @@ export interface UnifiedWorkflowInstanceFilters {
   businessKey?: string;
   createdBy?: string;
   assignedEngineId?: string;
+  instanceType?: string;
 
   // 时间范围过滤
   createdAt?: { from?: Date; to?: Date };

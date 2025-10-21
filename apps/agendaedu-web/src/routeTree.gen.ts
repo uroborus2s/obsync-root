@@ -15,12 +15,14 @@ import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedTeachersRouteImport } from './routes/_authenticated/teachers'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
 import { Route as AuthenticatedStudentsRouteImport } from './routes/_authenticated/students'
+import { Route as AuthenticatedPermissionDebugRouteImport } from './routes/_authenticated/permission-debug'
 import { Route as AuthenticatedDataQueryRouteImport } from './routes/_authenticated/data-query'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCoursesRouteImport } from './routes/_authenticated/courses'
 import { Route as AuthenticatedBasicManagementRouteImport } from './routes/_authenticated/basic-management'
 import { Route as AuthenticatedAttendanceRouteImport } from './routes/_authenticated/attendance'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as errors503RouteImport } from './routes/(errors)/503'
 import { Route as errors500RouteImport } from './routes/(errors)/500'
 import { Route as errors404RouteImport } from './routes/(errors)/404'
@@ -47,20 +49,27 @@ import { Route as AuthenticatedWorkflowsSchedulesRouteImport } from './routes/_a
 import { Route as AuthenticatedWorkflowsQuickTestRouteImport } from './routes/_authenticated/workflows/quick-test'
 import { Route as AuthenticatedWorkflowsLogsRouteImport } from './routes/_authenticated/workflows/logs'
 import { Route as AuthenticatedWorkflowsDefinitionsRouteImport } from './routes/_authenticated/workflows/definitions'
+import { Route as AuthenticatedWorkflowsCourseRestoreRouteImport } from './routes/_authenticated/workflows/course-restore'
 import { Route as AuthenticatedTasksSyncRouteImport } from './routes/_authenticated/tasks/sync'
 import { Route as AuthenticatedTasksSettingsRouteImport } from './routes/_authenticated/tasks/settings'
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings/notifications'
 import { Route as AuthenticatedSettingsDisplayRouteImport } from './routes/_authenticated/settings/display'
 import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_authenticated/settings/appearance'
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
+import { Route as AuthenticatedRbacUsersRouteImport } from './routes/_authenticated/rbac.users'
+import { Route as AuthenticatedRbacRolesRouteImport } from './routes/_authenticated/rbac.roles'
+import { Route as AuthenticatedRbacPermissionsRouteImport } from './routes/_authenticated/rbac.permissions'
+import { Route as AuthenticatedRbacMenusRouteImport } from './routes/_authenticated/rbac.menus'
 import { Route as AuthenticatedCoursesSettingsRouteImport } from './routes/_authenticated/courses/settings'
 import { Route as AuthenticatedCoursesScheduleRouteImport } from './routes/_authenticated/courses/schedule'
 import { Route as AuthenticatedAttendanceStudentsRouteImport } from './routes/_authenticated/attendance/students'
 import { Route as AuthenticatedAttendanceRankingsRouteImport } from './routes/_authenticated/attendance/rankings'
 import { Route as AuthenticatedAttendanceOverviewRouteImport } from './routes/_authenticated/attendance/overview'
 import { Route as AuthenticatedAttendanceCoursesRouteImport } from './routes/_authenticated/attendance/courses'
+import { Route as AuthenticatedAttendanceCourseStatisticsRouteImport } from './routes/_authenticated/attendance/course-statistics'
 import { Route as AuthenticatedAttendanceAnalyticsRouteImport } from './routes/_authenticated/attendance/analytics'
 import { Route as AuthenticatedWorkflowsInstancesIndexRouteImport } from './routes/_authenticated/workflows/instances/index'
+import { Route as AuthenticatedWorkflowsDefinitionsIndexRouteImport } from './routes/_authenticated/workflows/definitions/index'
 import { Route as AuthenticatedWorkflowsInstancesInstanceIdRouteImport } from './routes/_authenticated/workflows/instances/$instanceId'
 import { Route as AuthenticatedWorkflowsDefinitionsDefinitionIdRouteImport } from './routes/_authenticated/workflows/definitions/$definitionId'
 
@@ -93,6 +102,12 @@ const AuthenticatedStudentsRoute = AuthenticatedStudentsRouteImport.update({
   path: '/students',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPermissionDebugRoute =
+  AuthenticatedPermissionDebugRouteImport.update({
+    id: '/permission-debug',
+    path: '/permission-debug',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDataQueryRoute = AuthenticatedDataQueryRouteImport.update({
   id: '/data-query',
   path: '/data-query',
@@ -122,6 +137,11 @@ const AuthenticatedAttendanceRoute = AuthenticatedAttendanceRouteImport.update({
 const AuthenticatedAnalyticsRoute = AuthenticatedAnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const errors503Route = errors503RouteImport.update({
@@ -264,6 +284,12 @@ const AuthenticatedWorkflowsDefinitionsRoute =
     path: '/definitions',
     getParentRoute: () => AuthenticatedWorkflowsRouteRoute,
   } as any)
+const AuthenticatedWorkflowsCourseRestoreRoute =
+  AuthenticatedWorkflowsCourseRestoreRouteImport.update({
+    id: '/course-restore',
+    path: '/course-restore',
+    getParentRoute: () => AuthenticatedWorkflowsRouteRoute,
+  } as any)
 const AuthenticatedTasksSyncRoute = AuthenticatedTasksSyncRouteImport.update({
   id: '/sync',
   path: '/sync',
@@ -299,6 +325,27 @@ const AuthenticatedSettingsAccountRoute =
     path: '/account',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedRbacUsersRoute = AuthenticatedRbacUsersRouteImport.update({
+  id: '/rbac/users',
+  path: '/rbac/users',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedRbacRolesRoute = AuthenticatedRbacRolesRouteImport.update({
+  id: '/rbac/roles',
+  path: '/rbac/roles',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedRbacPermissionsRoute =
+  AuthenticatedRbacPermissionsRouteImport.update({
+    id: '/rbac/permissions',
+    path: '/rbac/permissions',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedRbacMenusRoute = AuthenticatedRbacMenusRouteImport.update({
+  id: '/rbac/menus',
+  path: '/rbac/menus',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedCoursesSettingsRoute =
   AuthenticatedCoursesSettingsRouteImport.update({
     id: '/settings',
@@ -335,6 +382,12 @@ const AuthenticatedAttendanceCoursesRoute =
     path: '/courses',
     getParentRoute: () => AuthenticatedAttendanceRoute,
   } as any)
+const AuthenticatedAttendanceCourseStatisticsRoute =
+  AuthenticatedAttendanceCourseStatisticsRouteImport.update({
+    id: '/course-statistics',
+    path: '/course-statistics',
+    getParentRoute: () => AuthenticatedAttendanceRoute,
+  } as any)
 const AuthenticatedAttendanceAnalyticsRoute =
   AuthenticatedAttendanceAnalyticsRouteImport.update({
     id: '/analytics',
@@ -346,6 +399,12 @@ const AuthenticatedWorkflowsInstancesIndexRoute =
     id: '/instances/',
     path: '/instances/',
     getParentRoute: () => AuthenticatedWorkflowsRouteRoute,
+  } as any)
+const AuthenticatedWorkflowsDefinitionsIndexRoute =
+  AuthenticatedWorkflowsDefinitionsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedWorkflowsDefinitionsRoute,
   } as any)
 const AuthenticatedWorkflowsInstancesInstanceIdRoute =
   AuthenticatedWorkflowsInstancesInstanceIdRouteImport.update({
@@ -371,29 +430,37 @@ export interface FileRoutesByFullPath {
   '/404': typeof errors404Route
   '/500': typeof errors500Route
   '/503': typeof errors503Route
+  '/admin': typeof AuthenticatedAdminRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/attendance': typeof AuthenticatedAttendanceRouteWithChildren
   '/basic-management': typeof AuthenticatedBasicManagementRoute
   '/courses': typeof AuthenticatedCoursesRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/data-query': typeof AuthenticatedDataQueryRoute
+  '/permission-debug': typeof AuthenticatedPermissionDebugRoute
   '/students': typeof AuthenticatedStudentsRoute
   '/tasks': typeof AuthenticatedTasksRouteWithChildren
   '/teachers': typeof AuthenticatedTeachersRoute
   '/': typeof AuthenticatedIndexRoute
   '/attendance/analytics': typeof AuthenticatedAttendanceAnalyticsRoute
+  '/attendance/course-statistics': typeof AuthenticatedAttendanceCourseStatisticsRoute
   '/attendance/courses': typeof AuthenticatedAttendanceCoursesRoute
   '/attendance/overview': typeof AuthenticatedAttendanceOverviewRoute
   '/attendance/rankings': typeof AuthenticatedAttendanceRankingsRoute
   '/attendance/students': typeof AuthenticatedAttendanceStudentsRoute
   '/courses/schedule': typeof AuthenticatedCoursesScheduleRoute
   '/courses/settings': typeof AuthenticatedCoursesSettingsRoute
+  '/rbac/menus': typeof AuthenticatedRbacMenusRoute
+  '/rbac/permissions': typeof AuthenticatedRbacPermissionsRoute
+  '/rbac/roles': typeof AuthenticatedRbacRolesRoute
+  '/rbac/users': typeof AuthenticatedRbacUsersRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/tasks/settings': typeof AuthenticatedTasksSettingsRoute
   '/tasks/sync': typeof AuthenticatedTasksSyncRoute
+  '/workflows/course-restore': typeof AuthenticatedWorkflowsCourseRestoreRoute
   '/workflows/definitions': typeof AuthenticatedWorkflowsDefinitionsRouteWithChildren
   '/workflows/logs': typeof AuthenticatedWorkflowsLogsRoute
   '/workflows/quick-test': typeof AuthenticatedWorkflowsQuickTestRoute
@@ -412,6 +479,7 @@ export interface FileRoutesByFullPath {
   '/workflows/': typeof AuthenticatedWorkflowsIndexRoute
   '/workflows/definitions/$definitionId': typeof AuthenticatedWorkflowsDefinitionsDefinitionIdRoute
   '/workflows/instances/$instanceId': typeof AuthenticatedWorkflowsInstancesInstanceIdRoute
+  '/workflows/definitions/': typeof AuthenticatedWorkflowsDefinitionsIndexRoute
   '/workflows/instances': typeof AuthenticatedWorkflowsInstancesIndexRoute
 }
 export interface FileRoutesByTo {
@@ -422,29 +490,36 @@ export interface FileRoutesByTo {
   '/404': typeof errors404Route
   '/500': typeof errors500Route
   '/503': typeof errors503Route
+  '/admin': typeof AuthenticatedAdminRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/attendance': typeof AuthenticatedAttendanceRouteWithChildren
   '/basic-management': typeof AuthenticatedBasicManagementRoute
   '/courses': typeof AuthenticatedCoursesRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/data-query': typeof AuthenticatedDataQueryRoute
+  '/permission-debug': typeof AuthenticatedPermissionDebugRoute
   '/students': typeof AuthenticatedStudentsRoute
   '/teachers': typeof AuthenticatedTeachersRoute
   '/': typeof AuthenticatedIndexRoute
   '/attendance/analytics': typeof AuthenticatedAttendanceAnalyticsRoute
+  '/attendance/course-statistics': typeof AuthenticatedAttendanceCourseStatisticsRoute
   '/attendance/courses': typeof AuthenticatedAttendanceCoursesRoute
   '/attendance/overview': typeof AuthenticatedAttendanceOverviewRoute
   '/attendance/rankings': typeof AuthenticatedAttendanceRankingsRoute
   '/attendance/students': typeof AuthenticatedAttendanceStudentsRoute
   '/courses/schedule': typeof AuthenticatedCoursesScheduleRoute
   '/courses/settings': typeof AuthenticatedCoursesSettingsRoute
+  '/rbac/menus': typeof AuthenticatedRbacMenusRoute
+  '/rbac/permissions': typeof AuthenticatedRbacPermissionsRoute
+  '/rbac/roles': typeof AuthenticatedRbacRolesRoute
+  '/rbac/users': typeof AuthenticatedRbacUsersRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/tasks/settings': typeof AuthenticatedTasksSettingsRoute
   '/tasks/sync': typeof AuthenticatedTasksSyncRoute
-  '/workflows/definitions': typeof AuthenticatedWorkflowsDefinitionsRouteWithChildren
+  '/workflows/course-restore': typeof AuthenticatedWorkflowsCourseRestoreRoute
   '/workflows/logs': typeof AuthenticatedWorkflowsLogsRoute
   '/workflows/quick-test': typeof AuthenticatedWorkflowsQuickTestRoute
   '/workflows/schedules': typeof AuthenticatedWorkflowsSchedulesRoute
@@ -462,6 +537,7 @@ export interface FileRoutesByTo {
   '/workflows': typeof AuthenticatedWorkflowsIndexRoute
   '/workflows/definitions/$definitionId': typeof AuthenticatedWorkflowsDefinitionsDefinitionIdRoute
   '/workflows/instances/$instanceId': typeof AuthenticatedWorkflowsInstancesInstanceIdRoute
+  '/workflows/definitions': typeof AuthenticatedWorkflowsDefinitionsIndexRoute
   '/workflows/instances': typeof AuthenticatedWorkflowsInstancesIndexRoute
 }
 export interface FileRoutesById {
@@ -478,29 +554,37 @@ export interface FileRoutesById {
   '/(errors)/404': typeof errors404Route
   '/(errors)/500': typeof errors500Route
   '/(errors)/503': typeof errors503Route
+  '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/attendance': typeof AuthenticatedAttendanceRouteWithChildren
   '/_authenticated/basic-management': typeof AuthenticatedBasicManagementRoute
   '/_authenticated/courses': typeof AuthenticatedCoursesRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/data-query': typeof AuthenticatedDataQueryRoute
+  '/_authenticated/permission-debug': typeof AuthenticatedPermissionDebugRoute
   '/_authenticated/students': typeof AuthenticatedStudentsRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRouteWithChildren
   '/_authenticated/teachers': typeof AuthenticatedTeachersRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/attendance/analytics': typeof AuthenticatedAttendanceAnalyticsRoute
+  '/_authenticated/attendance/course-statistics': typeof AuthenticatedAttendanceCourseStatisticsRoute
   '/_authenticated/attendance/courses': typeof AuthenticatedAttendanceCoursesRoute
   '/_authenticated/attendance/overview': typeof AuthenticatedAttendanceOverviewRoute
   '/_authenticated/attendance/rankings': typeof AuthenticatedAttendanceRankingsRoute
   '/_authenticated/attendance/students': typeof AuthenticatedAttendanceStudentsRoute
   '/_authenticated/courses/schedule': typeof AuthenticatedCoursesScheduleRoute
   '/_authenticated/courses/settings': typeof AuthenticatedCoursesSettingsRoute
+  '/_authenticated/rbac/menus': typeof AuthenticatedRbacMenusRoute
+  '/_authenticated/rbac/permissions': typeof AuthenticatedRbacPermissionsRoute
+  '/_authenticated/rbac/roles': typeof AuthenticatedRbacRolesRoute
+  '/_authenticated/rbac/users': typeof AuthenticatedRbacUsersRoute
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/_authenticated/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/_authenticated/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/_authenticated/tasks/settings': typeof AuthenticatedTasksSettingsRoute
   '/_authenticated/tasks/sync': typeof AuthenticatedTasksSyncRoute
+  '/_authenticated/workflows/course-restore': typeof AuthenticatedWorkflowsCourseRestoreRoute
   '/_authenticated/workflows/definitions': typeof AuthenticatedWorkflowsDefinitionsRouteWithChildren
   '/_authenticated/workflows/logs': typeof AuthenticatedWorkflowsLogsRoute
   '/_authenticated/workflows/quick-test': typeof AuthenticatedWorkflowsQuickTestRoute
@@ -519,6 +603,7 @@ export interface FileRoutesById {
   '/_authenticated/workflows/': typeof AuthenticatedWorkflowsIndexRoute
   '/_authenticated/workflows/definitions/$definitionId': typeof AuthenticatedWorkflowsDefinitionsDefinitionIdRoute
   '/_authenticated/workflows/instances/$instanceId': typeof AuthenticatedWorkflowsInstancesInstanceIdRoute
+  '/_authenticated/workflows/definitions/': typeof AuthenticatedWorkflowsDefinitionsIndexRoute
   '/_authenticated/workflows/instances/': typeof AuthenticatedWorkflowsInstancesIndexRoute
 }
 export interface FileRouteTypes {
@@ -534,29 +619,37 @@ export interface FileRouteTypes {
     | '/404'
     | '/500'
     | '/503'
+    | '/admin'
     | '/analytics'
     | '/attendance'
     | '/basic-management'
     | '/courses'
     | '/dashboard'
     | '/data-query'
+    | '/permission-debug'
     | '/students'
     | '/tasks'
     | '/teachers'
     | '/'
     | '/attendance/analytics'
+    | '/attendance/course-statistics'
     | '/attendance/courses'
     | '/attendance/overview'
     | '/attendance/rankings'
     | '/attendance/students'
     | '/courses/schedule'
     | '/courses/settings'
+    | '/rbac/menus'
+    | '/rbac/permissions'
+    | '/rbac/roles'
+    | '/rbac/users'
     | '/settings/account'
     | '/settings/appearance'
     | '/settings/display'
     | '/settings/notifications'
     | '/tasks/settings'
     | '/tasks/sync'
+    | '/workflows/course-restore'
     | '/workflows/definitions'
     | '/workflows/logs'
     | '/workflows/quick-test'
@@ -575,6 +668,7 @@ export interface FileRouteTypes {
     | '/workflows/'
     | '/workflows/definitions/$definitionId'
     | '/workflows/instances/$instanceId'
+    | '/workflows/definitions/'
     | '/workflows/instances'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -585,29 +679,36 @@ export interface FileRouteTypes {
     | '/404'
     | '/500'
     | '/503'
+    | '/admin'
     | '/analytics'
     | '/attendance'
     | '/basic-management'
     | '/courses'
     | '/dashboard'
     | '/data-query'
+    | '/permission-debug'
     | '/students'
     | '/teachers'
     | '/'
     | '/attendance/analytics'
+    | '/attendance/course-statistics'
     | '/attendance/courses'
     | '/attendance/overview'
     | '/attendance/rankings'
     | '/attendance/students'
     | '/courses/schedule'
     | '/courses/settings'
+    | '/rbac/menus'
+    | '/rbac/permissions'
+    | '/rbac/roles'
+    | '/rbac/users'
     | '/settings/account'
     | '/settings/appearance'
     | '/settings/display'
     | '/settings/notifications'
     | '/tasks/settings'
     | '/tasks/sync'
-    | '/workflows/definitions'
+    | '/workflows/course-restore'
     | '/workflows/logs'
     | '/workflows/quick-test'
     | '/workflows/schedules'
@@ -625,6 +726,7 @@ export interface FileRouteTypes {
     | '/workflows'
     | '/workflows/definitions/$definitionId'
     | '/workflows/instances/$instanceId'
+    | '/workflows/definitions'
     | '/workflows/instances'
   id:
     | '__root__'
@@ -640,29 +742,37 @@ export interface FileRouteTypes {
     | '/(errors)/404'
     | '/(errors)/500'
     | '/(errors)/503'
+    | '/_authenticated/admin'
     | '/_authenticated/analytics'
     | '/_authenticated/attendance'
     | '/_authenticated/basic-management'
     | '/_authenticated/courses'
     | '/_authenticated/dashboard'
     | '/_authenticated/data-query'
+    | '/_authenticated/permission-debug'
     | '/_authenticated/students'
     | '/_authenticated/tasks'
     | '/_authenticated/teachers'
     | '/_authenticated/'
     | '/_authenticated/attendance/analytics'
+    | '/_authenticated/attendance/course-statistics'
     | '/_authenticated/attendance/courses'
     | '/_authenticated/attendance/overview'
     | '/_authenticated/attendance/rankings'
     | '/_authenticated/attendance/students'
     | '/_authenticated/courses/schedule'
     | '/_authenticated/courses/settings'
+    | '/_authenticated/rbac/menus'
+    | '/_authenticated/rbac/permissions'
+    | '/_authenticated/rbac/roles'
+    | '/_authenticated/rbac/users'
     | '/_authenticated/settings/account'
     | '/_authenticated/settings/appearance'
     | '/_authenticated/settings/display'
     | '/_authenticated/settings/notifications'
     | '/_authenticated/tasks/settings'
     | '/_authenticated/tasks/sync'
+    | '/_authenticated/workflows/course-restore'
     | '/_authenticated/workflows/definitions'
     | '/_authenticated/workflows/logs'
     | '/_authenticated/workflows/quick-test'
@@ -681,6 +791,7 @@ export interface FileRouteTypes {
     | '/_authenticated/workflows/'
     | '/_authenticated/workflows/definitions/$definitionId'
     | '/_authenticated/workflows/instances/$instanceId'
+    | '/_authenticated/workflows/definitions/'
     | '/_authenticated/workflows/instances/'
   fileRoutesById: FileRoutesById
 }
@@ -739,6 +850,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedStudentsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/permission-debug': {
+      id: '/_authenticated/permission-debug'
+      path: '/permission-debug'
+      fullPath: '/permission-debug'
+      preLoaderRoute: typeof AuthenticatedPermissionDebugRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/data-query': {
       id: '/_authenticated/data-query'
       path: '/data-query'
@@ -779,6 +897,13 @@ declare module '@tanstack/react-router' {
       path: '/analytics'
       fullPath: '/analytics'
       preLoaderRoute: typeof AuthenticatedAnalyticsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/(errors)/503': {
@@ -963,6 +1088,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedWorkflowsDefinitionsRouteImport
       parentRoute: typeof AuthenticatedWorkflowsRouteRoute
     }
+    '/_authenticated/workflows/course-restore': {
+      id: '/_authenticated/workflows/course-restore'
+      path: '/course-restore'
+      fullPath: '/workflows/course-restore'
+      preLoaderRoute: typeof AuthenticatedWorkflowsCourseRestoreRouteImport
+      parentRoute: typeof AuthenticatedWorkflowsRouteRoute
+    }
     '/_authenticated/tasks/sync': {
       id: '/_authenticated/tasks/sync'
       path: '/sync'
@@ -1004,6 +1136,34 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/account'
       preLoaderRoute: typeof AuthenticatedSettingsAccountRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/rbac/users': {
+      id: '/_authenticated/rbac/users'
+      path: '/rbac/users'
+      fullPath: '/rbac/users'
+      preLoaderRoute: typeof AuthenticatedRbacUsersRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/rbac/roles': {
+      id: '/_authenticated/rbac/roles'
+      path: '/rbac/roles'
+      fullPath: '/rbac/roles'
+      preLoaderRoute: typeof AuthenticatedRbacRolesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/rbac/permissions': {
+      id: '/_authenticated/rbac/permissions'
+      path: '/rbac/permissions'
+      fullPath: '/rbac/permissions'
+      preLoaderRoute: typeof AuthenticatedRbacPermissionsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/rbac/menus': {
+      id: '/_authenticated/rbac/menus'
+      path: '/rbac/menus'
+      fullPath: '/rbac/menus'
+      preLoaderRoute: typeof AuthenticatedRbacMenusRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/courses/settings': {
       id: '/_authenticated/courses/settings'
@@ -1047,6 +1207,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAttendanceCoursesRouteImport
       parentRoute: typeof AuthenticatedAttendanceRoute
     }
+    '/_authenticated/attendance/course-statistics': {
+      id: '/_authenticated/attendance/course-statistics'
+      path: '/course-statistics'
+      fullPath: '/attendance/course-statistics'
+      preLoaderRoute: typeof AuthenticatedAttendanceCourseStatisticsRouteImport
+      parentRoute: typeof AuthenticatedAttendanceRoute
+    }
     '/_authenticated/attendance/analytics': {
       id: '/_authenticated/attendance/analytics'
       path: '/analytics'
@@ -1060,6 +1227,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/workflows/instances'
       preLoaderRoute: typeof AuthenticatedWorkflowsInstancesIndexRouteImport
       parentRoute: typeof AuthenticatedWorkflowsRouteRoute
+    }
+    '/_authenticated/workflows/definitions/': {
+      id: '/_authenticated/workflows/definitions/'
+      path: '/'
+      fullPath: '/workflows/definitions/'
+      preLoaderRoute: typeof AuthenticatedWorkflowsDefinitionsIndexRouteImport
+      parentRoute: typeof AuthenticatedWorkflowsDefinitionsRoute
     }
     '/_authenticated/workflows/instances/$instanceId': {
       id: '/_authenticated/workflows/instances/$instanceId'
@@ -1103,12 +1277,15 @@ const AuthenticatedSettingsRouteRouteWithChildren =
 
 interface AuthenticatedWorkflowsDefinitionsRouteChildren {
   AuthenticatedWorkflowsDefinitionsDefinitionIdRoute: typeof AuthenticatedWorkflowsDefinitionsDefinitionIdRoute
+  AuthenticatedWorkflowsDefinitionsIndexRoute: typeof AuthenticatedWorkflowsDefinitionsIndexRoute
 }
 
 const AuthenticatedWorkflowsDefinitionsRouteChildren: AuthenticatedWorkflowsDefinitionsRouteChildren =
   {
     AuthenticatedWorkflowsDefinitionsDefinitionIdRoute:
       AuthenticatedWorkflowsDefinitionsDefinitionIdRoute,
+    AuthenticatedWorkflowsDefinitionsIndexRoute:
+      AuthenticatedWorkflowsDefinitionsIndexRoute,
   }
 
 const AuthenticatedWorkflowsDefinitionsRouteWithChildren =
@@ -1117,6 +1294,7 @@ const AuthenticatedWorkflowsDefinitionsRouteWithChildren =
   )
 
 interface AuthenticatedWorkflowsRouteRouteChildren {
+  AuthenticatedWorkflowsCourseRestoreRoute: typeof AuthenticatedWorkflowsCourseRestoreRoute
   AuthenticatedWorkflowsDefinitionsRoute: typeof AuthenticatedWorkflowsDefinitionsRouteWithChildren
   AuthenticatedWorkflowsLogsRoute: typeof AuthenticatedWorkflowsLogsRoute
   AuthenticatedWorkflowsQuickTestRoute: typeof AuthenticatedWorkflowsQuickTestRoute
@@ -1130,6 +1308,8 @@ interface AuthenticatedWorkflowsRouteRouteChildren {
 
 const AuthenticatedWorkflowsRouteRouteChildren: AuthenticatedWorkflowsRouteRouteChildren =
   {
+    AuthenticatedWorkflowsCourseRestoreRoute:
+      AuthenticatedWorkflowsCourseRestoreRoute,
     AuthenticatedWorkflowsDefinitionsRoute:
       AuthenticatedWorkflowsDefinitionsRouteWithChildren,
     AuthenticatedWorkflowsLogsRoute: AuthenticatedWorkflowsLogsRoute,
@@ -1152,6 +1332,7 @@ const AuthenticatedWorkflowsRouteRouteWithChildren =
 
 interface AuthenticatedAttendanceRouteChildren {
   AuthenticatedAttendanceAnalyticsRoute: typeof AuthenticatedAttendanceAnalyticsRoute
+  AuthenticatedAttendanceCourseStatisticsRoute: typeof AuthenticatedAttendanceCourseStatisticsRoute
   AuthenticatedAttendanceCoursesRoute: typeof AuthenticatedAttendanceCoursesRoute
   AuthenticatedAttendanceOverviewRoute: typeof AuthenticatedAttendanceOverviewRoute
   AuthenticatedAttendanceRankingsRoute: typeof AuthenticatedAttendanceRankingsRoute
@@ -1162,6 +1343,8 @@ const AuthenticatedAttendanceRouteChildren: AuthenticatedAttendanceRouteChildren
   {
     AuthenticatedAttendanceAnalyticsRoute:
       AuthenticatedAttendanceAnalyticsRoute,
+    AuthenticatedAttendanceCourseStatisticsRoute:
+      AuthenticatedAttendanceCourseStatisticsRoute,
     AuthenticatedAttendanceCoursesRoute: AuthenticatedAttendanceCoursesRoute,
     AuthenticatedAttendanceOverviewRoute: AuthenticatedAttendanceOverviewRoute,
     AuthenticatedAttendanceRankingsRoute: AuthenticatedAttendanceRankingsRoute,
@@ -1204,16 +1387,22 @@ const AuthenticatedTasksRouteWithChildren =
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
   AuthenticatedWorkflowsRouteRoute: typeof AuthenticatedWorkflowsRouteRouteWithChildren
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
   AuthenticatedAttendanceRoute: typeof AuthenticatedAttendanceRouteWithChildren
   AuthenticatedBasicManagementRoute: typeof AuthenticatedBasicManagementRoute
   AuthenticatedCoursesRoute: typeof AuthenticatedCoursesRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDataQueryRoute: typeof AuthenticatedDataQueryRoute
+  AuthenticatedPermissionDebugRoute: typeof AuthenticatedPermissionDebugRoute
   AuthenticatedStudentsRoute: typeof AuthenticatedStudentsRoute
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRouteWithChildren
   AuthenticatedTeachersRoute: typeof AuthenticatedTeachersRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedRbacMenusRoute: typeof AuthenticatedRbacMenusRoute
+  AuthenticatedRbacPermissionsRoute: typeof AuthenticatedRbacPermissionsRoute
+  AuthenticatedRbacRolesRoute: typeof AuthenticatedRbacRolesRoute
+  AuthenticatedRbacUsersRoute: typeof AuthenticatedRbacUsersRoute
   AuthenticatedAppsIndexRoute: typeof AuthenticatedAppsIndexRoute
   AuthenticatedChatsIndexRoute: typeof AuthenticatedChatsIndexRoute
   AuthenticatedHelpCenterIndexRoute: typeof AuthenticatedHelpCenterIndexRoute
@@ -1224,16 +1413,22 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
   AuthenticatedWorkflowsRouteRoute:
     AuthenticatedWorkflowsRouteRouteWithChildren,
+  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
   AuthenticatedAttendanceRoute: AuthenticatedAttendanceRouteWithChildren,
   AuthenticatedBasicManagementRoute: AuthenticatedBasicManagementRoute,
   AuthenticatedCoursesRoute: AuthenticatedCoursesRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDataQueryRoute: AuthenticatedDataQueryRoute,
+  AuthenticatedPermissionDebugRoute: AuthenticatedPermissionDebugRoute,
   AuthenticatedStudentsRoute: AuthenticatedStudentsRoute,
   AuthenticatedTasksRoute: AuthenticatedTasksRouteWithChildren,
   AuthenticatedTeachersRoute: AuthenticatedTeachersRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedRbacMenusRoute: AuthenticatedRbacMenusRoute,
+  AuthenticatedRbacPermissionsRoute: AuthenticatedRbacPermissionsRoute,
+  AuthenticatedRbacRolesRoute: AuthenticatedRbacRolesRoute,
+  AuthenticatedRbacUsersRoute: AuthenticatedRbacUsersRoute,
   AuthenticatedAppsIndexRoute: AuthenticatedAppsIndexRoute,
   AuthenticatedChatsIndexRoute: AuthenticatedChatsIndexRoute,
   AuthenticatedHelpCenterIndexRoute: AuthenticatedHelpCenterIndexRoute,

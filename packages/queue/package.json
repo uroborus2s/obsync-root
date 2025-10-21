@@ -1,54 +1,46 @@
 {
   "name": "@stratix/queue",
-  "version": "1.0.0",
-  "description": "高可靠、基于Redis的消息队列系统",
-  "type": "module",
+  "version": "1.0.0-beta.2",
+  "description": "Stratix Queue Plugin based on BullMQ with adapter pattern, dependency injection and cross-plugin sharing",
   "main": "dist/index.js",
-  "module": "dist/index.js",
   "types": "dist/types/index.d.ts",
-  "files": [
-    "dist",
-    "README.md"
-  ],
+  "type": "module",
   "scripts": {
     "clean": "rimraf dist",
-    "build": "pnpm run clean && tsc",
-    "dev": "tsc --watch",
-    "lint": "eslint src",
-    "lint:fix": "eslint src --fix",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "build": "rimraf dist && tsc",
+    "build:watch": "tsc --watch",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest --coverage",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix"
   },
   "keywords": [
-    "redis",
+    "stratix",
     "queue",
-    "message-queue",
-    "reliable",
-    "cluster",
-    "retry",
-    "dead-letter",
-    "typescript"
+    "bullmq",
+    "adapter",
+    "dependency-injection",
+    "typescript",
+    "plugin"
   ],
   "author": "Stratix Team",
   "license": "MIT",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "dependencies": {
-    "ioredis": "^5.6.1",
-    "uuid": "^10.0.0"
-  },
-  "devDependencies": {
-    "@types/ioredis": "^5.0.0",
-    "@types/uuid": "^10.0.0",
-    "vitest": "^2.0.0"
+    "bullmq": "^5.61.0",
+    "@stratix/utils": "workspace:*"
   },
   "peerDependencies": {
     "@stratix/core": "workspace:*",
-    "@stratix/utils": "workspace:*"
+    "@stratix/redis": "workspace:*"
   },
+  "devDependencies": {},
   "engines": {
     "node": ">=22.0.0"
-  },
-  "publishConfig": {
-    "access": "public"
   }
 }

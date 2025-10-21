@@ -174,51 +174,6 @@ export class WPSAuthService {
   }
 
   /**
-   * 获取当前位置信息
-   */
-  public async getCurrentLocation(): Promise<LocationInfo> {
-    if (!this.isAuthorized()) {
-      throw new Error('未授权，请先进行鉴权');
-    }
-
-    if (!this.hasPermission('location')) {
-      throw new Error('没有位置权限');
-    }
-
-    if (!this.isWPSEnvironment()) {
-      return this.getMockLocation();
-    }
-
-    return new Promise((resolve, reject) => {
-      window.ksoxz_sdk.getLocationInfo({
-        type: 'gcj02', // 使用国测局坐标系
-        onSuccess: (result) => {
-          const locationInfo: LocationInfo = {
-            ...result,
-            timestamp: Date.now()
-          };
-          console.log('📍 获取位置成功:', locationInfo);
-          resolve(locationInfo);
-        },
-        onError: (error) => {
-          console.error('❌ 获取位置失败:', error);
-          reject(new Error('获取位置失败'));
-        }
-      });
-    });
-  }
-
-  /**
-   * 获取模拟位置信息
-   */
-  private getMockLocation(): LocationInfo {
-    return {
-      ...WPS_CONFIG.mockData.location,
-      timestamp: Date.now()
-    };
-  }
-
-  /**
    * 获取设备信息
    */
   public async getDeviceInfo(): Promise<DeviceInfo> {
@@ -316,7 +271,6 @@ export class WPSAuthService {
   ): Promise<void> {
     if (!this.isAuthorized()) {
       console.warn('未授权，使用浏览器alert替代');
-      alert(title);
       return;
     }
 
@@ -386,90 +340,6 @@ export class WPSAuthService {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
     return R * c;
-  }
-
-  /**
-   * 验证打卡位置
-   */
-  public async validateCheckInLocation(
-    targetLocation: { latitude: number; longitude: number },
-    maxDistance: number = 100 // 最大允许距离（米）
-  ): Promise<CheckInLocationResult> {
-    try {
-      const currentLocation = await this.getCurrentLocation();
-
-      const distance = this.calculateDistance(
-        currentLocation.latitude,
-        currentLocation.longitude,
-        targetLocation.latitude,
-        targetLocation.longitude
-      );
-
-      const isValidLocation = distance <= maxDistance;
-
-      return {
-        location: currentLocation,
-        isValidLocation,
-        distance: Math.round(distance)
-      };
-    } catch (error) {
-      console.error('验证打卡位置失败:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * 完整的打卡流程（位置+可选照片）
-   */
-  public async performCheckIn(
-    targetLocation: { latitude: number; longitude: number },
-    maxDistance: number = 100,
-    requirePhoto: boolean = false
-  ): Promise<CheckInLocationResult> {
-    try {
-      // 1. 验证位置
-      const locationResult = await this.validateCheckInLocation(
-        targetLocation,
-        maxDistance
-      );
-
-      if (!locationResult.isValidLocation) {
-        await this.showToast(
-          `距离目标位置${locationResult.distance}米，超出允许范围`,
-          'error'
-        );
-        return locationResult;
-      }
-
-      // 2. 可选拍照
-      let photos: string[] = [];
-      if (requirePhoto) {
-        const shouldTakePhoto = await this.showConfirm(
-          '打卡确认',
-          '是否需要拍照打卡？'
-        );
-
-        if (shouldTakePhoto) {
-          try {
-            photos = await this.chooseImage(1);
-          } catch (error) {
-            console.warn('拍照失败，继续打卡流程:', error);
-          }
-        }
-      }
-
-      // 3. 成功提示
-      await this.showToast('打卡成功！', 'success');
-
-      return {
-        ...locationResult,
-        photos
-      };
-    } catch (error) {
-      console.error('打卡流程失败:', error);
-      await this.showToast('打卡失败，请重试', 'error');
-      throw error;
-    }
   }
 
   /**

@@ -5,6 +5,7 @@ import underPressure from '@fastify/under-pressure';
 import type { FastifyInstance, StratixConfig } from '@stratix/core';
 import stratixDatabasePlugin from '@stratix/database';
 import icasyncPlugin from '@stratix/icasync';
+import redisPlugin from '@stratix/redis';
 import tasksPlugin from '@stratix/tasks';
 import {
   hasRole,
@@ -13,7 +14,6 @@ import {
   type UserIdentity
 } from '@stratix/utils/auth';
 import { isDevelopment } from '@stratix/utils/environment';
-
 import wasV7Plugin from '@stratix/was-v7';
 
 /**
@@ -28,6 +28,7 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
   const databaseConfig = sensitiveConfig.databases || {};
   const webConfig = sensitiveConfig.web || {};
   const icasyncConfig = sensitiveConfig.icasync || {};
+  const redisConfig = sensitiveConfig.redis || {};
 
   return {
     // 服务器配置
@@ -84,6 +85,15 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
                 'root',
               password: databaseConfig.syncdb?.password || ''
             }
+          }
+        }
+      },
+      {
+        name: '@stratix/redis',
+        plugin: redisPlugin,
+        options: {
+          single: {
+            ...redisConfig
           }
         }
       },

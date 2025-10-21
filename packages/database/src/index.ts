@@ -1,15 +1,47 @@
 // @stratix/database 插件入口文件
 // Stratix 数据库插件主入口 - 采用函数式编程架构设计
 
-import type { FastifyInstance, FastifyPluginAsync } from '@stratix/core';
-import { withRegisterAutoDI } from '@stratix/core';
-import { get, isDevelopment } from '@stratix/utils/environment';
+export {
+  BaseRepository,
+  DatabaseType,
+  DataColumnType,
+  SchemaBuilder,
+  TableCreator,
+  type AutoTableCreationConfig,
+  type ColumnConstraints,
+  type ColumnDefinition,
+  type IndexDefinition,
+  type IRepository,
+  type OrderByClause,
+  type PaginatedResult,
+  type PaginationOptions,
+  type QueryOptions,
+  type RepositoryConnectionOptions,
+  type TableSchema
+} from './config/base-repository.js';
 
-// 导出类型
-export * from './types/index.js';
+export type { DatabaseAPI } from './adapters/database-api.adapter.js';
 
-// 导出函数式编程基础工具
-export * from './utils/driver-checker.js';
+export {
+  AutoSaveRepository,
+  type BatchResult,
+  type CreateTableWithBatchOptions
+} from './config/auto-save-repository.js';
+// 导出事务上下文管理
+export {
+  getCurrentTransaction,
+  getCurrentTransactionId,
+  isInTransaction,
+  withBatchTransaction,
+  withMultiTransaction,
+  withParallelTransaction,
+  withTransaction,
+  type BatchTransactionOptions,
+  type TransactionOptions
+} from './core/transaction-manager.js';
+
+export type { TransactionContextInfo } from './core/transaction-manager.js';
+
 export {
   ConfigurationError,
   ConnectionError,
@@ -19,29 +51,34 @@ export {
   QueryError,
   TransactionError
 } from './utils/error-handler.js';
-export {
-  failure,
-  failureResult,
-  fromNullable,
-  mapResult,
-  memoize,
-  success,
-  successResult,
-  type Option
-} from './utils/helpers.js';
 
 // 导出配置管理
 export * from './config/plugin-config.js';
 
+export type {
+  ColumnType,
+  ExpressionBuilder,
+  Generated,
+  Insertable,
+  Kysely,
+  Selectable,
+  SelectQueryBuilder,
+  Updateable
+} from 'kysely';
+
 // 导出 Kysely 工具函数
 export { sql } from 'kysely';
+
+import type { FastifyInstance, FastifyPluginAsync } from '@stratix/core';
+import { withRegisterAutoDI } from '@stratix/core';
+import { get, isDevelopment } from '@stratix/utils/environment';
 
 // 为了向后兼容，保留原有类型接口
 export type { DatabaseConfig, DatabasePluginOptions } from './types/index.js';
 
+import { deepMerge } from '@stratix/utils/data';
 import { getAutoDiscoveryConfig } from './config/plugin-config.js';
 import type { DatabasePluginOptions } from './types/configuration.js';
-import { deepMerge } from './utils/helpers.js';
 
 /**
  * 数据库插件主函数
@@ -240,28 +277,3 @@ export const PLUGIN_METADATA = {
   description:
     'Stratix Database Plugin with enhanced configuration management, functional architecture, and comprehensive monitoring'
 } as const;
-
-export {
-  BaseRepository,
-  type IRepository,
-  type RepositoryConnectionOptions
-} from './config/base-repository.js';
-
-export type { DatabaseAPI } from './adapters/database-api.adapter.js';
-
-// 导出事务上下文管理
-export {
-  getCurrentTransaction,
-  getCurrentTransactionId,
-  isInTransaction,
-  transactionContextManager,
-  type TransactionContextInfo
-} from './utils/transaction-context.js';
-
-export type {
-  ColumnType,
-  ExpressionBuilder,
-  Generated,
-  Kysely,
-  SelectQueryBuilder
-} from 'kysely';

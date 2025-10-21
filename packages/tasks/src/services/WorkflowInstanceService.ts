@@ -21,7 +21,10 @@ import type {
   WorkflowOptions
 } from '../types/business.js';
 import { WorkflowDefinitionTable } from '../types/database.js';
-import type { NodeInstance } from '../types/unified-node.js';
+import type {
+  NodeInstance,
+  NodeInstanceWithChildren
+} from '../types/unified-node.js';
 
 /**
  * 工作流实例管理服务实现
@@ -484,9 +487,17 @@ export default class WorkflowInstanceService
         errorDetails: result.error
       };
     }
+
+    if (!result.data) {
+      return {
+        success: false,
+        error: 'Workflow instance not found'
+      };
+    }
+
     return {
       success: true,
-      data: this.mapToBusinessModel(result.data!)
+      data: this.mapToBusinessModel(result.data)
     };
   }
 
@@ -605,6 +616,87 @@ export default class WorkflowInstanceService
     };
   }
 
+  /**
+   * 获取流程分组列表
+   * 按工作流定义聚合根实例，返回分组统计信息
+   */
+  async getWorkflowGroups(
+    filters?: QueryFilters,
+    options?: {
+      page?: number;
+      pageSize?: number;
+      sortBy?: string;
+      sortOrder?: 'asc' | 'desc';
+    }
+  ): Promise<
+    ServiceResult<{
+      groups: Array<{
+        workflowDefinitionId: number;
+        workflowDefinitionName: string;
+        workflowDefinitionDescription?: string;
+        workflowDefinitionVersion?: string;
+        rootInstanceCount: number;
+        totalInstanceCount: number;
+        runningInstanceCount: number;
+        completedInstanceCount: number;
+        failedInstanceCount: number;
+        latestActivity?: string;
+        latestInstanceStatus?: string;
+      }>;
+      total: number;
+      page: number;
+      pageSize: number;
+      totalPages: number;
+      hasNext: boolean;
+      hasPrev: boolean;
+    }>
+  > {
+    try {
+      this.logger.info('Getting workflow groups', { filters, options });
+
+      // 设置默认分页参数
+      const page = options?.page || 1;
+      const pageSize = options?.pageSize || 20;
+      const sortBy = options?.sortBy || 'latestActivity';
+      const sortOrder = options?.sortOrder || 'desc';
+
+      // 构建查询过滤器，只查询根实例
+      const groupFilters = {
+        ...filters,
+        externalId: null // 只查询external_id为空的根实例
+      };
+
+      // 调用仓储层获取分组数据
+      const result = await this.workflowInstanceRepository.getWorkflowGroups(
+        groupFilters,
+        { page, pageSize, sortBy, sortOrder }
+      );
+
+      if (!result.success) {
+        this.logger.error('Failed to get workflow groups', {
+          error: result.error
+        });
+        return {
+          success: false,
+          error: 'Failed to get workflow groups',
+          errorDetails: result.error
+        };
+      }
+
+      return {
+        success: true,
+        data: result.data!
+      };
+    } catch (error) {
+      this.logger.error('Error getting workflow groups', { error });
+      return {
+        success: false,
+        error: 'Internal error getting workflow groups',
+        errorDetails: error
+      };
+    }
+  }
+
   async findInterruptedInstances(): Promise<ServiceResult<WorkflowInstance[]>> {
     const result =
       await this.workflowInstanceRepository.findInterruptedInstances();
@@ -620,6 +712,247 @@ export default class WorkflowInstanceService
       success: true,
       data: result.data!.map((item) => this.mapToBusinessModel(item))
     };
+  }
+
+  /**
+   * 获取工作流实例的节点实例（包含子节点层次结构）
+   * 用于流程图展示，如果节点有子节点，会在节点中包含完整的子节点信息
+   *
+   * @param workflowInstanceId 工作流实例ID
+   * @param nodeId 可选，指定节点ID。如果提供，则只返回该节点及其子节点；如果不提供，返回所有顶级节点
+   */
+  async getNodeInstances(
+    workflowInstanceId: number,
+    nodeId?: string
+  ): Promise<ServiceResult<NodeInstanceWithChildren[]>> {
+    try {
+      this.logger.info('Getting node instances with children for workflow', {
+        workflowInstanceId,
+        nodeId
+      });
+
+      let nodeInstancesWithChildren: NodeInstanceWithChildren[];
+
+      if (nodeId) {
+        // SQL层面优化：只查询特定节点及其子节点
+        // 第一步：通过SQL查询获取特定节点
+        const targetNodeResult =
+          await this.nodeInstanceRepository.findSpecificNodeByWorkflowAndNodeId(
+            workflowInstanceId,
+            nodeId
+          );
+
+        if (!targetNodeResult.success) {
+          this.logger.error('Failed to find specific node', {
+            workflowInstanceId,
+            nodeId,
+            error: targetNodeResult.error
+          });
+          return {
+            success: false,
+            error: 'Failed to find specific node',
+            errorDetails: targetNodeResult.error
+          };
+        }
+
+        if (!targetNodeResult.data) {
+          this.logger.warn('Specified node not found', {
+            workflowInstanceId,
+            nodeId
+          });
+          return {
+            success: false,
+            error: `Node with ID '${nodeId}' not found in workflow instance ${workflowInstanceId}`
+          };
+        }
+
+        const targetNode = this.mapNodeToBusinessModel(targetNodeResult.data);
+
+        // 第二步：通过SQL查询获取该节点的所有子节点
+        const childrenResult =
+          await this.nodeInstanceRepository.findAllChildNodesByParentInstanceId(
+            targetNode.id
+          );
+
+        if (!childrenResult.success) {
+          this.logger.error('Failed to find child nodes', {
+            workflowInstanceId,
+            nodeId,
+            parentNodeId: targetNode.id,
+            error: childrenResult.error
+          });
+          return {
+            success: false,
+            error: 'Failed to find child nodes',
+            errorDetails: childrenResult.error
+          };
+        }
+
+        // 转换子节点为业务模型
+        const childNodes = childrenResult.data.map((item) =>
+          this.mapNodeToBusinessModel(item)
+        );
+
+        // 构建层次结构（使用SQL查询结果）
+        const nodeWithChildren = await this.buildNodeWithChildrenFromSqlResult(
+          targetNode,
+          childNodes
+        );
+
+        nodeInstancesWithChildren = [nodeWithChildren];
+      } else {
+        // 如果没有指定nodeId，返回所有顶级节点（使用原有逻辑）
+        // 查询工作流实例的所有节点实例
+        const result =
+          await this.nodeInstanceRepository.findByWorkflowInstanceId(
+            workflowInstanceId
+          );
+
+        if (!result.success) {
+          this.logger.error('Failed to get all node instances', {
+            workflowInstanceId,
+            error: result.error
+          });
+          return {
+            success: false,
+            error: 'Failed to get all node instances',
+            errorDetails: result.error
+          };
+        }
+
+        // 转换为业务模型
+        const allNodeInstances = result.data.map((item) =>
+          this.mapNodeToBusinessModel(item)
+        );
+
+        // 返回所有顶级节点
+        const topLevelNodes = allNodeInstances.filter(
+          (node) => !node.parentNodeId
+        );
+        nodeInstancesWithChildren = [];
+
+        for (const topLevelNode of topLevelNodes) {
+          const nodeWithChildren = await this.buildNodeWithChildren(
+            topLevelNode,
+            allNodeInstances
+          );
+          nodeInstancesWithChildren.push(nodeWithChildren);
+        }
+      }
+
+      this.logger.info('Retrieved node instances with children', {
+        workflowInstanceId,
+        nodeId,
+        returnedNodes: nodeInstancesWithChildren.length,
+        queryType: nodeId ? 'specific-node' : 'all-top-level-nodes'
+      });
+
+      return {
+        success: true,
+        data: nodeInstancesWithChildren
+      };
+    } catch (error) {
+      this.logger.error('Error getting node instances with children', {
+        workflowInstanceId,
+        nodeId,
+        error
+      });
+      return {
+        success: false,
+        error: 'Internal error getting node instances',
+        errorDetails: error
+      };
+    }
+  }
+
+  /**
+   * 构建包含子节点的节点实例
+   * 递归构建节点的层次结构
+   */
+  private async buildNodeWithChildren(
+    node: NodeInstance,
+    allNodes: NodeInstance[]
+  ): Promise<NodeInstanceWithChildren> {
+    // 查找当前节点的所有子节点
+    const childNodes = allNodes.filter((n) => n.parentNodeId === node.id);
+
+    const nodeWithChildren: NodeInstanceWithChildren = {
+      ...node
+    };
+
+    if (childNodes.length > 0) {
+      // 递归构建子节点
+      const children: NodeInstanceWithChildren[] = [];
+      for (const childNode of childNodes) {
+        const childWithChildren = await this.buildNodeWithChildren(
+          childNode,
+          allNodes
+        );
+        children.push(childWithChildren);
+      }
+
+      // 按 childIndex 排序
+      children.sort((a, b) => (a.childIndex || 0) - (b.childIndex || 0));
+
+      nodeWithChildren.children = children;
+
+      // 计算子节点统计信息
+      nodeWithChildren.childrenStats = {
+        total: children.length,
+        completed: children.filter((c) => c.status === 'completed').length,
+        running: children.filter((c) => c.status === 'running').length,
+        failed: children.filter((c) => c.status === 'failed').length,
+        pending: children.filter((c) => c.status === 'pending').length
+      };
+    }
+
+    return nodeWithChildren;
+  }
+
+  /**
+   * 基于SQL查询结果构建包含子节点的节点实例
+   * 用于处理已经通过SQL查询获取的子节点数据
+   */
+  private async buildNodeWithChildrenFromSqlResult(
+    node: NodeInstance,
+    allChildNodes: NodeInstance[]
+  ): Promise<NodeInstanceWithChildren> {
+    const nodeWithChildren: NodeInstanceWithChildren = {
+      ...node
+    };
+
+    // 查找当前节点的直接子节点
+    const directChildren = allChildNodes.filter(
+      (n) => n.parentNodeId === node.id
+    );
+
+    if (directChildren.length > 0) {
+      // 递归构建子节点
+      const children: NodeInstanceWithChildren[] = [];
+      for (const childNode of directChildren) {
+        const childWithChildren = await this.buildNodeWithChildrenFromSqlResult(
+          childNode,
+          allChildNodes
+        );
+        children.push(childWithChildren);
+      }
+
+      // 按 childIndex 排序
+      children.sort((a, b) => (a.childIndex || 0) - (b.childIndex || 0));
+
+      nodeWithChildren.children = children;
+
+      // 计算子节点统计信息
+      nodeWithChildren.childrenStats = {
+        total: children.length,
+        completed: children.filter((c) => c.status === 'completed').length,
+        running: children.filter((c) => c.status === 'running').length,
+        failed: children.filter((c) => c.status === 'failed').length,
+        pending: children.filter((c) => c.status === 'pending').length
+      };
+    }
+
+    return nodeWithChildren;
   }
 
   // 辅助方法

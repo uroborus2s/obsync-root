@@ -8,9 +8,6 @@ import {
   type BrandValidator
 } from './types.js';
 
-// 重新导出类型
-export type { Brand, BrandConstructor, BrandValidator };
-
 /**
  * 创建品牌类型构造器
  */

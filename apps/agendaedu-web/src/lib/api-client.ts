@@ -99,7 +99,37 @@ export class ApiClient {
   /**
    * 处理权限不足情况 - 导航到403页面
    */
-  private handleForbidden(_error: AxiosError): void {
+  private handleForbidden(error: AxiosError): void {
+    const responseData = error.response?.data as any
+
+    console.warn('🚫 API客户端: 检测到403权限不足错误', {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      message: responseData?.message || error.message,
+      userRoles: responseData?.userRoles || [],
+      timestamp: new Date().toISOString(),
+    })
+
+    // 存储详细的错误信息，供403错误页面使用
+    const errorInfo = {
+      type: 'FORBIDDEN',
+      url: error.config?.url || '',
+      method: error.config?.method?.toUpperCase() || 'GET',
+      status: error.response?.status || 403,
+      message: responseData?.message || '权限不足，无法访问此资源',
+      userRoles: responseData?.userRoles || [],
+      currentPath: window.location.href,
+      timestamp: new Date().toISOString(),
+    }
+
+    // 存储到sessionStorage供403页面读取
+    try {
+      sessionStorage.setItem('last_403_error', JSON.stringify(errorInfo))
+    } catch (e) {
+      console.warn('无法存储403错误信息到sessionStorage:', e)
+    }
+
     // 导航到403错误页面
     // 使用setTimeout避免在请求处理过程中立即导航
     setTimeout(() => {

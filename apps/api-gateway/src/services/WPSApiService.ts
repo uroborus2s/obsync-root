@@ -4,6 +4,7 @@
  */
 
 import { AwilixContainer, RESOLVER, type Logger } from '@stratix/core';
+import { RedisAdapter } from '@stratix/redis';
 import { createHash } from 'crypto';
 
 /**
@@ -77,6 +78,35 @@ export interface WPSConfig {
 }
 
 /**
+ * 缓存配置接口
+ */
+export interface CacheConfig {
+  /** 提前过期时间（秒），避免在过期边界时出现问题 */
+  earlyExpireBuffer: number;
+  /** 最小缓存时间（秒） */
+  minCacheTtl: number;
+  /** 最大缓存时间（秒） */
+  maxCacheTtl: number;
+  /** 降级缓存时间（秒） */
+  fallbackCacheTtl: number;
+}
+
+/**
+ * 缓存数据接口
+ */
+export interface CachedTokenData {
+  jsapi_token: string;
+  expires_at: number; // Unix时间戳（毫秒）
+  cached_at: number; // 缓存时间戳（毫秒）
+}
+
+export interface CachedTicketData {
+  jsapi_ticket: string;
+  expires_at: number; // Unix时间戳（毫秒）
+  cached_at: number; // 缓存时间戳（毫秒）
+}
+
+/**
  * WPS JSAPI Token响应接口
  */
 export interface WPSJSAPITokenResponse {
@@ -145,6 +175,23 @@ export interface IWPSApiService {
   getJSAPITicket(accessToken: string): Promise<WPSJSAPITicketResponse>;
 }
 
+/**
+ * 缓存相关常量
+ */
+const CACHE_KEYS = {
+  JSAPI_TOKEN: (appId: string) => `wps:jsapi:token:${appId}`,
+  JSAPI_TICKET: (appId: string) => `wps:jsapi:ticket:${appId}`,
+  CACHE_META: (appId: string, type: 'token' | 'ticket') =>
+    `wps:jsapi:meta:${appId}:${type}`
+};
+
+const DEFAULT_CACHE_CONFIG: CacheConfig = {
+  earlyExpireBuffer: 300, // 5分钟
+  minCacheTtl: 60, // 1分钟
+  maxCacheTtl: 7200, // 2小时
+  fallbackCacheTtl: 300 // 5分钟
+};
+
 export default class WPSApiService implements IWPSApiService {
   static [RESOLVER] = {
     injector: (container: AwilixContainer) => {
@@ -155,18 +202,152 @@ export default class WPSApiService implements IWPSApiService {
     }
   };
 
+  // 内存缓存降级存储
+  private memoryCache = new Map<string, { data: any; expiresAt: number }>();
+  private cacheConfig: CacheConfig;
+
   constructor(
     private logger: Logger,
-    private options: WPSConfig
+    private options: WPSConfig,
+    private redisClient: RedisAdapter
   ) {
+    this.cacheConfig = DEFAULT_CACHE_CONFIG;
     if (!this.options.appid || !this.options.appkey) {
       this.logger.warn('WPS API credentials not configured properly');
     }
 
     this.logger.info('✅ WPSApiService initialized', {
       baseUrl: this.options.baseUrl,
-      appid: this.options.appid ? '***' : 'not set'
+      appid: this.options.appid ? '***' : 'not set',
+      redisEnabled: !!this.redisClient
     });
+  }
+
+  /**
+   * 计算缓存TTL
+   * @param expiresIn API返回的过期时间（秒）
+   * @returns 实际缓存TTL（秒）
+   */
+  private calculateCacheTtl(expiresIn: number): number {
+    // 减去提前过期缓冲时间
+    const adjustedTtl = expiresIn - this.cacheConfig.earlyExpireBuffer;
+
+    // 确保在最小和最大范围内
+    return Math.max(
+      this.cacheConfig.minCacheTtl,
+      Math.min(adjustedTtl, this.cacheConfig.maxCacheTtl)
+    );
+  }
+
+  /**
+   * 从Redis获取缓存数据
+   */
+  private async getFromRedisCache<T>(key: string): Promise<T | null> {
+    if (!this.redisClient) {
+      return null;
+    }
+
+    try {
+      const cached = await this.redisClient.get(key);
+      if (cached) {
+        const data = JSON.parse(cached) as T;
+        this.logger.debug('Cache hit from Redis', { key });
+        return data;
+      }
+    } catch (error) {
+      this.logger.warn('Redis cache get failed, falling back', { key, error });
+    }
+
+    return null;
+  }
+
+  /**
+   * 设置Redis缓存数据
+   */
+  private async setToRedisCache<T>(
+    key: string,
+    data: T,
+    ttlSeconds: number
+  ): Promise<void> {
+    if (!this.redisClient) {
+      return;
+    }
+
+    try {
+      await this.redisClient.set(key, JSON.stringify(data), ttlSeconds);
+      this.logger.debug('Data cached to Redis', { key, ttl: ttlSeconds });
+    } catch (error) {
+      this.logger.warn('Redis cache set failed', { key, error });
+    }
+  }
+
+  /**
+   * 从内存缓存获取数据（降级机制）
+   */
+  private getFromMemoryCache<T>(key: string): T | null {
+    const cached = this.memoryCache.get(key);
+    if (cached && cached.expiresAt > Date.now()) {
+      this.logger.debug('Cache hit from memory fallback', { key });
+      return cached.data as T;
+    }
+
+    if (cached) {
+      this.memoryCache.delete(key);
+    }
+
+    return null;
+  }
+
+  /**
+   * 设置内存缓存数据（降级机制）
+   */
+  private setToMemoryCache<T>(key: string, data: T, ttlSeconds: number): void {
+    const expiresAt = Date.now() + ttlSeconds * 1000;
+    this.memoryCache.set(key, { data, expiresAt });
+    this.logger.debug('Data cached to memory fallback', {
+      key,
+      ttl: ttlSeconds
+    });
+  }
+
+  /**
+   * 清理过期的内存缓存
+   */
+  private cleanupExpiredMemoryCache(): void {
+    const now = Date.now();
+    let cleanedCount = 0;
+
+    for (const [key, cached] of this.memoryCache.entries()) {
+      if (cached.expiresAt <= now) {
+        this.memoryCache.delete(key);
+        cleanedCount++;
+      }
+    }
+
+    if (cleanedCount > 0) {
+      this.logger.debug('Cleaned up expired memory cache entries', {
+        cleanedCount,
+        remainingCount: this.memoryCache.size
+      });
+    }
+  }
+
+  /**
+   * 获取缓存统计信息（用于监控）
+   */
+  public getCacheStats(): {
+    memoryCache: { size: number; keys: string[] };
+    redisEnabled: boolean;
+  } {
+    this.cleanupExpiredMemoryCache();
+
+    return {
+      memoryCache: {
+        size: this.memoryCache.size,
+        keys: Array.from(this.memoryCache.keys())
+      },
+      redisEnabled: !!this.redisClient
+    };
   }
 
   /**
@@ -410,12 +591,41 @@ export default class WPSApiService implements IWPSApiService {
 
   /**
    * 获取服务端凭证（用于JSAPI）
-   * 使用WPS-3签名方式获取服务端访问令牌
+   * 使用WPS-3签名方式获取服务端访问令牌，支持Redis缓存
    */
   async getServerAccessToken(): Promise<WPSJSAPITokenResponse> {
+    const cacheKey = CACHE_KEYS.JSAPI_TOKEN(this.options.appid);
+
     try {
+      // 1. 尝试从Redis缓存获取
+      const cachedData =
+        await this.getFromRedisCache<CachedTokenData>(cacheKey);
+      if (cachedData && cachedData.expires_at > Date.now()) {
+        this.logger.debug('Using cached JSAPI token from Redis');
+        return {
+          result: 0,
+          jsapi_token: cachedData.jsapi_token,
+          expires_in: Math.floor((cachedData.expires_at - Date.now()) / 1000)
+        };
+      }
+
+      // 2. 尝试从内存缓存获取（降级）
+      const memoryCachedData =
+        this.getFromMemoryCache<CachedTokenData>(cacheKey);
+      if (memoryCachedData && memoryCachedData.expires_at > Date.now()) {
+        this.logger.debug('Using cached JSAPI token from memory fallback');
+        return {
+          result: 0,
+          jsapi_token: memoryCachedData.jsapi_token,
+          expires_in: Math.floor(
+            (memoryCachedData.expires_at - Date.now()) / 1000
+          )
+        };
+      }
+
+      // 3. 缓存未命中，调用API获取新token
       this.logger.debug(
-        'Requesting server access token from WPS API using WPS-3 signature'
+        'Cache miss, requesting server access token from WPS API using WPS-3 signature'
       );
 
       // 请求URL和基本信息
@@ -507,12 +717,72 @@ export default class WPSApiService implements IWPSApiService {
         }
       );
 
+      // 4. 缓存新获取的token
+      const now = Date.now();
+      const expiresAt = now + tokenResponse.expires_in * 1000;
+      const cacheData: CachedTokenData = {
+        jsapi_token: tokenResponse.jsapi_token,
+        expires_at: expiresAt,
+        cached_at: now
+      };
+
+      // 计算缓存TTL
+      const cacheTtl = this.calculateCacheTtl(tokenResponse.expires_in);
+
+      // 存储到Redis缓存
+      await this.setToRedisCache(cacheKey, cacheData, cacheTtl);
+
+      // 同时存储到内存缓存作为降级
+      this.setToMemoryCache(
+        cacheKey,
+        cacheData,
+        this.cacheConfig.fallbackCacheTtl
+      );
+
       return tokenResponse;
     } catch (error) {
       this.logger.error(
         'Failed to get server access token from WPS API:',
         error
       );
+
+      // 5. API调用失败时的降级策略：尝试返回过期的缓存数据
+      try {
+        const expiredCachedData =
+          await this.getFromRedisCache<CachedTokenData>(cacheKey);
+        if (expiredCachedData) {
+          this.logger.warn(
+            'API failed, using expired cached JSAPI token as fallback',
+            {
+              expiredAt: new Date(expiredCachedData.expires_at).toISOString(),
+              cachedAt: new Date(expiredCachedData.cached_at).toISOString()
+            }
+          );
+          return {
+            result: 0,
+            jsapi_token: expiredCachedData.jsapi_token,
+            expires_in: 60 // 给1分钟的临时有效期
+          };
+        }
+
+        const expiredMemoryData =
+          this.getFromMemoryCache<CachedTokenData>(cacheKey);
+        if (expiredMemoryData) {
+          this.logger.warn(
+            'API failed, using expired memory cached JSAPI token as fallback'
+          );
+          return {
+            result: 0,
+            jsapi_token: expiredMemoryData.jsapi_token,
+            expires_in: 60 // 给1分钟的临时有效期
+          };
+        }
+      } catch (fallbackError) {
+        this.logger.error(
+          'Fallback cache retrieval also failed:',
+          fallbackError
+        );
+      }
 
       if (error instanceof Error) {
         throw error;
@@ -525,12 +795,41 @@ export default class WPSApiService implements IWPSApiService {
 
   /**
    * 获取JS-API调用凭证
-   * 使用WPS-3签名方式获取JS-API调用所需的ticket
+   * 使用WPS-3签名方式获取JS-API调用所需的ticket，支持Redis缓存
    */
   async getJSAPITicket(accessToken: string): Promise<WPSJSAPITicketResponse> {
+    const cacheKey = CACHE_KEYS.JSAPI_TICKET(this.options.appid);
+
     try {
+      // 1. 尝试从Redis缓存获取
+      const cachedData =
+        await this.getFromRedisCache<CachedTicketData>(cacheKey);
+      if (cachedData && cachedData.expires_at > Date.now()) {
+        this.logger.debug('Using cached JSAPI ticket from Redis');
+        return {
+          result: 0,
+          jsapi_ticket: cachedData.jsapi_ticket,
+          expires_in: Math.floor((cachedData.expires_at - Date.now()) / 1000)
+        };
+      }
+
+      // 2. 尝试从内存缓存获取（降级）
+      const memoryCachedData =
+        this.getFromMemoryCache<CachedTicketData>(cacheKey);
+      if (memoryCachedData && memoryCachedData.expires_at > Date.now()) {
+        this.logger.debug('Using cached JSAPI ticket from memory fallback');
+        return {
+          result: 0,
+          jsapi_ticket: memoryCachedData.jsapi_ticket,
+          expires_in: Math.floor(
+            (memoryCachedData.expires_at - Date.now()) / 1000
+          )
+        };
+      }
+
+      // 3. 缓存未命中，调用API获取新ticket
       this.logger.debug(
-        'Requesting JSAPI ticket from WPS API using WPS-3 signature'
+        'Cache miss, requesting JSAPI ticket from WPS API using WPS-3 signature'
       );
 
       // 请求URL和基本信息
@@ -622,9 +921,69 @@ export default class WPSApiService implements IWPSApiService {
         }
       );
 
+      // 4. 缓存新获取的ticket
+      const now = Date.now();
+      const expiresAt = now + ticketResponse.expires_in * 1000;
+      const cacheData: CachedTicketData = {
+        jsapi_ticket: ticketResponse.jsapi_ticket,
+        expires_at: expiresAt,
+        cached_at: now
+      };
+
+      // 计算缓存TTL
+      const cacheTtl = this.calculateCacheTtl(ticketResponse.expires_in);
+
+      // 存储到Redis缓存
+      await this.setToRedisCache(cacheKey, cacheData, cacheTtl);
+
+      // 同时存储到内存缓存作为降级
+      this.setToMemoryCache(
+        cacheKey,
+        cacheData,
+        this.cacheConfig.fallbackCacheTtl
+      );
+
       return ticketResponse;
     } catch (error) {
       this.logger.error('Failed to get JSAPI ticket from WPS API:', error);
+
+      // 5. API调用失败时的降级策略：尝试返回过期的缓存数据
+      try {
+        const expiredCachedData =
+          await this.getFromRedisCache<CachedTicketData>(cacheKey);
+        if (expiredCachedData) {
+          this.logger.warn(
+            'API failed, using expired cached JSAPI ticket as fallback',
+            {
+              expiredAt: new Date(expiredCachedData.expires_at).toISOString(),
+              cachedAt: new Date(expiredCachedData.cached_at).toISOString()
+            }
+          );
+          return {
+            result: 0,
+            jsapi_ticket: expiredCachedData.jsapi_ticket,
+            expires_in: 60 // 给1分钟的临时有效期
+          };
+        }
+
+        const expiredMemoryData =
+          this.getFromMemoryCache<CachedTicketData>(cacheKey);
+        if (expiredMemoryData) {
+          this.logger.warn(
+            'API failed, using expired memory cached JSAPI ticket as fallback'
+          );
+          return {
+            result: 0,
+            jsapi_ticket: expiredMemoryData.jsapi_ticket,
+            expires_in: 60 // 给1分钟的临时有效期
+          };
+        }
+      } catch (fallbackError) {
+        this.logger.error(
+          'Fallback cache retrieval also failed:',
+          fallbackError
+        );
+      }
 
       if (error instanceof Error) {
         throw error;

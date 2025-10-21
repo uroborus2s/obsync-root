@@ -4,6 +4,18 @@ WPS协作平台V7 API的Stratix插件，采用服务适配器模式，提供纯�
 
 ## 🔥 最新更新
 
+### v2.1.0 - 驱动盘与文件管理功能
+
+- ✅ **驱动盘管理**: 完整的驱动盘CRUD操作
+- ✅ **多种盘类型**: 支持用户盘、用户组盘、应用盘
+- ✅ **容量管理**: 支持容量查询、配额设置、扩容操作
+- ✅ **文件管理**: 支持创建文件、文件夹、快捷方式
+- ✅ **路径创建**: 支持自动创建嵌套目录结构
+- ✅ **冲突处理**: 支持多种文件名冲突处理策略
+- ✅ **权限管理**: 完整的文件权限信息
+- ✅ **扩展属性**: 支持自定义扩展属性
+- ✅ **自动分页**: 提供自动分页获取所有驱动盘的便捷方法
+
 ### v2.0.0 - 服务适配器架构重构
 
 - ✅ **服务适配器模式**: 将所有WPS API封装为纯函数适配器
@@ -12,7 +24,7 @@ WPS协作平台V7 API的Stratix插件，采用服务适配器模式，提供纯�
 - ✅ **自动发现机制**: 插件自动发现和注册所有适配器
 - ✅ **函数式编程**: 完全采用函数式编程范式
 - ✅ **零配置使用**: 其他插件可直接通过DI容器调用适配器
-- ✅ **完整API覆盖**: 8个适配器覆盖95+个WPS API接口
+- ✅ **完整API覆盖**: 9个适配器覆盖100+个WPS API接口
 - ✅ **便捷方法**: 提供高级封装和批量操作方法
 - ✅ **参数验证**: 完整的配置参数验证和错误处理机制
 - ✅ **安全配置**: 生产环境强制HTTPS，敏感信息保护
@@ -31,6 +43,7 @@ WPS协作平台V7 API的Stratix插件，采用服务适配器模式，提供纯�
 
 - 🎯 **服务适配器模式** - 纯函数式API调用，注册到根容器
 - 🔐 **完整的认证授权** - 自动处理token获取和刷新
+- 🗄️ **Redis Token 缓存** - 使用 Redis 缓存 access token，支持多应用实例共享
 - 🔒 **KSO-1签名算法** - 实现WPS开放平台KSO-1标准签名算法
 - ⚪ **签名白名单** - 支持特定路径跳过签名验证（如OAuth token接口）
 - 🌐 **HTTP客户端** - 基于axios的高性能HTTP客户端
@@ -44,14 +57,23 @@ WPS协作平台V7 API的Stratix插件，采用服务适配器模式，提供纯�
 - 📅 **日历日程** - 完整的日历和日程管理功能，支持参与者和会议室
 - 💬 **消息聊天** - 支持多种消息类型发送和聊天会话管理
 - 🔐 **用户认证** - 完整的OAuth2.0用户授权和认证流程
+- 💾 **驱动盘管理** - 完整的驱动盘CRUD操作，支持用户盘、用户组盘、应用盘
+- 📁 **文件管理** - 支持创建文件、文件夹、快捷方式，自动创建嵌套目录
 - 🚀 **全局可用** - 任何插件和应用都可以直接调用WPS API
-- 📦 **8个适配器** - 覆盖95+个WPS API接口
+- 📦 **9个适配器** - 覆盖105+个WPS API接口
 
 ## 安装
 
 ```bash
 npm install @stratix/was-v7
 ```
+
+### 依赖要求
+
+- `@stratix/core`: Stratix 框架核心
+- `@stratix/redis`: Redis 适配器插件（用于 token 缓存）
+
+**注意**: 从 v1.0.0-beta.3 开始，WPS V7 插件使用 Redis 缓存 access token，需要安装并配置 `@stratix/redis` 插件。
 
 ## 快速开始
 
@@ -61,10 +83,25 @@ npm install @stratix/was-v7
 // stratix.config.ts
 import type { StratixConfig } from '@stratix/core';
 import wasV7Plugin from '@stratix/was-v7';
+import redisPlugin from '@stratix/redis';
 
 export default (sensitiveConfig: any): StratixConfig => {
   return {
     plugins: [
+      // 1. 先注册 Redis 插件（用于 token 缓存）
+      {
+        name: '@stratix/redis',
+        plugin: redisPlugin,
+        options: {
+          single: {
+            host: sensitiveConfig.redis.host || 'localhost',
+            port: sensitiveConfig.redis.port || 6379,
+            password: sensitiveConfig.redis.password,
+            db: sensitiveConfig.redis.db || 0
+          }
+        }
+      },
+      // 2. 注册 WPS V7 插件
       {
         name: '@stratix/was-v7',
         plugin: wasV7Plugin,
@@ -77,13 +114,37 @@ export default (sensitiveConfig: any): StratixConfig => {
           baseUrl: 'https://openapi.wps.cn', // 默认值
           timeout: 60000, // 60秒，默认值
           retryTimes: 3, // 默认值
-          debug: false // 默认值
+          debug: false, // 默认值
+
+          // Token 缓存配置（可选）
+          tokenCache: {
+            keyPrefix: 'wps:token:', // Redis 键前缀
+            defaultTtl: 7200, // 默认过期时间（秒）
+            earlyExpireSeconds: 900, // 提前过期时间（秒）
+            enableFallback: true // 启用内存降级
+          }
         }
       }
     ]
   };
 };
 ```
+
+#### Redis 配置说明
+
+WPS V7 插件使用 Redis 缓存 access token，以支持多应用实例共享 token。Redis 配置包括：
+
+- **host**: Redis 服务器地址
+- **port**: Redis 服务器端口
+- **password**: Redis 密码（可选）
+- **db**: Redis 数据库编号（可选，默认 0）
+
+#### Token 缓存配置
+
+- **keyPrefix**: Redis 键前缀，默认 `wps:token:`
+- **defaultTtl**: 默认过期时间（秒），默认 7200（2小时）
+- **earlyExpireSeconds**: 提前过期时间（秒），默认 900（15分钟）
+- **enableFallback**: 启用内存降级，默认 true
 
 #### 参数验证功能
 
@@ -139,9 +200,9 @@ export class MyService {
 
 ```typescript
 interface WasV7PluginOptions {
-  appId: string;          // 应用ID
-  appSecret: string;      // 应用密钥
-  apiEndpoint?: string;   // API端点，默认：https://openapi.wps.cn
+  appId: string; // 应用ID
+  appSecret: string; // 应用密钥
+  apiEndpoint?: string; // API端点，默认：https://openapi.wps.cn
 }
 ```
 
@@ -317,9 +378,7 @@ await userModule.batchUpdateUserAttribute({
   items: [
     {
       user_id: 'user1',
-      attributes: [
-        { attribute_id: 'attr1', value: 'value1' }
-      ]
+      attributes: [{ attribute_id: 'attr1', value: 'value1' }]
     }
   ]
 });
@@ -374,7 +433,7 @@ try {
   if (error instanceof WpsError) {
     console.log('错误码:', error.code);
     console.log('HTTP状态:', error.httpStatus);
-    
+
     // 判断错误类型
     if (error.isAuthError()) {
       console.log('认证错误');
@@ -404,7 +463,7 @@ try {
 // 在路由处理器中使用
 app.get('/api/users', async (request, reply) => {
   const userModule = request.diScope.cradle.wasV7User;
-  
+
   const users = await userModule.getAllUser({ page_size: 20 });
   return users;
 });
@@ -548,8 +607,8 @@ HTTP客户端支持自动重试机制：
 
 ```typescript
 const config = {
-  retryTimes: 3,  // 重试次数
-  timeout: 30000  // 超时时间
+  retryTimes: 3, // 重试次数
+  timeout: 30000 // 超时时间
 };
 ```
 
@@ -803,11 +862,311 @@ await scheduleModule.deleteLeaveEvent({
 });
 ```
 
+## 驱动盘API
+
+### 驱动盘管理
+
+基于WPS开放平台驱动盘API文档实现的驱动盘管理功能：
+
+- [新建驱动盘API文档](https://openapi.wps.cn/v7/drives/create)
+- API地址：`POST https://openapi.wps.cn/v7/drives/create`
+
+#### 基本用法
+
+```typescript
+// 从容器获取驱动盘适配器
+const driveAdapter = container.resolve('@stratix/was-v7.drive');
+
+// 创建用户私有盘
+const createResult = await driveAdapter.createDrive({
+  allotee_id: 'user_123',
+  allotee_type: 'user',
+  name: '我的云文档',
+  description: '用户私有云文档存储空间',
+  source: 'private', // 私网：private（我的云文档）、roaming（我的漫游箱）
+  total_quota: 10737418240 // 10GB
+});
+
+console.log('驱动盘ID:', createResult.data.id);
+console.log('驱动盘名称:', createResult.data.name);
+```
+
+#### 支持的盘类型
+
+##### 1. 用户私有盘 (user)
+
+```typescript
+// 创建用户私有盘
+const userDrive = await driveAdapter.createDrive({
+  allotee_id: 'user_123', // 用户ID
+  allotee_type: 'user',
+  name: '我的云文档',
+  source: 'private', // 私网：private（我的云文档）、roaming（我的漫游箱）
+  total_quota: 10737418240, // 10GB
+  ext_attrs: [
+    {
+      name: 'department',
+      value: '技术部'
+    }
+  ]
+});
+```
+
+##### 2. 用户组盘 (group)
+
+```typescript
+// 创建用户组盘
+const groupDrive = await driveAdapter.createDrive({
+  allotee_id: 'group_456', // 用户组ID
+  allotee_type: 'group',
+  name: '团队共享盘',
+  description: '团队协作文档存储空间',
+  total_quota: 53687091200 // 50GB
+});
+```
+
+##### 3. 应用盘 (app)
+
+```typescript
+// 创建应用盘
+const appDrive = await driveAdapter.createDrive({
+  allotee_id: 'app_789', // 应用SPID
+  allotee_type: 'app',
+  name: '应用数据盘',
+  description: '应用专用数据存储空间',
+  total_quota: 107374182400 // 100GB
+});
+```
+
+#### 驱动盘查询
+
+```typescript
+// 获取驱动盘信息
+const driveInfo = await driveAdapter.getDrive({
+  drive_id: 'drive_id_123'
+});
+
+console.log('驱动盘名称:', driveInfo.name);
+console.log('容量信息:', driveInfo.quota);
+console.log('已使用:', driveInfo.quota.used);
+console.log('总容量:', driveInfo.quota.total);
+console.log('剩余容量:', driveInfo.quota.remaining);
+
+// 获取驱动盘列表（分页）
+const driveList = await driveAdapter.getDriveList({
+  page_size: 20
+});
+
+console.log('驱动盘数量:', driveList.items.length);
+console.log('是否有更多:', driveList.has_more);
+
+// 获取特定用户的驱动盘
+const userDrives = await driveAdapter.getDriveList({
+  allotee_id: 'user_123',
+  allotee_type: 'user'
+});
+
+// 获取所有驱动盘（自动分页）
+const allDrives = await driveAdapter.getAllDriveList();
+console.log('总共有', allDrives.length, '个驱动盘');
+```
+
+#### 驱动盘更新
+
+```typescript
+// 更新驱动盘信息
+await driveAdapter.updateDrive({
+  drive_id: 'drive_id_123',
+  name: '我的云文档（已更新）',
+  description: '更新后的描述',
+  total_quota: 21474836480, // 扩容到20GB
+  ext_attrs: [
+    {
+      name: 'updated',
+      value: 'true'
+    }
+  ]
+});
+```
+
+#### 驱动盘删除
+
+```typescript
+// 删除驱动盘
+await driveAdapter.deleteDrive({
+  drive_id: 'drive_id_123'
+});
+```
+
+#### 容量管理示例
+
+```typescript
+// 获取容量信息
+const driveInfo = await driveAdapter.getDrive({ drive_id: 'drive_id_123' });
+const quota = driveInfo.quota;
+
+console.log('容量信息:');
+console.log(`  总容量: ${(quota.total / 1024 / 1024 / 1024).toFixed(2)} GB`);
+console.log(`  已使用: ${(quota.used / 1024 / 1024 / 1024).toFixed(2)} GB`);
+console.log(
+  `  剩余容量: ${(quota.remaining / 1024 / 1024 / 1024).toFixed(2)} GB`
+);
+console.log(`  回收站: ${(quota.deleted / 1024 / 1024 / 1024).toFixed(2)} GB`);
+console.log(`  使用率: ${((quota.used / quota.total) * 100).toFixed(2)}%`);
+
+// 扩容
+await driveAdapter.updateDrive({
+  drive_id: 'drive_id_123',
+  total_quota: 21474836480 // 扩容到20GB
+});
+```
+
+### 文件管理
+
+基于WPS开放平台文件API文档实现的文件管理功能：
+
+- [新建文件API文档](https://openapi.wps.cn/v7/drives/{drive_id}/files/{parent_id}/create)
+- API地址：`POST https://openapi.wps.cn/v7/drives/{drive_id}/files/{parent_id}/create`
+
+#### 创建文件夹
+
+```typescript
+// 在根目录创建文件夹
+const folderResult = await driveAdapter.createFile({
+  drive_id: 'drive_id_123',
+  parent_id: 'root', // 根目录
+  file_type: 'folder',
+  name: '项目文档'
+});
+
+console.log('文件夹ID:', folderResult.data.id);
+console.log('文件夹名称:', folderResult.data.name);
+```
+
+#### 创建文件
+
+```typescript
+// 在指定文件夹中创建文件
+const fileResult = await driveAdapter.createFile({
+  drive_id: 'drive_id_123',
+  parent_id: 'folder_id_456',
+  file_type: 'file',
+  name: '需求文档.docx',
+  on_name_conflict: 'rename' // 文件名冲突时自动重命名
+});
+
+console.log('文件ID:', fileResult.data.id);
+console.log('文件名称:', fileResult.data.name);
+console.log('文件大小:', fileResult.data.size, '字节');
+console.log('文件版本:', fileResult.data.version);
+```
+
+#### 文件名冲突处理
+
+支持以下冲突处理方式：
+
+- `fail`: 失败（默认）
+- `rename`: 重命名
+- `overwrite`: 覆盖
+- `replace`: 替换
+
+```typescript
+// 覆盖同名文件
+const fileResult = await driveAdapter.createFile({
+  drive_id: 'drive_id_123',
+  parent_id: 'folder_id_456',
+  file_type: 'file',
+  name: '报告.xlsx',
+  on_name_conflict: 'overwrite'
+});
+```
+
+#### 创建快捷方式
+
+```typescript
+// 创建文件的快捷方式
+const shortcutResult = await driveAdapter.createFile({
+  drive_id: 'drive_id_123',
+  parent_id: 'root',
+  file_type: 'shortcut',
+  name: '需求文档快捷方式',
+  file_id: 'original_file_id' // 指向原文件
+});
+
+console.log('快捷方式ID:', shortcutResult.data.id);
+console.log('链接文件ID:', shortcutResult.data.link_id);
+console.log('链接URL:', shortcutResult.data.link_url);
+```
+
+#### 使用路径创建文件
+
+使用 `parent_path` 参数可以自动创建不存在的父目录：
+
+```typescript
+// 自动创建嵌套目录结构
+const nestedFileResult = await driveAdapter.createFile({
+  drive_id: 'drive_id_123',
+  parent_id: 'root',
+  file_type: 'file',
+  name: '设计稿.psd',
+  parent_path: ['设计文档', '2024年', '第一季度'], // 自动创建路径
+  on_name_conflict: 'rename'
+});
+
+console.log('文件ID:', nestedFileResult.data.id);
+console.log('父目录ID:', nestedFileResult.data.parent_id);
+```
+
+#### 文件权限信息
+
+```typescript
+const fileResult = await driveAdapter.createFile({
+  drive_id: 'drive_id_123',
+  parent_id: 'root',
+  file_type: 'file',
+  name: '文档.docx'
+});
+
+const permission = fileResult.data.permission;
+console.log('权限信息:');
+console.log('  可读:', permission.download);
+console.log('  可写:', permission.update);
+console.log('  可删除:', permission.delete);
+console.log('  可分享:', permission.share);
+console.log('  可评论:', permission.comment);
+console.log('  可复制:', permission.copy);
+console.log('  可打印:', permission.print);
+console.log('  可重命名:', permission.rename);
+console.log('  可移动:', permission.move);
+```
+
+#### 文件详细信息
+
+```typescript
+const fileInfo = fileResult.data;
+
+console.log('文件详细信息:');
+console.log('  文件ID:', fileInfo.id);
+console.log('  文件名:', fileInfo.name);
+console.log('  文件类型:', fileInfo.type);
+console.log('  文件大小:', fileInfo.size, '字节');
+console.log('  文件版本:', fileInfo.version);
+console.log('  创建者:', fileInfo.created_by.name);
+console.log('  创建时间:', new Date(fileInfo.ctime * 1000).toLocaleString());
+console.log('  修改者:', fileInfo.modified_by.name);
+console.log('  修改时间:', new Date(fileInfo.mtime * 1000).toLocaleString());
+console.log('  是否共享:', fileInfo.shared);
+console.log('  文件哈希:', fileInfo.hash.type, '-', fileInfo.hash.sum);
+console.log('  驱动盘ID:', fileInfo.drive_id);
+console.log('  父目录ID:', fileInfo.parent_id);
+```
+
 ## 消息与会话API
 
 ### 消息发送
 
 基于WPS协作机器人API文档实现的消息发送功能：
+
 - [发送消息API文档](https://365.kdocs.cn/3rd/open/documents/app-integration-dev/server/im/message/create-msg.html)
 - API地址：`POST https://openapi.wps.cn/v7/messages/batch_create`
 
@@ -836,10 +1195,7 @@ console.log('消息ID:', result.message_id);
 ##### 1. 文本消息 (text)
 
 ```typescript
-await messageModule.sendTextMessage(
-  receivers,
-  '这是一条文本消息'
-);
+await messageModule.sendTextMessage(receivers, '这是一条文本消息');
 ```
 
 ##### 2. 富文本消息 (rich_text)
@@ -857,20 +1213,17 @@ const markdownContent = `
 请准时参加！
 `;
 
-await messageModule.sendRichTextMessage(
-  receivers,
-  markdownContent
-);
+await messageModule.sendRichTextMessage(receivers, markdownContent);
 ```
 
 ##### 3. 图片消息 (image)
 
 ```typescript
-await messageModule.sendImageMessage(
-  receivers,
-  'image_storage_key_12345',
-  { width: 800, height: 600, size: 1024000 }
-);
+await messageModule.sendImageMessage(receivers, 'image_storage_key_12345', {
+  width: 800,
+  height: 600,
+  size: 1024000
+});
 ```
 
 ##### 4. 文件消息 (file)
@@ -887,29 +1240,24 @@ await messageModule.sendFileMessage(
 ##### 5. 音频消息 (audio)
 
 ```typescript
-await messageModule.sendAudioMessage(
-  receivers,
-  'audio_storage_key_11111',
-  { duration: 30, size: 500000 }
-);
+await messageModule.sendAudioMessage(receivers, 'audio_storage_key_11111', {
+  duration: 30,
+  size: 500000
+});
 ```
 
 ##### 6. 视频消息 (video)
 
 ```typescript
-await messageModule.sendVideoMessage(
-  receivers,
-  'video_storage_key_22222',
-  {
-    codec: 'h264',
-    format: 'mp4',
-    width: 1920,
-    height: 1080,
-    duration: 120,
-    size: 10240000,
-    cover_storage_key: 'cover_storage_key_33333'
-  }
-);
+await messageModule.sendVideoMessage(receivers, 'video_storage_key_22222', {
+  codec: 'h264',
+  format: 'mp4',
+  width: 1920,
+  height: 1080,
+  duration: 120,
+  size: 10240000,
+  cover_storage_key: 'cover_storage_key_33333'
+});
 ```
 
 ##### 7. 卡片消息 (card)
@@ -971,11 +1319,7 @@ const textWithMentions = MessageModule.buildMentionText(
 );
 
 // 发送@人消息
-await messageModule.sendTextMessage(
-  receivers,
-  textWithMentions,
-  mentions
-);
+await messageModule.sendTextMessage(receivers, textWithMentions, mentions);
 ```
 
 ##### @所有人
@@ -983,15 +1327,9 @@ await messageModule.sendTextMessage(
 ```typescript
 // 构建@所有人文本（id固定为1）
 const allMentionText = MessageModule.buildMentionAllText('@所有人 重要通知！');
-const allMentions = [
-  { id: '1', user_id: 'all' }
-];
+const allMentions = [{ id: '1', user_id: 'all' }];
 
-await messageModule.sendTextMessage(
-  receivers,
-  allMentionText,
-  allMentions
-);
+await messageModule.sendTextMessage(receivers, allMentionText, allMentions);
 ```
 
 #### 批量发送
@@ -1003,14 +1341,11 @@ const batchReceivers = [
   [{ type: 'user', id: 'user_333' }]
 ];
 
-const results = await messageModule.batchSendMessage(
-  batchReceivers,
-  {
-    type: 'text',
-    mentions: [],
-    content: { text: '这是批量发送的消息' }
-  }
-);
+const results = await messageModule.batchSendMessage(batchReceivers, {
+  type: 'text',
+  mentions: [],
+  content: { text: '这是批量发送的消息' }
+});
 ```
 
 #### 直接使用sendMessage方法
@@ -1020,9 +1355,7 @@ import type { SendMessageParams } from '@stratix/was-v7';
 
 const params: SendMessageParams = {
   type: 'text',
-  receivers: [
-    { type: 'user', id: 'user_123' }
-  ],
+  receivers: [{ type: 'user', id: 'user_123' }],
   mentions: [],
   content: {
     text: '使用完整sendMessage方法发送的消息'
@@ -1036,13 +1369,13 @@ const result = await messageModule.sendMessage(params);
 
 支持以下接收者类型：
 
-| 类型 | 说明 | 示例 |
-|------|------|------|
-| `company` | 企业 | `{ type: 'company', id: 'company_id' }` |
-| `dept` | 部门 | `{ type: 'dept', id: 'dept_id' }` |
-| `user` | 用户 | `{ type: 'user', id: 'user_id' }` |
-| `chat` | 会话/群聊 | `{ type: 'chat', id: 'chat_id' }` |
-| `user_group` | 用户组 | `{ type: 'user_group', id: 'group_id' }` |
+| 类型         | 说明      | 示例                                     |
+| ------------ | --------- | ---------------------------------------- |
+| `company`    | 企业      | `{ type: 'company', id: 'company_id' }`  |
+| `dept`       | 部门      | `{ type: 'dept', id: 'dept_id' }`        |
+| `user`       | 用户      | `{ type: 'user', id: 'user_id' }`        |
+| `chat`       | 会话/群聊 | `{ type: 'chat', id: 'chat_id' }`        |
+| `user_group` | 用户组    | `{ type: 'user_group', id: 'group_id' }` |
 
 ### 错误处理
 
@@ -1052,7 +1385,7 @@ try {
   console.log('发送成功:', result.message_id);
 } catch (error) {
   console.error('发送失败:', error);
-  
+
   // 处理不合法的接收者
   if (error.response?.data?.invalid_receivers) {
     console.log('不合法的接收者:', error.response.data.invalid_receivers);
@@ -1210,5 +1543,6 @@ const chatIdInfo = await chatModule.getChatIdByUserId({
 });
 
 // 构建@所有人的文本
-const mentionAllText = MessageModule.buildMentionAllText('通知：@所有人 请注意');
+const mentionAllText =
+  MessageModule.buildMentionAllText('通知：@所有人 请注意');
 ```

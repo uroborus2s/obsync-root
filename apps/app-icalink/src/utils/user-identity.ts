@@ -10,18 +10,18 @@ import type { UserInfo } from '../types/api.js';
  */
 export function getUserIdentityFromRequest(request: FastifyRequest): UserInfo {
   const userIdentity = (request as any).userIdentity as UserIdentity;
-  
+
   if (!userIdentity) {
     throw new Error('用户身份验证失败：缺少用户身份信息');
   }
-  
+
   if (!userIdentity.userId || userIdentity.userId.trim() === '') {
     throw new Error('用户身份验证失败：用户ID无效');
   }
-  
+
   return {
-    id: userIdentity.userId,
-    type: userIdentity.userType as 'student' | 'teacher',
+    userId: userIdentity.userId,
+    userType: userIdentity.userType as 'student' | 'teacher',
     name: userIdentity.username || ''
   };
 }
@@ -29,26 +29,30 @@ export function getUserIdentityFromRequest(request: FastifyRequest): UserInfo {
 /**
  * 从请求中获取学生身份信息
  */
-export function getStudentIdentityFromRequest(request: FastifyRequest): UserInfo {
+export function getStudentIdentityFromRequest(
+  request: FastifyRequest
+): UserInfo {
   const userInfo = getUserIdentityFromRequest(request);
-  
-  if (userInfo.type !== 'student') {
+
+  if (userInfo.userType !== 'student') {
     throw new Error('用户身份验证失败：需要学生权限');
   }
-  
+
   return userInfo;
 }
 
 /**
  * 从请求中获取教师身份信息
  */
-export function getTeacherIdentityFromRequest(request: FastifyRequest): UserInfo {
+export function getTeacherIdentityFromRequest(
+  request: FastifyRequest
+): UserInfo {
   const userInfo = getUserIdentityFromRequest(request);
-  
-  if (userInfo.type !== 'teacher') {
+
+  if (userInfo.userType !== 'teacher') {
     throw new Error('用户身份验证失败：需要教师权限');
   }
-  
+
   return userInfo;
 }
 
@@ -60,11 +64,11 @@ export function getUserIdentityWithTypeCheck(
   allowedTypes: Array<'student' | 'teacher'>
 ): UserInfo {
   const userInfo = getUserIdentityFromRequest(request);
-  
-  if (!allowedTypes.includes(userInfo.type)) {
+
+  if (!allowedTypes.includes(userInfo.userType)) {
     throw new Error(`用户身份验证失败：需要 ${allowedTypes.join(' 或 ')} 权限`);
   }
-  
+
   return userInfo;
 }
 
@@ -77,7 +81,7 @@ export function hasUserPermission(
 ): boolean {
   try {
     const userInfo = getUserIdentityFromRequest(request);
-    return userInfo.type === requiredType;
+    return userInfo.userType === requiredType;
   } catch (error) {
     return false;
   }

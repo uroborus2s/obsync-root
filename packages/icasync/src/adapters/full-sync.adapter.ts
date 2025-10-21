@@ -29,6 +29,46 @@ export interface FullSyncConfig {
 }
 
 /**
+ * 课表恢复配置
+ */
+export interface CourseRestoreConfig {
+  readonly xgh: string;
+  readonly userType: 'student' | 'teacher';
+  readonly xnxq?: string;
+  readonly dryRun?: boolean;
+}
+
+/**
+ * 课表恢复结果
+ */
+export interface CourseRestoreResult {
+  instanceId: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  userType: string;
+  xgh: string;
+  xnxq?: string;
+  startTime: Date;
+  endTime?: Date;
+  totalCourses?: number;
+  successCount?: number;
+  failureCount?: number;
+  executionTime?: number;
+  results?: Array<{
+    kkh: string;
+    calendarId?: string;
+    success: boolean;
+    error?: string;
+  }>;
+  executionSummary?: {
+    totalProcessed: number;
+    successfulRestores: number;
+    failedRestores: number;
+    executionTime: number;
+  };
+  errors?: string[];
+}
+
+/**
  * 全量同步适配器
  * 注册名称：fullSync
  * 基于 @stratix/tasks 预定义工作流的适配器实现
@@ -682,5 +722,173 @@ export default class FullSyncAdapter {
       this.logger.error(`[FullSyncAdapter] Startup recovery failed`, { error });
       // 不抛出异常，避免影响服务启动
     }
+  }
+
+  /**
+   * 启动课表恢复工作流
+   *
+   * @param config 课表恢复配置
+   * @param config.xgh 学号或工号
+   * @param config.userType 用户类型（student/teacher）
+   * @param config.xnxq 学年学期（可选）
+   * @param config.dryRun 是否为测试运行模式（可选，默认false）
+   * @returns 工作流实例ID和启动状态
+   */
+  async startCourseRestoreWorkflow(config: CourseRestoreConfig): Promise<{
+    success: boolean;
+    instanceId?: string;
+    status?: string;
+    error?: string;
+    details?: any;
+  }> {
+    try {
+      this.logger.info('开始启动课表恢复工作流', { config });
+
+      // 验证输入参数
+      const validationResult = this.validateCourseRestoreConfig(config);
+      if (!validationResult.valid) {
+        return {
+          success: false,
+          error: `参数验证失败: ${validationResult.errors?.join(', ')}`
+        };
+      }
+
+      // 验证学年学期格式（如果提供）
+      if (config.xnxq && !this.validateXnxq(config.xnxq)) {
+        return {
+          success: false,
+          error: '学年学期格式错误，应为：YYYY-YYYY-S（如：2024-2025-1）'
+        };
+      }
+
+      // 准备工作流选项
+      const workflowOptions: WorkflowOptions = {
+        workflowName: 'course-restore-workflow',
+        workflowVersion: '1.0.0',
+
+        // 业务键，用于防止重复执行
+        businessKey: `course-restore-${config.xgh}-${Date.now()}}`,
+
+        // 输入数据
+        inputData: {
+          userType: config.userType,
+          xgh: config.xgh,
+          xnxq: config.xnxq,
+          dryRun: config.dryRun || false
+        },
+
+        // 上下文数据
+        contextData: {
+          instanceType: 'course-restore',
+          createdBy: 'api-request',
+          userType: config.userType,
+          priority: 'normal'
+        }
+      };
+
+      this.logger.debug('准备启动课表恢复工作流', { workflowOptions });
+
+      // 启动工作流
+      const workflowResult = await this.workflowAdapter.startWorkflowByName(
+        'course-restore-workflow',
+        workflowOptions
+      );
+
+      if (!workflowResult.success) {
+        this.logger.error('启动课表恢复工作流失败', {
+          error: workflowResult.error,
+          errorDetails: workflowResult.errorDetails,
+          config
+        });
+
+        return {
+          success: false,
+          error: '启动课表恢复工作流失败',
+          details: {
+            originalError: workflowResult.error,
+            errorDetails: workflowResult.errorDetails
+          }
+        };
+      }
+
+      const workflowInstance = workflowResult.data;
+
+      if (workflowInstance) {
+        this.logger.info('课表恢复工作流启动成功', {
+          instanceId: workflowInstance.id,
+          workflowName: workflowInstance.name,
+          status: workflowInstance.status,
+          config
+        });
+
+        return {
+          success: true,
+          instanceId: workflowInstance.id.toString(),
+          status: workflowInstance.status,
+          details: {
+            workflowName: 'course-restore-workflow',
+            workflowVersion: '1.0.0',
+            inputData: workflowOptions.inputData,
+            startedAt: workflowInstance.startedAt
+          }
+        };
+      } else {
+        return {
+          success: false,
+          error: '工作流实例创建失败'
+        };
+      }
+    } catch (error) {
+      this.logger.error('启动课表恢复工作流异常', { error, config });
+
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+        details: { exception: true }
+      };
+    }
+  }
+
+  /**
+   * 验证课表恢复配置参数
+   */
+  private validateCourseRestoreConfig(config: CourseRestoreConfig): {
+    valid: boolean;
+    errors?: string[];
+  } {
+    const errors: string[] = [];
+
+    // 验证学号/工号
+    if (
+      !config.xgh ||
+      typeof config.xgh !== 'string' ||
+      config.xgh.trim().length === 0
+    ) {
+      errors.push('学号或工号不能为空');
+    } else if (config.xgh.length > 20) {
+      errors.push('学号或工号长度不能超过20个字符');
+    }
+
+    // 验证用户类型
+    if (!config.userType) {
+      errors.push('用户类型不能为空');
+    } else if (!['student', 'teacher'].includes(config.userType)) {
+      errors.push('用户类型必须是 student 或 teacher');
+    }
+
+    // 验证学年学期格式（如果提供）
+    if (config.xnxq && !this.validateXnxq(config.xnxq)) {
+      errors.push('学年学期格式错误，应为：YYYY-YYYY-S（如：2024-2025-1）');
+    }
+
+    // 验证dryRun参数
+    if (config.dryRun !== undefined && typeof config.dryRun !== 'boolean') {
+      errors.push('dryRun参数必须是布尔值');
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors: errors.length > 0 ? errors : undefined
+    };
   }
 }

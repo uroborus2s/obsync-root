@@ -1,111 +1,50 @@
 /**
- * @stratix/queue - 高可靠、基于Redis的消息队列系统
+ * @stratix/queue - BullMQ Queue Plugin for Stratix
+ *
+ * Provides a standardized interface for message queues using BullMQ.
+ * Follows the Stratix framework's Adapter layer specification.
  */
 
-// 核心类 - 具体导出避免循环依赖
-export {
-  Consumer,
-  DeadLetterQueueManager,
-  Producer,
-  Queue,
-  QueueManager
-} from './core/index.js';
+import type { FastifyInstance } from '@stratix/core';
+import { withRegisterAutoDI } from '@stratix/core';
+import { deepMerge } from '@stratix/utils/data';
+import type { QueuePluginOptions } from './types/index.js';
 
-// Redis连接管理
-export { RedisConnectionManager } from './redis/index.js';
+/**
+ * Stratix Queue Plugin
+ *
+ * @param fastify - Fastify instance
+ * @param options - Plugin options
+ */
+async function queue(
+  fastify: FastifyInstance,
+  options: QueuePluginOptions
+): Promise<void> {
+  fastify.log.info('🚀 @stratix/queue plugin initializing...');
 
-// 序列化
-export {
-  CachedSerializer,
-  CompressedSerializer,
-  createCachedSerializer,
-  createCompressedSerializer,
-  getSerializer,
-  SerializerAdapter,
-  SerializerFactory
-} from './serialization/index.js';
+  // The adapter is registered via withRegisterAutoDI
+}
 
-export type { ISerializer } from './serialization/index.js';
+export default withRegisterAutoDI<QueuePluginOptions>(queue, {
+  discovery: {
+    patterns: ['adapters/*.{ts,js}']
+  },
+  lifecycle: {
+    enabled: true,
+    errorHandling: 'throw',
+    debug: process.env.NODE_ENV === 'development'
+  },
+  debug: process.env.NODE_ENV === 'development',
+  parameterProcessor: <T>(options: T): T =>
+    deepMerge(
+      {
+        defaultQueueOptions: {},
+        defaultWorkerOptions: {}
+      },
+      options || {}
+    ) as T
+});
 
-// 重试机制
-export {
-  CircuitBreakerRetryPolicy,
-  CustomRetryPolicy,
-  DecoratedRetryPolicy,
-  ExponentialBackoffRetryPolicy,
-  FixedDelayRetryPolicy,
-  LinearBackoffRetryPolicy,
-  RetryExecutor,
-  RetryPolicyFactory
-} from './retry/index.js';
-
-// 监控
-export {
-  AlertManager,
-  ConsumerMetricsCollector,
-  HealthMonitor,
-  MetricsAggregator,
-  PerformanceMonitor,
-  ProducerMetricsCollector,
-  QueueMetricsCollector,
-  SystemMetricsCollector
-} from './monitoring/index.js';
-
-// 错误定义
-export {
-  createQueueError,
-  createRedisError,
-  handleError,
-  isRetryableError
-} from './errors/index.js';
-
-// 工具函数
-export {
-  createLogger,
-  debounce,
-  generateMessageId,
-  generateUUID,
-  retry,
-  sleep,
-  throttle
-} from './utils/index.js';
-
-// 插件
-export {
-  createQueuePlugin,
-  defaultPluginManager,
-  PluginManager
-} from './plugin.js';
-
-// 类型定义 - 只导出最常用的类型，避免循环依赖
-export type {
-  BatchMessageHandler,
-  ConsumeResult,
-  ConsumerMetrics,
-  ConsumerOptions,
-  HealthStatus,
-  IConsumer,
-  IProducer,
-  // 核心接口
-  IQueue,
-  IQueueManager,
-  // 消息类型
-  Message,
-  MessageHandler,
-  // 监控类型
-  Metrics,
-  ProducerConfig,
-  ProducerMetrics,
-  // 配置类型
-  QueueConfig,
-  QueueManagerConfig,
-  QueueStats,
-  SendOptions,
-  SendResult
-} from './types/index.js';
-
-// 重试类型单独导出
-export type { RetryPolicy, RetryPolicyConfig } from './retry/index.js';
-
-// 常量导出
-export { DEFAULT_CONFIG, PRIORITY } from './types/index.js';
+// Export types and interfaces
+export * from './adapters/queue.adapter.js';
+export * from './types/index.js';

@@ -398,7 +398,7 @@ export const createAfterFastifyCreated =
 
     await instance.register(circuitBreaker, {
       threshold: 5, // 失败阈值：5次失败后打开断路器
-      timeout: 3000, // 超时时间：3秒未响应视为失败
+      timeout: 15000, // 超时时间：3秒未响应视为失败
       resetTimeout: 10000, // 重置时间：10秒后从打开状态转为半开状态
       timeoutErrorMessage: '请求超时',
       circuitOpenErrorMessage: '服务暂时不可用，请稍后再试'
@@ -425,11 +425,14 @@ export const createAfterFastifyCreated =
             onError: (reply: any, error: any) => {
               // 防止重复响应：检查响应是否已发送
               if (reply.sent) {
-                instance.log.warn('Attempted to send response after already sent', {
-                  error: error.message,
-                  service: name,
-                  upstream: config.upstream
-                });
+                instance.log.warn(
+                  'Attempted to send response after already sent',
+                  {
+                    error: error.message,
+                    service: name,
+                    upstream: config.upstream
+                  }
+                );
                 return;
               }
 
@@ -449,11 +452,17 @@ export const createAfterFastifyCreated =
                   timestamp: new Date().toISOString()
                 });
               } catch (sendError) {
-                instance.log.error('Failed to send error response', {
-                  originalError: error.message,
-                  sendError: sendError instanceof Error ? sendError.message : sendError,
-                  service: name
-                });
+                instance.log.error(
+                  {
+                    originalError: error.message,
+                    sendError:
+                      sendError instanceof Error
+                        ? sendError.message
+                        : sendError,
+                    service: name
+                  },
+                  'Failed to send error response'
+                );
               }
             }
           },
@@ -461,28 +470,37 @@ export const createAfterFastifyCreated =
           beforeHandler: (request: any, reply: any, next: any) => {
             // 防止重复响应：检查响应是否已发送
             if (reply.sent) {
-              instance.log.warn('Request already handled, skipping beforeHandler', {
-                method: request.method,
-                url: request.url,
-                service: name
-              });
+              instance.log.warn(
+                {
+                  method: request.method,
+                  url: request.url,
+                  service: name
+                },
+                'Request already handled, skipping beforeHandler'
+              );
               return next();
             }
 
             try {
               // 添加请求追踪
-              request.log.info('Proxying request', {
-                method: request.method,
-                url: request.url,
-                service: name,
-                upstream: config.upstream
-              });
+              request.log.info(
+                {
+                  method: request.method,
+                  url: request.url,
+                  service: name,
+                  upstream: config.upstream
+                },
+                'Proxying request'
+              );
               next();
             } catch (error) {
-              instance.log.error('Error in beforeHandler', {
-                error: error instanceof Error ? error.message : error,
-                service: name
-              });
+              instance.log.error(
+                {
+                  error: error instanceof Error ? error.message : error,
+                  service: name
+                },
+                'Error in beforeHandler'
+              );
               next(error);
             }
           }

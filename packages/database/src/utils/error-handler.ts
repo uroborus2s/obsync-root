@@ -6,8 +6,12 @@ import {
   withTimeout,
   type RetryOptions
 } from '@stratix/utils/async';
-
-import type { Result } from './helpers.js';
+import {
+  isLeft,
+  eitherLeft as left,
+  eitherRight as right,
+  type Either
+} from '@stratix/utils/functional';
 
 /**
  * 数据库错误类型枚举
@@ -187,7 +191,7 @@ export class ConfigurationError implements DatabaseError {
 /**
  * 数据库操作结果类型
  */
-export type DatabaseResult<T> = Result<T, DatabaseError>;
+export type DatabaseResult<T> = Either<DatabaseError, T>;
 
 /**
  * 错误分类器 - 使用纯函数
@@ -280,18 +284,12 @@ export const DatabaseErrorHandler = {
   /**
    * 创建成功结果
    */
-  success: <T>(data: T): DatabaseResult<T> => ({
-    success: true,
-    data
-  }),
+  success: right,
 
   /**
    * 创建失败结果
    */
-  failure: <T>(error: DatabaseError): DatabaseResult<T> => ({
-    success: false,
-    error
-  }),
+  failure: left,
 
   /**
    * 执行操作并处理错误
@@ -302,10 +300,10 @@ export const DatabaseErrorHandler = {
   ): Promise<DatabaseResult<T>> => {
     try {
       const data = await operation();
-      return DatabaseErrorHandler.success(data);
+      return right(data);
     } catch (error) {
       const classifiedError = ErrorClassifier.classify(error);
-      return DatabaseErrorHandler.failure(classifiedError);
+      return left(classifiedError);
     }
   },
 
@@ -320,29 +318,26 @@ export const DatabaseErrorHandler = {
     const retryableOperation = async (): Promise<T> => {
       const result = await DatabaseErrorHandler.execute(operation, context);
 
-      if (result.success) {
-        return result.data;
+      if (isLeft(result)) {
+        // 如果不可重试，直接抛出
+        if (!ErrorClassifier.isRetryable(result.left)) {
+          throw result.left;
+        }
+        throw result.left;
       }
-
-      // 如果不可重试，直接抛出
-      if (!ErrorClassifier.isRetryable(result.error)) {
-        throw result.error;
-      }
-
-      throw result.error;
+      return result.right;
     };
 
     try {
       const result = await withRetry(retryableOperation, options);
-      if (result._tag === 'Right') {
-        return DatabaseErrorHandler.success(result.right);
-      } else {
+      if (isLeft(result)) {
         const classifiedError = ErrorClassifier.classify(result.left);
-        return DatabaseErrorHandler.failure(classifiedError);
+        return left(classifiedError);
       }
+      return right(result.right);
     } catch (error) {
       const classifiedError = ErrorClassifier.classify(error);
-      return DatabaseErrorHandler.failure(classifiedError);
+      return left(classifiedError);
     }
   },
 
@@ -360,10 +355,10 @@ export const DatabaseErrorHandler = {
         timeoutMs,
         `Operation timeout: ${context}`
       );
-      return DatabaseErrorHandler.success(data);
+      return right(data);
     } catch (error) {
       const classifiedError = ErrorClassifier.classify(error);
-      return DatabaseErrorHandler.failure(classifiedError);
+      return left(classifiedError);
     }
   }
 };
@@ -402,16 +397,14 @@ export const RecoverableErrorHandler = {
   ): Promise<DatabaseResult<T>> => {
     const result = await DatabaseErrorHandler.execute(operation, context);
 
-    if (result.success) {
-      return result;
-    }
-
-    // 尝试恢复
-    if (recoveryStrategy.canRecover(result.error)) {
-      return await DatabaseErrorHandler.execute(
-        () => recoveryStrategy.recover(result.error),
-        `recovery:${context || 'unknown'}`
-      );
+    if (isLeft(result)) {
+      // 尝试恢复
+      if (recoveryStrategy.canRecover(result.left)) {
+        return await DatabaseErrorHandler.execute(
+          () => recoveryStrategy.recover(result.left),
+          `recovery:${context || 'unknown'}`
+        );
+      }
     }
 
     return result;

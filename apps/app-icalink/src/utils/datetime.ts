@@ -41,12 +41,33 @@ export function formatDate(
 }
 
 /**
- * 格式化日期时间为字符串
+ * 格式化日期时间为字符串（UTC时间）
  * @param date 日期对象
- * @returns ISO格式的日期时间字符串
+ * @returns ISO格式的日期时间字符串（UTC）
  */
 export function formatDateTime(date: Date): string {
   return date.toISOString();
+}
+
+/**
+ * 格式化日期时间为带时区的 ISO 字符串
+ * @param date 日期对象
+ * @param timezone 时区偏移（默认 +08:00 中国时区）
+ * @returns 带时区的 ISO 格式字符串，如：2025-10-25T09:50:00.000+08:00
+ */
+export function formatDateTimeWithTimezone(
+  date: Date,
+  timezone: string = '+08:00'
+): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  const milliseconds = String(date.getMilliseconds()).padStart(3, '0');
+
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}${timezone}`;
 }
 
 /**

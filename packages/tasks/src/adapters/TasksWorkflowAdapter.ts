@@ -15,7 +15,8 @@ import type {
   ITasksWorkflowAdapter,
   IWorkflowDefinitionService,
   IWorkflowExecutionService,
-  IWorkflowInstanceService
+  IWorkflowInstanceService,
+  INodeInstanceRepository
 } from '../interfaces/index.js';
 import type {
   PaginationOptions,
@@ -26,6 +27,7 @@ import type {
 } from '../types/business.js';
 import type { WorkflowDefinitionTable } from '../types/database.js';
 import type { ScheduleConfig } from '../types/schedule.types.js';
+import type { NodeInstance } from '../types/unified-node.js';
 
 /**
  * Tasks工作流适配器实现

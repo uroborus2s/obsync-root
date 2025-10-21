@@ -11,6 +11,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Users,
   XCircle,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -36,6 +37,7 @@ import { Main } from '@/components/layout/main'
 import { Search as SearchComponent } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { UserNav } from '@/components/user-nav'
+import { WorkflowGroupsView } from '../components/workflow-groups-view'
 import { WorkflowInstancesTable } from '../components/workflow-instances-table'
 
 export default function WorkflowInstancesPage() {
@@ -43,16 +45,45 @@ export default function WorkflowInstancesPage() {
   const [statusFilter, setStatusFilter] = useState<WorkflowStatus | ''>('')
   const [definitionFilter, setDefinitionFilter] = useState<string>('')
   const [page, setPage] = useState(1)
+  const [viewMode, setViewMode] = useState<'grouped' | 'list'>('grouped')
+  const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set())
   const pageSize = 20
 
-  // 获取工作流实例列表（用于统计信息）
+  // 获取流程分组列表
   const {
-    data,
-    isLoading: statsLoading,
-    error: statsError,
+    data: groupsData,
+    isLoading: groupsLoading,
+    error: groupsError,
   } = useQuery({
     queryKey: [
-      'workflow-instances',
+      'workflow-groups',
+      searchTerm,
+      statusFilter,
+      definitionFilter,
+      page,
+    ],
+    queryFn: () =>
+      workflowApi.getWorkflowGroups({
+        page,
+        pageSize,
+        search: searchTerm || undefined,
+        status: statusFilter || undefined,
+        workflowDefinitionName: definitionFilter || undefined,
+      }),
+    refetchInterval: 10000, // 每10秒刷新
+    retry: 3,
+    retryDelay: 1000,
+    enabled: viewMode === 'grouped',
+  })
+
+  // 获取传统实例列表（当选择列表模式时）
+  const {
+    data: instancesData,
+    isLoading: instancesLoading,
+    error: instancesError,
+  } = useQuery({
+    queryKey: [
+      'workflow-instances-list',
       searchTerm,
       statusFilter,
       definitionFilter,
@@ -65,10 +96,12 @@ export default function WorkflowInstancesPage() {
         search: searchTerm || undefined,
         status: statusFilter || undefined,
         workflowDefinitionName: definitionFilter || undefined,
+        rootInstancesOnly: false,
       }),
     refetchInterval: 10000, // 每10秒刷新
     retry: 3,
     retryDelay: 1000,
+    enabled: viewMode === 'list',
   })
 
   // 获取工作流定义列表（用于过滤器）
@@ -96,6 +129,24 @@ export default function WorkflowInstancesPage() {
     setPage(1)
   }
 
+  // 处理视图模式切换
+  const handleViewModeChange = (mode: 'grouped' | 'list') => {
+    setViewMode(mode)
+    setPage(1)
+    setExpandedGroups(new Set()) // 重置展开状态
+  }
+
+  // 处理分组展开/收起
+  const handleGroupToggle = (workflowDefinitionId: number) => {
+    const newExpandedGroups = new Set(expandedGroups)
+    if (newExpandedGroups.has(workflowDefinitionId)) {
+      newExpandedGroups.delete(workflowDefinitionId)
+    } else {
+      newExpandedGroups.add(workflowDefinitionId)
+    }
+    setExpandedGroups(newExpandedGroups)
+  }
+
   // 处理创建新实例
   const handleCreateInstance = () => {
     toast.info('创建工作流实例功能开发中...')
@@ -103,9 +154,9 @@ export default function WorkflowInstancesPage() {
   }
 
   // 查看工作流实例
-  const handleViewInstance = (instance: WorkflowInstance) => {
-    // 跳转到实例详情页面，使用正确的base路径
-    window.location.href = `/web/workflows/instances/${instance.id}`
+  const handleViewInstance = (instanceId: number) => {
+    // 跳转到实例详情页面，使用正确的路径
+    window.location.href = `/web/workflows/instances/${instanceId}`
   }
 
   // 查看执行历史
@@ -114,21 +165,60 @@ export default function WorkflowInstancesPage() {
     // TODO: 实现查看历史功能
   }
 
-  const instances = data?.items || []
-  const total = data?.total || 0
-  const totalPages = data?.totalPages || 0
+  // 根据视图模式获取当前数据
+  const currentData = viewMode === 'grouped' ? groupsData : instancesData
+  const total = currentData?.total || 0
+  const totalPages = currentData?.totalPages || 0
   const definitions = definitionsData?.items || []
 
-  // 统计不同状态的实例数量
-  const runningCount = instances.filter((i) => i.status === 'running').length
-  const completedCount = instances.filter(
-    (i) => i.status === 'completed'
-  ).length
-  const failedCount = instances.filter((i) => i.status === 'failed').length
-  const pendingCount = instances.filter((i) => i.status === 'pending').length
+  // 根据视图模式计算统计数据
+  let runningCount = 0
+  let completedCount = 0
+  let failedCount = 0
+  let pendingCount = 0
+
+  if (viewMode === 'grouped' && groupsData?.groups) {
+    // 分组模式：汇总所有分组的统计数据
+    runningCount = groupsData.groups.reduce(
+      (sum, group) => sum + group.runningInstanceCount,
+      0
+    )
+    completedCount = groupsData.groups.reduce(
+      (sum, group) => sum + group.completedInstanceCount,
+      0
+    )
+    failedCount = groupsData.groups.reduce(
+      (sum, group) => sum + group.failedInstanceCount,
+      0
+    )
+    // 计算等待中的数量（总数减去其他状态）
+    const totalInstances = groupsData.groups.reduce(
+      (sum, group) => sum + group.rootInstanceCount,
+      0
+    )
+    pendingCount = totalInstances - runningCount - completedCount - failedCount
+  } else if (viewMode === 'list' && instancesData?.items) {
+    // 列表模式：统计当前页面的实例状态
+    runningCount = instancesData.items.filter(
+      (item) => item.status === 'running'
+    ).length
+    completedCount = instancesData.items.filter(
+      (item) => item.status === 'completed'
+    ).length
+    failedCount = instancesData.items.filter(
+      (item) => item.status === 'failed'
+    ).length
+    pendingCount = instancesData.items.filter(
+      (item) => item.status === 'pending'
+    ).length
+  }
 
   // 错误处理
-  if (statsError) {
+  const currentError = viewMode === 'grouped' ? groupsError : instancesError
+  const currentLoading =
+    viewMode === 'grouped' ? groupsLoading : instancesLoading
+
+  if (currentError) {
     return (
       <>
         <Header className='border-b'>
@@ -283,7 +373,7 @@ export default function WorkflowInstancesPage() {
               </CardHeader>
               <CardContent>
                 <div className='text-2xl font-bold text-blue-600'>
-                  {statsLoading ? (
+                  {currentLoading ? (
                     <div className='flex items-center gap-2'>
                       <RefreshCw className='h-4 w-4 animate-spin' />
                       <span>--</span>
@@ -336,19 +426,54 @@ export default function WorkflowInstancesPage() {
           {/* 工作流实例列表 */}
           <Card>
             <CardHeader>
-              <CardTitle>工作流实例列表</CardTitle>
-              <CardDescription>查看和管理所有工作流实例</CardDescription>
+              <div className='flex items-center justify-between'>
+                <div>
+                  <CardTitle>工作流实例</CardTitle>
+                  <CardDescription>查看和管理所有工作流实例</CardDescription>
+                </div>
+                <div className='flex items-center gap-2'>
+                  <Button
+                    variant={viewMode === 'grouped' ? 'default' : 'outline'}
+                    size='sm'
+                    onClick={() => handleViewModeChange('grouped')}
+                  >
+                    <Users className='mr-2 h-4 w-4' />
+                    分组视图
+                  </Button>
+                  <Button
+                    variant={viewMode === 'list' ? 'default' : 'outline'}
+                    size='sm'
+                    onClick={() => handleViewModeChange('list')}
+                  >
+                    <Activity className='mr-2 h-4 w-4' />
+                    列表视图
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
-              <WorkflowInstancesTable
-                onViewInstance={handleViewInstance}
-                onViewHistory={handleViewHistory}
-                searchTerm={searchTerm}
-                statusFilter={statusFilter}
-                definitionFilter={definitionFilter}
-                page={page}
-                pageSize={pageSize}
-              />
+              {viewMode === 'grouped' ? (
+                <WorkflowGroupsView
+                  data={groupsData}
+                  isLoading={groupsLoading}
+                  error={groupsError}
+                  expandedGroups={expandedGroups}
+                  onGroupToggle={handleGroupToggle}
+                  onViewInstance={handleViewInstance}
+                />
+              ) : (
+                <WorkflowInstancesTable
+                  onViewInstance={(instance: WorkflowInstance) =>
+                    handleViewInstance(instance.id)
+                  }
+                  onViewHistory={handleViewHistory}
+                  searchTerm={searchTerm}
+                  statusFilter={statusFilter}
+                  definitionFilter={definitionFilter}
+                  page={page}
+                  pageSize={pageSize}
+                />
+              )}
 
               {/* 分页控件 */}
               {totalPages > 1 && (

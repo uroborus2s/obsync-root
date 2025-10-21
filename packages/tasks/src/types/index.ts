@@ -28,6 +28,7 @@ export type {
 export type {
   NodeInstance,
   NodeInstanceStatus,
+  NodeInstanceWithChildren,
   NodeType,
   WorkflowNodeInstancesTable as UnifiedWorkflowNodeInstancesTable
 } from './unified-node.js';

@@ -1,0 +1,62 @@
+{
+  "name": "@stratix/ossp",
+  "version": "0.0.1-beta.1",
+  "description": "Stratix OSS Plugin with MinIO support, multi-provider architecture and complete object storage operations",
+  "main": "dist/index.js",
+  "types": "dist/types/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "clean": "rimraf dist",
+    "build": "rimraf dist && tsc",
+    "build:watch": "tsc --watch",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest --coverage",
+    "test:integration": "vitest run tests/integration.test.ts",
+    "test:unit": "vitest run tests/*.test.ts --exclude tests/integration.test.ts",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix"
+  },
+  "keywords": [
+    "stratix",
+    "oss",
+    "object-storage",
+    "minio",
+    "s3",
+    "adapter",
+    "dependency-injection",
+    "file-upload",
+    "bucket-management",
+    "presigned-url",
+    "typescript",
+    "plugin"
+  ],
+  "author": "Stratix Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stratix/stratix-ossp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/stratix/stratix-ossp/issues"
+  },
+  "homepage": "https://github.com/stratix/stratix-ossp#readme",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "@stratix/utils": "workspace:*",
+    "minio": "^8.0.1"
+  },
+  "peerDependencies": {
+    "@stratix/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/minio": "^7.1.1"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

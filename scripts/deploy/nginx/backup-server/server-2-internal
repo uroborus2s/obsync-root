@@ -15,8 +15,8 @@ upstream api_gateway_local {
 }
 
 # 限流配置 (相对宽松，主要处理内网流量)
-limit_req_zone $binary_remote_addr zone=internal_api_limit:10m rate=20r/s;
-limit_req_zone $binary_remote_addr zone=internal_static_limit:10m rate=50r/s;
+limit_req_zone $binary_remote_addr zone=internal_api_limit:10m rate=200r/s;
+limit_req_zone $binary_remote_addr zone=internal_static_limit:10m rate=500r/s;
 
 # 连接限制
 limit_conn_zone $binary_remote_addr zone=internal_conn_limit:10m;

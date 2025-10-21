@@ -1,24 +1,14 @@
 // @stratix/database 仓储类型定义
 // 定义仓储模式相关的接口和类型
 
-import type { 
-  Kysely, 
-  Transaction, 
-  Selectable, 
-  Insertable, 
-  Updateable,
-  DeleteResult,
-  InsertResult,
-  UpdateResult
-} from 'kysely';
-import type { 
-  WhereExpression, 
-  QueryOptions, 
-  PaginationOptions, 
-  PaginatedResult, 
+import type { Insertable, Kysely, Selectable, Updateable } from 'kysely';
+import type {
+  BatchOperationResult,
+  PaginatedResult,
+  PaginationOptions,
+  QueryOptions,
   TransactionOptions,
-  OperationResult,
-  BatchOperationResult
+  WhereExpression
 } from './common.js';
 
 /**
@@ -33,83 +23,86 @@ export interface IBaseRepository<
   UpdateT = Updateable<DB[TB]>
 > {
   // ========== 基础查询方法 ==========
-  
+
   /**
    * 根据 ID 查找单条记录
    */
   findById(id: string | number): Promise<T | null>;
-  
+
   /**
    * 根据条件查找单条记录
    */
   findOne(criteria: WhereExpression<DB, TB>): Promise<T | null>;
-  
+
   /**
    * 根据条件查找多条记录
    */
-  findMany(criteria?: WhereExpression<DB, TB>, options?: QueryOptions): Promise<T[]>;
-  
+  findMany(
+    criteria?: WhereExpression<DB, TB>,
+    options?: QueryOptions
+  ): Promise<T[]>;
+
   /**
    * 查找所有记录
    */
   findAll(options?: QueryOptions): Promise<T[]>;
 
   // ========== 基础操作方法 ==========
-  
+
   /**
    * 创建单条记录
    */
   create(data: CreateT): Promise<T>;
-  
+
   /**
    * 批量创建记录
    */
   createMany(data: CreateT[]): Promise<T[]>;
-  
+
   /**
    * 更新记录
    */
   update(id: string | number, data: UpdateT): Promise<T>;
-  
+
   /**
    * 批量更新记录
    */
   updateMany(criteria: WhereExpression<DB, TB>, data: UpdateT): Promise<number>;
-  
+
   /**
    * 删除记录
    */
   delete(id: string | number): Promise<boolean>;
-  
+
   /**
    * 批量删除记录
    */
   deleteMany(criteria: WhereExpression<DB, TB>): Promise<number>;
 
   // ========== 聚合查询方法 ==========
-  
+
   /**
    * 统计记录数量
    */
   count(criteria?: WhereExpression<DB, TB>): Promise<number>;
-  
+
   /**
    * 检查记录是否存在
    */
   exists(criteria: WhereExpression<DB, TB>): Promise<boolean>;
 
   // ========== 分页查询方法 ==========
-  
+
   /**
    * 分页查询记录
    */
   paginate(
-    criteria?: WhereExpression<DB, TB>, 
+    criteria?: WhereExpression<DB, TB>,
     pagination?: PaginationOptions
   ): Promise<PaginatedResult<T>>;
 
   // ========== 事务支持方法 ==========
-  
+
   /**
    * 在事务中执行操作
    */
@@ -119,17 +112,17 @@ export interface IBaseRepository<
   ): Promise<R>;
 
   // ========== 连接管理方法 ==========
-  
+
   /**
    * 获取数据库连接
    */
   getConnection(name?: string): Kysely<DB>;
-  
+
   /**
    * 获取只读连接
    */
   getReadConnection(): Kysely<DB>;
-  
+
   /**
    * 获取写连接
    */
@@ -147,41 +140,42 @@ export interface IExtendedRepository<
   CreateT = Insertable<DB[TB]>,
   UpdateT = Updateable<DB[TB]>
 > extends IBaseRepository<DB, TB, T, CreateT, UpdateT> {
-  
   // ========== 批量操作方法 ==========
-  
+
   /**
    * 批量插入或更新（Upsert）
    */
   upsert(data: CreateT, conflictColumns: (keyof CreateT)[]): Promise<T>;
-  
+
   /**
    * 批量 Upsert 操作
    */
   upsertMany(data: CreateT[], conflictColumns: (keyof CreateT)[]): Promise<T[]>;
-  
+
   /**
    * 批量操作（支持混合操作）
    */
-  batchOperation(operations: Array<{
-    type: 'create' | 'update' | 'delete';
-    data?: CreateT | UpdateT;
-    id?: string | number;
-    criteria?: WhereExpression<DB, TB>;
-  }>): Promise<BatchOperationResult<T>>;
+  batchOperation(
+    operations: Array<{
+      type: 'create' | 'update' | 'delete';
+      data?: CreateT | UpdateT;
+      id?: string | number;
+      criteria?: WhereExpression<DB, TB>;
+    }>
+  ): Promise<BatchOperationResult<T>>;
 
   // ========== 高级查询方法 ==========
-  
+
   /**
    * 原始 SQL 查询
    */
   rawQuery<R = any>(sql: string, params?: any[]): Promise<R[]>;
-  
+
   /**
    * 获取查询构建器
    */
   getQueryBuilder(): Kysely<DB>;
-  
+
   /**
    * 流式查询（大数据量处理）
    */
@@ -191,7 +185,7 @@ export interface IExtendedRepository<
   ): AsyncIterable<T>;
 
   // ========== 缓存支持方法 ==========
-  
+
   /**
    * 带缓存的查询
    */
@@ -200,29 +194,29 @@ export interface IExtendedRepository<
     finder: () => Promise<T | null>,
     ttl?: number
   ): Promise<T | null>;
-  
+
   /**
    * 清除缓存
    */
   clearCache(pattern?: string): Promise<void>;
 
   // ========== 软删除支持 ==========
-  
+
   /**
    * 软删除记录
    */
   softDelete(id: string | number): Promise<boolean>;
-  
+
   /**
    * 恢复软删除的记录
    */
   restore(id: string | number): Promise<boolean>;
-  
+
   /**
    * 查找包括软删除的记录
    */
   findWithDeleted(criteria?: WhereExpression<DB, TB>): Promise<T[]>;
-  
+
   /**
    * 只查找软删除的记录
    */
@@ -240,7 +234,7 @@ export interface IRepositoryFactory {
     tableName: TB,
     connectionName?: string
   ): IBaseRepository<DB, TB, T>;
-  
+
   /**
    * 获取已存在的仓储实例
    */
@@ -248,12 +242,12 @@ export interface IRepositoryFactory {
     tableName: TB,
     connectionName?: string
   ): IBaseRepository<DB, TB, T> | null;
-  
+
   /**
    * 销毁仓储实例
    */
   destroy(tableName: string, connectionName?: string): void;
-  
+
   /**
    * 清理所有仓储实例
    */
@@ -268,31 +262,31 @@ export interface IQueryBuilder<DB, TB extends keyof DB> {
    * 构建 WHERE 条件
    */
   buildWhereClause(
-    qb: any, 
-    field: keyof DB[TB], 
-    operator: string, 
+    qb: any,
+    field: keyof DB[TB],
+    operator: string,
     value: any
   ): any;
-  
+
   /**
    * 构建分页查询
    */
   buildPaginationQuery(qb: any, page: number, pageSize: number): any;
-  
+
   /**
    * 构建排序查询
    */
   buildOrderByQuery(
-    qb: any, 
-    field: keyof DB[TB], 
+    qb: any,
+    field: keyof DB[TB],
     direction?: 'asc' | 'desc'
   ): any;
-  
+
   /**
    * 构建多条件查询
    */
   buildMultipleConditions(
-    qb: any, 
+    qb: any,
     conditions: Array<{
       field: keyof DB[TB];
       operator: string;
@@ -360,7 +354,19 @@ export interface RepositoryOptions {
  */
 export type QueryCondition<T> = {
   field: keyof T;
-  operator: '=' | '!=' | '>' | '>=' | '<' | '<=' | 'like' | 'ilike' | 'in' | 'not in' | 'is null' | 'is not null';
+  operator:
+    | '='
+    | '!='
+    | '>'
+    | '>='
+    | '<'
+    | '<='
+    | 'like'
+    | 'ilike'
+    | 'in'
+    | 'not in'
+    | 'is null'
+    | 'is not null';
   value?: any;
 };
 
@@ -381,7 +387,7 @@ export type QueryFilter<T> = {
 /**
  * 仓储事件类型
  */
-export type RepositoryEvent = 
+export type RepositoryEvent =
   | 'beforeCreate'
   | 'afterCreate'
   | 'beforeUpdate'
@@ -406,13 +412,16 @@ export interface IRepositoryHooks<T = any> {
   /**
    * 注册事件监听器
    */
-  on(event: RepositoryEvent, handler: (data: T, context?: any) => Promise<void> | void): void;
-  
+  on(
+    event: RepositoryEvent,
+    handler: (data: T, context?: any) => Promise<void> | void
+  ): void;
+
   /**
    * 移除事件监听器
    */
   off(event: RepositoryEvent, handler?: Function): void;
-  
+
   /**
    * 触发事件
    */

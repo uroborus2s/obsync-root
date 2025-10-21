@@ -2,11 +2,10 @@ import compress from '@fastify/compress';
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
-import rateLimit from '@fastify/rate-limit';
 import underPressure from '@fastify/under-pressure';
 import type { StratixConfig } from '@stratix/core';
 import database from '@stratix/database';
-import { Redis } from 'ioredis';
+import redisPlugin from '@stratix/redis';
 import {
   authPreHandler,
   createAfterFastifyCreated,
@@ -22,7 +21,7 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
   const databaseConfig = sensitiveConfig.databases || {};
   const webConfig = sensitiveConfig.web || {};
   const redisConfig = sensitiveConfig.redis || {};
-  const rateLimitConfig = sensitiveConfig.rateLimit || {};
+  // const rateLimitConfig = sensitiveConfig.rateLimit || {};
   const jwtConfig = sensitiveConfig.jwt || {};
   const wpsConfig = sensitiveConfig.wps || {};
   const proxyServicesConfig = sensitiveConfig.proxyServices || [];
@@ -40,14 +39,6 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
       }
     })
   );
-
-  const redisClient = redisConfig.host
-    ? new Redis({
-        host: redisConfig.host,
-        port: redisConfig.port || 6379,
-        ...(redisConfig.password ? { password: redisConfig.password } : {})
-      })
-    : undefined;
 
   return {
     server: {
@@ -82,10 +73,7 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
       }
     },
     hooks: {
-      afterFastifyCreated: createAfterFastifyCreated(services),
-      beforeClose: async (fastify: any) => {
-        redisClient?.disconnect();
-      }
+      afterFastifyCreated: createAfterFastifyCreated(services)
     },
     plugins: [
       {
@@ -105,7 +93,16 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
                 databaseConfig.default?.username ||
                 'root',
               password: databaseConfig.default?.password || ''
-            },
+            }
+          }
+        }
+      },
+      {
+        name: '@stratix/redis',
+        plugin: redisPlugin,
+        options: {
+          single: {
+            ...redisConfig
           }
         }
       },
@@ -125,7 +122,6 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
           ]
         }
       },
-
       // 安全头
       {
         name: 'helmet',
@@ -140,7 +136,6 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
           }
         }
       },
-
       // Cookie 支持
       {
         name: 'cookie',
@@ -165,29 +160,6 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
         }
       },
 
-      // 限流
-      {
-        name: 'rate-limit',
-        plugin: rateLimit,
-        options: {
-          global: true,
-          max: rateLimitConfig.globalMax || 10000,
-          timeWindow: rateLimitConfig.globalWindow || '1 minute',
-          allowList: ['127.0.0.1', '::1'],
-          redis: redisClient,
-          nameSpace: 'stratix-gateway-rate-limit',
-          continueExceeding: true,
-          skipSuccessfulRequests: false,
-          skipFailedRequests: false,
-          ban: 10,
-          onBanReach: (_req: any, key: string) => {
-            console.warn(`Rate limit ban reached for key: ${key}`);
-          },
-          keyGenerator: (req: any) => {
-            return req.ip || 'anonymous';
-          }
-        }
-      },
       // 🔧 优化系统压力监控配置（暂时禁用自定义健康检查）
       {
         name: 'under-pressure',

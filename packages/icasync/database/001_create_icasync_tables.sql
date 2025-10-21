@@ -118,6 +118,7 @@ CREATE TABLE `icasync_attendance_courses` (
   KEY `idx_week_day` (`week_day`),
   KEY `idx_teacher_codes` (`teacher_codes`(255)),
   KEY `idx_deleted_at` (`deleted_at`),
+  KEY `idx_external_deleted` (`external_id`, `deleted_at`),
   KEY `idx_semester_deleted` (`semester`, `deleted_at`),
   KEY `idx_course_semester_deleted` (`course_code`, `semester`, `deleted_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci

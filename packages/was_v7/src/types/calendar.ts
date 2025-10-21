@@ -319,6 +319,8 @@ export interface GetScheduleListParams {
   single_events?: boolean;
   /** 排序方式：startTime | updated */
   order_by?: 'startTime' | 'updated';
+  /** ID类型：internal | external */
+  id_type?: 'internal' | 'external';
 }
 
 /**
@@ -343,6 +345,8 @@ export interface BatchCreateAttendeesParams {
   event_id: string;
   /** 参与者列表 */
   attendees: Omit<ScheduleAttendee, 'user_id'>[];
+  /** ID类型：internal | external */
+  id_type?: 'internal' | 'external';
 }
 
 /**
@@ -635,6 +639,14 @@ export interface GetAttendeesResponse {
   next_page_token?: string;
   /** 总数 */
   total_count?: number;
+}
+
+/**
+ * 批量添加日程参与者响应
+ */
+export interface BatchCreateAttendeesResponse {
+  /** 添加的参与者列表 */
+  items: ScheduleAttendee[];
 }
 
 /**

@@ -1,6 +1,8 @@
 import { ReactNode } from 'react'
 import { Link, useLocation } from '@tanstack/react-router'
 import { ChevronRight } from 'lucide-react'
+import { filterMenuItems } from '@/utils/menu-permission'
+import { useUser } from '@/hooks/use-user'
 import {
   Collapsible,
   CollapsibleContent,
@@ -30,12 +32,22 @@ import { NavCollapsible, NavItem, NavLink, type NavGroup } from './types'
 
 export function NavGroup({ title, items }: NavGroup) {
   const { state } = useSidebar()
+  const { user } = useUser()
   const href = useLocation({ select: (location) => location.href })
+
+  // 根据用户权限过滤菜单项
+  const filteredItems = filterMenuItems(items, user)
+
+  // 如果过滤后没有菜单项，不渲染整个组
+  if (filteredItems.length === 0) {
+    return null
+  }
+
   return (
     <SidebarGroup>
       <SidebarGroupLabel>{title}</SidebarGroupLabel>
       <SidebarMenu>
-        {items.map((item) => {
+        {filteredItems.map((item) => {
           const key = `${item.title}-${item.url}`
 
           if (!item.items)

@@ -13,6 +13,8 @@ import type {
   WorkflowDefinition,
   WorkflowDefinitionQueryParams,
   WorkflowExecutionLog,
+  WorkflowGroupQueryParams,
+  WorkflowGroupResponse,
   WorkflowInstance,
   WorkflowInstanceQueryParams,
   WorkflowStats,
@@ -97,24 +99,6 @@ export class WorkflowApiService {
    * 获取工作流定义详情（通过ID）
    */
   async getWorkflowDefinitionById(id: number): Promise<WorkflowDefinition> {
-    // 如果是特定的ID，尝试从外部API获取
-    if (id === 1) {
-      try {
-        const externalResponse = await fetch(
-          'https://kwps.jlufe.edu.cn/api/workflows/definitions/1'
-        )
-        if (externalResponse.ok) {
-          const externalData = await externalResponse.json()
-          return externalData
-        }
-      } catch (error) {
-        console.warn(
-          'Failed to fetch from external API, falling back to local API:',
-          error
-        )
-      }
-    }
-
     const response = await apiClient.get<ApiResponse<WorkflowDefinition>>(
       `${this.baseUrl}/definitions/${id}`
     )
@@ -212,6 +196,9 @@ export class WorkflowApiService {
       )
     if (params?.sortBy) queryParams.append('sortBy', params.sortBy)
     if (params?.sortOrder) queryParams.append('sortOrder', params.sortOrder)
+    if (params?.groupByWorkflow) queryParams.append('groupByWorkflow', 'true')
+    if (params?.rootInstancesOnly)
+      queryParams.append('rootInstancesOnly', 'true')
 
     const url = `${this.baseUrl}/instances${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
     const response =
@@ -222,6 +209,53 @@ export class WorkflowApiService {
     }
 
     return response.data!
+  }
+
+  /**
+   * 获取流程分组列表
+   */
+  async getWorkflowGroups(
+    params?: WorkflowGroupQueryParams
+  ): Promise<WorkflowGroupResponse> {
+    const queryParams = new URLSearchParams()
+
+    if (params?.page) queryParams.append('page', params.page.toString())
+    if (params?.pageSize)
+      queryParams.append('pageSize', params.pageSize.toString())
+    if (params?.status) queryParams.append('status', params.status)
+    if (params?.search) queryParams.append('search', params.search)
+    if (params?.workflowDefinitionName) {
+      queryParams.append(
+        'workflowDefinitionName',
+        params.workflowDefinitionName
+      )
+    }
+    if (params?.sortBy) queryParams.append('sortBy', params.sortBy)
+    if (params?.sortOrder) queryParams.append('sortOrder', params.sortOrder)
+
+    const url = `${this.baseUrl}/instances/groups${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+    const response =
+      await apiClient.get<ApiResponse<WorkflowGroupResponse>>(url)
+
+    if (!response.success) {
+      throw new Error(response.error || '获取流程分组列表失败')
+    }
+
+    return response.data!
+  }
+
+  /**
+   * 获取指定流程分组的根实例列表
+   */
+  async getWorkflowGroupInstances(
+    workflowDefinitionId: number,
+    params?: Omit<WorkflowInstanceQueryParams, 'workflowDefinitionId'>
+  ): Promise<PaginatedResponse<WorkflowInstance>> {
+    return this.getWorkflowInstances({
+      ...params,
+      workflowDefinitionId,
+      rootInstancesOnly: true,
+    })
   }
 
   /**
@@ -564,6 +598,28 @@ export class WorkflowApiService {
 
     if (!response.success) {
       throw new Error(response.error || '获取执行状态失败')
+    }
+
+    return response.data || []
+  }
+
+  /**
+   * 获取工作流实例的节点实例（包含子节点层次结构）
+   * 用于流程图展示，如果节点有子节点（如循环节点的子任务），
+   * 会在节点的children字段中包含完整的子节点信息
+   *
+   * @param instanceId 工作流实例ID
+   * @param nodeId 可选，指定节点ID。如果提供，则只返回该节点及其子节点；如果不提供，返回所有顶级节点
+   */
+  async getNodeInstances(instanceId: number, nodeId?: string): Promise<any[]> {
+    const url = nodeId
+      ? `${this.baseUrl}/instances/${instanceId}/nodes?nodeId=${encodeURIComponent(nodeId)}`
+      : `${this.baseUrl}/instances/${instanceId}/nodes`
+
+    const response = await apiClient.get<ApiResponse<any[]>>(url)
+
+    if (!response.success) {
+      throw new Error(response.error || '获取节点实例失败')
     }
 
     return response.data || []

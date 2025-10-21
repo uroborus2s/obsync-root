@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { IconChartBar } from '@tabler/icons-react'
 import { Activity, AlertTriangle, Target } from 'lucide-react'
+import { createTeacherRouteCheck } from '@/utils/route-permission'
 import { Badge } from '@/components/ui/badge'
 import {
   Card,
@@ -19,6 +20,7 @@ import {
 } from '@/components/ui/select'
 
 export const Route = createFileRoute('/_authenticated/analytics')({
+  beforeLoad: createTeacherRouteCheck(),
   component: Analytics,
 })
 

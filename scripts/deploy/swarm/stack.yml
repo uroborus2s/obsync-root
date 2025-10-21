@@ -1,0 +1,218 @@
+# Docker Swarm Stack 配置文件 - 生产就绪版 v2
+# ObSync 高可用集群部署
+
+services:
+  # ==================== 业务服务 ====================
+  api-gateway:
+    image: g-rrng9518-docker.pkg.coding.net/obsync/sync/stratix-gateway:v1.0.1
+    networks: [obsync-overlay]
+    ports: ["8090:8090"]
+    environment:
+      NODE_ENV: production
+      TZ: Asia/Shanghai
+    command: sh -c "export STRATIX_SENSITIVE_CONFIG=$$(cat /run/secrets/api_gateway_config) && exec node /app/dist/index.js"
+    secrets:
+      - source: api_gateway_config
+        target: /run/secrets/api_gateway_config
+    deploy:
+      mode: replicated
+      replicas: 3 # Swarm 会尝试在满足条件的节点间均匀分布
+      update_config: {parallelism: 1, delay: 10s, failure_action: rollback, order: start-first}
+      restart_policy: {condition: on-failure, delay: 5s, max_attempts: 3}
+      resources: {limits: {cpus: '1.0', memory: 1G}, reservations: {cpus: '0.5', memory: 512M}}
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options: {max-size: "10m", max-file: "3"}
+
+  app-icasync:
+    image: g-rrng9518-docker.pkg.coding.net/obsync/sync/app-icasync:v1.0.0
+    networks: [obsync-overlay]
+    environment:
+      NODE_ENV: production
+      TZ: Asia/Shanghai
+    command: sh -c "export STRATIX_SENSITIVE_CONFIG=$$(cat /run/secrets/icasync_config) && exec node /app/dist/index.js"
+    secrets:
+      - source: icasync_config
+        target: /run/secrets/icasync_config
+    deploy:
+      mode: replicated
+      replicas: 3
+    logging:
+      driver: "json-file"
+      options: {max-size: "10m", max-file: "5"}
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      
+  app-icalink:
+    image: g-rrng9518-docker.pkg.coding.net/obsync/sync/app-icalink:v1.0.0
+    networks: [obsync-overlay]
+    environment:
+      NODE_ENV: production
+      TZ: Asia/Shanghai
+    command: sh -c "export STRATIX_SENSITIVE_CONFIG=$$(cat /run/secrets/icalink_config) && exec node /app/dist/index.js"
+    secrets:
+      - source: icalink_config
+        target: /run/secrets/icalink_config
+    deploy:
+      mode: replicated
+      replicas: 3
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options: {max-size: "10m", max-file: "5"}
+
+  # ==================== 日志系统 (部署在备份机) ====================
+  loki:
+    image: grafana/loki:2.9.3
+    networks: [obsync-overlay]
+    ports: ["3100:3100"]
+    volumes:
+      - loki-data:/loki
+      - /opt/obsync/swarm/loki-config.yml:/etc/loki/local-config.yaml:ro
+    command: -config.file=/etc/loki/local-config.yaml
+    deploy:
+      replicas: 1
+      placement: {constraints: [node.labels.obsync.role == worker]}
+      # ...
+
+  promtail:
+    image: grafana/promtail:2.9.3
+    networks: [obsync-overlay]
+    volumes:
+      - promtail-positions:/tmp # 持久化positions文件，防止日志重复
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /opt/obsync/swarm/promtail-config.yml:/etc/promtail/config.yml:ro
+    command: -config.file=/etc/promtail/config.yml
+    deploy:
+      mode: global # 每个节点都需要
+      # ...
+
+  grafana:
+    image: grafana/grafana:10.2.3
+    networks: [obsync-overlay]
+    ports: ["3000:3000"]
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - /opt/obsync/swarm/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password # 使用secret
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    secrets:
+      - source: grafana_admin_password
+        target: /run/secrets/grafana_admin_password
+    deploy:
+      replicas: 1
+      placement: {constraints: [node.labels.obsync.role == worker]}
+      # ...
+
+  # ==================== 基础设施服务 (分布式 MinIO) ====================
+  # 关键：下面的 source 路径是示例，您必须在对应的主机上创建这些目录，
+  # 并最好将独立的物理磁盘挂载到这些路径，以确保数据安全和性能。
+  minio-1:
+    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
+    hostname: minio-1
+    command: server http://minio-{1...4}/data --console-address ":9001"
+    networks: [obsync-overlay]
+    ports: ["9000:9000", "9001:9001"]
+    volumes:
+      - type: bind
+        source: /mnt/minio/disk1 # 主机A上的路径
+        target: /data
+    environment:
+      MINIO_ROOT_USER_FILE: /run/secrets/minio_root_user
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio_root_password
+    secrets: [minio_root_user, minio_root_password]
+    deploy:
+      replicas: 1
+      placement: {constraints: [node.labels.minio-host == A]}
+    healthcheck: {test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]}
+
+  minio-2:
+    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
+    hostname: minio-2
+    command: server http://minio-{1...4}/data --console-address ":9001"
+    networks: [obsync-overlay]
+    ports: ["9002:9000", "9003:9001"]
+    volumes:
+      - type: bind
+        source: /mnt/minio/disk2 # 主机A上的路径
+        target: /data
+    environment:
+      MINIO_ROOT_USER_FILE: /run/secrets/minio_root_user
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio_root_password
+    secrets: [minio_root_user, minio_root_password]
+    deploy:
+      replicas: 1
+      placement: {constraints: [node.labels.minio-host == A]}
+    healthcheck: {test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]}
+
+  minio-3:
+    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
+    hostname: minio-3
+    command: server http://minio-{1...4}/data --console-address ":9001"
+    networks: [obsync-overlay]
+    volumes:
+      - type: bind
+        source: /mnt/minio/disk3 # 主机B上的路径
+        target: /data
+    environment:
+      MINIO_ROOT_USER_FILE: /run/secrets/minio_root_user
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio_root_password
+    secrets: [minio_root_user, minio_root_password]
+    deploy:
+      replicas: 1
+      placement: {constraints: [node.labels.minio-host == B]}
+    healthcheck: {test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]}
+
+  minio-4:
+    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
+    hostname: minio-4
+    command: server http://minio-{1...4}/data --console-address ":9001"
+    networks: [obsync-overlay]
+    volumes:
+      - type: bind
+        source: /mnt/minio/disk4 # 主机B上的路径
+        target: /data
+    environment:
+      MINIO_ROOT_USER_FILE: /run/secrets/minio_root_user
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio_root_password
+    secrets: [minio_root_user, minio_root_password]
+    deploy:
+      replicas: 1
+      placement: {constraints: [node.labels.minio-host == B]}
+    healthcheck: {test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]}
+
+# ==================== 网络/卷/Secrets 定义 ====================
+networks:
+  obsync-overlay:
+    driver: overlay
+    attachable: true
+
+volumes:
+  promtail-positions: {driver: local}
+  loki-data: {driver: local}
+  grafana-data: {driver: local}
+  # MinIO 的卷现在是 bind mount，无需在此定义
+
+secrets:
+  minio_root_user: {external: true}
+  minio_root_password: {external: true}
+  api_gateway_config: {external: true}
+  icasync_config: {external: true}
+  icalink_config: {external: true}
+  grafana_admin_password: {external: true}

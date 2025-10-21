@@ -76,6 +76,20 @@ interface WorkflowStatusRequest {
 }
 
 /**
+ * 课表恢复工作流请求体
+ */
+interface CourseRestoreRequest {
+  /** 学号或工号 */
+  xgh: string;
+  /** 用户类型：student（学生）或 teacher（教师） */
+  userType: 'student' | 'teacher';
+  /** 学年学期，格式：YYYY-YYYY-S（如：2024-2025-1） */
+  xnxq?: string;
+  /** 是否为测试运行模式，默认false */
+  dryRun?: boolean;
+}
+
+/**
  * 统一响应格式
  */
 interface ApiResponse<T = any> {
@@ -395,6 +409,174 @@ export default class WorkflowController {
     } catch (error) {
       this.logger.error('启动增量同步工作流失败', { error });
       this.sendErrorResponse(reply, 500, '启动增量同步工作流失败', error);
+    }
+  }
+
+  @Post('/api/workflows/icasync/test/sync')
+  async startTestSyncWorkflow(
+    request: FastifyRequest<{ Body: IncrementalSyncRequest }>,
+    reply: FastifyReply
+  ): Promise<void> {
+    try {
+      const { xnxq, dryRun = false, batchSize = 100 } = request.body;
+
+      if (!xnxq) {
+        return this.sendErrorResponse(
+          reply,
+          400,
+          'Missing required field: xnxq'
+        );
+      }
+
+      this.logger.info('启动增量同步工作流', { xnxq, dryRun, batchSize });
+
+      const workflowOptions = {
+        workflowName: 'test-sync-workflow',
+        workflowVersion: '1.0.0',
+        inputData: {
+          xnxq,
+          dryRun,
+          batchSize,
+          triggeredBy: 'manual',
+          triggeredAt: new Date().toISOString()
+        },
+        contextData: {
+          instanceType: 'test-sync',
+          createdBy: 'manual-trigger',
+          syncMode: 'incremental',
+          priority: 'normal' as const,
+          metadata: {
+            targetSemester: xnxq,
+            batchProcessing: true
+          }
+        }
+      };
+
+      const workflowResult = await this.tasksWorkflow.startWorkflowByName(
+        workflowOptions.workflowName,
+        workflowOptions
+      );
+
+      if (!workflowResult.success) {
+        this.logger.error('启动测试同步工作流失败', {
+          error: workflowResult.error,
+          errorDetails: workflowResult.errorDetails
+        });
+
+        return this.sendErrorResponse(
+          reply,
+          500,
+          '启动测试同步工作流失败',
+          workflowResult.error
+        );
+      }
+
+      const workflowInstance = workflowResult.data;
+
+      this.logger.info('测试同步工作流启动成功', {
+        instanceId: workflowInstance?.id,
+        workflowName: workflowInstance?.name,
+        status: workflowInstance?.status
+      });
+
+      this.sendSuccessResponse(reply, 200, {
+        message: '测试同步工作流启动成功',
+        workflowInstance: {
+          id: workflowInstance?.id,
+          name: workflowInstance?.name,
+          status: workflowInstance?.status,
+          startedAt: workflowInstance?.startedAt,
+          inputData: workflowOptions.inputData
+        }
+      });
+    } catch (error) {
+      this.logger.error('启动增量同步工作流失败', { error });
+      this.sendErrorResponse(reply, 500, '启动增量同步工作流失败', error);
+    }
+  }
+
+  @Post('/api/workflows/icasync/course-restore/start')
+  async startCourseRestoreWorkflow(
+    request: FastifyRequest<{ Body: CourseRestoreRequest }>,
+    reply: FastifyReply
+  ): Promise<void> {
+    try {
+      const { xgh, userType, xnxq, dryRun } = request.body;
+
+      // 验证必需参数
+      if (!xgh) {
+        return this.sendErrorResponse(
+          reply,
+          400,
+          'Missing required field: xgh'
+        );
+      }
+
+      if (!userType) {
+        return this.sendErrorResponse(
+          reply,
+          400,
+          'Missing required field: userType'
+        );
+      }
+
+      if (!['student', 'teacher'].includes(userType)) {
+        return this.sendErrorResponse(
+          reply,
+          400,
+          'Invalid userType: must be "student" or "teacher"'
+        );
+      }
+
+      this.logger.info('启动课表恢复工作流', {
+        xgh,
+        userType,
+        xnxq,
+        dryRun
+      });
+
+      // 调用课表恢复适配器
+      const restoreResult =
+        await this.icasyncFullSync.startCourseRestoreWorkflow({
+          xgh,
+          userType,
+          xnxq,
+          dryRun: dryRun || false
+        });
+
+      this.logger.info('课表恢复工作流启动结果', { restoreResult });
+
+      if (restoreResult.success) {
+        // 返回成功响应
+        this.sendSuccessResponse(reply, 201, {
+          message: '课表恢复工作流启动成功',
+          instanceId: restoreResult.instanceId,
+          status: restoreResult.status,
+          workflowName: 'course-restore-workflow',
+          config: {
+            xgh,
+            userType,
+            xnxq,
+            dryRun: dryRun || false
+          },
+          details: restoreResult.details
+        });
+      } else {
+        this.logger.error('课表恢复工作流启动失败', {
+          error: restoreResult.error,
+          details: restoreResult.details
+        });
+
+        this.sendErrorResponse(
+          reply,
+          400,
+          restoreResult.error || '启动课表恢复工作流失败',
+          restoreResult.details
+        );
+      }
+    } catch (error) {
+      this.logger.error('启动课表恢复工作流异常', { error });
+      this.sendErrorResponse(reply, 500, '启动课表恢复工作流异常', error);
     }
   }
 

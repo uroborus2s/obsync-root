@@ -20,6 +20,11 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
+import {
+  AdminGuard,
+  PermissionGuard,
+  TeacherGuard,
+} from '@/components/auth/permission-guard'
 
 export const Route = createFileRoute('/_authenticated/dashboard')({
   component: Dashboard,
@@ -74,10 +79,21 @@ function Dashboard() {
       <div className='flex items-center justify-between space-y-2'>
         <h2 className='text-3xl font-bold tracking-tight'>仪表板</h2>
         <div className='flex items-center space-x-2'>
-          <Button variant='outline' size='sm'>
-            <Download className='mr-2 h-4 w-4' />
-            导出报表
-          </Button>
+          {/* 导出报表功能 - 需要教师或管理员权限 */}
+          <TeacherGuard>
+            <Button variant='outline' size='sm'>
+              <Download className='mr-2 h-4 w-4' />
+              导出报表
+            </Button>
+          </TeacherGuard>
+
+          {/* 管理员专用功能 */}
+          <AdminGuard>
+            <Button variant='outline' size='sm'>
+              <FileSpreadsheet className='mr-2 h-4 w-4' />
+              系统报表
+            </Button>
+          </AdminGuard>
         </div>
       </div>
 
@@ -325,6 +341,70 @@ function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* 管理员专用功能区域 */}
+      <AdminGuard>
+        <Card className='border-orange-200 bg-orange-50/50'>
+          <CardHeader>
+            <CardTitle className='flex items-center gap-2 text-orange-800'>
+              <AlertTriangle className='h-5 w-5' />
+              管理员专用功能
+            </CardTitle>
+            <CardDescription>以下功能仅对管理员可见</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className='grid grid-cols-1 gap-4 md:grid-cols-3'>
+              <Button variant='outline' className='justify-start'>
+                <Users className='mr-2 h-4 w-4' />
+                用户管理
+              </Button>
+              <Button variant='outline' className='justify-start'>
+                <Activity className='mr-2 h-4 w-4' />
+                系统监控
+              </Button>
+              <Button variant='outline' className='justify-start'>
+                <FileSpreadsheet className='mr-2 h-4 w-4' />
+                数据导出
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </AdminGuard>
+
+      {/* 特定权限功能区域 */}
+      <PermissionGuard
+        requiredPermissions={['admin:system']}
+        forbiddenComponent={
+          <Card className='border-gray-200 bg-gray-50/50'>
+            <CardContent className='p-6 text-center text-gray-500'>
+              <AlertTriangle className='mx-auto mb-2 h-8 w-8' />
+              <p>您需要系统管理权限才能查看此区域</p>
+            </CardContent>
+          </Card>
+        }
+      >
+        <Card className='border-blue-200 bg-blue-50/50'>
+          <CardHeader>
+            <CardTitle className='flex items-center gap-2 text-blue-800'>
+              <Activity className='h-5 w-5' />
+              系统管理功能
+            </CardTitle>
+            <CardDescription>需要 admin:system 权限</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
+              <Button variant='outline' className='justify-start'>
+                <Activity className='mr-2 h-4 w-4' />
+                性能监控
+              </Button>
+              <Button variant='outline' className='justify-start'>
+                <AlertTriangle className='mr-2 h-4 w-4' />
+                系统告警
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </PermissionGuard>
     </div>
   )
 }

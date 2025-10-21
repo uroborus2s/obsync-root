@@ -28,6 +28,7 @@ import {
     Clock,
     FileText,
     Plus,
+    RefreshCw,
     Workflow,
 } from 'lucide-react'
 import { useState } from 'react'
@@ -77,16 +78,6 @@ export default function WorkflowsPage() {
     setShowDefinitionDialog(true)
   }
 
-  // 编辑工作流定义
-  const handleEditDefinition = (definition: WorkflowDefinition) => {
-    toast.info(`编辑工作流 "${definition.name}" 功能开发中...`)
-  }
-
-  // 启动工作流
-  const handleStartWorkflow = (definition: WorkflowDefinition) => {
-    toast.info(`启动工作流 "${definition.name}" 功能开发中...`)
-  }
-
   // 查看工作流实例
   const handleViewInstance = (instance: WorkflowInstance) => {
     setSelectedInstance(instance)
@@ -121,6 +112,12 @@ export default function WorkflowsPage() {
               </p>
             </div>
             <div className='flex gap-2'>
+              <Link to='/workflows/course-restore'>
+                <Button variant='outline' className='gap-2'>
+                  <RefreshCw className='h-4 w-4' />
+                  课表重建
+                </Button>
+              </Link>
               <Link to='/workflows/schedules'>
                 <Button variant='outline' className='gap-2'>
                   <Calendar className='h-4 w-4' />
@@ -253,8 +250,6 @@ export default function WorkflowsPage() {
                 <TabsContent value='definitions' className='space-y-4'>
                   <WorkflowDefinitionsTable
                     onViewDefinition={handleViewDefinition}
-                    onEditDefinition={handleEditDefinition}
-                    onStartWorkflow={handleStartWorkflow}
                   />
                 </TabsContent>
 

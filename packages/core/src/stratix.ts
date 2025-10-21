@@ -11,7 +11,7 @@ import type { StratixApplication, StratixRunOptions } from './types/index.js';
 /**
  * Stratix 版本信息
  */
-export const STRATIX_VERSION = '0.1.0';
+export const STRATIX_VERSION = '1.0.0';
 
 /**
  * Stratix 主类

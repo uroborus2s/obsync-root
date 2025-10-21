@@ -29,6 +29,7 @@ export default function WorkflowInstanceDetail() {
     from: '/_authenticated/workflows/instances/$instanceId',
   })
   const [activeTab, setActiveTab] = useState('visualization')
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
 
   // 获取工作流实例详情
   const {
@@ -64,6 +65,13 @@ export default function WorkflowInstanceDetail() {
     refetchInterval: 5000,
   })
 
+  // 获取选中节点的实例数据
+  const { data: nodeInstances, isLoading: nodeInstancesLoading } = useQuery({
+    queryKey: ['workflow-node-instances', instanceId, selectedNodeId],
+    queryFn: () => workflowApi.getNodeInstances(Number(instanceId), selectedNodeId!),
+    enabled: !!instanceId && !!selectedNodeId,
+  })
+
   // 处理实例操作
   const handlePauseInstance = () => {
     toast.info('暂停工作流实例功能开发中...')
@@ -79,6 +87,12 @@ export default function WorkflowInstanceDetail() {
 
   const handleRestartInstance = () => {
     toast.info('重启工作流实例功能开发中...')
+  }
+
+  // 处理节点点击
+  const handleNodeClick = (nodeId: string) => {
+    setSelectedNodeId(nodeId)
+    // 保持原有弹框交互方式，不跳转标签页
   }
 
   // 获取状态颜色
@@ -139,7 +153,11 @@ export default function WorkflowInstanceDetail() {
                   <div>
                     <h3 className='text-lg font-semibold'>加载失败</h3>
                     <p className='text-muted-foreground mt-1 text-sm'>
-                      无法加载工作流实例详情，请检查网络连接或稍后重试
+                      无法加载工作流实例详情：
+                      {instanceError?.message || '未知错误'}
+                    </p>
+                    <p className='text-muted-foreground mt-1 text-xs'>
+                      请检查网络连接或稍后重试
                     </p>
                   </div>
                   <Button onClick={() => refetchInstance()} className='gap-2'>
@@ -349,15 +367,24 @@ export default function WorkflowInstanceDetail() {
             </TabsList>
 
             <TabsContent value='visualization' className='space-y-6'>
-              {definition && (
-                <EnhancedWorkflowVisualizer
-                  definition={definition}
-                  instance={instance}
-                  onNodeClick={(_nodeId: string) => {
-                    // 这里可以添加节点点击处理逻辑，比如显示节点详情
-                    // 暂时不做任何操作
-                  }}
-                />
+              {definition ? (
+                <div className='space-y-4'>
+                  <EnhancedWorkflowVisualizer
+                    definition={definition}
+                    instance={instance}
+                    onNodeClick={handleNodeClick}
+                    selectedNodeId={selectedNodeId}
+                    nodeInstances={nodeInstances}
+                    nodeInstancesLoading={nodeInstancesLoading}
+                  />
+                </div>
+              ) : (
+                <div className='flex items-center justify-center py-8'>
+                  <div className='text-center'>
+                    <RefreshCw className='mx-auto h-8 w-8 animate-spin text-gray-400' />
+                    <p className='mt-2 text-gray-500'>加载工作流定义中...</p>
+                  </div>
+                </div>
               )}
             </TabsContent>
 

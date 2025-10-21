@@ -21,8 +21,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    volumes:
-      - gateway-logs-1:/app/logs
 
   # API Gateway 实例 2
   api-gateway-2:
@@ -46,20 +44,16 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    volumes:
-      - gateway-logs-2:/app/logs
 
   # ICA Sync 应用实例 1 (对应 api-gateway-1)
   app-icasync-1:
     image: g-rrng9518-docker.pkg.coding.net/obsync/sync/app-icasync:latest
     container_name: app-icasync-1
     restart: unless-stopped
-    ports:
-      - "3001:3000"
     environment:
       NODE_ENV: production
       TZ: Asia/Shanghai
-      STRATIX_SENSITIVE_CONFIG: 4e1946dc6748511771478c902c72bfca.372a136abde71ef7c040b3330febe875.9tWTNjNW9dGDA5NYYDsxWinR4S9mgVMaAtqyejIUsVMDU6xdxgylOJ89a+nSTO9wMn7Dl5x7GtVp997mNayoc4tkLuiVDML8aJ+/B3OoqQy6LdrK1CZpEFtpjXTnnI93R1vmnGx/vCs2beXh9wGvVPOnmRTIa0WHuJrZ/3xDw0n0cn2RDsAL99UekSm4UM4JcveaP6vjOZyjOJE9pl2MyNxmrvVu36s9CwV/mhRKOwFuw6g2Co8eXCdM0ckvFhW4hIcvUkY4uKUN9PNJp3GWM3cydnCkCqbDkqCxdjq6KmrqPw0/zbACpcRPL7Diy34cCKyyf1EMLXKJS9a+YkKdxCFKljT5Af44FdabtvuBMaNAC5MWW1f2EaBbQx0gtrRWoj+mo6F4L1pAlk2lkiC5YfcHFEKjxhuXTPseTAhyiBky5YMo6ghbqeOVtgNqJcsVEfPx3Zkxh9JEt0X/1IUWivZNwAbzxwiJTtwwvV754aEXAu/Xp8T52aQwtHkuu7X6/nMJnM1ozxbDRagGSiHJCN4SPoQbgijW31hTu2C0rMcWlvn+7QWeIMTgF0WK+Rpn+EDqqLFgt+o/4IvyKJp3xh3nKhjtSyKmVvB2N/sQthn8DLRYkZNko0uI
+      STRATIX_SENSITIVE_CONFIG: 53ef30b75bd4e634d66c863eb3586207.90ecd1b04f1d15ee1dae0172cf9592b9.elAbz24saXqLkEDFKNHldnHDd+vOiBymDPnXESzu1WhNZOjD7QJ/OU9WZ1lASUB/pECERqlZHHrc3bKs58uc1K0r1sVYiC86S+lC+Cd5DZlFrorbtFaz+Fw1x7ANbwdz+xuFWdBHIz2BIwxmWZ2ZzkIElR/51TNLxiafMFRhPv+8ar5QD1ELAQFAJxoUMCFMnB3tMIPjLiHnKe0q+q6vMjoCSoySDQjzYT2JXP6hAUDlhyw59j4rnQ+yqKSIRrxKrCX3p7qu2MaT8QLUNmae4wg3/iHoaVbpCkO/uiLCK5e1P9nJFcRgp1aD7K3E9bJGOnKSNSYZctulUpAvLzKpi5Yj8HQKYibKHkdV2MmfEHrF3hoPeWkkr5FPqp0jGBC7Q52tYbnCGg58WqslTkxT9Ji3ufU3sR9OhvBkxX12fVOiBTVm2m/h058NgzSYFbudeAMzY/Ol6KxE4/ynMLidaAxwWrk6xKfqkUfX1K9haQdHm4aFhXORQH8qZtSqGDgoluRKh/Bs3rDHIefmFH+67d196ib/VZ1TcegUuX0HjkQDG00UZ02+Laoea1DDZmTuuROM5iRaPqsnXcWIhY9pIuh7LUtNrmcT864FUmt+8C9txIEVQTe7oeqEskCDjBsBlPECPmMCEZOnp/0M5c5ZCR6GyiIupasWMpZqQlsUcky1Tnja
     networks:
       - obsync-network
     healthcheck:
@@ -68,21 +62,15 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    volumes:
-      - icasync-1-logs:/app/logs
-      - icasync-1-data:/app/data
-
   # ICA Sync 应用实例 2 (对应 api-gateway-2)
   app-icasync-2:
     image: g-rrng9518-docker.pkg.coding.net/obsync/sync/app-icasync:latest
     container_name: app-icasync-2
     restart: unless-stopped
-    ports:
-      - "3002:3000"
     environment:
       NODE_ENV: production
       TZ: Asia/Shanghai
-      STRATIX_SENSITIVE_CONFIG: 4e1946dc6748511771478c902c72bfca.372a136abde71ef7c040b3330febe875.9tWTNjNW9dGDA5NYYDsxWinR4S9mgVMaAtqyejIUsVMDU6xdxgylOJ89a+nSTO9wMn7Dl5x7GtVp997mNayoc4tkLuiVDML8aJ+/B3OoqQy6LdrK1CZpEFtpjXTnnI93R1vmnGx/vCs2beXh9wGvVPOnmRTIa0WHuJrZ/3xDw0n0cn2RDsAL99UekSm4UM4JcveaP6vjOZyjOJE9pl2MyNxmrvVu36s9CwV/mhRKOwFuw6g2Co8eXCdM0ckvFhW4hIcvUkY4uKUN9PNJp3GWM3cydnCkCqbDkqCxdjq6KmrqPw0/zbACpcRPL7Diy34cCKyyf1EMLXKJS9a+YkKdxCFKljT5Af44FdabtvuBMaNAC5MWW1f2EaBbQx0gtrRWoj+mo6F4L1pAlk2lkiC5YfcHFEKjxhuXTPseTAhyiBky5YMo6ghbqeOVtgNqJcsVEfPx3Zkxh9JEt0X/1IUWivZNwAbzxwiJTtwwvV754aEXAu/Xp8T52aQwtHkuu7X6/nMJnM1ozxbDRagGSiHJCN4SPoQbgijW31hTu2C0rMcWlvn+7QWeIMTgF0WK+Rpn+EDqqLFgt+o/4IvyKJp3xh3nKhjtSyKmVvB2N/sQthn8DLRYkZNko0uI
+      STRATIX_SENSITIVE_CONFIG: 53ef30b75bd4e634d66c863eb3586207.90ecd1b04f1d15ee1dae0172cf9592b9.elAbz24saXqLkEDFKNHldnHDd+vOiBymDPnXESzu1WhNZOjD7QJ/OU9WZ1lASUB/pECERqlZHHrc3bKs58uc1K0r1sVYiC86S+lC+Cd5DZlFrorbtFaz+Fw1x7ANbwdz+xuFWdBHIz2BIwxmWZ2ZzkIElR/51TNLxiafMFRhPv+8ar5QD1ELAQFAJxoUMCFMnB3tMIPjLiHnKe0q+q6vMjoCSoySDQjzYT2JXP6hAUDlhyw59j4rnQ+yqKSIRrxKrCX3p7qu2MaT8QLUNmae4wg3/iHoaVbpCkO/uiLCK5e1P9nJFcRgp1aD7K3E9bJGOnKSNSYZctulUpAvLzKpi5Yj8HQKYibKHkdV2MmfEHrF3hoPeWkkr5FPqp0jGBC7Q52tYbnCGg58WqslTkxT9Ji3ufU3sR9OhvBkxX12fVOiBTVm2m/h058NgzSYFbudeAMzY/Ol6KxE4/ynMLidaAxwWrk6xKfqkUfX1K9haQdHm4aFhXORQH8qZtSqGDgoluRKh/Bs3rDHIefmFH+67d196ib/VZ1TcegUuX0HjkQDG00UZ02+Laoea1DDZmTuuROM5iRaPqsnXcWIhY9pIuh7LUtNrmcT864FUmt+8C9txIEVQTe7oeqEskCDjBsBlPECPmMCEZOnp/0M5c5ZCR6GyiIupasWMpZqQlsUcky1Tnja
     networks:
       - obsync-network
     healthcheck:
@@ -91,19 +79,14 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    volumes:
-      - icasync-2-logs:/app/logs
-      - icasync-2-data:/app/data
   app-icalink-1:
     image: g-rrng9518-docker.pkg.coding.net/obsync/sync/app-icalink:latest
     container_name: app-icalink-1
     restart: unless-stopped
-    ports:
-      - "3003:3000"
     environment:
       NODE_ENV: production
       TZ: Asia/Shanghai
-      STRATIX_SENSITIVE_CONFIG: fe376e805903f7854a757894852ab554.62c4f83aa6df9e78b5cc929751380949.nboJKL9N+9/B9zC4spFyIDt151Gf5Cn77SbXOWeEwrc5e38x2BTlmVgBUeQDvOEyTUhj9xeBTOYaj8PGCcnEYxFkNsMG5I8nyp9Sm3+HC1msVDfCUlPL/fGhjzw1DFFNTHEw1EglDQIEdMEkcD1LrvFOnt5DGi9fjfLoKcs9184/XV+6JbweTyYEDSG9gbq/+Pmh5XbIRI/6gj/V9qIA5Te7GcBZxu3ds0D2NuuxvykTKCAtZ2nrsOSjpwZ7nPxD64zQIqaDMeSm3umSTVzywkqd5hsH8X2Nz97wTN+UBrlG0OAPTMb9pRz11Arfb4G7xQ2ZHWDURK2/lRcr7sLVXUKF8EKsg54fIJl685fpxVE8urBpTu8Iyf3Tc612EM4KJQGq+QHLYI+iHvlUFANInyV3L1YTBrt9LzfLg4r1wRpu3vMTn2kW2L3z
+      STRATIX_SENSITIVE_CONFIG: 50a17f13ad72ee4070ad0c177951f74a.febd34f1dccc892552129b9449ed5775.UKp+7AJLF6AHd0vDSETYv1ld7jmNTIh4x5uB3VxfocyVAs7vBnZAYqC2uGK6DDQjK/m5DBcLrhin1avSLgm4Lpm+P0TfXFmMWWMe+4o59SAGHsGjJ3WKfBqTt3tafhMERZ3Cb2/7JS251Re1tM4h4RMVYSrdXcoWAZuPK6AKCwj7ITa9o+gxTDhtYkldkjQztpmmDyRaTmfI7QjxCuzbnf08TtW4dw+Q81Kq/0aQy8iPegRUjboejrO3qyJ6RASbgXnqr89cv8yuLHyM2x1A8auMsfWKBrdADe3lRt/SBWwa2BTwFzYc+voiaJA/2QJOn5Ogyse2Ir0kPLvRW7ONL1KPbvGQkv+1tKPmV1BwD5WFdi2MtYOAXgOUhBP9bfAVQBQKLfteHva+KJR5zHUn3C/W3g5acISdl3DJEm1ZAiytyRvWPtfJU91Q802/JLofqTiLr7HVsN0zdG+se5n5H4HK9RLkF1+ooDVTT6+pfgeWuTQDbvmSdIxIVajVpdO7bHz+vJV58MUK2vCo1gOTphOhvu92muRwZHjfbke3ur+9htMwmkYuKmGMGc0dJt8NLIImGqqghpsP9O3i+o8KurzyyCEaEGUpInbUvFxPJncURuUZUESCpXStqtBcexKgV6Mf2hzeyBBopHaHg4CnsECVOFzk0olZXr4YGYM=
     networks:
       - obsync-network
     healthcheck:
@@ -112,20 +95,15 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    volumes:
-      - icalink-1-logs:/app/logs
-      - icalink-1-data:/app/data
   # ICA Sync 应用实例 2 (对应 api-gateway-2)
   app-icalink-2:
     image: g-rrng9518-docker.pkg.coding.net/obsync/sync/app-icalink:latest
     container_name: app-icalink-2
     restart: unless-stopped
-    ports:
-      - "3004:3000"
     environment:
       NODE_ENV: production
       TZ: Asia/Shanghai
-      STRATIX_SENSITIVE_CONFIG: fe376e805903f7854a757894852ab554.62c4f83aa6df9e78b5cc929751380949.nboJKL9N+9/B9zC4spFyIDt151Gf5Cn77SbXOWeEwrc5e38x2BTlmVgBUeQDvOEyTUhj9xeBTOYaj8PGCcnEYxFkNsMG5I8nyp9Sm3+HC1msVDfCUlPL/fGhjzw1DFFNTHEw1EglDQIEdMEkcD1LrvFOnt5DGi9fjfLoKcs9184/XV+6JbweTyYEDSG9gbq/+Pmh5XbIRI/6gj/V9qIA5Te7GcBZxu3ds0D2NuuxvykTKCAtZ2nrsOSjpwZ7nPxD64zQIqaDMeSm3umSTVzywkqd5hsH8X2Nz97wTN+UBrlG0OAPTMb9pRz11Arfb4G7xQ2ZHWDURK2/lRcr7sLVXUKF8EKsg54fIJl685fpxVE8urBpTu8Iyf3Tc612EM4KJQGq+QHLYI+iHvlUFANInyV3L1YTBrt9LzfLg4r1wRpu3vMTn2kW2L3z
+      STRATIX_SENSITIVE_CONFIG: 50a17f13ad72ee4070ad0c177951f74a.febd34f1dccc892552129b9449ed5775.UKp+7AJLF6AHd0vDSETYv1ld7jmNTIh4x5uB3VxfocyVAs7vBnZAYqC2uGK6DDQjK/m5DBcLrhin1avSLgm4Lpm+P0TfXFmMWWMe+4o59SAGHsGjJ3WKfBqTt3tafhMERZ3Cb2/7JS251Re1tM4h4RMVYSrdXcoWAZuPK6AKCwj7ITa9o+gxTDhtYkldkjQztpmmDyRaTmfI7QjxCuzbnf08TtW4dw+Q81Kq/0aQy8iPegRUjboejrO3qyJ6RASbgXnqr89cv8yuLHyM2x1A8auMsfWKBrdADe3lRt/SBWwa2BTwFzYc+voiaJA/2QJOn5Ogyse2Ir0kPLvRW7ONL1KPbvGQkv+1tKPmV1BwD5WFdi2MtYOAXgOUhBP9bfAVQBQKLfteHva+KJR5zHUn3C/W3g5acISdl3DJEm1ZAiytyRvWPtfJU91Q802/JLofqTiLr7HVsN0zdG+se5n5H4HK9RLkF1+ooDVTT6+pfgeWuTQDbvmSdIxIVajVpdO7bHz+vJV58MUK2vCo1gOTphOhvu92muRwZHjfbke3ur+9htMwmkYuKmGMGc0dJt8NLIImGqqghpsP9O3i+o8KurzyyCEaEGUpInbUvFxPJncURuUZUESCpXStqtBcexKgV6Mf2hzeyBBopHaHg4CnsECVOFzk0olZXr4YGYM=
     networks:
       - obsync-network
     healthcheck:
@@ -134,34 +112,9 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    volumes:
-      - icalink-2-logs:/app/logs
-      - icalink-2-data:/app/data
 networks:
   obsync-network:
     driver: bridge
     ipam:
       config:
         - subnet: 172.21.0.0/16
-volumes:
-  gateway-logs-1:
-    driver: local
-  gateway-logs-2:
-    driver: local  
-  # ICA Sync 实例 1
-  icasync-1-logs:
-    driver: local
-  icasync-1-data:
-    driver: local
-  icalink-1-logs:
-    driver: local
-  icalink-1-data:
-    driver: local
-  icasync-2-logs:
-    driver: local
-  icasync-2-data:
-    driver: local
-  icalink-2-logs:
-    driver: local
-  icalink-2-data:
-    driver: local

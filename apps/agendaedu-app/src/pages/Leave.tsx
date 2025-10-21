@@ -62,7 +62,6 @@ function LeaveContent() {
     try {
       const response =
         await attendanceApi.getStudentAttendanceRecord(attendanceId);
-      console.log('response', response);
       if (response.success && response.data) {
         setAttendanceData(response);
       } else {

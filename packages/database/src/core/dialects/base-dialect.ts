@@ -2,18 +2,15 @@
 // 为所有数据库类型提供统一的接口抽象
 
 import type { Logger } from '@stratix/core';
+import { isLeft, tryCatch, tryCatchAsync } from '@stratix/utils/functional';
 import type { Kysely } from 'kysely';
 import type { ConnectionConfig, DatabaseType } from '../../types/index.js';
 import {
   ConfigurationError,
   ConnectionError,
-  DatabaseErrorHandler
+  DatabaseErrorHandler,
+  DatabaseResult
 } from '../../utils/error-handler.js';
-import {
-  DatabaseResult,
-  failureResult,
-  successResult
-} from '../../utils/helpers.js';
 
 /**
  * 数据库方言基础抽象类
@@ -137,7 +134,7 @@ export abstract class BaseDialect {
   protected validateBaseConfig(
     config: ConnectionConfig
   ): DatabaseResult<boolean> {
-    try {
+    const onSuccess = () => {
       // 验证数据库类型
       if (config.type !== this.type) {
         throw new Error(
@@ -161,14 +158,13 @@ export abstract class BaseDialect {
         }
       }
 
-      return successResult(true);
-    } catch (error) {
-      return failureResult(
-        ConfigurationError.create(
-          error instanceof Error ? error.message : String(error)
-        )
-      );
-    }
+      return true;
+    };
+    return tryCatch(onSuccess, (error) =>
+      ConfigurationError.create(
+        error instanceof Error ? error.message : String(error)
+      )
+    );
   }
 
   /**
@@ -181,29 +177,29 @@ export abstract class BaseDialect {
     const testOperation = async (): Promise<boolean> => {
       // 验证配置
       const configResult = this.validateConfig(config);
-      if (!configResult.success) {
+      if (isLeft(configResult)) {
         throw new Error(
-          configResult.error?.message || 'Configuration validation failed'
+          configResult.left?.message || 'Configuration validation failed'
         );
       }
 
       // 检查驱动可用性
       const driverResult = await this.checkDriverAvailability();
-      if (!driverResult.success) {
+      if (isLeft(driverResult)) {
         throw new Error(
-          driverResult.error?.message || 'Driver availability check failed'
+          driverResult.left?.message || 'Driver availability check failed'
         );
       }
 
       // 创建临时连接
       const connectionResult = await this.createKysely(config, logger);
-      if (!connectionResult.success) {
+      if (isLeft(connectionResult)) {
         throw new Error(
-          connectionResult.error?.message || 'Connection creation failed'
+          connectionResult.left?.message || 'Connection creation failed'
         );
       }
 
-      const connection = connectionResult.data;
+      const connection = connectionResult.right;
 
       try {
         // 执行简单的健康检查 - 先跳过实际查询
@@ -280,19 +276,15 @@ export abstract class BaseDialect {
   protected async checkRequiredModule(
     moduleName: string
   ): Promise<DatabaseResult<any>> {
-    try {
-      // 使用动态导入替代 require
-      const module = await import(moduleName);
-      return successResult(module);
-    } catch (error) {
-      return failureResult(
+    return tryCatchAsync(
+      async () => import(moduleName),
+      (error) =>
         ConnectionError.create(
           `Required module '${moduleName}' is not installed. Please install it using: npm install ${moduleName}`,
           undefined,
           error as Error
         )
-      );
-    }
+    );
   }
 
   /**

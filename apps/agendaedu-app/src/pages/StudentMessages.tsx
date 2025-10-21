@@ -30,13 +30,13 @@ export function StudentMessages() {
   const [activeTab, setActiveTab] = useState<
     'leave_pending' | 'leave' | 'leave_rejected'
   >('leave_pending');
-  const [stats, setStats] = useState({
-    total_count: 0,
-    leave_pending_count: 0,
-    leave_count: 0,
-    leave_rejected_count: 0
-  });
-  const [withdrawingIds, setWithdrawingIds] = useState<Set<string>>(new Set());
+  const [stats, setStats] = useState<{
+    total_count: number;
+    leave_pending_count: number;
+    leave_count: number;
+    leave_rejected_count: number;
+  } | null>(null);
+  const [withdrawingIds, setWithdrawingIds] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     loadApplications();
@@ -52,8 +52,12 @@ export function StudentMessages() {
         page_size: 50
       });
       if (response.success && response.data) {
-        setApplications(response.data.applications);
-        setStats(response.data.stats);
+        // 新的 API 直接返回数据数组和分页信息
+        const applications = response.data.data || [];
+        setApplications(applications);
+
+        // 如果 API 返回了 stats，使用它；否则设置为 null
+        setStats(response.data.stats || null);
       } else {
         const errorMessage = response.message || '获取请假申请记录失败';
         setError(errorMessage);
@@ -70,7 +74,7 @@ export function StudentMessages() {
   };
 
   // 撤回请假申请
-  const handleWithdrawLeave = async (applicationId: string) => {
+  const handleWithdrawLeave = async (applicationId: number) => {
     const isWithdrawing = withdrawingIds.has(applicationId);
     if (isWithdrawing) {
       return; // 防止重复点击
@@ -79,7 +83,9 @@ export function StudentMessages() {
     setWithdrawingIds((prev) => new Set(prev).add(applicationId));
 
     try {
-      const response = await attendanceApi.studentWithdrawLeave(applicationId);
+      const response = await attendanceApi.studentWithdrawLeave(
+        applicationId.toString()
+      );
 
       if (response.success) {
         toast.success('请假申请撤回成功', {
@@ -120,9 +126,9 @@ export function StudentMessages() {
     }
 
     // 检查课程开始时间
-    const courseStartTime = application.course_info?.course_start_time;
+    const courseStartTime = application.start_time;
     if (!courseStartTime) {
-      console.log('🚫 撤回失败：没有课程开始时间', application.course_info);
+      console.log('🚫 撤回失败：没有课程开始时间', application.start_time);
       return false;
     }
 
@@ -228,16 +234,27 @@ export function StudentMessages() {
   const getTabCount = (
     status: 'leave_pending' | 'leave' | 'leave_rejected'
   ) => {
-    switch (status) {
-      case 'leave_pending':
-        return stats.leave_pending_count;
-      case 'leave':
-        return stats.leave_count;
-      case 'leave_rejected':
-        return stats.leave_rejected_count;
-      default:
-        return 0;
+    // 如果 stats 存在，使用 stats 中的数据
+    if (stats) {
+      switch (status) {
+        case 'leave_pending':
+          return stats.leave_pending_count || 0;
+        case 'leave':
+          return stats.leave_count || 0;
+        case 'leave_rejected':
+          return stats.leave_rejected_count || 0;
+        default:
+          return 0;
+      }
     }
+
+    // 如果 stats 不存在，只显示当前活动标签的数量，其他标签返回 null（不显示数量）
+    if (status === activeTab) {
+      return applications.length;
+    }
+
+    // 其他标签不显示数量
+    return null;
   };
 
   const handleTabChange = (
@@ -252,159 +269,41 @@ export function StudentMessages() {
     url: string;
     name: string;
   } | null>(null);
+  const [isAttachmentLoading, setIsAttachmentLoading] = useState(false);
 
   const handleViewAttachment = async (
-    attachmentId: string,
+    attachmentId: number,
     fileName: string
   ) => {
+    setIsAttachmentLoading(true);
+    setSelectedImage(null);
+
     try {
-      // 使用完整的API基础URL构建图片URL
       const baseUrl =
         import.meta.env.VITE_API_BASE_URL || 'http://localhost:8090/api';
-      const imageUrl = `${baseUrl}/icalink/v1/attendance/attachments/${attachmentId}/image`;
+      const imageUrl = `${baseUrl}/icalink/v1/attendance/attachments/${attachmentId.toString()}/image`;
 
-      console.log('尝试查看附件:', {
-        attachmentId,
-        fileName,
-        imageUrl,
-        baseUrl
-      });
-
-      // 先测试图片是否可以访问
-      const response = await fetch(imageUrl, {
-        method: 'HEAD',
-        credentials: 'include' // 包含Cookie
-      });
-
-      console.log('HEAD请求响应:', {
-        status: response.status,
-        statusText: response.statusText,
-        contentType: response.headers.get('Content-Type'),
-        contentLength: response.headers.get('Content-Length'),
-        cacheControl: response.headers.get('Cache-Control')
-      });
+      const response = await fetch(imageUrl, { credentials: 'include' });
 
       if (!response.ok) {
-        console.error('附件访问失败:', {
-          status: response.status,
-          statusText: response.statusText,
-          url: imageUrl
-        });
-
-        if (response.status === 404) {
-          toast.error('附件不存在或已被删除');
-        } else if (response.status === 403) {
-          toast.error('没有权限查看此附件');
-        } else {
-          toast.error(`附件加载失败 (${response.status})`);
-        }
-        return;
+        throw new Error(`附件加载失败 (${response.status})`);
       }
 
-      // 检查Content-Type是否正确
-      const contentType = response.headers.get('Content-Type');
-      if (contentType && !contentType.startsWith('image/')) {
-        console.warn('Content-Type不是图片类型:', contentType);
-        toast.error('附件不是有效的图片格式');
-        return;
-      }
+      const blob = await response.blob();
+      const dataUrl = URL.createObjectURL(blob);
 
-      // 直接获取blob数据并转换为Data URL
-      console.log('开始获取图片blob数据...');
-
-      const imageResponse = await fetch(imageUrl, {
-        method: 'GET',
-        credentials: 'include'
-      });
-
-      if (!imageResponse.ok) {
-        console.error('获取图片数据失败:', imageResponse.status);
-        toast.error('获取图片数据失败');
-        return;
-      }
-
-      // 检查响应Content-Type，判断是否是JSON格式的Buffer
-      const imageContentType = imageResponse.headers.get('Content-Type');
-      console.log('响应Content-Type:', imageContentType);
-
-      let blob: Blob;
-
-      if (imageContentType && imageContentType.includes('application/json')) {
-        // 处理JSON格式的Buffer数据
-        console.log('检测到JSON响应，解析Buffer数据...');
-        const jsonData = await imageResponse.json();
-
-        if (jsonData.type === 'Buffer' && Array.isArray(jsonData.data)) {
-          // 将数字数组转换为Uint8Array
-          const uint8Array = new Uint8Array(jsonData.data);
-          blob = new Blob([uint8Array], { type: 'image/png' });
-          console.log('成功从JSON Buffer创建blob:', {
-            originalSize: jsonData.data.length,
-            blobSize: blob.size,
-            type: blob.type
-          });
-        } else {
-          throw new Error('无效的Buffer JSON格式');
-        }
-      } else {
-        // 看起来是正常响应，但可能内容仍然是JSON格式的Buffer
-        // 先尝试作为文本读取，检查是否是JSON
-        const responseText = await imageResponse.text();
-
-        try {
-          // 尝试解析为JSON
-          const jsonData = JSON.parse(responseText);
-
-          if (jsonData.type === 'Buffer' && Array.isArray(jsonData.data)) {
-            // 确实是JSON格式的Buffer，即使Content-Type说是image/png
-            console.log(
-              '虽然Content-Type是image/png，但内容是JSON Buffer，进行转换...'
-            );
-            const uint8Array = new Uint8Array(jsonData.data);
-            blob = new Blob([uint8Array], { type: 'image/png' });
-            console.log('成功从伪装的JSON Buffer创建blob:', {
-              originalSize: jsonData.data.length,
-              blobSize: blob.size,
-              type: blob.type
-            });
-          } else {
-            throw new Error('不是有效的Buffer JSON格式');
-          }
-        } catch (parseError) {
-          // 不是JSON，说明真的是二进制数据，但已经被读取为文本了
-          // 需要重新获取
-          console.log('不是JSON，重新获取二进制数据...');
-          const newResponse = await fetch(imageUrl, {
-            method: 'GET',
-            credentials: 'include'
-          });
-          blob = await newResponse.blob();
-          console.log('获取到真正的blob数据:', {
-            size: blob.size,
-            type: blob.type
-          });
-        }
-      }
-
-      // 将blob转换为Data URL
-      const dataUrl = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.readAsDataURL(blob);
-      });
-
-      console.log('转换为Data URL成功，长度:', dataUrl.length);
-
-      // 使用Data URL显示图片
       setSelectedImage({
         url: dataUrl,
         name: fileName
       });
-
-      console.log('附件查看成功:', { fileName, dataUrlLength: dataUrl.length });
     } catch (error) {
       console.error('查看附件失败:', error);
-      toast.error('查看附件失败，请稍后重试');
+      toast.error(
+        error instanceof Error ? error.message : '查看附件失败，请稍后重试'
+      );
+      setSelectedImage(null);
+    } finally {
+      setIsAttachmentLoading(false);
     }
   };
 
@@ -478,15 +377,13 @@ export function StudentMessages() {
             <div className='mb-3 flex items-start justify-between'>
               <div className='flex-1'>
                 <h3 className='font-medium text-gray-900'>
-                  {application.course_info?.kcmc || application.course_name}
+                  {application.course_name}
                 </h3>
                 <div className='mt-1 flex items-center text-sm text-gray-500'>
                   <Calendar className='mr-1 h-4 w-4' />
-                  {application.course_info?.course_start_time
-                    ? formatCourseDate(
-                        application.course_info.course_start_time
-                      )
-                    : application.class_date}
+                  {application.start_time
+                    ? formatCourseDate(application.start_time)
+                    : '日期待定'}
                 </div>
               </div>
               <div className='flex items-center space-x-2'>
@@ -508,48 +405,36 @@ export function StudentMessages() {
               <div className='flex items-center'>
                 <Clock className='mr-2 h-4 w-4 text-gray-400' />
                 <span>
-                  {application.course_info?.course_start_time &&
-                  application.course_info?.course_end_time
+                  {application.start_time && application.end_time
                     ? formatCourseTime(
-                        application.course_info.course_start_time,
-                        application.course_info.course_end_time
+                        application.start_time,
+                        application.end_time
                       )
-                    : application.class_time}
+                    : application.time_period || '时间待定'}
                 </span>
-                {application.course_info?.jc_s && (
+                {application.periods && (
                   <span className='ml-2 rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-600'>
-                    第{application.course_info.jc_s}节
+                    第{application.periods}节
                   </span>
                 )}
               </div>
 
-              {(application.course_info?.room_s ||
-                application.class_location) && (
+              {application.class_location && (
                 <div className='flex items-center'>
                   <MapPin className='mr-2 h-4 w-4 text-gray-400' />
-                  <span>
-                    {application.course_info?.lq && (
-                      <span className='text-gray-500'>
-                        {application.course_info.lq}{' '}
-                      </span>
-                    )}
-                    {application.course_info?.room_s ||
-                      application.class_location}
-                  </span>
+                  <span>{application.class_location}</span>
                 </div>
               )}
 
               <div className='flex items-center'>
                 <User className='mr-2 h-4 w-4 text-gray-400' />
-                <span>
-                  {application.course_info?.xm_s || application.teacher_name}
-                </span>
+                <span>{application.teacher_name}</span>
               </div>
 
-              {application.course_info?.jxz && (
+              {application.teaching_week && (
                 <div className='flex items-center'>
                   <Calendar className='mr-2 h-4 w-4 text-gray-400' />
-                  <span>第{application.course_info.jxz}教学周</span>
+                  <span>第{application.teaching_week}教学周</span>
                 </div>
               )}
             </div>
@@ -614,9 +499,9 @@ export function StudentMessages() {
                   审批记录：
                 </div>
                 <div className='space-y-2'>
-                  {application.approvals.map((approval) => (
+                  {application.approvals.map((approval, index) => (
                     <div
-                      key={approval.id}
+                      key={approval.approval_id || index}
                       className='rounded bg-white p-2 text-sm'
                     >
                       <div className='flex items-center justify-between'>
@@ -751,21 +636,22 @@ export function StudentMessages() {
                 }`}
               >
                 {tab.label}
-                {getTabCount(
-                  tab.key as 'leave_pending' | 'leave' | 'leave_rejected'
-                ) > 0 && (
-                  <span
-                    className={`ml-1 rounded-full px-1.5 py-0.5 text-xs ${
-                      activeTab === tab.key
-                        ? 'bg-blue-400 text-white'
-                        : 'bg-gray-200 text-gray-600'
-                    }`}
-                  >
-                    {getTabCount(
-                      tab.key as 'leave_pending' | 'leave' | 'leave_rejected'
-                    )}
-                  </span>
-                )}
+                {(() => {
+                  const count = getTabCount(
+                    tab.key as 'leave_pending' | 'leave' | 'leave_rejected'
+                  );
+                  return count !== null && count > 0 ? (
+                    <span
+                      className={`ml-1 rounded-full px-1.5 py-0.5 text-xs ${
+                        activeTab === tab.key
+                          ? 'bg-blue-400 text-white'
+                          : 'bg-gray-200 text-gray-600'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  ) : null;
+                })()}
               </button>
             ))}
           </div>
@@ -776,15 +662,18 @@ export function StudentMessages() {
       </div>
 
       {/* 图片查看模态框 */}
-      {selectedImage && (
+      {(selectedImage || isAttachmentLoading) && (
         <div className='fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75'>
           <div className='relative max-h-[90vh] max-w-[90vw] overflow-hidden rounded-lg bg-white'>
             <div className='flex items-center justify-between border-b p-4'>
               <h3 className='text-lg font-medium text-gray-900'>
-                {selectedImage.name}
+                {isAttachmentLoading ? '加载中...' : selectedImage?.name}
               </h3>
               <button
-                onClick={() => setSelectedImage(null)}
+                onClick={() => {
+                  setSelectedImage(null);
+                  setIsAttachmentLoading(false);
+                }}
                 className='rounded-lg p-1 hover:bg-gray-100'
                 title='关闭'
                 aria-label='关闭图片查看器'
@@ -793,24 +682,23 @@ export function StudentMessages() {
               </button>
             </div>
             <div className='p-4'>
-              <img
-                src={selectedImage.url}
-                alt={selectedImage.name}
-                className='max-h-[70vh] max-w-full object-contain'
-                onError={(e) => {
-                  console.error(
-                    'Data URL图片加载失败，这通常不应该发生:',
-                    selectedImage.url.substring(0, 100) + '...'
-                  );
-                  // 显示错误占位图
-                  e.currentTarget.src =
-                    'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5YTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPuWbvueJh+WKoOi9veWksei0pTwvdGV4dD48L3N2Zz4=';
-                  toast.error('图片数据格式错误');
-                }}
-                onLoad={() => {
-                  console.log('Data URL图片加载成功');
-                }}
-              />
+              {isAttachmentLoading ? (
+                <div className='flex h-48 w-96 items-center justify-center'>
+                  <div className='h-8 w-8 animate-spin rounded-full border-b-2 border-blue-500'></div>
+                </div>
+              ) : (
+                selectedImage && (
+                  <img
+                    src={selectedImage.url}
+                    alt={selectedImage.name}
+                    className='max-h-[70vh] max-w-full object-contain'
+                    onLoad={(e) => {
+                      // 释放由URL.createObjectURL创建的内存
+                      URL.revokeObjectURL(e.currentTarget.src);
+                    }}
+                  />
+                )
+              )}
             </div>
           </div>
         </div>

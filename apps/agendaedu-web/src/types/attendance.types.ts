@@ -568,3 +568,81 @@ export interface DataQueryRecord {
     end_time: string
   }
 }
+
+// ========== 课程维度签到统计相关类型 ==========
+
+/**
+ * 课程维度签到统计详细信息（与后端API保持一致）
+ */
+export interface CourseAttendanceStatistics {
+  /** 课程ID */
+  courseId: number
+  /** 课程名称 */
+  courseName: string
+  /** 课次信息 (格式：日期 上课时间-下课时间) */
+  sessionInfo: string
+  /** 周次 */
+  weekNumber: number
+  /** 任课教师 */
+  teacher: string
+  /** 上课学生数量 */
+  totalStudents: number
+  /** 状态 (未开始/进行中/已结束) */
+  status: string
+  /** 签到数量 */
+  checkedInCount: number
+  /** 请假中数量 (请假申请未审批) */
+  leavePendingCount: number
+  /** 请假数量 (请假申请已审批) */
+  leaveApprovedCount: number
+  /** 缺勤数量 */
+  absentCount: number
+  /** 签到率 (签到数量/总学生数量 * 100) */
+  checkinRate: number
+  /** 出勤率 ((签到数量+请假数量)/总学生数量 * 100) */
+  attendanceRate: number
+}
+
+/**
+ * 课程维度签到统计查询条件
+ */
+export interface CourseAttendanceStatsQuery {
+  /** 学期筛选 */
+  semester?: string
+  /** 开始时间筛选 */
+  start_time?: string
+  /** 结束时间筛选 */
+  end_time?: string
+  /** 教师工号筛选 */
+  teacher_code?: string
+  /** 课程名称筛选 (支持模糊匹配) */
+  course_name?: string
+  /** 分页参数 */
+  page?: number
+  /** 每页大小 */
+  page_size?: number
+  /** 排序字段 */
+  sort_by?: 'start_time' | 'checkin_rate' | 'attendance_rate' | 'total_students'
+  /** 排序方向 */
+  sort_order?: 'asc' | 'desc'
+}
+
+/**
+ * 课程维度签到统计API响应
+ */
+export interface CourseAttendanceStatsResponse {
+  /** 统计数据列表 */
+  data: CourseAttendanceStatistics[]
+  /** 总记录数 */
+  total: number
+  /** 当前页码 */
+  page: number
+  /** 每页大小 */
+  page_size: number
+  /** 总页数 */
+  total_pages: number
+  /** 是否有下一页 */
+  has_next: boolean
+  /** 是否有上一页 */
+  has_prev: boolean
+}

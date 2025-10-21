@@ -17,8 +17,8 @@ export type UserType = 'student' | 'teacher';
  * 用户信息
  */
 export interface UserInfo {
-  id: string;
-  type: UserType;
+  userId: string;
+  userType: UserType;
   name: string;
   className?: string;
   majorName?: string;
@@ -57,7 +57,80 @@ export interface PaginatedResponse<T> extends ApiResponse<T> {
 // ==================== API_01: 查询请假信息接口 ====================
 
 /**
- * 请假查询参数
+ * 学生查询请假申请 DTO
+ */
+export interface QueryStudentLeaveApplicationsDTO {
+  studentId: string;
+  status?: 'leave_pending' | 'leave' | 'leave_rejected' | 'all';
+  page?: number;
+  page_size?: number;
+  start_date?: string;
+  end_date?: string;
+}
+
+/**
+ * 学生请假申请项 VO
+ */
+export interface StudentLeaveApplicationItemVO {
+  // 基本请假申请信息
+  id: number;
+  student_id: string;
+  student_name: string;
+  course_id: string;
+  course_name: string;
+  teacher_id: string;
+  teacher_name: string;
+  leave_type: LeaveType;
+  leave_reason: string;
+  status: LeaveStatus;
+  application_time: string;
+  approval_time?: string;
+  approval_comment?: string;
+  created_at: string;
+  updated_at: string;
+
+  // 课程详细信息
+  course_detail_id?: number;
+  semester?: string;
+  teaching_week?: number;
+  week_day?: number;
+  teacher_codes?: string;
+  teacher_names?: string;
+  class_location?: string;
+  start_time?: string;
+  end_time?: string;
+  periods?: string;
+  time_period?: string;
+
+  // 附件信息
+  attachment_count: number;
+  has_attachments: boolean;
+}
+
+/**
+ * 学生请假申请统计 VO
+ */
+export interface StudentLeaveApplicationStatsVO {
+  total_count: number;
+  leave_pending_count: number;
+  leave_count: number;
+  leave_rejected_count: number;
+}
+
+/**
+ * 学生查询请假申请响应 VO
+ */
+export interface QueryStudentLeaveApplicationsVO {
+  data: StudentLeaveApplicationItemVO[];
+  stats: StudentLeaveApplicationStatsVO;
+  page: number;
+  page_size: number;
+  total: number;
+}
+
+/**
+ * 请假查询参数（旧版，保留兼容性）
+ * @deprecated 使用 QueryStudentLeaveApplicationsDTO 替代
  */
 export interface LeaveQueryParams {
   status?: 'all' | LeaveStatus;
@@ -70,7 +143,8 @@ export interface LeaveQueryParams {
 }
 
 /**
- * 请假申请信息
+ * 请假申请信息（旧版，保留兼容性）
+ * @deprecated 使用 StudentLeaveApplicationItemVO 替代
  */
 export interface LeaveApplicationInfo {
   id: number;
@@ -102,6 +176,15 @@ export interface LeaveApplicationsResponse {
 // ==================== API_02: 学生签到接口 ====================
 
 /**
+ * Checkin DTO
+ */
+export interface CheckinDTO {
+  courseExtId: string;
+  studentInfo: Required<UserInfo>;
+  checkinData: CheckinRequest;
+}
+
+/**
  * 签到路径参数
  */
 export interface CheckinPathParams {
@@ -117,6 +200,11 @@ export interface CheckinRequest {
   longitude?: number;
   accuracy?: number;
   remark?: string;
+  // 新增字段 - 用于优化签到性能
+  course_start_time: string; // 课程开始时间（ISO 8601格式）
+  window_id?: string; // 窗口ID（窗口期签到时必填）
+  window_open_time?: string; // 窗口开启时间（ISO 8601格式）
+  window_close_time?: string; // 窗口关闭时间（ISO 8601格式）
 }
 
 /**
@@ -132,16 +220,95 @@ export interface Coordinates {
  * 签到响应
  */
 export interface CheckinResponse {
-  record_id: number;
+  status: 'queued';
+  message: string;
+}
+
+// ==================== API_02: 教师查询请假申请接口 ====================
+
+/**
+ * 教师查询请假申请 DTO
+ */
+export interface QueryTeacherLeaveApplicationsDTO {
+  teacherId: string;
+  status?: string | string[]; // 支持单个状态或多个状态
+  page?: number;
+  page_size?: number;
+  start_date?: string;
+  end_date?: string;
+}
+
+/**
+ * 教师请假申请项 VO
+ */
+export interface TeacherLeaveApplicationItemVO {
+  // 基本请假申请信息
+  id: number;
+  approval_id: string;
   student_id: string;
   student_name: string;
+  course_id: string;
   course_name: string;
-  status: 'present' | 'late';
-  checkin_time: string;
-  is_late: boolean;
-  late_minutes?: number;
-  location?: string;
-  coordinates?: Coordinates;
+  teacher_name: string;
+  leave_type: LeaveType;
+  leave_reason: string;
+  status: LeaveStatus;
+  approval_comment?: string;
+  approval_time?: string;
+  application_time: string;
+  approval_result: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  approval_record_id: number;
+
+  // 课程详细信息
+  start_time?: string;
+  end_time?: string;
+  class_location?: string;
+  teaching_week?: number;
+  periods?: string;
+  leave_date?: string;
+  class_date?: string;
+  class_time?: string;
+
+  // 教师信息
+  teacher_info?: {
+    teacher_id: string;
+    teacher_name: string;
+    teacher_department?: string;
+  };
+
+  // 附件信息
+  attachments?: Array<{
+    id: number;
+    leave_application_id: number;
+    file_name: string;
+    file_size: number;
+    file_type: string;
+    upload_time: string;
+  }>;
+  attachment_count: number;
+}
+
+/**
+ * 教师请假申请统计 VO
+ */
+export interface TeacherLeaveApplicationStatsVO {
+  pending_count: number;
+  processed_count: number;
+  approved_count: number;
+  rejected_count: number;
+  cancelled_count: number;
+  total_count: number;
+}
+
+/**
+ * 教师查询请假申请响应 VO
+ */
+export interface QueryTeacherLeaveApplicationsVO {
+  applications: TeacherLeaveApplicationItemVO[];
+  total: number;
+  page: number;
+  page_size: number;
+  stats: TeacherLeaveApplicationStatsVO;
 }
 
 // ==================== API_03: 学生请假申请接口 ====================
@@ -204,6 +371,28 @@ export interface WithdrawResponse {
   previous_status: LeaveStatus;
   new_status: LeaveStatus;
   withdraw_time: string;
+}
+
+// ==================== 创建签到窗口接口 ====================
+
+/**
+ * 创建签到窗口请求
+ */
+export interface CreateVerificationWindowRequest {
+  duration_minutes?: number; // 窗口持续时间（分钟），默认 2 分钟
+}
+
+/**
+ * 创建签到窗口响应
+ */
+export interface CreateVerificationWindowResponse {
+  window_id: string;
+  verification_round: number;
+  start_time: string;
+  end_time: string;
+  expected_student_count: number;
+  status: 'open';
+  message: string;
 }
 
 // ==================== API_05: 审批请假申请接口 ====================
@@ -384,7 +573,7 @@ export interface AttendanceStats {
   late_count: number;
   absent_count: number;
   leave_count: number;
-  not_started_count: number;
+  unstarted_count: number;
   attendance_rate: number;
 }
 
@@ -419,6 +608,147 @@ export interface AttendanceStatisticsParams {
   start_date?: string;
   end_date?: string;
   student_id?: string;
+}
+
+// ==================== API_11: 获取课程完整数据接口 ====================
+
+/**
+ * 获取课程完整数据 DTO
+ */
+/**
+ * 获取课程完整数据 DTO
+ */
+export interface GetCourseCompleteDataDTO {
+  externalId: string;
+  userInfo: UserInfo;
+  type: 'student' | 'teacher';
+}
+
+/**
+ * 学生课程数据 VO（用于学生端）
+ * 匹配前端 AttendanceData 接口
+ */
+export interface StudentCourseDataVO {
+  id: number;
+  course: {
+    external_id: string;
+    kcmc: string; // 课程名称
+    course_start_time: string;
+    course_end_time: string;
+    room_s: string; // 教室
+    xm_s: string; // 教师姓名
+    jc_s: string; // 节次
+    jxz: number; // 教学周
+    lq: string; // 楼区
+    rq?: string;
+  };
+  student: {
+    xh: string; // 学号
+    xm: string; // 姓名
+    bjmc: string; // 班级名称
+    zymc: string; // 专业名称
+  };
+  final_status?: AttendanceStatus;
+  pending_status?: AttendanceStatus;
+  live_status?: AttendanceStatus;
+  verification_windows?: {
+    id: number;
+    window_id: string;
+    course_id: number;
+    verification_round: number;
+    open_time: string;
+    duration_minutes: number;
+    attendance_record?: {
+      id: number;
+      checkin_time: string;
+      status: string;
+      last_checkin_source: string;
+      last_checkin_reason: string;
+      window_id: string;
+    };
+  };
+}
+
+/**
+ * 教师信息
+ */
+export interface TeacherInfo {
+  teacher_id: string;
+  teacher_name: string;
+}
+
+/**
+ * 学生考勤详情
+ */
+export interface StudentAttendanceDetail {
+  student_id: string;
+  student_name: string;
+  class_name?: string;
+  major_name?: string;
+  status: AttendanceStatus;
+  checkin_time?: string | Date | null;
+}
+
+/**
+ * 学生视图 - 课程完整数据响应
+ */
+export interface StudentCourseCompleteDataVO {
+  course_info: {
+    external_id: string;
+    course_code: string;
+    course_name: string;
+    semester: string;
+    teaching_week: number;
+    week_day: number;
+    class_location?: string;
+    start_time: string;
+    end_time: string;
+    periods?: string;
+    time_period: string;
+  };
+  teacher_info: TeacherInfo[];
+  my_attendance: {
+    status: AttendanceStatus;
+    checkin_time?: string;
+    is_late: boolean;
+    late_minutes?: number;
+    leave_reason?: string;
+    can_checkin: boolean;
+    can_leave: boolean;
+  };
+  attendance_window: {
+    start_time: string;
+    end_time: string;
+    is_active: boolean;
+  };
+}
+
+/**
+ * 教师视图 - 课程完整数据响应
+ */
+export interface TeacherCourseCompleteDataVO {
+  course_info: {
+    external_id: string;
+    course_code: string;
+    course_name: string;
+    semester: string;
+    teaching_week: number;
+    week_day: number;
+    class_location?: string;
+    start_time: string;
+    end_time: string;
+    periods?: string;
+    time_period: string;
+  };
+  teacher_info: TeacherInfo[];
+  students: StudentAttendanceDetail[];
+  stats: AttendanceStats;
+  attendance_window: {
+    start_time: string;
+    end_time: string;
+    is_active: boolean;
+  };
+  can_create_window?: boolean; // 是否可以创建新的签到窗口（仅当前课程有此字段）
 }
 
 /**

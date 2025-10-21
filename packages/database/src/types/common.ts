@@ -1,8 +1,6 @@
 // @stratix/database 通用类型定义
 // 定义插件中使用的通用类型和接口
 
-import type { Expression, ExpressionBuilder, SqlBool } from 'kysely';
-
 /**
  * 数据库类型枚举
  */

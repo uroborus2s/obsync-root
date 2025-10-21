@@ -187,6 +187,23 @@ export type NodeInstanceToTableMapping = {
 };
 
 /**
+ * 包含子节点的节点实例类型
+ * 用于层次结构展示，如果节点有子节点，会包含在 children 字段中
+ */
+export interface NodeInstanceWithChildren extends NodeInstance {
+  /** 子节点列表（如果有的话） */
+  children?: NodeInstanceWithChildren[];
+  /** 子节点统计信息 */
+  childrenStats?: {
+    total: number;
+    completed: number;
+    running: number;
+    failed: number;
+    pending: number;
+  };
+}
+
+/**
  * 类型转换工具函数类型
  */
 export interface NodeTypeConverter {

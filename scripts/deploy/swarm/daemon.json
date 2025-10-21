@@ -1,0 +1,25 @@
+{
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3",
+    "compress": "false"
+  },
+  "storage-driver": "overlay2",
+  "live-restore": true,
+  "userland-proxy": false,
+  "metrics-addr": "0.0.0.0:9323",
+  "experimental": false,
+  "features": {
+    "buildkit": true
+  },
+  "default-ulimits": {
+    "nofile": {
+      "Name": "nofile",
+      "Hard": 64000,
+      "Soft": 64000
+    }
+  },
+  "max-concurrent-downloads": 10,
+  "max-concurrent-uploads": 10
+}

@@ -193,42 +193,55 @@ export interface StudentWithdrawLeaveResponse {
 }
 
 export interface StudentLeaveApplicationItem {
-  id: string;
+  // 基本请假申请信息（原始数据库字段）
+  id: number;
+  student_id: string;
+  student_name: string;
+  course_id: string;
   course_name: string;
-  class_date: string;
-  class_time: string;
-  class_location?: string;
+  teacher_id: string;
   teacher_name: string;
   leave_type: 'sick' | 'personal' | 'emergency' | 'other';
   leave_reason: string;
-  application_time: string;
   status: 'leave_pending' | 'leave' | 'leave_rejected';
-  approval_time?: string;
-  approval_comment?: string;
-  course_info: {
-    kcmc: string;
-    room_s: string;
-    xm_s: string;
-    jc_s: string;
-    jxz: number | null;
-    lq: string | null;
-    course_start_time: string;
-    course_end_time: string;
-  };
+  application_time: string;
+  approval_time?: string | null;
+  approval_comment?: string | null;
+  created_at: string;
+  updated_at: string;
+
+  // 课程详细信息（原始数据库字段）
+  course_detail_id?: number | null;
+  semester?: string;
+  teaching_week?: number; // 原来的 jxz 字段
+  week_day?: number;
+  teacher_codes?: string;
+  teacher_names?: string;
+  class_location?: string;
+  start_time?: string;
+  end_time?: string;
+  periods?: string;
+  time_period?: string;
+
+  // 关联数据数组
   attachments: Array<{
-    id: string;
+    id: number;
+    leave_application_id: number;
     file_name: string;
-    file_size: number;
     file_type: string;
+    file_size: number;
     upload_time: string;
   }>;
   approvals: Array<{
-    id: string;
-    approver_id: string;
+    approval_id?: number;
+    leave_application_id?: number;
+    approver_id?: string;
     approver_name: string;
     approval_result: 'pending' | 'approved' | 'rejected' | 'cancelled';
-    approval_comment?: string;
-    approval_time?: string;
+    approval_comment?: string | null;
+    approval_time?: string | null;
+    created_at?: string;
+    updated_at?: string;
   }>;
 }
 
@@ -236,11 +249,16 @@ export interface StudentLeaveApplicationQueryResponse {
   success: boolean;
   message?: string;
   data?: {
-    applications: StudentLeaveApplicationItem[];
+    // 新的 API 直接返回数据数组和分页信息
+    data: StudentLeaveApplicationItem[];
     total: number;
     page: number;
     page_size: number;
-    stats: {
+    total_pages: number;
+    has_next: boolean;
+    has_prev: boolean;
+    // stats 字段可能不存在，因为新 API 不再返回统计信息
+    stats?: {
       total_count: number;
       leave_pending_count: number;
       leave_count: number;
@@ -250,46 +268,50 @@ export interface StudentLeaveApplicationQueryResponse {
 }
 
 export interface TeacherLeaveApplicationItem {
-  id: string;
+  id: number;
+  approval_id: string;
   student_id: string;
   student_name: string;
   course_id: string;
   course_name: string;
+  teacher_name: string;
+  leave_type: 'sick' | 'personal' | 'emergency' | 'other';
+  leave_reason: string;
+  status:
+    | 'leave_pending'
+    | 'leave'
+    | 'leave_rejected'
+    | 'pending'
+    | 'approved'
+    | 'rejected'
+    | 'cancelled';
+  approval_comment: string | null;
+  approval_time: string | null;
+  application_time: string;
+  approval_result: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  approval_record_id: number;
+  start_time: string;
+  end_time: string;
+  class_location: string;
+  jxz: number;
+  jc: string;
+  leave_date: string;
   class_date: string;
   class_time: string;
-  class_location?: string;
-  teacher_name: string;
-  leave_date: string;
-  leave_reason: string;
-  leave_type: 'sick' | 'personal' | 'emergency' | 'other';
-  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
-  approval_comment?: string;
-  approval_time?: string;
-  application_time: string;
-  approval_id?: string;
-  lq?: string;
-  room_s?: string;
-  jxz?: number | null;
-  course_start_time?: string;
-  course_end_time?: string;
-  student_info?: {
-    student_id: string;
-    student_name: string;
-    class_name?: string;
-    major_name?: string;
-  };
-  teacher_info?: {
+  teacher_info: {
     teacher_id: string;
     teacher_name: string;
-    teacher_department?: string;
+    teacher_department: string;
   };
-  attachments?: Array<{
-    id: string;
+  attachments: Array<{
+    id: number;
+    leave_application_id: number;
     file_name: string;
     file_size: number;
     file_type: string;
-    upload_time?: string;
+    upload_time: string;
   }>;
+  attachment_count: number;
 }
 
 export interface TeacherLeaveApplicationQueryResponse {
@@ -534,7 +556,7 @@ export class AttendanceApiService {
    * 学生签到
    */
   async studentCheckIn(
-    attendanceRecordId: string,
+    attendanceRecordId: number,
     request: StudentCheckInRequest
   ): Promise<StudentCheckInResponse> {
     const response = await this.apiClient.post(

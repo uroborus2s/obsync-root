@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import type { WorkflowDefinition } from '@/types/workflow.types'
-import { AlertCircle, Filter, Plus, RefreshCw, Search } from 'lucide-react'
-import { toast } from 'sonner'
+import { AlertCircle, Filter, RefreshCw, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -60,8 +59,53 @@ export default function WorkflowDefinitionsPage() {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
+      {
+        id: 5,
+        name: 'test-sync-workflow',
+        description:
+          '基于Stratix Tasks架构的增量同步工作流，用于处理课程表的增量数据变更同步',
+        version: '1.0.0',
+        status: 'active',
+        enabled: true,
+        definition: {
+          nodes: [
+            {
+              nodeId: 'start',
+              nodeName: '开始节点',
+              nodeType: 'simple',
+              maxRetries: 0,
+              dependsOn: [],
+            },
+            {
+              nodeId: 'data-validation',
+              nodeName: '数据验证',
+              nodeType: 'task',
+              executor: 'DataValidationExecutor',
+              maxRetries: 3,
+              dependsOn: ['start'],
+            },
+            {
+              nodeId: 'sync-process',
+              nodeName: '同步处理',
+              nodeType: 'task',
+              executor: 'SyncProcessExecutor',
+              maxRetries: 2,
+              dependsOn: ['data-validation'],
+            },
+            {
+              nodeId: 'completion',
+              nodeName: '完成节点',
+              nodeType: 'simple',
+              maxRetries: 0,
+              dependsOn: ['sync-process'],
+            },
+          ],
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
     ],
-    total: 2,
+    total: 3,
     page: 1,
     pageSize: 20,
     totalPages: 1,
@@ -87,12 +131,6 @@ export default function WorkflowDefinitionsPage() {
     setPage(1)
   }
 
-  // 处理创建新工作流
-  const handleCreateWorkflow = () => {
-    toast.info('创建工作流功能开发中...')
-    // TODO: 实现创建功能
-  }
-
   // 查看工作流定义
   const handleViewDefinition = (definition: WorkflowDefinition) => {
     // 跳转到工作流详情页面
@@ -100,18 +138,6 @@ export default function WorkflowDefinitionsPage() {
       to: '/workflows/definitions/$definitionId',
       params: { definitionId: definition.id!.toString() },
     })
-  }
-
-  // 编辑工作流定义
-  const handleEditDefinition = (definition: WorkflowDefinition) => {
-    toast.info(`编辑工作流 "${definition.name}" 功能开发中...`)
-    // TODO: 实现编辑功能
-  }
-
-  // 启动工作流
-  const handleStartWorkflow = (definition: WorkflowDefinition) => {
-    toast.info(`启动工作流 "${definition.name}" 功能开发中...`)
-    // TODO: 实现启动功能
   }
 
   // const definitions = data?.items || []
@@ -174,14 +200,8 @@ export default function WorkflowDefinitionsPage() {
           <div className='flex items-center justify-between'>
             <div>
               <h1 className='text-3xl font-bold tracking-tight'>工作流定义</h1>
-              <p className='text-muted-foreground mt-2'>
-                管理和配置工作流定义，创建新的工作流模板
-              </p>
+              <p className='text-muted-foreground mt-2'>查看和管理工作流定义</p>
             </div>
-            <Button onClick={handleCreateWorkflow} className='gap-2'>
-              <Plus className='h-4 w-4' />
-              新建工作流定义
-            </Button>
           </div>
 
           {/* 搜索和过滤 */}
@@ -258,8 +278,6 @@ export default function WorkflowDefinitionsPage() {
             <CardContent>
               <WorkflowDefinitionsTable
                 onViewDefinition={handleViewDefinition}
-                onEditDefinition={handleEditDefinition}
-                onStartWorkflow={handleStartWorkflow}
                 searchTerm={searchTerm}
                 statusFilter={statusFilter}
                 categoryFilter={categoryFilter}

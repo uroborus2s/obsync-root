@@ -2,7 +2,6 @@ import { ToastProvider, Toaster } from '@/components/ui/toast';
 import { Approval } from '@/pages/Approval';
 import { AttendanceSheet } from '@/pages/AttendanceSheet';
 import { AttendanceView } from '@/pages/AttendanceView';
-import { CheckIn } from '@/pages/CheckIn';
 import { Dashboard } from '@/pages/Dashboard';
 import { Leave } from '@/pages/Leave';
 import { StudentDashboard } from '@/pages/StudentDashboard';
@@ -31,7 +30,6 @@ function AppContent() {
           <Route path='/' element={<Dashboard />} />
           <Route path='/leave' element={<Leave />} />
           <Route path='/leave/:attendanceId' element={<Leave />} />
-          <Route path='/checkin' element={<CheckIn />} />
           <Route path='/attendance' element={<AttendanceSheet />} />
           <Route path='/approval' element={<Approval />} />
 

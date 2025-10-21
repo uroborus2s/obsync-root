@@ -2,9 +2,8 @@
  * 工作流可视化工具
  * 将数据库中的工作流定义转换为React Flow可视化格式
  */
-
-import type { Node, Edge } from '@xyflow/react'
 import type { WorkflowDefinition } from '@/types/workflow.types'
+import type { Edge, Node } from '@xyflow/react'
 
 export interface WorkflowNode {
   nodeId: string
@@ -62,30 +61,30 @@ const NODE_TYPE_ICONS = {
  * 计算节点位置的布局算法
  */
 class WorkflowLayoutEngine {
-  private nodeWidth = 200
-  private nodeHeight = 80
-  private horizontalSpacing = 250
-  private verticalSpacing = 120
+  private horizontalSpacing = 200
+  private verticalSpacing = 150
 
   /**
-   * 使用层次布局算法计算节点位置
+   * 使用层次布局算法计算节点位置（垂直布局）
    */
-  calculateLayout(workflowNodes: WorkflowNode[]): Map<string, { x: number; y: number }> {
+  calculateLayout(
+    workflowNodes: WorkflowNode[]
+  ): Map<string, { x: number; y: number }> {
     const positions = new Map<string, { x: number; y: number }>()
     const levels = this.calculateNodeLevels(workflowNodes)
     const levelGroups = this.groupNodesByLevel(levels)
 
-    // 为每个层级的节点分配位置
+    // 为每个层级的节点分配位置（垂直布局）
     Object.entries(levelGroups).forEach(([level, nodeIds]) => {
       const levelNum = parseInt(level)
-      const x = levelNum * this.horizontalSpacing
-      
-      // 垂直居中分布节点
-      const totalHeight = (nodeIds.length - 1) * this.verticalSpacing
-      const startY = -totalHeight / 2
+      const y = levelNum * this.verticalSpacing
+
+      // 水平居中分布节点
+      const totalWidth = (nodeIds.length - 1) * this.horizontalSpacing
+      const startX = -totalWidth / 2
 
       nodeIds.forEach((nodeId, index) => {
-        const y = startY + index * this.verticalSpacing
+        const x = startX + index * this.horizontalSpacing
         positions.set(nodeId, { x, y })
       })
     })
@@ -96,7 +95,9 @@ class WorkflowLayoutEngine {
   /**
    * 计算每个节点的层级（基于依赖关系）
    */
-  private calculateNodeLevels(workflowNodes: WorkflowNode[]): Map<string, number> {
+  private calculateNodeLevels(
+    workflowNodes: WorkflowNode[]
+  ): Map<string, number> {
     const levels = new Map<string, number>()
     const visited = new Set<string>()
 
@@ -106,32 +107,34 @@ class WorkflowLayoutEngine {
       }
 
       visited.add(nodeId)
-      const node = workflowNodes.find(n => n.nodeId === nodeId)
-      
+      const node = workflowNodes.find((n) => n.nodeId === nodeId)
+
       if (!node || !node.dependsOn || node.dependsOn.length === 0) {
         levels.set(nodeId, 0)
         return 0
       }
 
       const maxDependencyLevel = Math.max(
-        ...node.dependsOn.map(depId => calculateLevel(depId))
+        ...node.dependsOn.map((depId) => calculateLevel(depId))
       )
-      
+
       const level = maxDependencyLevel + 1
       levels.set(nodeId, level)
       return level
     }
 
-    workflowNodes.forEach(node => calculateLevel(node.nodeId))
+    workflowNodes.forEach((node) => calculateLevel(node.nodeId))
     return levels
   }
 
   /**
    * 按层级分组节点
    */
-  private groupNodesByLevel(levels: Map<string, number>): Record<number, string[]> {
+  private groupNodesByLevel(
+    levels: Map<string, number>
+  ): Record<number, string[]> {
     const groups: Record<number, string[]> = {}
-    
+
     levels.forEach((level, nodeId) => {
       if (!groups[level]) {
         groups[level] = []
@@ -152,19 +155,42 @@ export class WorkflowVisualizer {
   /**
    * 将工作流定义转换为可视化数据
    */
-  convertToVisualization(definition: WorkflowDefinition): WorkflowVisualizationData {
+  convertToVisualization(
+    definition: WorkflowDefinition
+  ): WorkflowVisualizationData {
     try {
-      const workflowDef = typeof definition.definition === 'string' 
-        ? JSON.parse(definition.definition) 
-        : definition.definition
+      // 尝试从多个可能的位置获取节点数据
+      let workflowNodes: WorkflowNode[] = []
 
-      if (!workflowDef.nodes || !Array.isArray(workflowDef.nodes)) {
-        throw new Error('Invalid workflow definition: missing nodes array')
+      // 首先尝试从 definition.definition.nodes 获取
+      if (
+        definition.definition?.nodes &&
+        Array.isArray(definition.definition.nodes)
+      ) {
+        workflowNodes = definition.definition.nodes as unknown as WorkflowNode[]
+      }
+      // 如果没有，尝试从顶级 nodes 获取
+      else if (definition.nodes && Array.isArray(definition.nodes)) {
+        workflowNodes = definition.nodes as unknown as WorkflowNode[]
+      }
+      // 如果 definition.definition 是字符串，尝试解析
+      else if (typeof definition.definition === 'string') {
+        try {
+          const parsed = JSON.parse(definition.definition)
+          if (parsed.nodes && Array.isArray(parsed.nodes)) {
+            workflowNodes = parsed.nodes as WorkflowNode[]
+          }
+        } catch (parseError) {
+          console.error('Failed to parse definition string:', parseError)
+        }
       }
 
-      const workflowNodes = workflowDef.nodes as WorkflowNode[]
-      const positions = this.layoutEngine.calculateLayout(workflowNodes)
+      if (!workflowNodes.length) {
+        console.warn('No workflow nodes found in definition:', definition)
+        return { nodes: [], edges: [] }
+      }
 
+      const positions = this.layoutEngine.calculateLayout(workflowNodes)
       const nodes = this.createReactFlowNodes(workflowNodes, positions)
       const edges = this.createReactFlowEdges(workflowNodes)
 
@@ -179,13 +205,13 @@ export class WorkflowVisualizer {
    * 创建React Flow节点
    */
   private createReactFlowNodes(
-    workflowNodes: WorkflowNode[], 
+    workflowNodes: WorkflowNode[],
     positions: Map<string, { x: number; y: number }>
   ): Node[] {
-    return workflowNodes.map(node => {
+    return workflowNodes.map((node) => {
       const position = positions.get(node.nodeId) || { x: 0, y: 0 }
       const nodeType = node.nodeType || 'simple'
-      
+
       return {
         id: node.nodeId,
         type: 'default',
@@ -219,7 +245,7 @@ export class WorkflowVisualizer {
     const icon = NODE_TYPE_ICONS[node.nodeType] || '⚡'
     const name = node.nodeName || node.nodeId
     const executor = node.executor ? `\n${node.executor}` : ''
-    
+
     return `${icon} ${name}${executor}`
   }
 
@@ -229,9 +255,12 @@ export class WorkflowVisualizer {
   private createReactFlowEdges(workflowNodes: WorkflowNode[]): Edge[] {
     const edges: Edge[] = []
 
-    workflowNodes.forEach(node => {
+    workflowNodes.forEach((node) => {
+      // 支持两种连接方式：dependsOn (反向) 和 nextNodes (正向)
+
+      // 处理 dependsOn 属性 (当前节点依赖的前置节点)
       if (node.dependsOn && node.dependsOn.length > 0) {
-        node.dependsOn.forEach(sourceNodeId => {
+        node.dependsOn.forEach((sourceNodeId) => {
           edges.push({
             id: `${sourceNodeId}-${node.nodeId}`,
             source: sourceNodeId,
@@ -248,6 +277,30 @@ export class WorkflowVisualizer {
           })
         })
       }
+
+      // 处理 nextNodes 属性 (当前节点的后续节点)
+      if ((node as any).nextNodes && Array.isArray((node as any).nextNodes)) {
+        ;(node as any).nextNodes.forEach((targetNodeId: string) => {
+          const edgeId = `${node.nodeId}-${targetNodeId}`
+          // 避免重复添加相同的边
+          if (!edges.find((edge) => edge.id === edgeId)) {
+            edges.push({
+              id: edgeId,
+              source: node.nodeId,
+              target: targetNodeId,
+              type: 'smoothstep',
+              style: {
+                stroke: '#64748b',
+                strokeWidth: 2,
+              },
+              markerEnd: {
+                type: 'arrowclosed',
+                color: '#64748b',
+              },
+            })
+          }
+        })
+      }
     })
 
     return edges
@@ -256,24 +309,28 @@ export class WorkflowVisualizer {
   /**
    * 获取节点执行状态样式
    */
-  getNodeExecutionStyle(nodeId: string, executionPath?: string[], currentNodeId?: string) {
+  getNodeExecutionStyle(
+    nodeId: string,
+    executionPath?: string[],
+    currentNodeId?: string
+  ) {
     const isExecuted = executionPath?.includes(nodeId)
     const isCurrent = currentNodeId === nodeId
-    
+
     if (isCurrent) {
       return {
         border: '3px solid #fbbf24',
         boxShadow: '0 0 10px rgba(251, 191, 36, 0.5)',
       }
     }
-    
+
     if (isExecuted) {
       return {
         border: '3px solid #10b981',
         opacity: 0.8,
       }
     }
-    
+
     return {
       opacity: 0.6,
     }

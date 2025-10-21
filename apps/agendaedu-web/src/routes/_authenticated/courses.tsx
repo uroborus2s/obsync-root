@@ -9,6 +9,7 @@ import {
   Trash,
   Users,
 } from 'lucide-react'
+import { createTeacherRouteCheck } from '@/utils/route-permission'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -29,6 +30,7 @@ import {
 } from '@/components/ui/table'
 
 export const Route = createFileRoute('/_authenticated/courses')({
+  beforeLoad: createTeacherRouteCheck(),
   component: Courses,
 })
 

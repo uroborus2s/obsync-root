@@ -1,24 +1,12 @@
 // import { wpsAuthService } from '@/lib/wps-auth-service';
-import { LocationHelper } from '@/utils/location-helper';
+import { LocationInfo } from '@/lib/wps-collaboration-api';
 import {
   formatDistance,
   getSupportedBuildings,
   validateLocationForCheckIn
 } from '@/utils/locationUtils';
-import {
-  checkWPSSDKStatus,
-  printWPSSDKDebugInfo,
-  testWPSSDKBasicFunctions
-} from '@/utils/wps-sdk-checker';
+import { checkWPSSDKStatus } from '@/utils/wps-sdk-checker';
 import { useEffect, useState } from 'react';
-import { toast } from 'sonner';
-
-interface LocationInfo {
-  latitude: number;
-  longitude: number;
-  address: string;
-  accuracy: number;
-}
 
 interface TestResult {
   type: 'success' | 'error' | 'info';
@@ -32,10 +20,9 @@ export function LocationTestPage() {
   );
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [wpsStatus, setWpsStatus] = useState<string>('未检测');
   const [selectedBuilding, setSelectedBuilding] =
     useState<string>('第一教学楼');
-  const [wpsConfig, setWpsConfig] = useState<any>(null);
+  // const [wpsConfig, setWpsConfig] = useState<any>(null);
   const [manualLat, setManualLat] = useState<string>('');
   const [manualLng, setManualLng] = useState<string>('');
   const [testRadius, setTestRadius] = useState<number>(500);
@@ -43,7 +30,7 @@ export function LocationTestPage() {
   const buildings = getSupportedBuildings();
 
   useEffect(() => {
-    checkWPSEnvironment();
+    checkWPSSDKStatus(setCurrentLocation);
   }, []);
 
   const addTestResult = (result: TestResult) => {
@@ -53,68 +40,35 @@ export function LocationTestPage() {
     ]);
   };
 
-  const clearResults = () => {
-    setTestResults([]);
-  };
-
-  const checkWPSEnvironment = () => {
-    const sdkStatus = checkWPSSDKStatus();
-
-    if (sdkStatus.isLoaded) {
-      setWpsStatus('✅ WPS SDK已加载');
-      addTestResult({
-        type: 'success',
-        message: 'WPS SDK检测成功',
-        details: sdkStatus
-      });
-    } else {
-      setWpsStatus('⚠️ WPS SDK未加载');
-      addTestResult({
-        type: 'error',
-        message: 'WPS SDK检测失败',
-        details: sdkStatus
-      });
-    }
-
-    // 打印调试信息
-    printWPSSDKDebugInfo();
-  };
+  // const clearResults = () => {
+  //   setTestResults([]);
+  // };
 
   const testLocationAccess = async () => {
     setIsLoading(true);
     addTestResult({ type: 'info', message: '开始测试位置获取...' });
 
     try {
-      const location = await LocationHelper.getCurrentLocation();
-      setCurrentLocation(location);
-
-      addTestResult({
-        type: 'success',
-        message: '位置获取成功',
-        details: location
+      window.ksoxz_sdk.ready(() => {
+        window.ksoxz_sdk.getLocationInfo({
+          params: { coordinate: 1, withReGeocode: true },
+          onSuccess: (data: LocationInfo) => {
+            setCurrentLocation(data);
+            addTestResult({
+              type: 'success',
+              message: '位置获取成功',
+              details: data
+            });
+          },
+          onError: (error: unknown) => {
+            console.error('❌ WPS JSAPI获取位置失败:', error);
+            // 如果WPS API失败，尝试使用浏览器API
+          }
+        });
       });
+      // const location = await LocationHelper.getCurrentLocation();
 
-      // 验证用户位置是否在允许的签到范围内（500米）
-      const locationValidation = validateLocationForCheckIn(
-        {
-          lng: location.longitude,
-          lat: location.latitude
-        },
-        selectedBuilding
-      );
-
-      addTestResult({
-        type: locationValidation.valid ? 'success' : 'error',
-        message: locationValidation.valid ? '位置验证通过' : '位置验证失败',
-        details: {
-          valid: locationValidation.valid,
-          matchedBuilding: locationValidation.matchedBuilding?.name,
-          distance: locationValidation.distance
-            ? formatDistance(locationValidation.distance)
-            : 'N/A',
-          error: locationValidation.error
-        }
-      });
+      // setCurrentLocation(location);
     } catch (error) {
       addTestResult({
         type: 'error',
@@ -128,21 +82,21 @@ export function LocationTestPage() {
     }
   };
 
-  // 新增：使用WPS API获取位置并校验
-  const testWPSLocationAccess = async () => {
-    setIsLoading(true);
-    let locationData;
+  // // 新增：使用WPS API获取位置并校验
+  // const testWPSLocationAccess = async () => {
+  //   setIsLoading(true);
+  //   let locationData;
 
-    try {
-      locationData = await LocationHelper.getCurrentLocation();
-      console.log('📍 获取到当前位置:', locationData);
-    } catch (error) {
-      console.error('获取位置失败:', error);
-      toast.error('获取位置失败，请检查位置权限设置');
-      return;
-    }
-    addTestResult({ type: 'info', message: '开始使用WPS API获取位置...' });
-  };
+  //   try {
+  //     locationData = await LocationHelper.getCurrentLocation();
+  //     console.log('📍 获取到当前位置:', locationData);
+  //   } catch (error) {
+  //     console.error('获取位置失败:', error);
+  //     toast.error('获取位置失败，请检查位置权限设置');
+  //     return;
+  //   }
+  //   addTestResult({ type: 'info', message: '开始使用WPS API获取位置...' });
+  // };
 
   const testLocationValidation = () => {
     if (!currentLocation) {
@@ -240,137 +194,137 @@ export function LocationTestPage() {
     });
   };
 
-  const testWPSInitialization = async () => {
-    setIsLoading(true);
-    addTestResult({ type: 'info', message: '开始测试WPS初始化...' });
+  // const testWPSInitialization = async () => {
+  //   setIsLoading(true);
+  //   addTestResult({ type: 'info', message: '开始测试WPS初始化...' });
 
-    try {
-      // 从服务器获取真实的WPS配置
-      addTestResult({ type: 'info', message: '正在从服务器获取WPS配置...' });
+  //   try {
+  //     // 从服务器获取真实的WPS配置
+  //     addTestResult({ type: 'info', message: '正在从服务器获取WPS配置...' });
 
-      // 获取当前页面URL
-      const currentUrl = window.location.href;
+  //     // 获取当前页面URL
+  //     const currentUrl = window.location.href;
 
-      const response = await fetch(
-        `/api/auth/wps/jsapi-ticket?url=${encodeURIComponent(currentUrl)}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-      );
+  // const response = await fetch(
+  //   `/api/auth/wps/jsapi-ticket?url=${encodeURIComponent(currentUrl)}`,
+  //   {
+  //     method: 'GET',
+  //     headers: {
+  //       'Content-Type': 'application/json'
+  //     }
+  //   }
+  // );
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
+  // if (!response.ok) {
+  //   throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  // }
 
-      const config = await response.json();
+  // const config = await response.json();
 
-      // 保存配置到状态中
-      setWpsConfig(config.data);
+  //     // 保存配置到状态中
+  //     setWpsConfig(config.data);
 
-      addTestResult({
-        type: 'success',
-        message: '成功获取WPS配置',
-        details: {
-          requestUrl: `/api/auth/wps/jsapi-ticket?url=${encodeURIComponent(currentUrl)}`,
-          currentPageUrl: currentUrl,
-          configData: config.data,
-          timestamp: new Date().toISOString(),
-          responseStatus: response.status,
-          responseHeaders: Object.fromEntries(response.headers.entries())
-        }
-      });
+  //     addTestResult({
+  //       type: 'success',
+  //       message: '成功获取WPS配置',
+  //       details: {
+  //         requestUrl: `/api/auth/wps/jsapi-ticket?url=${encodeURIComponent(currentUrl)}`,
+  //         currentPageUrl: currentUrl,
+  //         configData: config.data,
+  //         timestamp: new Date().toISOString(),
+  //         responseStatus: response.status,
+  //         responseHeaders: Object.fromEntries(response.headers.entries())
+  //       }
+  //     });
 
-      // 验证配置字段
-      const requiredFields = ['appId', 'timeStamp', 'nonceStr', 'signature'];
-      const missingFields = requiredFields.filter(
-        (field) => !config.data[field]
-      );
+  //     // 验证配置字段
+  //     const requiredFields = ['appId', 'timeStamp', 'nonceStr', 'signature'];
+  //     const missingFields = requiredFields.filter(
+  //       (field) => !config.data[field]
+  //     );
 
-      if (missingFields.length > 0) {
-        addTestResult({
-          type: 'error',
-          message: `WPS配置缺少必要字段: ${missingFields.join(', ')}`,
-          details: { missingFields, receivedConfig: config.data }
-        });
-        return;
-      }
+  //     if (missingFields.length > 0) {
+  //       addTestResult({
+  //         type: 'error',
+  //         message: `WPS配置缺少必要字段: ${missingFields.join(', ')}`,
+  //         details: { missingFields, receivedConfig: config.data }
+  //       });
+  //       return;
+  //     }
 
-      // 尝试使用获取的配置初始化WPS SDK
-      if (window.ksoxz_sdk && window.ksoxz_sdk.config) {
-        addTestResult({
-          type: 'info',
-          message: '使用服务器配置初始化WPS SDK...'
-        });
+  //     // 尝试使用获取的配置初始化WPS SDK
+  //     if (window.ksoxz_sdk && window.ksoxz_sdk.config) {
+  //       addTestResult({
+  //         type: 'info',
+  //         message: '使用服务器配置初始化WPS SDK...'
+  //       });
 
-        window.ksoxz_sdk.config({
-          params: {
-            appId: config.data.appId,
-            timeStamp: config.data.timeStamp,
-            nonceStr: config.data.nonceStr,
-            signature: config.data.signature
-          },
-          onSuccess: () => {
-            addTestResult({
-              type: 'success',
-              message: 'WPS SDK配置成功',
-              details: {
-                configUsed: {
-                  appId: config.data.appId,
-                  timeStamp: config.data.timeStamp,
-                  nonceStr: config.data.nonceStr,
-                  signature: config.data.signature.substring(0, 10) + '...' // 只显示签名前10位
-                },
-                initTime: new Date().toISOString()
-              }
-            });
-          },
-          onError: (error: unknown) => {
-            addTestResult({
-              type: 'error',
-              message: 'WPS SDK配置失败',
-              details: {
-                error,
-                configUsed: config,
-                sdkAvailable: !!window.ksoxz_sdk
-              }
-            });
-          }
-        });
-      } else {
-        addTestResult({
-          type: 'error',
-          message: 'WPS SDK未加载或不支持config方法',
-          details: {
-            sdkExists: !!window.ksoxz_sdk,
-            configMethodExists: !!(window.ksoxz_sdk && window.ksoxz_sdk.config),
-            availableMethods: window.ksoxz_sdk
-              ? Object.keys(window.ksoxz_sdk)
-              : []
-          }
-        });
-      }
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+  //       window.ksoxz_sdk.config({
+  //         params: {
+  //           appId: config.data.appId,
+  //           timeStamp: config.data.timeStamp,
+  //           nonceStr: config.data.nonceStr,
+  //           signature: config.data.signature
+  //         },
+  //         onSuccess: () => {
+  //           addTestResult({
+  //             type: 'success',
+  //             message: 'WPS SDK配置成功',
+  //             details: {
+  //               configUsed: {
+  //                 appId: config.data.appId,
+  //                 timeStamp: config.data.timeStamp,
+  //                 nonceStr: config.data.nonceStr,
+  //                 signature: config.data.signature.substring(0, 10) + '...' // 只显示签名前10位
+  //               },
+  //               initTime: new Date().toISOString()
+  //             }
+  //           });
+  //         },
+  //         onError: (error: unknown) => {
+  //           addTestResult({
+  //             type: 'error',
+  //             message: 'WPS SDK配置失败',
+  //             details: {
+  //               error,
+  //               configUsed: config,
+  //               sdkAvailable: !!window.ksoxz_sdk
+  //             }
+  //           });
+  //         }
+  //       });
+  //     } else {
+  //       addTestResult({
+  //         type: 'error',
+  //         message: 'WPS SDK未加载或不支持config方法',
+  //         details: {
+  //           sdkExists: !!window.ksoxz_sdk,
+  //           configMethodExists: !!(window.ksoxz_sdk && window.ksoxz_sdk.config),
+  //           availableMethods: window.ksoxz_sdk
+  //             ? Object.keys(window.ksoxz_sdk)
+  //             : []
+  //         }
+  //       });
+  //     }
+  //   } catch (error) {
+  //     const errorMessage =
+  //       error instanceof Error ? error.message : String(error);
 
-      addTestResult({
-        type: 'error',
-        message: '获取WPS配置失败',
-        details: {
-          error: errorMessage,
-          errorType:
-            error instanceof Error ? error.constructor.name : typeof error,
-          timestamp: new Date().toISOString(),
-          url: '/api/auth/wps/jsapi-ticket'
-        }
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  //     addTestResult({
+  //       type: 'error',
+  //       message: '获取WPS配置失败',
+  //       details: {
+  //         error: errorMessage,
+  //         errorType:
+  //           error instanceof Error ? error.constructor.name : typeof error,
+  //         timestamp: new Date().toISOString(),
+  //         url: '/api/auth/wps/jsapi-ticket'
+  //       }
+  //     });
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
 
   return (
     <div className='min-h-screen bg-gray-50 p-4'>
@@ -384,16 +338,14 @@ export function LocationTestPage() {
           <h2 className='mb-4 text-xl font-semibold'>环境状态</h2>
           <div className='space-y-2'>
             <p>
-              <strong>WPS环境:</strong> {wpsStatus}
-            </p>
-            <p>
               <strong>当前位置:</strong>{' '}
               {currentLocation
                 ? `${currentLocation.latitude.toFixed(6)}, ${currentLocation.longitude.toFixed(6)}`
                 : '未获取'}
             </p>
             <p>
-              <strong>位置地址:</strong> {currentLocation?.address || '未获取'}
+              <strong>位置地址:</strong>{' '}
+              {currentLocation?.address.description || '未获取'}
             </p>
           </div>
         </div>
@@ -411,14 +363,14 @@ export function LocationTestPage() {
               {isLoading ? '获取中...' : '测试位置获取'}
             </button>
 
-            <button
+            {/* <button
               onClick={testWPSLocationAccess}
               disabled={isLoading}
               className='rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700 disabled:opacity-50'
               type='button'
             >
               {isLoading ? '获取中...' : 'WPS位置获取'}
-            </button>
+            </button> */}
 
             <button
               onClick={testLocationValidation}
@@ -429,16 +381,7 @@ export function LocationTestPage() {
               测试位置验证
             </button>
 
-            <button
-              onClick={testWPSInitialization}
-              disabled={isLoading}
-              className='rounded bg-purple-600 px-4 py-2 text-white hover:bg-purple-700 disabled:opacity-50'
-              type='button'
-            >
-              测试WPS初始化
-            </button>
-
-            <button
+            {/* <button
               onClick={async () => {
                 setIsLoading(true);
                 addTestResult({
@@ -465,15 +408,15 @@ export function LocationTestPage() {
               type='button'
             >
               测试SDK功能
-            </button>
+            </button> */}
 
-            <button
+            {/* <button
               onClick={clearResults}
               className='rounded bg-gray-600 px-4 py-2 text-white hover:bg-gray-700'
               type='button'
             >
               清空结果
-            </button>
+            </button> */}
           </div>
 
           <div className='mb-4 grid grid-cols-1 gap-4 md:grid-cols-2'>
@@ -564,7 +507,7 @@ export function LocationTestPage() {
         </div>
 
         {/* WPS配置信息 */}
-        {wpsConfig && (
+        {/* {wpsConfig && (
           <div className='mb-6 rounded-lg bg-white p-6 shadow'>
             <h2 className='mb-4 text-xl font-semibold'>WPS配置信息</h2>
             <div className='rounded bg-gray-50 p-4'>
@@ -602,7 +545,7 @@ export function LocationTestPage() {
               </div>
             </div>
           </div>
-        )}
+        )} */}
 
         {/* 支持的建筑物列表 */}
         <div className='mb-6 rounded-lg bg-white p-6 shadow'>

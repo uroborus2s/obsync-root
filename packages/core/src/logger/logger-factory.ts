@@ -172,19 +172,17 @@ export class LoggerFactory {
     }
 
     // 美化输出
-    if (config.pretty !== undefined) {
-      if (config.pretty) {
-        pinoConfig.transport = {
-          target: 'pino-pretty',
-          options: {
-            colorize: true,
-            translateTime: 'SYS:standard',
-            ignore: 'pid,hostname'
-          }
-        };
-      } else {
-        pinoConfig.transport = undefined;
-      }
+    if (config.pretty) {
+      pinoConfig.transport = {
+        target: 'pino-pretty',
+        options: {
+          colorize: true,
+          translateTime: 'SYS:standard',
+          ignore: 'pid,hostname'
+        }
+      };
+    } else {
+      pinoConfig.transport = undefined;
     }
 
     return pinoConfig;

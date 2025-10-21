@@ -235,6 +235,20 @@ export interface StudentCourseTable {
 }
 
 /**
+ * 教师课程关联表（现有表 out_jw_kcb_js）
+ */
+export interface TeacherCourseTable {
+  kkh: string | null; // 开课号
+  gh: string | null; // 教师工号
+  xnxq: string | null; // 学年学期
+  kcbh: string | null; // 课程编号
+  sj: string | null; // 来源库时间
+  zt: string | null; // 状态标识
+  gx_zt: string | null; // 共享状态
+  gx_sj: string | null; // 共享时间
+}
+
+/**
  * Icasync 数据库接口
  */
 export interface IcasyncDatabase {
@@ -249,6 +263,7 @@ export interface IcasyncDatabase {
   out_xsxx: StudentInfoTable;
   out_jsxx: TeacherInfoTable;
   out_jw_kcb_xs: StudentCourseTable;
+  out_jw_kcb_js: TeacherCourseTable;
 }
 
 // 类型别名定义
@@ -283,6 +298,54 @@ export type TeacherInfoUpdate = Updateable<TeacherInfoTable>;
 export type StudentCourse = Selectable<StudentCourseTable>;
 export type NewStudentCourse = Insertable<StudentCourseTable>;
 export type StudentCourseUpdate = Updateable<StudentCourseTable>;
+
+export type TeacherCourse = Selectable<TeacherCourseTable>;
+export type NewTeacherCourse = Insertable<TeacherCourseTable>;
+export type TeacherCourseUpdate = Updateable<TeacherCourseTable>;
+
+// ========== 课表恢复相关类型 ==========
+
+/**
+ * 课表恢复配置接口
+ */
+export interface CourseRestoreConfig {
+  /** 用户类型 */
+  userType: UserType;
+  /** 学号或工号 */
+  xgh: string;
+  /** 学年学期（可选） */
+  xnxq?: string;
+  /** 是否为测试运行模式 */
+  dryRun?: boolean;
+}
+
+/**
+ * 课程信息接口（用于恢复）
+ */
+export interface CourseInfo {
+  /** 开课号 */
+  kkh: string;
+  /** 课程编号 */
+  kcbh?: string;
+  /** 学年学期 */
+  xnxq?: string;
+  /** 学号或工号 */
+  xgh: string;
+}
+
+/**
+ * 权限恢复结果接口
+ */
+export interface PermissionRestoreResult {
+  /** 开课号 */
+  kkh: string;
+  /** 日历ID */
+  calendarId?: string;
+  /** 是否成功 */
+  success: boolean;
+  /** 错误信息 */
+  error?: string;
+}
 
 /**
  * 业务数据类型

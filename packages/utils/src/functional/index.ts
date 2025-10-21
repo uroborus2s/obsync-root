@@ -112,7 +112,10 @@ export {
   isLeft,
   isRight,
   tryCatch,
-  tryCatchAsync
+  tryCatchAsync,
+  type Either,
+  type Left,
+  type Right
 } from './either.js';
 
 // Maybe相关函数使用M前缀
@@ -162,9 +165,6 @@ export {
 // 品牌类型
 export {
   Base64String,
-  Brand,
-  BrandConstructor,
-  BrandValidator,
   combineBrands,
   convertBrand,
   createBrand,

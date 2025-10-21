@@ -6,6 +6,8 @@ import {
   AttendanceRecord,
   AttendanceStats,
   CourseAttendanceDetail,
+  CourseAttendanceStatsQuery,
+  CourseAttendanceStatsResponse,
   DataQueryParams,
   DataQueryRecord,
   HistoricalAttendanceRecord,
@@ -24,8 +26,12 @@ export class AttendanceApiService {
   private baseUrl: string
 
   constructor(baseUrl?: string) {
-    // 统一使用kwps.jlufe.edu.cn的API地址
-    this.baseUrl = baseUrl || 'https://kwps.jlufe.edu.cn'
+    // 开发环境使用本地API地址，生产环境使用kwps.jlufe.edu.cn
+    this.baseUrl =
+      baseUrl ||
+      (process.env.NODE_ENV === 'development'
+        ? 'http://localhost:8090'
+        : 'https://kwps.jlufe.edu.cn')
   }
 
   /**
@@ -1015,6 +1021,78 @@ export class AttendanceApiService {
         success: false,
         message: `搜索课程失败: ${error}`,
         data: [],
+      }
+    }
+  }
+
+  // ========== 课程维度签到统计接口 ==========
+
+  /**
+   * 获取课程维度签到统计（新接口）
+   * 对应后端 /api/icalink/v1/attendance/course-statistics 接口
+   */
+  async getCourseAttendanceStatistics(
+    params?: CourseAttendanceStatsQuery
+  ): Promise<ApiResponse<CourseAttendanceStatsResponse>> {
+    const queryString = new URLSearchParams()
+
+    if (params) {
+      if (params.semester) queryString.append('semester', params.semester)
+      if (params.start_time) queryString.append('start_time', params.start_time)
+      if (params.end_time) queryString.append('end_time', params.end_time)
+      if (params.teacher_code)
+        queryString.append('teacher_code', params.teacher_code)
+      if (params.course_name)
+        queryString.append('course_name', params.course_name)
+      if (params.page) queryString.append('page', params.page.toString())
+      if (params.page_size)
+        queryString.append('page_size', params.page_size.toString())
+      if (params.sort_by) queryString.append('sort_by', params.sort_by)
+      if (params.sort_order) queryString.append('sort_order', params.sort_order)
+    }
+
+    const endpoint = `/api/icalink/v1/attendance/course-statistics${queryString.toString() ? `?${queryString.toString()}` : ''}`
+
+    try {
+      const response =
+        await this.makeRequest<ApiResponse<CourseAttendanceStatsResponse>>(
+          endpoint
+        )
+
+      if (response.success && response.data) {
+        return {
+          success: true,
+          message: '获取课程维度签到统计成功',
+          data: response.data,
+        }
+      }
+
+      return {
+        success: false,
+        message: response.message || '获取课程维度签到统计失败',
+        data: {
+          data: [],
+          total: 0,
+          page: 1,
+          page_size: 10,
+          total_pages: 0,
+          has_next: false,
+          has_prev: false,
+        },
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: `获取课程维度签到统计失败: ${error}`,
+        data: {
+          data: [],
+          total: 0,
+          page: 1,
+          page_size: 10,
+          total_pages: 0,
+          has_next: false,
+          has_prev: false,
+        },
       }
     }
   }

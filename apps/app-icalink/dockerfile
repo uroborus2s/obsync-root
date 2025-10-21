@@ -30,9 +30,11 @@ WORKDIR /app
 # 安装必要的系统依赖
 RUN apk add --no-cache wget curl
 
-# 创建非root用户
+# 创建非root用户和文件存储目录
 RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 appuser
+    adduser --system --uid 1001 appuser && \
+    mkdir -p /app/storage/files && \
+    chown -R appuser:nodejs /app/storage
 
 # 安装 pnpm
 RUN npm install -g pnpm
@@ -53,6 +55,9 @@ COPY --from=builder --chown=appuser:nodejs /app/dist ./dist
 
 # 切换到非root用户
 USER appuser
+
+# 声明 volume - 标记这个目录可以被挂载到宿主机
+VOLUME ["/app/storage"]
 
 # 暴露端口
 EXPOSE 3000

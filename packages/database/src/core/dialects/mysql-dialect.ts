@@ -1,17 +1,18 @@
 // @stratix/database MySQL方言实现
 // 基于Kysely和mysql2驱动的MySQL数据库支持
 
-import type { Logger } from '@stratix/core';
+import { type Logger } from '@stratix/core';
+import {
+  eitherChain,
+  eitherMap,
+  isLeft,
+  tryCatch
+} from '@stratix/utils/functional';
 import { Kysely, MysqlDialect } from 'kysely';
 import { createPool, PoolOptions } from 'mysql2';
 import type { ConnectionConfig, DatabaseType } from '../../types/index.js';
-import {
-  DatabaseResult,
-  failureResult,
-  successResult
-} from '../../utils/helpers.js';
+import { DatabaseResult } from '../../utils/error-handler.js';
 import { BaseDialect } from './base-dialect.js';
-
 /**
  * MySQL数据库方言实现
  */
@@ -29,17 +30,17 @@ export class MySQLDialect extends BaseDialect {
     return this.wrapConnectionCreation(async () => {
       // 验证配置
       const configResult = this.validateConfig(config);
-      if (!configResult.success) {
+      if (isLeft(configResult)) {
         throw new Error(
-          configResult.error?.message || 'Configuration validation failed'
+          configResult.left?.message || 'Configuration validation failed'
         );
       }
 
       // 检查mysql2驱动是否可用
       const driverResult = await this.checkDriverAvailability();
-      if (!driverResult.success) {
+      if (isLeft(driverResult)) {
         throw new Error(
-          driverResult.error?.message || 'Driver availability check failed'
+          driverResult.left?.message || 'Driver availability check failed'
         );
       }
 
@@ -74,11 +75,7 @@ export class MySQLDialect extends BaseDialect {
   validateConfig(config: ConnectionConfig): DatabaseResult<boolean> {
     // 基础验证
     const baseResult = this.validateBaseConfig(config);
-    if (!baseResult.success) {
-      return baseResult;
-    }
-
-    try {
+    const onSuccess = () => {
       // MySQL特定验证
       if (!config.connectionString) {
         if (!config.host) {
@@ -108,10 +105,12 @@ export class MySQLDialect extends BaseDialect {
         }
       }
 
-      return successResult(true);
-    } catch (error) {
-      return failureResult(this.handleConnectionError(error as Error));
-    }
+      return true;
+    };
+    const onFailure = (error: unknown) =>
+      this.handleConnectionError(error as Error);
+
+    return eitherChain(() => tryCatch(onSuccess, onFailure))(baseResult as any);
   }
 
   /**
@@ -126,11 +125,7 @@ export class MySQLDialect extends BaseDialect {
    */
   async checkDriverAvailability(): Promise<DatabaseResult<boolean>> {
     const mysql2Result = await this.checkRequiredModule('mysql2');
-    if (!mysql2Result.success) {
-      return mysql2Result;
-    }
-
-    return successResult(true);
+    return eitherMap(() => true)(mysql2Result) as DatabaseResult<boolean>;
   }
 
   /**

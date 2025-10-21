@@ -1,37 +1,11 @@
-import { useState } from 'react'
 import { formatDistanceToNow } from 'date-fns'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import type { WorkflowDefinition } from '@/types/workflow.types'
 import { zhCN } from 'date-fns/locale'
-import {
-  Edit,
-  Eye,
-  MoreHorizontal,
-  Play,
-  Power,
-  PowerOff,
-  Trash2,
-} from 'lucide-react'
-import { toast } from 'sonner'
+import { Eye } from 'lucide-react'
 import { workflowApi } from '@/lib/workflow-api'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import {
   Table,
   TableBody,
@@ -44,8 +18,6 @@ import { TableLoadingState } from '@/components/loading-state'
 
 interface WorkflowDefinitionsTableProps {
   onViewDefinition?: (definition: WorkflowDefinition) => void
-  onEditDefinition?: (definition: WorkflowDefinition) => void
-  onStartWorkflow?: (definition: WorkflowDefinition) => void
   // 可选的查询参数，如果不提供则使用默认值
   searchTerm?: string
   statusFilter?: string
@@ -104,19 +76,12 @@ function getStatusClassName(status?: string): string {
 
 export function WorkflowDefinitionsTable({
   onViewDefinition,
-  onEditDefinition,
-  onStartWorkflow,
   searchTerm,
   statusFilter,
   categoryFilter,
   page = 1,
   pageSize = 50,
 }: WorkflowDefinitionsTableProps) {
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [definitionToDelete, setDefinitionToDelete] =
-    useState<WorkflowDefinition | null>(null)
-  const queryClient = useQueryClient()
-
   // 获取工作流定义列表
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: [
@@ -141,63 +106,6 @@ export function WorkflowDefinitionsTable({
         category: categoryFilter || undefined,
       }),
   })
-
-  // 删除工作流定义
-  const deleteMutation = useMutation({
-    mutationFn: ({ name, version }: { name: string; version: string }) =>
-      workflowApi.deleteWorkflowDefinition(name, version),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['workflow-definitions'] })
-      toast.success('工作流定义删除成功')
-      setDeleteDialogOpen(false)
-      setDefinitionToDelete(null)
-    },
-    onError: (error) => {
-      toast.error(`删除失败: ${error.message}`)
-    },
-  })
-
-  // 切换启用状态
-  const toggleEnabledMutation = useMutation({
-    mutationFn: ({
-      name,
-      version,
-      enabled,
-    }: {
-      name: string
-      version: string
-      enabled: boolean
-    }) => workflowApi.updateWorkflowDefinition(name, version, { enabled }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['workflow-definitions'] })
-      toast.success('工作流状态更新成功')
-    },
-    onError: (error) => {
-      toast.error(`状态更新失败: ${error.message}`)
-    },
-  })
-
-  const handleDelete = (definition: WorkflowDefinition) => {
-    setDefinitionToDelete(definition)
-    setDeleteDialogOpen(true)
-  }
-
-  const confirmDelete = () => {
-    if (definitionToDelete) {
-      deleteMutation.mutate({
-        name: definitionToDelete.name,
-        version: definitionToDelete.version,
-      })
-    }
-  }
-
-  const handleToggleEnabled = (definition: WorkflowDefinition) => {
-    toggleEnabledMutation.mutate({
-      name: definition.name,
-      version: definition.version,
-      enabled: !definition.enabled,
-    })
-  }
 
   const definitions = data?.items || []
 
@@ -258,85 +166,21 @@ export function WorkflowDefinitionsTable({
                       : '未知'}
                   </TableCell>
                   <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant='ghost' className='h-8 w-8 p-0'>
-                          <MoreHorizontal className='h-4 w-4' />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align='end'>
-                        <DropdownMenuItem
-                          onClick={() => onViewDefinition?.(definition)}
-                        >
-                          <Eye className='mr-2 h-4 w-4' />
-                          查看详情
-                        </DropdownMenuItem>
-                        {definition.enabled && (
-                          <DropdownMenuItem
-                            onClick={() => onStartWorkflow?.(definition)}
-                          >
-                            <Play className='mr-2 h-4 w-4' />
-                            启动工作流
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem
-                          onClick={() => onEditDefinition?.(definition)}
-                        >
-                          <Edit className='mr-2 h-4 w-4' />
-                          编辑
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handleToggleEnabled(definition)}
-                        >
-                          {definition.enabled ? (
-                            <>
-                              <PowerOff className='mr-2 h-4 w-4' />
-                              禁用
-                            </>
-                          ) : (
-                            <>
-                              <Power className='mr-2 h-4 w-4' />
-                              启用
-                            </>
-                          )}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handleDelete(definition)}
-                          className='text-red-600'
-                        >
-                          <Trash2 className='mr-2 h-4 w-4' />
-                          删除
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <Button
+                      variant='ghost'
+                      size='sm'
+                      onClick={() => onViewDefinition?.(definition)}
+                      className='gap-2'
+                    >
+                      <Eye className='h-4 w-4' />
+                      查看
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
           </TableBody>
         </Table>
       </div>
-
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认删除</AlertDialogTitle>
-            <AlertDialogDescription>
-              确定要删除工作流定义 "{definitionToDelete?.name}" 吗？
-              此操作不可撤销，相关的工作流实例也将无法查看定义信息。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              className='bg-red-600 hover:bg-red-700'
-              disabled={deleteMutation.isPending}
-            >
-              {deleteMutation.isPending ? '删除中...' : '确认删除'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   )
 }

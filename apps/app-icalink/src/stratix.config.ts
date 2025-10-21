@@ -1,10 +1,11 @@
-// @wps/app-icalink Stratix 框架配置文件
-// 基于 @stratix/core 的现代化应用配置
-
 import underPressure from '@fastify/under-pressure';
 import type { StratixConfig } from '@stratix/core';
 import stratixDatabasePlugin from '@stratix/database';
+import osspPlugin from '@stratix/ossp';
+import queuePlugin from '@stratix/queue';
+import redisPlugin from '@stratix/redis';
 import { onRequestPermissionHook } from '@stratix/utils/auth';
+
 /**
  * Stratix 应用配置工厂函数
  * 接收解密后的敏感配置作为参数
@@ -16,11 +17,13 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
   // 从敏感配置中提取各种配置
   const databaseConfig = sensitiveConfig.databases || {};
   const webConfig = sensitiveConfig.web || {};
+  const osspConfig = sensitiveConfig.ossp || {};
+  const redisConfig = sensitiveConfig.redis || {};
 
   return {
     // 服务器配置
     server: {
-      port: webConfig.port || '3001',
+      port: webConfig.port || '8090',
       host: webConfig.host || '0.0.0.0',
       // 增加请求体大小限制，支持大文件上传
       bodyLimit: 10 * 1024 * 1024, // 50MB，支持多个大图片上传
@@ -35,7 +38,18 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
           'onRequest',
           onRequestPermissionHook([], { skipPaths: ['/health'] })
         );
+
+        // Queue worker disabled - CheckinJobHandler removed
+        // const container = fastify.diContainer;
+        // const queueAdapter = container.resolve('queueAdapter');
+        // const checkinJobHandler = container.resolve(CheckinJobHandler);
+        // queueAdapter.process('checkin', (job: any) =>
+        //   checkinJobHandler.process(job)
+        // );
       }
+    },
+    applicationAutoDI: {
+      options: {}
     },
     // 插件配置
     plugins: [
@@ -67,6 +81,38 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
                 databaseConfig.syncdb?.username ||
                 'root',
               password: databaseConfig.syncdb?.password || ''
+            }
+          }
+        }
+      },
+      {
+        name: '@stratix/ossp',
+        plugin: osspPlugin,
+        options: {
+          ...osspConfig
+        }
+      },
+      {
+        name: '@stratix/redis',
+        plugin: redisPlugin,
+        options: {
+          retryAttempts: null,
+          single: {
+            ...redisConfig
+          }
+        }
+      },
+      {
+        name: '@stratix/queue',
+        plugin: queuePlugin,
+        options: {
+          defaultJobOptions: {
+            removeOnComplete: true, // Automatically remove jobs on completion
+            removeOnFail: 100, // Keep last 100 failed jobs
+            attempts: 3, // Retry up to 3 times
+            backoff: {
+              type: 'exponential',
+              delay: 1000 // 1s, 2s, 4s
             }
           }
         }

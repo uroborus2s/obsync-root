@@ -2,62 +2,64 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
 } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
-    Pagination,
-    PaginationContent,
-    PaginationItem,
-    PaginationLink,
-    PaginationNext,
-    PaginationPrevious,
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
 } from '@/components/ui/pagination'
 import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
 } from '@/components/ui/popover'
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@/components/ui/select'
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '@/components/ui/table'
 import { AttendanceApiService } from '@/lib/attendance-api'
 import { cn } from '@/lib/utils'
 import { DataQueryRecord } from '@/types/attendance.types'
+import { createAdminRouteCheck } from '@/utils/route-permission'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { format } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import {
-    Calendar as CalendarIcon,
-    Download,
-    FileSpreadsheet,
-    RotateCcw,
-    Save,
-    Search
+  Calendar as CalendarIcon,
+  Download,
+  FileSpreadsheet,
+  RotateCcw,
+  Save,
+  Search
 } from 'lucide-react'
 import React, { useState } from 'react'
 import { toast } from 'sonner'
 
 export const Route = createFileRoute('/_authenticated/data-query')({
+  beforeLoad: createAdminRouteCheck(),
   component: DataQuery,
 })
 

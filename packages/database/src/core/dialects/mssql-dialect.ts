@@ -1,15 +1,17 @@
 // @stratix/database MSSQL方言实现
 // 基于Kysely和tedious驱动的Microsoft SQL Server数据库支持
 
+import {
+  eitherChain,
+  eitherRight,
+  isLeft,
+  tryCatch
+} from '@stratix/utils/functional';
 import { Kysely } from 'kysely';
 import { Pool } from 'tarn';
 import { Connection } from 'tedious';
 import type { ConnectionConfig, DatabaseType } from '../../types/index.js';
-import {
-  DatabaseResult,
-  failureResult,
-  successResult
-} from '../../utils/helpers.js';
+import { DatabaseResult } from '../../utils/error-handler.js';
 import { BaseDialect } from './base-dialect.js';
 
 /**
@@ -71,17 +73,17 @@ export class MSSQLDialect extends BaseDialect {
     return this.wrapConnectionCreation(async () => {
       // 验证配置
       const configResult = this.validateConfig(config);
-      if (!configResult.success) {
+      if (isLeft(configResult)) {
         throw new Error(
-          configResult.error?.message || 'Configuration validation failed'
+          configResult.left?.message || 'Configuration validation failed'
         );
       }
 
       // 检查tedious驱动是否可用
       const driverResult = await this.checkDriverAvailability();
-      if (!driverResult.success) {
+      if (isLeft(driverResult)) {
         throw new Error(
-          driverResult.error?.message || 'Driver availability check failed'
+          driverResult.left?.message || 'Driver availability check failed'
         );
       }
 
@@ -101,45 +103,44 @@ export class MSSQLDialect extends BaseDialect {
   validateConfig(config: ConnectionConfig): DatabaseResult<boolean> {
     // 基础验证
     const baseResult = this.validateBaseConfig(config);
-    if (!baseResult.success) {
-      return baseResult;
-    }
 
-    try {
+    const onSuccess = () =>
       // MSSQL特定验证
-      if (!config.connectionString) {
-        if (!config.host) {
-          throw new Error('Host is required for MSSQL connections');
+      {
+        if (!config.connectionString) {
+          if (!config.host) {
+            throw new Error('Host is required for MSSQL connections');
+          }
+
+          if (!config.username) {
+            throw new Error('Username is required for MSSQL connections');
+          }
+
+          if (!config.database) {
+            throw new Error('Database name is required for MSSQL connections');
+          }
         }
 
-        if (!config.username) {
-          throw new Error('Username is required for MSSQL connections');
+        // 验证认证类型
+        if (config.options?.authentication) {
+          const validAuthTypes = [
+            'default',
+            'ntlm',
+            'azure-active-directory-password',
+            'azure-active-directory-access-token'
+          ];
+          if (!validAuthTypes.includes(config.options.authentication.type)) {
+            throw new Error(
+              `Invalid authentication type for MSSQL: ${config.options.authentication.type}`
+            );
+          }
         }
+        return true;
+      };
+    const onFailure = (error: unknown) =>
+      this.handleConnectionError(error as Error);
 
-        if (!config.database) {
-          throw new Error('Database name is required for MSSQL connections');
-        }
-      }
-
-      // 验证认证类型
-      if (config.options?.authentication) {
-        const validAuthTypes = [
-          'default',
-          'ntlm',
-          'azure-active-directory-password',
-          'azure-active-directory-access-token'
-        ];
-        if (!validAuthTypes.includes(config.options.authentication.type)) {
-          throw new Error(
-            `Invalid authentication type for MSSQL: ${config.options.authentication.type}`
-          );
-        }
-      }
-
-      return successResult(true);
-    } catch (error) {
-      return failureResult(this.handleConnectionError(error as Error));
-    }
+    return eitherChain(() => tryCatch(onSuccess, onFailure))(baseResult as any);
   }
 
   /**
@@ -154,16 +155,16 @@ export class MSSQLDialect extends BaseDialect {
    */
   async checkDriverAvailability(): Promise<DatabaseResult<boolean>> {
     const tediousResult = await this.checkRequiredModule('tedious');
-    if (!tediousResult.success) {
+    if (isLeft(tediousResult)) {
       return tediousResult;
     }
 
     const tarnResult = await this.checkRequiredModule('tarn');
-    if (!tarnResult.success) {
+    if (isLeft(tarnResult)) {
       return tarnResult;
     }
 
-    return successResult(true);
+    return eitherRight(true);
   }
 
   /**

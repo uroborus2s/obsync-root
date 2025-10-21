@@ -642,10 +642,6 @@ export default class WorkflowInstanceRepository
   ): Promise<DatabaseResult<PaginatedResult<WorkflowInstanceTable>>> {
     try {
       this.logger.debug('查找工作流实例（统一过滤器）', { filters });
-      console.log(
-        '🔍 WorkflowInstanceRepository.findWithFilters - Input filters:',
-        filters
-      );
 
       // 设置默认分页参数
       const page = filters.page || 1;
@@ -661,6 +657,7 @@ export default class WorkflowInstanceRepository
             'id',
             'workflow_definition_id',
             'status',
+            'input_data',
             'created_at',
             'updated_at',
             'started_at',
@@ -685,10 +682,16 @@ export default class WorkflowInstanceRepository
             '=',
             filters.workflowDefinitionId
           );
-          console.log(
-            '🔍 Repository - 添加工作流定义ID过滤:',
-            filters.workflowDefinitionId
-          );
+        }
+
+        // 工作流定义ID过滤
+        if (filters.name) {
+          query = query.where('name', '=', filters.name);
+        }
+
+        // 工作流定义ID过滤
+        if (filters.instanceType) {
+          query = query.where('instance_type', '=', filters.instanceType);
         }
 
         // 暂时注释掉可能不存在的字段，避免SQL错误
@@ -816,6 +819,206 @@ export default class WorkflowInstanceRepository
       return { success: true, data: result.data };
     } catch (error) {
       this.logger.error('查找工作流实例失败（统一过滤器）', { error, filters });
+      return {
+        success: false,
+        error: error as any
+      };
+    }
+  }
+
+  /**
+   * 获取流程分组列表
+   * 按工作流定义聚合根实例，返回分组统计信息
+   */
+  async getWorkflowGroups(
+    filters: any,
+    options: {
+      page: number;
+      pageSize: number;
+      sortBy: string;
+      sortOrder: 'asc' | 'desc';
+    }
+  ): Promise<
+    DatabaseResult<{
+      groups: Array<{
+        workflowDefinitionId: number;
+        workflowDefinitionName: string;
+        workflowDefinitionDescription?: string;
+        workflowDefinitionVersion?: string;
+        rootInstanceCount: number;
+        totalInstanceCount: number;
+        runningInstanceCount: number;
+        completedInstanceCount: number;
+        failedInstanceCount: number;
+        latestActivity?: string;
+        latestInstanceStatus?: string;
+      }>;
+      total: number;
+      page: number;
+      pageSize: number;
+      totalPages: number;
+      hasNext: boolean;
+      hasPrev: boolean;
+    }>
+  > {
+    try {
+      this.logger.debug('获取流程分组列表', { filters, options });
+
+      const { page, pageSize, sortBy, sortOrder } = options;
+      const offset = (page - 1) * pageSize;
+
+      const queryResult = await this.databaseApi.executeQuery(async (db) => {
+        // 构建基础查询，只查询根实例（external_id为空）
+        let query = db
+          .selectFrom('workflow_instances as wi')
+          .leftJoin(
+            'workflow_definitions as wd',
+            'wi.workflow_definition_id',
+            'wd.id'
+          )
+          .where('wi.external_id', 'is', null) // 只查询根实例
+          .select([
+            'wd.id as workflowDefinitionId',
+            'wd.name as workflowDefinitionName',
+            'wd.description as workflowDefinitionDescription',
+            'wd.version as workflowDefinitionVersion',
+            db.fn.count('wi.id').as('rootInstanceCount'),
+            db.fn.countAll().as('totalInstanceCount'),
+            // 使用MySQL兼容的条件聚合语法
+            db.fn
+              .sum(
+                db
+                  .case()
+                  .when('wi.status', '=', 'running')
+                  .then(1)
+                  .else(0)
+                  .end()
+              )
+              .as('runningInstanceCount'),
+            db.fn
+              .sum(
+                db
+                  .case()
+                  .when('wi.status', '=', 'completed')
+                  .then(1)
+                  .else(0)
+                  .end()
+              )
+              .as('completedInstanceCount'),
+            db.fn
+              .sum(
+                db.case().when('wi.status', '=', 'failed').then(1).else(0).end()
+              )
+              .as('failedInstanceCount'),
+            db.fn.max('wi.updated_at').as('latestActivity')
+          ])
+          .groupBy(['wd.id', 'wd.name', 'wd.description', 'wd.version']);
+
+        // 应用过滤条件
+        if (filters.status) {
+          const statuses = Array.isArray(filters.status)
+            ? filters.status
+            : [filters.status];
+          query = query.where('wi.status', 'in', statuses);
+        }
+
+        if (filters.search) {
+          query = query.where((eb) =>
+            eb.or([
+              eb('wd.name', 'like', `%${filters.search}%`),
+              eb('wd.description', 'like', `%${filters.search}%`)
+            ])
+          );
+        }
+
+        if (filters.workflowDefinitionName) {
+          query = query.where(
+            'wd.name',
+            'like',
+            `%${filters.workflowDefinitionName}%`
+          );
+        }
+
+        // 先获取总数
+        const countQuery = query
+          .clearSelect()
+          .select(db.fn.count('wd.id').as('total'));
+        const countResult = await countQuery.execute();
+        const total = Number(countResult[0]?.total || 0);
+
+        // 应用排序
+        switch (sortBy) {
+          case 'name':
+            query = query.orderBy('wd.name', sortOrder);
+            break;
+          case 'instanceCount':
+            query = query.orderBy('rootInstanceCount', sortOrder);
+            break;
+          case 'latestActivity':
+            query = query.orderBy('latestActivity', sortOrder);
+            break;
+          case 'createdAt':
+            query = query.orderBy('wd.created_at', sortOrder);
+            break;
+          default:
+            query = query.orderBy('latestActivity', 'desc');
+        }
+
+        // 应用分页
+        const groups = await query.limit(pageSize).offset(offset).execute();
+
+        const totalPages = Math.ceil(total / pageSize);
+        const hasNext = page < totalPages;
+        const hasPrev = page > 1;
+
+        return {
+          groups: groups.map((group) => ({
+            workflowDefinitionId: Number(group.workflowDefinitionId),
+            workflowDefinitionName: group.workflowDefinitionName || '',
+            workflowDefinitionDescription:
+              group.workflowDefinitionDescription || undefined,
+            workflowDefinitionVersion:
+              group.workflowDefinitionVersion || undefined,
+            rootInstanceCount: Number(group.rootInstanceCount),
+            totalInstanceCount: Number(group.totalInstanceCount),
+            runningInstanceCount: Number(group.runningInstanceCount),
+            completedInstanceCount: Number(group.completedInstanceCount),
+            failedInstanceCount: Number(group.failedInstanceCount),
+            latestActivity: group.latestActivity
+              ? group.latestActivity.toISOString()
+              : undefined,
+            latestInstanceStatus: undefined // 暂时设为undefined，后续可以优化
+          })),
+          total,
+          page,
+          pageSize,
+          totalPages,
+          hasNext,
+          hasPrev
+        };
+      });
+
+      if (!queryResult.success) {
+        this.logger.error('数据库查询失败', { error: queryResult.error });
+        return {
+          success: false,
+          error: queryResult.error
+        };
+      }
+
+      const result = queryResult.data!;
+
+      this.logger.debug('流程分组查询成功', {
+        total: result.total,
+        groupCount: result.groups.length
+      });
+
+      return {
+        success: true,
+        data: result
+      };
+    } catch (error) {
+      this.logger.error('获取流程分组失败', { error, filters, options });
       return {
         success: false,
         error: error as any

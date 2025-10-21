@@ -150,7 +150,7 @@ export default class StudentCourseRepository
     }
 
     return await this.findMany((qb: any) =>
-      qb.where('xh', '=', xh).orderBy('kkh', 'asc')
+      qb.where('xh', '=', xh).where('zt', '!=', 'delete').orderBy('kkh', 'asc')
     );
   }
 
@@ -214,7 +214,11 @@ export default class StudentCourseRepository
     }
 
     return await this.findMany((qb: any) =>
-      qb.where('xh', '=', xh).where('xnxq', '=', xnxq).orderBy('kkh', 'asc')
+      qb
+        .where('xh', '=', xh)
+        .where('xnxq', '=', xnxq)
+        .where('zt', '!=', 'delete')
+        .orderBy('kkh', 'asc')
     );
   }
 

@@ -267,6 +267,100 @@ INSERT INTO workflow_definitions (
                         "onFailure": "continue"
                     }
                 }
+            },
+            {
+                "nodeId": "remove-calendar-permissions-loop",
+                "nodeName": "删除日历权限参与者循环",
+                "nodeType": "loop",
+                "loopType": "dynamic",
+                "dependsOn": ["create-new-schedules-loop"],
+                "executor": "fetchCalendarPermissionsToRemove",
+                "inputData": {
+                    "xnxq": "${xnxq}",
+                    "includeParticipantInfo": true,
+                    "maxRecords": 500
+                },
+                "sourceExpression": "output.permissionsToRemove",
+                "maxConcurrency": 3,
+                "errorHandling": "continue",
+                "joinType": "all",
+                "distributed": {
+                    "enabled": true,
+                    "assignmentStrategy": "load-balanced",
+                    "childTaskDistribution": "load-balanced",
+                    "maxEnginesPerLoop": 5
+                },
+                "executorErrorHandling": {
+                    "strategy": "retry",
+                    "maxRetries": 2,
+                    "retryDelay": 3000,
+                    "onFailure": "continue"
+                },
+                "node": {
+                    "nodeId": "remove-single-calendar-permission",
+                    "nodeName": "删除单个日历下的权限",
+                    "nodeType": "simple",
+                    "executor": "removeSingleCalendarPermissionProcessor",
+                    "inputData": {
+                        "kkh": "${kkh}",
+                        "userList": "${merged_user_list}",
+                        "dryRun": "${dryRun}"
+                    },
+                    "timeoutSeconds": 300,
+                    "errorHandling": {
+                        "strategy": "retry",
+                        "maxRetries": 2,
+                        "retryDelay": 5000,
+                        "onFailure": "continue"
+                    }
+                }
+            },
+            {
+                "nodeId": "add-calendar-permissions-loop",
+                "nodeName": "添加日历权限循环",
+                "nodeType": "loop",
+                "loopType": "dynamic",
+                "dependsOn": ["remove-calendar-permissions-loop"],
+                "executor": "fetchCalendarPermissionsToAdd",
+                "inputData": {
+                    "xnxq": "${xnxq}",
+                    "includeParticipantInfo": true,
+                    "maxRecords": 500
+                },
+                "sourceExpression": "output.permissionsToAdd",
+                "maxConcurrency": 3,
+                "errorHandling": "continue",
+                "joinType": "all",
+                "distributed": {
+                    "enabled": true,
+                    "assignmentStrategy": "load-balanced",
+                    "childTaskDistribution": "load-balanced",
+                    "maxEnginesPerLoop": 5
+                },
+                "executorErrorHandling": {
+                    "strategy": "retry",
+                    "maxRetries": 2,
+                    "retryDelay": 3000,
+                    "onFailure": "continue"
+                },
+                "node": {
+                    "nodeId": "add-single-calendar-permission",
+                    "nodeName": "添加单个日历权限",
+                    "nodeType": "simple",
+                    "executor": "addSingleCalendarPermissionProcessor",
+                    "inputData": {
+                        "kkh": "${kkh}",
+                        "usersList": "${merged_user_lists}",
+                        "dryRun": "${dryRun}"
+                    },
+                    "timeoutSeconds": 300,
+                    "errorHandling": {
+                        "strategy": "retry",
+                        "maxRetries": 2,
+                        "retryDelay": 5000,
+                        "onFailure": "continue"
+                    }
+                }
             }
         ]
     }',

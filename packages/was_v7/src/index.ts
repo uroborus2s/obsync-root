@@ -2,10 +2,12 @@
 export type { WpsCalendarAdapter } from './adapters/calendar.adapter.js';
 export type { WpsChatAdapter } from './adapters/chat.adapter.js';
 export type { WpsCompanyAdapter } from './adapters/company.adapter.js';
+export type { WpsDBSheetAdapter } from './adapters/dbsheet.adapter.js';
 export type {
   DeptTreeNode,
   WpsDepartmentAdapter
 } from './adapters/department.adapter.js';
+export type { WpsDriveAdapter } from './adapters/drives.adapter.js';
 export type { WpsMessageAdapter } from './adapters/message.adapter.js';
 export type { WpsScheduleAdapter } from './adapters/schedule.adapter.js';
 export type { WpsUserAuthAdapter } from './adapters/user-auth.adapter.js';

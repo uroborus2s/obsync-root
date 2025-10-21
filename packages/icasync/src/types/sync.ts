@@ -9,17 +9,17 @@ export enum SyncStatus {
   COMPLETED = 'completed',
   FAILED = 'failed',
   CANCELLED = 'cancelled',
-  SKIPPED = 'skipped'    // 因冲突或其他原因跳过执行
+  SKIPPED = 'skipped' // 因冲突或其他原因跳过执行
 }
 
 /**
  * 同步类型枚举
  */
 export enum SyncType {
-  FULL = 'full',           // 全量同步
+  FULL = 'full', // 全量同步
   INCREMENTAL = 'incremental', // 增量同步
-  USER = 'user',           // 用户同步
-  COURSE = 'course'        // 课程同步
+  USER = 'user', // 用户同步
+  COURSE = 'course' // 课程同步
 }
 
 /**

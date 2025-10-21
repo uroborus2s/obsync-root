@@ -177,6 +177,87 @@ class NodeInstanceRepository
   }
 
   /**
+   * 根据工作流实例ID和节点ID查找特定节点实例（用于SQL层面的节点查询）
+   * 第一步：获取根节点
+   */
+  async findSpecificNodeByWorkflowAndNodeId(
+    workflowInstanceId: number,
+    nodeId: string
+  ): Promise<DatabaseResult<WorkflowNodeInstance | null>> {
+    return await DatabaseErrorHandler.execute(async () => {
+      const whereExpression = (qb: any) =>
+        qb
+          .where('workflow_instance_id', '=', workflowInstanceId)
+          .where('node_id', '=', nodeId);
+
+      const result = await this.findOne(whereExpression);
+
+      if (!result.success) {
+        throw QueryError.create(
+          `Failed to find specific node: workflowInstanceId=${workflowInstanceId}, nodeId=${nodeId}`
+        );
+      }
+
+      // 转换Option类型为null
+      return this.convertOptionToNull(result.data);
+    }, 'findSpecificNodeByWorkflowAndNodeId');
+  }
+
+  /**
+   * 根据父节点实例ID递归查找所有子节点（用于SQL层面的子节点查询）
+   * 第二步：获取所有子节点
+   * 递归查询所有层级的子节点
+   */
+  async findAllChildNodesByParentInstanceId(
+    parentInstanceId: number
+  ): Promise<DatabaseResult<WorkflowNodeInstance[]>> {
+    return await DatabaseErrorHandler.execute(async () => {
+      const allChildren: WorkflowNodeInstance[] = [];
+      const processedIds = new Set<number>();
+      const toProcess = [parentInstanceId];
+
+      // 递归查找所有子节点
+      while (toProcess.length > 0) {
+        const currentParentId = toProcess.shift()!;
+
+        if (processedIds.has(currentParentId)) {
+          continue; // 避免循环引用
+        }
+        processedIds.add(currentParentId);
+
+        // 查找当前父节点的直接子节点
+        const childrenResult = await this.findChildNodes(currentParentId);
+
+        if (!childrenResult.success) {
+          throw QueryError.create(
+            `Failed to find children for parent ${currentParentId}`
+          );
+        }
+
+        const children = childrenResult.data;
+        allChildren.push(...children);
+
+        // 将子节点的ID加入待处理队列
+        for (const child of children) {
+          toProcess.push(child.id);
+        }
+      }
+
+      // 按child_index和id排序
+      allChildren.sort((a, b) => {
+        const aIndex = a.child_index ?? 0;
+        const bIndex = b.child_index ?? 0;
+        if (aIndex !== bIndex) {
+          return aIndex - bIndex;
+        }
+        return a.id - b.id;
+      });
+
+      return allChildren;
+    }, 'findAllChildNodesByParentInstanceId');
+  }
+
+  /**
    * 查找未执行的子节点实例
    */
   async findPendingChildNodes(

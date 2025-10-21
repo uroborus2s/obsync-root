@@ -72,7 +72,7 @@ export const BUILDING_LOCATIONS: BuildingLocation[] = [
 /**
  * 默认的打卡允许距离（米）
  */
-export const DEFAULT_CHECK_IN_RADIUS = 2000;
+export const DEFAULT_CHECK_IN_RADIUS = 5000;
 
 /**
  * 地球半径（公里）
@@ -190,9 +190,7 @@ export function validateLocationForCheckIn(
     matchedBuilding: building,
     distance: Math.round(distance),
     maxDistance,
-    error: valid
-      ? undefined
-      : `距离${building.name}过远: ${Math.round(distance)}米 > ${maxDistance}米`
+    error: valid ? undefined : ``
   };
 }
 

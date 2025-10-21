@@ -219,6 +219,23 @@ export interface WorkflowInstanceQueryParams {
   workflowDefinitionName?: string
   sortBy?: 'id' | 'name' | 'status' | 'priority' | 'createdAt' | 'updatedAt'
   sortOrder?: 'asc' | 'desc'
+  // 新增：是否按流程分组
+  groupByWorkflow?: boolean
+  // 新增：是否只返回根实例（external_id为空）
+  rootInstancesOnly?: boolean
+}
+
+/**
+ * 流程分组查询参数
+ */
+export interface WorkflowGroupQueryParams {
+  page?: number
+  pageSize?: number
+  status?: WorkflowStatus
+  search?: string
+  workflowDefinitionName?: string
+  sortBy?: 'name' | 'instanceCount' | 'latestActivity' | 'createdAt'
+  sortOrder?: 'asc' | 'desc'
 }
 
 /**
@@ -335,4 +352,49 @@ export const workflowStatusLabels = {
   completed: '已完成',
   failed: '失败',
   cancelled: '已取消',
+}
+
+/**
+ * 流程分组项 - 用于流程级别的聚合显示
+ */
+export interface WorkflowGroup {
+  /** 工作流定义ID */
+  workflowDefinitionId: number
+  /** 工作流定义名称 */
+  workflowDefinitionName: string
+  /** 工作流定义描述 */
+  workflowDefinitionDescription?: string
+  /** 工作流定义版本 */
+  workflowDefinitionVersion?: string
+  /** 该流程下的根实例数量 */
+  rootInstanceCount: number
+  /** 该流程下的总实例数量（包括子实例） */
+  totalInstanceCount: number
+  /** 运行中的实例数量 */
+  runningInstanceCount: number
+  /** 已完成的实例数量 */
+  completedInstanceCount: number
+  /** 失败的实例数量 */
+  failedInstanceCount: number
+  /** 最新活动时间 */
+  latestActivity?: string
+  /** 最新实例状态 */
+  latestInstanceStatus?: WorkflowStatus
+  /** 根实例列表（当展开时） */
+  rootInstances?: WorkflowInstance[]
+  /** 是否已展开 */
+  expanded?: boolean
+}
+
+/**
+ * 流程分组响应
+ */
+export interface WorkflowGroupResponse {
+  groups: WorkflowGroup[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+  hasNext: boolean
+  hasPrev: boolean
 }

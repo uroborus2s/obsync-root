@@ -2,6 +2,13 @@
 // 负责创建和管理数据库连接的工厂类
 
 import { Logger, RESOLVER } from '@stratix/core';
+import {
+  eitherFold,
+  eitherGetOrElse,
+  eitherLeft,
+  eitherRight,
+  isLeft
+} from '@stratix/utils/functional';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 import type {
@@ -14,7 +21,6 @@ import {
   DatabaseErrorHandler,
   DatabaseResult
 } from '../utils/error-handler.js';
-import { failureResult, successResult } from '../utils/helpers.js';
 import { BaseDialect } from './dialects/base-dialect.js';
 import {
   DialectRegistry,
@@ -87,7 +93,6 @@ export default class ConnectionFactory implements IConnectionFactory {
   };
 
   private readonly options: ConnectionFactoryOptions;
-  private readonly connectionCache = new Map<string, Kysely<any>>();
 
   /**
    * 构造函数 - 使用 Awilix CLASSIC 注入模式
@@ -117,30 +122,22 @@ export default class ConnectionFactory implements IConnectionFactory {
     const createOperation = async (): Promise<Kysely<any>> => {
       // 验证配置
       const configResult = this.validateConfig(config);
-      if (!configResult.success) {
+      if (isLeft(configResult)) {
         throw new Error(
-          configResult.error?.message || 'Configuration validation failed'
+          configResult.left?.message || 'Configuration validation failed'
         );
       }
 
       // 获取或创建方言实例
       const dialect = await this.getDialect(config.type);
 
-      // 使用方言实例检查驱动可用性
-      const driverResult = await dialect.checkDriverAvailability();
-      if (!driverResult.success) {
-        throw new Error(
-          driverResult.error?.message || 'Driver availability check failed'
-        );
-      }
-
       // 创建连接
       const connectionResult = await dialect.createKysely(config, this.logger);
-      if (!connectionResult.success) {
-        throw connectionResult.error;
+      if (isLeft(connectionResult)) {
+        throw connectionResult.left;
       }
 
-      const connection = connectionResult.data;
+      const connection = connectionResult.right;
 
       // 可选：测试连接
       if (this.options.testOnCreate) {
@@ -148,16 +145,10 @@ export default class ConnectionFactory implements IConnectionFactory {
           connection,
           dialect
         );
-        if (!testResult.success) {
+        if (isLeft(testResult)) {
           await connection.destroy();
-          throw testResult.error;
+          throw testResult.left;
         }
-      }
-
-      // 缓存连接（如果有唯一标识符）
-      const cacheKey = this.generateCacheKey(config);
-      if (cacheKey) {
-        this.connectionCache.set(cacheKey, connection);
       }
 
       return connection;
@@ -178,9 +169,9 @@ export default class ConnectionFactory implements IConnectionFactory {
     const testOperation = async (): Promise<boolean> => {
       // 验证配置
       const configResult = this.validateConfig(config);
-      if (!configResult.success) {
+      if (isLeft(configResult)) {
         throw new Error(
-          configResult.error?.message || 'Configuration validation failed'
+          configResult.left?.message || 'Configuration validation failed'
         );
       }
 
@@ -189,11 +180,11 @@ export default class ConnectionFactory implements IConnectionFactory {
 
       // 使用方言的测试连接方法
       const testResult = await dialect.testConnection(config, this.logger);
-      if (!testResult.success) {
-        throw testResult.error;
+      if (isLeft(testResult)) {
+        throw testResult.left;
       }
 
-      return testResult.data;
+      return testResult.right;
     };
 
     return await DatabaseErrorHandler.execute(
@@ -235,9 +226,9 @@ export default class ConnectionFactory implements IConnectionFactory {
       }
 
       // 基础验证通过，方言验证需要在运行时进行
-      return successResult(true);
+      return eitherRight(true);
     } catch (error) {
-      return failureResult(
+      return eitherLeft(
         ConnectionError.create(
           error instanceof Error ? error.message : String(error)
         )
@@ -260,7 +251,7 @@ export default class ConnectionFactory implements IConnectionFactory {
       const dialect = await this.getDialect(type);
       return dialect.checkDriverAvailability();
     } catch (error) {
-      return failureResult(
+      return eitherLeft(
         ConnectionError.create(
           error instanceof Error ? error.message : String(error)
         )
@@ -280,14 +271,6 @@ export default class ConnectionFactory implements IConnectionFactory {
       }
 
       await connection.destroy();
-
-      // 从缓存中移除
-      for (const [key, cachedConnection] of this.connectionCache.entries()) {
-        if (cachedConnection === connection) {
-          this.connectionCache.delete(key);
-          break;
-        }
-      }
     };
 
     return await DatabaseErrorHandler.execute(
@@ -309,15 +292,13 @@ export default class ConnectionFactory implements IConnectionFactory {
       for (const config of configs) {
         try {
           const result = await this.createConnection(config);
-          if (result.success) {
-            connections.push(result.data);
-          } else {
-            errors.push(
-              result.error instanceof Error
-                ? result.error
-                : new Error(String(result.error))
-            );
-          }
+          eitherFold(
+            (left) =>
+              errors.push(
+                left instanceof Error ? left : new Error(String(left))
+              ),
+            (right: Kysely<any>) => connections.push(right)
+          )(result);
         } catch (error) {
           errors.push(error as Error);
         }
@@ -357,7 +338,7 @@ export default class ConnectionFactory implements IConnectionFactory {
 
       for (const config of configs) {
         const result = await this.testConnection(config);
-        results.push(result.success ? result.data : false);
+        results.push(eitherGetOrElse(false)(result));
       }
 
       return results;
@@ -367,30 +348,6 @@ export default class ConnectionFactory implements IConnectionFactory {
       batchTestOperation,
       'batch-test-connections'
     );
-  }
-
-  /**
-   * 清理缓存
-   */
-  async clearCache(): Promise<void> {
-    for (const connection of this.connectionCache.values()) {
-      try {
-        await connection.destroy();
-      } catch {
-        // 忽略错误
-      }
-    }
-    this.connectionCache.clear();
-  }
-
-  /**
-   * 获取缓存统计
-   */
-  getCacheStats() {
-    return {
-      size: this.connectionCache.size,
-      keys: Array.from(this.connectionCache.keys())
-    };
   }
 
   /**
@@ -406,25 +363,6 @@ export default class ConnectionFactory implements IConnectionFactory {
     }
 
     return dialect;
-  }
-
-  /**
-   * 生成缓存键
-   */
-  private generateCacheKey(config: ConnectionConfig): string | null {
-    if (config.connectionString) {
-      return `${config.type}:${config.connectionString}`;
-    }
-
-    if (config.host && config.database) {
-      return `${config.type}:${config.host}:${config.port || 'default'}:${config.database}`;
-    }
-
-    if (config.type === 'sqlite' && config.database) {
-      return `${config.type}:${config.database}`;
-    }
-
-    return null;
   }
 
   /**

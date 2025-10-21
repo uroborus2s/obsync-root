@@ -1,9 +1,9 @@
 // @stratix/database 插件配置管理
 // 统一的配置验证、默认值处理和类型定义
 
+import { deepMerge } from '@stratix/utils/data';
 import type { DatabasePluginOptions } from '../types/index.js';
 import { ConfigurationError } from '../utils/error-handler.js';
-import { deepMerge } from '../utils/helpers.js';
 
 /**
  * 插件默认配置
@@ -67,8 +67,7 @@ export const AUTO_DISCOVERY_CONFIG = {
   discovery: {
     enabled: true,
     patterns: [
-      'core/*.{ts,js}', // 数据库管理器、连接管理器
-      'controllers/*.{ts,js}' // 控制器（路由）
+      'core/*.{ts,js}' // 数据库管理器、连接管理器
     ],
     exclude: [
       '**/*.test.{ts,js}', // 排除测试文件

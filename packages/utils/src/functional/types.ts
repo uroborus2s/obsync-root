@@ -2,21 +2,7 @@
  * 函数式编程核心类型定义
  */
 
-/**
- * Either类型 - 用于错误处理
- * 表示一个值可能是Left（错误）或Right（成功）
- */
-export type Either<L, R> = Left<L> | Right<R>;
-
-export interface Left<L> {
-  readonly _tag: 'Left';
-  readonly left: L;
-}
-
-export interface Right<R> {
-  readonly _tag: 'Right';
-  readonly right: R;
-}
+import { Either } from './either.js';
 
 /**
  * Maybe类型 - 用于空值处理

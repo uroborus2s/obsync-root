@@ -108,6 +108,8 @@ CREATE TABLE `out_jw_kcb_xs` (
   `xgxklbdm` varchar(255) COLLATE utf8_unicode_ci DEFAULT NULL COMMENT '校公选课类别代码',
   `sj` varchar(255) COLLATE utf8_unicode_ci DEFAULT NULL,
   `zt` varchar(30) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `gx_zj` varchar(30) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `gx_zx` varchar(30) COLLATE utf8_unicode_ci DEFAULT NULL
   KEY `idx_out_jw_kcb_xs_kkh_xh_kcbh` (`kkh`,`xh`,`kcbh`) USING BTREE
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci COMMENT='u_学生课程表';
 

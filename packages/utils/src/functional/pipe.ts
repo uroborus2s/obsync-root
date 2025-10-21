@@ -19,19 +19,93 @@ export const compose = (...fns: AnyFunction[]): AnyFunction => {
   return (value: any) => fns.reduceRight((acc, fn) => fn(acc), value);
 };
 
+// Type-safe pipeAsync implementation with overloads
+export function pipeAsync<A, B>(
+  value: A | Promise<A>,
+  fn1: (a: A) => B | Promise<B>
+): Promise<B>;
+export function pipeAsync<A, B, C>(
+  value: A | Promise<A>,
+  fn1: (a: A) => B | Promise<B>,
+  fn2: (b: B) => C | Promise<C>
+): Promise<C>;
+export function pipeAsync<A, B, C, D>(
+  value: A | Promise<A>,
+  fn1: (a: A) => B | Promise<B>,
+  fn2: (b: B) => C | Promise<C>,
+  fn3: (c: C) => D | Promise<D>
+): Promise<D>;
+export function pipeAsync<A, B, C, D, E>(
+  value: A | Promise<A>,
+  fn1: (a: A) => B | Promise<B>,
+  fn2: (b: B) => C | Promise<C>,
+  fn3: (c: C) => D | Promise<D>,
+  fn4: (d: D) => E | Promise<E>
+): Promise<E>;
+export function pipeAsync<A, B, C, D, E, F>(
+  value: A | Promise<A>,
+  fn1: (a: A) => B | Promise<B>,
+  fn2: (b: B) => C | Promise<C>,
+  fn3: (c: C) => D | Promise<D>,
+  fn4: (d: D) => E | Promise<E>,
+  fn5: (e: E) => F | Promise<F>
+): Promise<F>;
+export function pipeAsync<A, B, C, D, E, F, G>(
+  value: A | Promise<A>,
+  fn1: (a: A) => B | Promise<B>,
+  fn2: (b: B) => C | Promise<C>,
+  fn3: (c: C) => D | Promise<D>,
+  fn4: (d: D) => E | Promise<E>,
+  fn5: (e: E) => F | Promise<F>,
+  fn6: (f: F) => G | Promise<G>
+): Promise<G>;
+export function pipeAsync<A, B, C, D, E, F, G, H>(
+  value: A | Promise<A>,
+  fn1: (a: A) => B | Promise<B>,
+  fn2: (b: B) => C | Promise<C>,
+  fn3: (c: C) => D | Promise<D>,
+  fn4: (d: D) => E | Promise<E>,
+  fn5: (e: E) => F | Promise<F>,
+  fn6: (f: F) => G | Promise<G>,
+  fn7: (g: G) => H | Promise<H>
+): Promise<H>;
+export function pipeAsync<A, B, C, D, E, F, G, H, I>(
+  value: A | Promise<A>,
+  fn1: (a: A) => B | Promise<B>,
+  fn2: (b: B) => C | Promise<C>,
+  fn3: (c: C) => D | Promise<D>,
+  fn4: (d: D) => E | Promise<E>,
+  fn5: (e: E) => F | Promise<F>,
+  fn6: (f: F) => G | Promise<G>,
+  fn7: (g: G) => H | Promise<H>,
+  fn8: (h: H) => I | Promise<I>
+): Promise<I>;
+export function pipeAsync<A, B, C, D, E, F, G, H, I, J>(
+  value: A | Promise<A>,
+  fn1: (a: A) => B | Promise<B>,
+  fn2: (b: B) => C | Promise<C>,
+  fn3: (c: C) => D | Promise<D>,
+  fn4: (d: D) => E | Promise<E>,
+  fn5: (e: E) => F | Promise<F>,
+  fn6: (f: F) => G | Promise<G>,
+  fn7: (g: G) => H | Promise<H>,
+  fn8: (h: H) => I | Promise<I>,
+  fn9: (i: I) => J | Promise<J>
+): Promise<J>;
+
 /**
  * 异步管道操作符 - 支持异步函数的管道
  */
-export const pipeAsync = async (
+export async function pipeAsync(
   value: any,
   ...fns: Array<(value: any) => any | Promise<any>>
-): Promise<any> => {
-  let result = value;
+): Promise<any> {
+  let result = await value;
   for (const fn of fns) {
     result = await fn(result);
   }
   return result;
-};
+}
 
 /**
  * 异步函数组合 - 支持异步函数的组合

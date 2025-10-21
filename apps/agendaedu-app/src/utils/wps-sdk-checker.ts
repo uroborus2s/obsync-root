@@ -3,6 +3,8 @@
  * 用于验证WPS SDK是否正确加载和可用
  */
 
+import { LocationInfo } from '@/lib/wps-collaboration-api';
+
 export interface WPSSDKStatus {
   isLoaded: boolean;
   isWPSEnvironment: boolean;
@@ -14,7 +16,9 @@ export interface WPSSDKStatus {
 /**
  * 检查WPS SDK状态
  */
-export function checkWPSSDKStatus(): WPSSDKStatus {
+export function checkWPSSDKStatus(
+  setCurrentLocation: (location: LocationInfo) => void
+): WPSSDKStatus {
   const status: WPSSDKStatus = {
     isLoaded: false,
     isWPSEnvironment: false,
@@ -38,7 +42,59 @@ export function checkWPSSDKStatus(): WPSSDKStatus {
       status.isWPSEnvironment =
         userAgent.includes('wps') || userAgent.includes('ksoxz');
 
-      console.log('✅ WPS SDK检查结果:', status);
+      const getConfig = async () => {
+        const currentUrl = window.location.href;
+        const response = await fetch(
+          `/api/auth/wps/jsapi-ticket?url=${encodeURIComponent(currentUrl)}`,
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const config = await response.json();
+        return config.data;
+      };
+
+      getConfig().then((config) => {
+        console.log('WPS SDK config:', config);
+        window.ksoxz_sdk.ready(() => {
+          console.log('WPS SDK ready');
+
+          window.ksoxz_sdk.config({
+            params: {
+              appId: config.appId,
+              timeStamp: config.timeStamp,
+              nonceStr: config.nonceStr,
+              signature: config.signature
+            },
+            onSuccess: () => {
+              window.ksoxz_sdk.getLocationInfo({
+                params: { coordinate: 1, withReGeocode: true },
+                onSuccess: (data: LocationInfo) => {
+                  setCurrentLocation(data);
+                },
+                onError: (error: unknown) => {
+                  console.error('❌ WPS JSAPI获取位置失败:', error);
+                  alert(
+                    'WPS SDK getLocationInfo error: ' + JSON.stringify(error)
+                  );
+                  // 如果WPS API失败，尝试使用浏览器API
+                }
+              });
+            },
+            onError: (error: unknown) => {
+              console.error('WPS SDK config error:', error);
+            }
+          });
+        });
+      });
     } else {
       status.error = 'WPS SDK未加载 - 请检查script标签是否正确';
       console.warn('❌ WPS SDK未找到');
@@ -129,24 +185,4 @@ export async function testWPSSDKBasicFunctions(): Promise<{
     );
     return { success: false, results, errors };
   }
-}
-
-/**
- * 打印WPS SDK调试信息
- */
-export function printWPSSDKDebugInfo(): void {
-  console.group('🔍 WPS SDK 调试信息');
-
-  const status = checkWPSSDKStatus();
-  console.log('SDK状态:', status);
-
-  if (status.isLoaded && window.ksoxz_sdk) {
-    console.log('SDK对象:', window.ksoxz_sdk);
-    console.log('可用方法:', status.availableMethods);
-  }
-
-  console.log('User-Agent:', navigator.userAgent);
-  console.log('当前URL:', window.location.href);
-
-  console.groupEnd();
 }

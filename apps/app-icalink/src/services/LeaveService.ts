@@ -1,1826 +1,408 @@
-// @wps/app-icalink 请假服务实现
-// 基于 Stratix 框架的服务实现类
-
-import type { Logger } from '@stratix/core';
-import type { IAttendanceCourseRepository } from '../repositories/interfaces/IAttendanceCourseRepository.js';
-import type { IAttendanceRecordRepository } from '../repositories/interfaces/IAttendanceRecordRepository.js';
-import type { ILeaveApplicationRepository } from '../repositories/interfaces/ILeaveApplicationRepository.js';
-import type { ILeaveApprovalRepository } from '../repositories/interfaces/ILeaveApprovalRepository.js';
-import type { ILeaveAttachmentRepository } from '../repositories/interfaces/ILeaveAttachmentRepository.js';
+import type { Logger, ServiceError } from '@stratix/core';
+import {
+  isLeft,
+  isNone,
+  eitherLeft as left,
+  eitherRight as right,
+  type Either,
+  type Maybe
+} from '@stratix/utils/functional';
+import AttendanceCourseRepository from '../repositories/AttendanceCourseRepository.js';
+import AttendanceRecordRepository from '../repositories/AttendanceRecordRepository.js';
+import LeaveApplicationRepository from '../repositories/LeaveApplicationRepository.js';
+import LeaveApprovalRepository from '../repositories/LeaveApprovalRepository.js';
+import LeaveAttachmentRepository from '../repositories/LeaveAttachmentRepository.js';
 import type {
   ApprovalRequest,
   ApprovalResponse,
-  AttachmentsResponse,
   LeaveApplicationRequest,
   LeaveApplicationResponse,
-  LeaveApplicationsResponse,
-  LeaveQueryParams,
+  QueryStudentLeaveApplicationsDTO,
+  QueryStudentLeaveApplicationsVO,
+  QueryTeacherLeaveApplicationsDTO,
+  QueryTeacherLeaveApplicationsVO,
+  StudentLeaveApplicationItemVO,
+  StudentLeaveApplicationStatsVO,
+  TeacherLeaveApplicationItemVO,
+  TeacherLeaveApplicationStatsVO,
   UserInfo,
   WithdrawResponse
 } from '../types/api.js';
-import type { LeaveStatus, LeaveType } from '../types/database.js';
-import { ApprovalResult, AttendanceStatus } from '../types/database.js';
-import type { ServiceResult } from '../types/service.js';
 import {
-  isSuccessResult,
-  ServiceErrorCode,
-  wrapServiceCall
-} from '../types/service.js';
-import {
-  formatDate,
-  formatDateTime,
-  formatLocalDateTime,
-  getCurrentDateTime
-} from '../utils/datetime.js';
-import { extractOptionFromServiceResult } from '../utils/type-fixes.js';
-import {
-  validateDateRange,
-  validateDateString,
-  validateLeaveReason,
-  validateLeaveType,
-  validatePagination
-} from '../utils/validation.js';
-import type { ILeaveService } from './interfaces/ILeaveService.js';
-import type { IUserService } from './interfaces/IUserService.js';
+  ApprovalResult,
+  AttendanceStatus,
+  type IcalinkAttendanceRecord,
+  type IcalinkLeaveApplication,
+  type IcasyncAttendanceCourse,
+  type LeaveStatus
+} from '../types/database.js';
+import { ServiceErrorCode } from '../types/service.js';
+import { formatDateTime, getCurrentDateTime } from '../utils/datetime.js';
+import type OsspStorageService from './OsspStorageService.js';
 
-/**
- * 请假服务实现类
- * 实现ILeaveService接口，提供请假相关的业务逻辑
- */
-export default class LeaveService implements ILeaveService {
+export default class LeaveService {
   constructor(
-    private readonly leaveApplicationRepository: ILeaveApplicationRepository,
-    private readonly leaveApprovalRepository: ILeaveApprovalRepository,
-    private readonly leaveAttachmentRepository: ILeaveAttachmentRepository,
-    private readonly attendanceRecordRepository: IAttendanceRecordRepository,
-    private readonly attendanceCourseRepository: IAttendanceCourseRepository,
-    private readonly userService: IUserService,
+    private readonly leaveApplicationRepository: LeaveApplicationRepository,
+    private readonly leaveApprovalRepository: LeaveApprovalRepository,
+    private readonly leaveAttachmentRepository: LeaveAttachmentRepository,
+    private readonly attendanceRecordRepository: AttendanceRecordRepository,
+    private readonly attendanceCourseRepository: AttendanceCourseRepository,
+    private readonly osspStorageService: OsspStorageService,
     private readonly logger: Logger
   ) {}
 
-  /**
-   * 查询请假信息
-   */
-  async queryLeaveApplications(
-    userInfo: UserInfo,
-    params: LeaveQueryParams
-  ): Promise<ServiceResult<LeaveApplicationsResponse>> {
-    return wrapServiceCall(async () => {
-      // 验证分页参数
-      const paginationValidation = validatePagination(
-        params.page,
-        params.page_size
-      );
-      if (!isSuccessResult(paginationValidation)) {
-        throw new Error(paginationValidation.error?.message);
-      }
-
-      // 验证日期范围
-      let startDate: Date | undefined;
-      let endDate: Date | undefined;
-
-      if (params.start_date) {
-        const startDateValidation = validateDateString(
-          params.start_date,
-          '开始日期'
-        );
-        if (!isSuccessResult(startDateValidation)) {
-          throw new Error(startDateValidation.error?.message);
-        }
-        startDate = startDateValidation.data;
-      }
-
-      if (params.end_date) {
-        const endDateValidation = validateDateString(
-          params.end_date,
-          '结束日期'
-        );
-        if (!isSuccessResult(endDateValidation)) {
-          throw new Error(endDateValidation.error?.message);
-        }
-        endDate = endDateValidation.data;
-      }
-
-      if (startDate && endDate) {
-        const rangeValidation = validateDateRange(startDate, endDate);
-        if (!isSuccessResult(rangeValidation)) {
-          throw new Error(rangeValidation.error?.message);
-        }
-      }
-
-      // 构建查询条件
-      const conditions: any = {
-        start_date: startDate,
-        end_date: endDate
-      };
-
-      // 根据用户类型设置查询条件
-      if (userInfo.type === 'student') {
-        conditions.student_id = userInfo.id;
-      } else if (userInfo.type === 'teacher') {
-        conditions.teacher_id = userInfo.id;
-        // 教师可以查询指定学生的记录
-        if (params.student_id) {
-          conditions.student_id = params.student_id;
-        }
-      }
-
-      if (params.course_id) {
-        conditions.course_id = params.course_id;
-      }
-
-      if (params.status && params.status !== 'all') {
-        conditions.status = params.status as LeaveStatus;
-      }
-
-      // 查询请假申请
-      const applicationsResult =
-        await this.leaveApplicationRepository.findWithDetailsPaginated(
-          conditions,
-          {
-            pagination: {
-              page: paginationValidation.data.page,
-              page_size: paginationValidation.data.pageSize
-            },
-            sort: { field: 'application_time', direction: 'desc' }
-          }
-        );
-
-      if (!isSuccessResult(applicationsResult)) {
-        throw new Error('查询请假申请失败');
-      }
-
-      // 转换为API响应格式
-      const applications = await Promise.all(
-        applicationsResult.data.data.map(async (app) => {
-          // 通过course_id获取课程详细信息
-          let courseInfo = null;
-
-          try {
-            const courseResult =
-              await this.attendanceCourseRepository.findByCourseCode(
-                app.course_id
-              );
-
-            if (
-              isSuccessResult(courseResult) &&
-              courseResult.data &&
-              courseResult.data.length > 0
-            ) {
-              const course = courseResult.data[0]; // 取第一个课程
-
-              // 创建课程开始和结束时间，确保不为空
-              let courseStartTime: string = formatLocalDateTime(
-                course.start_time
-              );
-              let courseEndTime: string = formatLocalDateTime(course.end_time);
-
-              courseInfo = {
-                kcmc: course.course_name,
-                room_s: course.class_location || '',
-                xm_s: course.teacher_names || '',
-                jc_s: '', // 课节信息，可能需要从其他地方获取
-                jxz: null, // 教学周，可能需要从其他地方获取
-                lq: course.class_location || '',
-                course_start_time: courseStartTime,
-                course_end_time: courseEndTime
-              };
-            }
-          } catch (error) {
-            // 忽略课程查询错误，使用默认值
-          }
-
-          // 如果没有找到课程信息，创建一个默认的课程信息避免前端错误
-          if (!courseInfo) {
-            // 创建未来时间，确保撤回按钮可以显示
-            let fallbackStartTime: string;
-            let fallbackEndTime: string;
-
-            if (app.class_date) {
-              // 使用申请表中的日期，创建本地时间而不是UTC时间
-              const classDate = new Date(app.class_date);
-              classDate.setHours(8, 0, 0, 0); // 设置为本地时间08:00
-              fallbackStartTime = formatLocalDateTime(classDate);
-
-              classDate.setHours(10, 0, 0, 0); // 设置为本地时间10:00
-              fallbackEndTime = formatLocalDateTime(classDate);
-            } else {
-              // 使用明天的时间作为默认值
-              const tomorrow = new Date();
-              tomorrow.setDate(tomorrow.getDate() + 1);
-              tomorrow.setHours(9, 0, 0, 0);
-              fallbackStartTime = formatLocalDateTime(tomorrow);
-
-              tomorrow.setHours(11, 0, 0, 0);
-              fallbackEndTime = formatLocalDateTime(tomorrow);
-            }
-
-            courseInfo = {
-              kcmc: app.course_name || '未知课程',
-              room_s: app.class_location || '',
-              xm_s: app.teacher_name || '',
-              jc_s: '',
-              jxz: null,
-              lq: app.class_location || '',
-              course_start_time: fallbackStartTime,
-              course_end_time: fallbackEndTime
-            };
-          }
-
-          // 查询附件信息
-          const attachmentsResult =
-            await this.leaveAttachmentRepository.findByLeaveApplication(app.id);
-          const attachments = isSuccessResult(attachmentsResult)
-            ? attachmentsResult.data.map((attachment) => ({
-                id: attachment.id.toString(),
-                file_name: attachment.image_name,
-                file_size: attachment.image_size,
-                file_type: attachment.image_type,
-                upload_time: formatDateTime(attachment.upload_time),
-                // 预览URL - 使用缩略图
-                thumbnail_url: `/api/icalink/v1/attendance/attachments/${attachment.id}/image?thumbnail=true`,
-                // 预览URL - 原图
-                preview_url: `/api/icalink/v1/attendance/attachments/${attachment.id}/image`,
-                // 下载URL
-                download_url: `/api/icalink/v1/attendance/attachments/${attachment.id}/download`
-              }))
-            : [];
-
-          // 查询审批信息
-          const approvalsResult =
-            await this.leaveApprovalRepository.findByLeaveApplication(app.id);
-          const approvals = isSuccessResult(approvalsResult)
-            ? approvalsResult.data.map((approval) => ({
-                id: approval.id.toString(),
-                approver_id: approval.approver_id,
-                approver_name: approval.approver_name,
-                approval_result: this.mapApprovalResultToFrontend(
-                  approval.approval_result
-                ),
-                approval_comment: approval.approval_comment || undefined,
-                approval_time: approval.approval_time
-                  ? formatDateTime(approval.approval_time)
-                  : undefined
-              }))
-            : [];
-
-          // 从审批信息中获取最新的审批结果
-          let mappedStatus = 'pending'; // 默认状态
-
-          if (approvals && approvals.length > 0) {
-            // 获取最新的审批记录
-            const latestApproval = approvals[approvals.length - 1];
-            if (latestApproval && latestApproval.approval_result) {
-              // 将前端格式的审批结果转换回枚举值
-              const approvalResultEnum = this.mapFrontendToApprovalResult(
-                latestApproval.approval_result as string
-              );
-              mappedStatus =
-                this.mapApprovalResultToApplicationStatus(approvalResultEnum);
-            }
-          }
-
-          return {
-            id: Number(app.id), // 确保转换为数字
-            student_id: app.student_id,
-            student_name: app.student_name,
-            course_id: app.course_id,
-            course_name: app.course_name,
-            teacher_id: app.teacher_id,
-            teacher_name: app.teacher_name,
-            leave_type: app.leave_type,
-            leave_reason: app.leave_reason,
-            status: mappedStatus, // 🔥 使用映射后的状态
-            application_time: formatDateTime(app.application_time),
-            approval_time: app.approval_time
-              ? formatDateTime(app.approval_time)
-              : undefined,
-            approval_comment: app.approval_comment || undefined,
-            has_attachments: (app.attachment_count || 0) > 0,
-            class_date: app.class_date || '',
-            class_time: app.class_time || '',
-            course_info: courseInfo, // 添加课程信息
-            // 返回实际的附件和审批数据
-            attachments: attachments,
-            approvals: approvals
-          };
-        })
-      );
-
-      const response: LeaveApplicationsResponse = {
-        applications: applications as any,
-        pagination: {
-          total: applicationsResult.data.total,
-          page: applicationsResult.data.page,
-          page_size: applicationsResult.data.page_size,
-          total_pages: applicationsResult.data.total_pages
-        }
-      };
-
-      return response;
-    }, ServiceErrorCode.DATABASE_ERROR);
-  }
-
-  /**
-   * 学生请假申请
-   */
-  async submitLeaveApplication(
+  public async submitLeaveApplication(
     studentInfo: UserInfo,
     request: LeaveApplicationRequest
-  ): Promise<ServiceResult<LeaveApplicationResponse>> {
-    return wrapServiceCall(async () => {
-      this.logger.info(
-        {
-          studentId: studentInfo.id,
-          attendanceRecordId: request.attendance_record_id
-        },
-        'Submit leave application started'
-      );
+  ): Promise<Either<ServiceError, LeaveApplicationResponse>> {
+    this.logger.info(
+      { studentId: studentInfo.userId },
+      'Submitting leave application'
+    );
+    try {
+      // 1. 根据 attendance_record_id 查找考勤记录
+      const recordId = parseInt(request.attendance_record_id, 10);
+      const recordMaybe = (await this.attendanceRecordRepository.findOne((qb) =>
+        qb.where('id', '=', recordId)
+      )) as unknown as Maybe<IcalinkAttendanceRecord>;
 
-      // 验证请假类型
-      const leaveTypeValidation = validateLeaveType(request.leave_type);
-      if (!isSuccessResult(leaveTypeValidation)) {
-        throw new Error(leaveTypeValidation.error?.message);
-      }
-
-      // 验证请假原因
-      const reasonValidation = validateLeaveReason(request.leave_reason);
-      if (!isSuccessResult(reasonValidation)) {
-        throw new Error(reasonValidation.error?.message);
-      }
-
-      // 根据external_id查找课程
-      const courseResult =
-        await this.attendanceCourseRepository.findByExternalId(
-          request.attendance_record_id
-        );
-      if (!isSuccessResult(courseResult) || !courseResult.data) {
-        throw new Error('课程不存在');
-      }
-
-      const course = courseResult.data;
-
-      // 根据课程ID和学生ID查找签到记录，如果不存在则创建一个
-      let attendanceRecord =
-        await this.attendanceRecordRepository.findByCourseAndStudent(
-          course.id,
-          studentInfo.id
-        );
-
-      let record: any = null;
-
-      if (attendanceRecord.success && attendanceRecord.data) {
-        record = extractOptionFromServiceResult({
-          success: true,
-          data: attendanceRecord.data
+      if (isNone(recordMaybe)) {
+        return left({
+          code: String(ServiceErrorCode.RESOURCE_NOT_FOUND),
+          message: '考勤记录不存在'
         });
-
-        this.logger.info(
-          { recordId: (record as any)?.id, studentId: studentInfo.id },
-          'Found existing attendance record for leave application'
-        );
-      } else {
-        // 没有签到记录，需要创建一个，因为前端依赖这个记录来显示请假状态
-        this.logger.info(
-          { courseId: course.id, studentId: studentInfo.id },
-          'Creating attendance record for leave application'
-        );
-
-        try {
-          // 创建基础的签到记录
-          const createRecordData = {
-            attendance_course_id: course.id,
-            student_id: studentInfo.id,
-            student_name: studentInfo.name,
-            class_name: '', // 可以从学生信息中获取，暂时为空
-            major_name: '', // 可以从学生信息中获取，暂时为空
-            status: AttendanceStatus.ABSENT, // 设置为缺勤，稍后会更新为请假
-            created_by: studentInfo.id
-          };
-
-          const createResult =
-            await this.attendanceRecordRepository.create(createRecordData);
-
-          if (createResult.success && createResult.data) {
-            // 修复record ID获取逻辑
-            let recordId: number = 0;
-            if (createResult.data) {
-              if (typeof createResult.data === 'object') {
-                recordId =
-                  (createResult.data as any).id ||
-                  (createResult.data as any).insertId ||
-                  (createResult.data as any).value?.id ||
-                  (createResult.data as any).value?.insertId ||
-                  0;
-              } else if (typeof createResult.data === 'number') {
-                recordId = createResult.data;
-              }
-            }
-
-            if (recordId === 0) {
-              throw new Error('无法获取签到记录ID');
-            }
-
-            record = { ...createResult.data, id: recordId, insertId: recordId };
-            this.logger.info(
-              { recordId, studentId: studentInfo.id },
-              'Successfully created attendance record for leave application'
-            );
-          } else {
-            throw new Error('创建签到记录失败');
-          }
-        } catch (error) {
-          this.logger.error(
-            { error, courseId: course.id, studentId: studentInfo.id },
-            'Failed to create attendance record for leave application'
-          );
-          throw new Error('创建签到记录失败，无法提交请假申请');
-        }
       }
 
-      // 检查是否已存在有效的请假申请（排除已取消的申请）
-      if (record && (record as any).id) {
-        const activeApplication =
-          await this.leaveApplicationRepository.findActiveByAttendanceRecord(
-            (record as any).id
-          );
-        if (isSuccessResult(activeApplication) && activeApplication.data) {
-          const app = activeApplication.data;
-          throw new Error(
-            `该签到记录已存在有效的请假申请，当前状态：${app.status}`
-          );
-        }
+      const record = recordMaybe.value;
 
-        this.logger.info(
-          { attendanceRecordId: (record as any).id },
-          'No active leave application found, proceeding with new application'
-        );
+      // 2. 查找课程信息
+      const courseMaybe = (await this.attendanceCourseRepository.findOne((qb) =>
+        qb.where('id', '=', record.attendance_course_id)
+      )) as unknown as Maybe<IcasyncAttendanceCourse>;
+
+      if (isNone(courseMaybe)) {
+        return left({
+          code: String(ServiceErrorCode.RESOURCE_NOT_FOUND),
+          message: '课程不存在'
+        });
       }
 
-      // 解析教师codes，支持多教师
-      const teacherCodes = course.teacher_codes
-        ? course.teacher_codes.split(',').map((code) => code.trim())
-        : [];
-      const teacherNames = course.teacher_names
-        ? course.teacher_names.split(',').map((name) => name.trim())
-        : [];
+      const course = courseMaybe.value;
 
-      // 如果只有一个教师，直接使用；如果有多个教师，使用逗号连接
-      const primaryTeacherId =
-        teacherCodes.length > 0 ? teacherCodes[0] : course.teacher_codes;
-      const primaryTeacherName =
-        teacherNames.length > 0 ? teacherNames[0] : course.teacher_names;
+      // 3. 创建请假申请
+      const teacherCodes = course.teacher_codes?.split(',') || [];
+      const teacherNames = course.teacher_names?.split(',') || [];
 
-      // 创建请假申请
-      const attendanceRecordId = (record as any).id || (record as any).insertId;
-      if (!attendanceRecordId) {
-        throw new Error('无法获取签到记录ID，请假申请创建失败');
-      }
-
-      const applicationData = {
-        attendance_record_id: attendanceRecordId.toString(),
-        student_id: studentInfo.id,
+      const applicationResult = await this.leaveApplicationRepository.create({
+        attendance_record_id: record.id,
+        student_id: studentInfo.userId,
         student_name: studentInfo.name,
-        course_id: course.course_code, // 使用课程的开课号
+        course_id: course.course_code,
         course_name: course.course_name,
-        teacher_id: primaryTeacherId, // 使用主要教师ID
-        teacher_name: primaryTeacherName, // 使用主要教师姓名
-        leave_type: request.leave_type as LeaveType,
+        teacher_id: teacherCodes[0] || '',
+        teacher_name: teacherNames[0] || '',
+        leave_type: request.leave_type,
         leave_reason: request.leave_reason,
         status: 'leave_pending' as LeaveStatus,
         application_time: getCurrentDateTime(),
-        created_by: studentInfo.id
-      };
+        class_date: course.start_time,
+        class_time: `${course.start_time.toTimeString().slice(0, 5)}-${course.end_time.toTimeString().slice(0, 5)}`
+      } as any);
 
-      const createResult = await this.leaveApplicationRepository.create(
-        applicationData as any
-      );
-      if (!createResult.success) {
-        throw new Error('创建请假申请失败');
+      if (isLeft(applicationResult)) {
+        return left({
+          code: String(ServiceErrorCode.INTERNAL_ERROR),
+          message: '创建请假申请失败',
+          details: applicationResult.left
+        });
       }
 
-      // 修复applicationId获取逻辑
-      let applicationId: number = 0;
-      if (createResult.data) {
-        // 检查多种可能的ID字段
-        if (typeof createResult.data === 'object') {
-          applicationId =
-            (createResult.data as any).id ||
-            (createResult.data as any).insertId ||
-            (createResult.data as any).value?.id ||
-            (createResult.data as any).value?.insertId ||
-            0;
-        } else if (typeof createResult.data === 'number') {
-          applicationId = createResult.data;
-        }
-      }
+      const application = applicationResult.right;
 
-      if (applicationId === 0) {
-        this.logger.error(
-          { createResult: createResult.data },
-          'Failed to get applicationId from create result'
+      // 4. 创建审批记录
+      const approvalResult = await this.leaveApprovalRepository.create({
+        leave_application_id: application.id,
+        approver_id: teacherCodes[0] || '',
+        approver_name: teacherNames[0] || '',
+        approval_result: 'pending' as ApprovalResult,
+        approval_order: 1,
+        is_final_approver: true
+      } as any);
+
+      if (isLeft(approvalResult)) {
+        this.logger.warn(
+          { applicationId: application.id },
+          'Failed to create approval record, but application was created'
         );
-        throw new Error('无法获取请假申请ID，创建审批记录失败');
       }
 
-      this.logger.info(
-        { applicationId, createResultData: createResult.data },
-        'Successfully created leave application and got ID'
-      );
-
-      // 为每个教师创建审批记录
-      if (teacherCodes.length > 0) {
-        this.logger.info(
-          { applicationId, teacherCodes },
-          'Creating approval records for multiple teachers'
+      // 5. 处理附件上传（如果有）
+      let uploadedCount = 0;
+      if (request.images && request.images.length > 0) {
+        const attachmentResult = await this.processLeaveAttachments(
+          application.id,
+          request.images
         );
 
-        for (let i = 0; i < teacherCodes.length; i++) {
-          const teacherCode = teacherCodes[i];
-          const teacherName = teacherNames[i] || teacherCode; // 如果没有对应的姓名，使用代码作为姓名
-
-          const approvalData = {
-            leave_application_id: applicationId,
-            approver_id: teacherCode,
-            approver_name: teacherName,
-            approval_result: ApprovalResult.PENDING,
-            approval_order: i + 1, // 审批顺序，从1开始
-            is_final_approver: true, // 暂时都设为最终审批人，后续可以根据业务需求调整
-            created_by: studentInfo.id
-          };
-
-          try {
-            const approvalResult =
-              await this.leaveApprovalRepository.create(approvalData);
-            if (!approvalResult.success) {
-              this.logger.warn(
-                { teacherCode, teacherName, applicationId },
-                'Failed to create approval record for teacher'
-              );
-            } else {
-              this.logger.info(
-                { teacherCode, teacherName, applicationId },
-                'Successfully created approval record for teacher'
-              );
-            }
-          } catch (error) {
-            this.logger.error(
-              { error, teacherCode, teacherName, applicationId },
-              'Error creating approval record for teacher'
-            );
-          }
-        }
-      } else {
-        // 如果没有解析出多个教师，为主要教师创建单个审批记录
-        const approvalData = {
-          leave_application_id: applicationId,
-          approver_id: primaryTeacherId || course.teacher_codes || '',
-          approver_name: primaryTeacherName || course.teacher_names || '',
-          approval_result: ApprovalResult.PENDING,
-          approval_order: 1,
-          is_final_approver: true,
-          created_by: studentInfo.id
-        };
-
-        try {
-          await this.leaveApprovalRepository.create(approvalData);
+        if (isLeft(attachmentResult)) {
+          this.logger.warn(
+            { applicationId: application.id, error: attachmentResult.left },
+            'Failed to process attachments, but application was created'
+          );
+        } else {
+          uploadedCount = attachmentResult.right.uploadedCount;
           this.logger.info(
-            { teacherId: primaryTeacherId, applicationId },
-            'Successfully created single approval record'
-          );
-        } catch (error) {
-          this.logger.error(
-            { error, teacherId: primaryTeacherId, applicationId },
-            'Error creating single approval record'
+            {
+              applicationId: application.id,
+              uploadedCount,
+              totalSize: attachmentResult.right.totalSize
+            },
+            'Attachments processed successfully'
           );
         }
       }
 
-      // 处理附件上传
-      let attachmentIds: number[] = [];
-      if (
-        (request as any).attachments &&
-        (request as any).attachments.length > 0
-      ) {
-        const attachmentResult = await this.uploadAttachments(
-          applicationId,
-          (request as any).attachments
-        );
-        if (isSuccessResult(attachmentResult)) {
-          attachmentIds = attachmentResult.data;
-        }
-      }
-
-      // 更新签到记录状态为请假待审批
-      const recordId = (record as any).id || (record as any).insertId;
-      await this.attendanceRecordRepository.update(recordId, {
-        status: AttendanceStatus.LEAVE_PENDING, // 应该是 LEAVE_PENDING 而不是 LEAVE
-        updated_by: studentInfo.id
-      });
-
-      const response: LeaveApplicationResponse = {
-        application_id: Number(applicationId), // 确保转换为数字
-        student_id: studentInfo.id,
+      // 6. 返回完整的响应
+      return right({
+        application_id: application.id,
+        attendance_record_id: record.id,
+        student_id: studentInfo.userId,
         student_name: studentInfo.name,
         course_name: course.course_name,
-        teacher_name: course.teacher_names,
+        teacher_name: teacherNames[0] || '',
         leave_type: request.leave_type,
         leave_reason: request.leave_reason,
-        status: 'leave_pending' as any,
-        application_time: formatDateTime(applicationData.application_time)
-      } as any;
-
-      this.logger.info(
-        {
-          applicationId,
-          studentId: studentInfo.id
-        },
-        'Submit leave application completed'
-      );
-
-      return response;
-    }, ServiceErrorCode.DATABASE_ERROR);
+        status: application.status,
+        application_time: application.application_time.toISOString(),
+        class_date: course.start_time.toISOString().split('T')[0],
+        uploaded_images: uploadedCount
+      });
+    } catch (error) {
+      this.logger.error(error, 'Failed to submit leave application');
+      return left({
+        code: String(ServiceErrorCode.INTERNAL_ERROR),
+        message: error instanceof Error ? error.message : '提交请假申请失败'
+      });
+    }
   }
 
-  /**
-   * 撤回请假申请
-   */
-  async withdrawLeaveApplication(
+  public async withdrawLeaveApplication(
     applicationId: number,
     studentInfo: UserInfo
-  ): Promise<ServiceResult<WithdrawResponse>> {
-    return wrapServiceCall(async () => {
-      this.logger.info(
-        { applicationId, studentId: studentInfo.id },
-        'Withdraw leave application started'
-      );
-
-      // 查找请假申请
-      const application =
-        await this.leaveApplicationRepository.findById(applicationId);
-      if (!application.success) {
-        throw new Error('请假申请不存在');
+  ): Promise<Either<ServiceError, WithdrawResponse>> {
+    this.logger.info(
+      { applicationId, studentId: studentInfo.userId },
+      'Withdrawing leave application'
+    );
+    try {
+      const appMaybe = (await this.leaveApplicationRepository.findOne((qb) =>
+        qb.where('id', '=', applicationId)
+      )) as unknown as Maybe<IcalinkLeaveApplication>;
+      if (isNone(appMaybe)) {
+        return left({
+          code: String(ServiceErrorCode.RESOURCE_NOT_FOUND),
+          message: '请假申请不存在'
+        });
+      }
+      const application = appMaybe.value;
+      if (application.student_id !== studentInfo.userId) {
+        return left({
+          code: String(ServiceErrorCode.PERMISSION_DENIED),
+          message: '无权撤回此请假申请'
+        });
+      }
+      if (application.status !== 'leave_pending') {
+        return left({
+          code: String(ServiceErrorCode.INVALID_OPERATION),
+          message: '只能撤回待审批的请假申请'
+        });
       }
 
-      const app = extractOptionFromServiceResult(application);
-      if (!app) {
-        throw new Error('请假申请不存在');
-      }
+      const previousStatus = application.status;
 
-      // 验证权限
-      if ((app as any)?.student_id !== studentInfo.id) {
-        throw new Error('无权限撤回该请假申请');
-      }
-
-      // 检查状态是否允许撤回 - 只要在课程开始前，任何状态都可以撤回
-      const allowedStatuses = ['leave_pending', 'leave', 'leave_rejected'];
-      if (!allowedStatuses.includes((app as any)?.status)) {
-        throw new Error('该请假申请无法撤回');
-      }
-
-      // 获取课程信息检查是否在课程开始前
-      let canWithdraw = true;
-      try {
-        const courseResult =
-          await this.attendanceCourseRepository.findByCourseCode(
-            (app as any)?.course_id || ''
-          );
-        if (
-          isSuccessResult(courseResult) &&
-          courseResult.data &&
-          courseResult.data.length > 0
-        ) {
-          const course = courseResult.data[0];
-          const now = new Date();
-          const courseStartTime = new Date(course.start_time);
-
-          // 如果当前时间已经超过课程开始时间，不允许撤回
-          if (now >= courseStartTime) {
-            canWithdraw = false;
-          }
-        }
-      } catch (error) {
-        this.logger.warn(
-          { applicationId, error },
-          'Failed to check course time for withdraw, allowing withdrawal'
-        );
-        // 如果无法获取课程时间，允许撤回（兼容性考虑）
-      }
-
-      if (!canWithdraw) {
-        throw new Error('课程已开始，无法撤回请假申请');
-      }
-
-      // 更新申请状态
       const updateResult = await this.leaveApplicationRepository.update(
         applicationId,
-        {
-          status: 'cancelled' as LeaveStatus,
-          updated_by: studentInfo.id
-        }
+        { status: 'withdrawn' as LeaveStatus } as any
       );
-
-      if (!updateResult.success) {
-        throw new Error('撤回请假申请失败');
+      if (isLeft(updateResult)) {
+        return left({
+          code: String(ServiceErrorCode.INTERNAL_ERROR),
+          message: '撤回请假申请失败',
+          details: updateResult.left
+        });
       }
 
-      // 恢复签到记录状态
-      await this.attendanceRecordRepository.update(
-        (app as any)?.attendance_record_id || 0,
-        {
-          status: AttendanceStatus.ABSENT,
-          updated_by: studentInfo.id
-        }
-      );
-
-      // 更新所有相关的审批记录状态为cancelled
-      try {
-        const approvalRecords =
-          await this.leaveApprovalRepository.findByLeaveApplication(
-            applicationId
-          );
-        if (approvalRecords.success && approvalRecords.data) {
-          const currentTime = getCurrentDateTime();
-          for (const approval of approvalRecords.data) {
-            if (approval.approval_result === ApprovalResult.PENDING) {
-              await this.leaveApprovalRepository.update(approval.id, {
-                approval_result: ApprovalResult.CANCELLED,
-                approval_time: currentTime,
-                approval_comment: '学生已撤回请假申请',
-                updated_by: studentInfo.id
-              });
-            }
-          }
-
-          this.logger.info(
-            { applicationId, approvalCount: approvalRecords.data.length },
-            'Updated approval records status to cancelled'
-          );
-        }
-      } catch (error) {
-        this.logger.error(
-          { error, applicationId },
-          'Failed to update approval records during withdrawal'
-        );
-        // 不抛出错误，因为主要的撤回操作已经成功
-      }
-
-      const response = {
-        application_id: Number(applicationId), // 确保转换为数字
-        student_id: studentInfo.id,
-        student_name: studentInfo.name,
-        status: 'cancelled',
-        withdraw_time: formatDateTime(getCurrentDateTime())
-      } as any;
-
-      this.logger.info(
-        {
-          applicationId,
-          studentId: studentInfo.id
-        },
-        'Withdraw leave application completed'
-      );
-
-      return response;
-    }, ServiceErrorCode.LEAVE_WITHDRAW_FAILED);
+      return right({
+        application_id: applicationId,
+        student_id: application.student_id,
+        student_name: application.student_name,
+        course_name: application.course_name,
+        previous_status: previousStatus,
+        new_status: 'withdrawn' as LeaveStatus,
+        withdraw_time: getCurrentDateTime().toISOString()
+      });
+    } catch (error) {
+      this.logger.error(error, 'Failed to withdraw leave application');
+      return left({
+        code: String(ServiceErrorCode.INTERNAL_ERROR),
+        message: error instanceof Error ? error.message : '撤回请假申请失败'
+      });
+    }
   }
 
-  /**
-   * 审批请假申请
-   */
-  async approveLeaveApplication(
-    applicationId: number,
+  public async approveLeaveApplication(
+    approvalId: number,
     teacherInfo: UserInfo,
     request: ApprovalRequest
-  ): Promise<ServiceResult<ApprovalResponse>> {
-    return wrapServiceCall(async () => {
-      this.logger.info(
-        { applicationId, teacherId: teacherInfo.id },
-        'Approve leave application started'
-      );
+  ): Promise<Either<ServiceError, ApprovalResponse>> {
+    this.logger.info(
+      { approvalId, teacherId: teacherInfo.userId, result: request.result },
+      'Approving leave application'
+    );
+    try {
+      // 1. 查找审批记录
+      const approvalMaybe = (await this.leaveApprovalRepository.findOne((qb) =>
+        qb.where('id', '=', approvalId)
+      )) as unknown as Maybe<any>;
 
-      // 查找请假申请
-      const application =
-        await this.leaveApplicationRepository.findById(applicationId);
-      if (!application.success) {
-        throw new Error('请假申请不存在');
+      if (isNone(approvalMaybe)) {
+        return left({
+          code: String(ServiceErrorCode.RESOURCE_NOT_FOUND),
+          message: '审批记录不存在'
+        });
       }
 
-      const app = extractOptionFromServiceResult({
-        success: true,
-        data: application.data
-      });
-      if (!app) {
-        throw new Error('请假申请不存在');
+      const approval = approvalMaybe.value;
+
+      // 2. 验证审批记录状态
+      if (approval.approval_result !== 'pending') {
+        return left({
+          code: String(ServiceErrorCode.INVALID_OPERATION),
+          message: '该审批记录已处理，不能重复审批'
+        });
       }
 
-      // 验证教师权限
-      if ((app as any)?.teacher_id !== teacherInfo.id) {
-        throw new Error('无权限审批该请假申请');
+      // 3. 验证审批人权限
+      if (approval.approver_id !== teacherInfo.userId) {
+        return left({
+          code: String(ServiceErrorCode.PERMISSION_DENIED),
+          message: '无权审批此请假申请'
+        });
       }
 
-      // 检查状态是否允许审批
-      if ((app as any)?.status !== 'leave_pending') {
-        throw new Error('只能审批待审批状态的请假申请');
+      // 4. 查找请假申请
+      const applicationId = approval.leave_application_id;
+      const appMaybe = (await this.leaveApplicationRepository.findOne((qb) =>
+        qb.where('id', '=', applicationId)
+      )) as unknown as Maybe<IcalinkLeaveApplication>;
+
+      if (isNone(appMaybe)) {
+        return left({
+          code: String(ServiceErrorCode.RESOURCE_NOT_FOUND),
+          message: '请假申请不存在'
+        });
+      }
+
+      const application = appMaybe.value;
+
+      if (application.status !== 'leave_pending') {
+        return left({
+          code: String(ServiceErrorCode.INVALID_OPERATION),
+          message: '只能审批待审批的请假申请'
+        });
       }
 
       const approvalTime = getCurrentDateTime();
-      const newStatus =
-        request.result === 'approved' ? 'leave' : 'leave_rejected';
 
-      // 更新申请状态
+      // 5. 更新审批记录
+      const approvalUpdateResult = await this.leaveApprovalRepository.update(
+        approvalId,
+        {
+          approval_result: request.result as ApprovalResult,
+          approval_comment: request.comment || '',
+          approval_time: approvalTime
+        } as any
+      );
+
+      if (isLeft(approvalUpdateResult)) {
+        return left({
+          code: String(ServiceErrorCode.INTERNAL_ERROR),
+          message: '更新审批记录失败',
+          details: approvalUpdateResult.left
+        });
+      }
+
+      // 6. 更新请假申请状态
+      const newStatus =
+        request.result === 'approved'
+          ? ('leave' as LeaveStatus)
+          : ('leave_rejected' as LeaveStatus);
+
       const updateResult = await this.leaveApplicationRepository.update(
         applicationId,
         {
-          status: newStatus as LeaveStatus,
+          status: newStatus,
           approval_time: approvalTime,
-          approval_comment: request.comment,
-          updated_by: teacherInfo.id
-        }
+          approval_comment: request.comment || ''
+        } as any
       );
 
-      if (!updateResult.success) {
-        throw new Error('审批请假申请失败');
+      if (isLeft(updateResult)) {
+        return left({
+          code: String(ServiceErrorCode.INTERNAL_ERROR),
+          message: '更新请假申请状态失败',
+          details: updateResult.left
+        });
       }
 
-      // 更新签到记录状态
-      const attendanceStatus =
+      // 7. 更新考勤记录状态
+      const newAttendanceStatus =
         request.result === 'approved'
           ? AttendanceStatus.LEAVE
           : AttendanceStatus.ABSENT;
-      await this.attendanceRecordRepository.update(
-        (app as any)?.attendance_record_id || 0,
-        {
-          status: attendanceStatus,
-          updated_by: teacherInfo.id
-        }
-      );
 
-      // 更新审批记录状态
-      try {
-        const approvalRecords =
-          await this.leaveApprovalRepository.findByLeaveApplication(
-            applicationId
-          );
-        if (approvalRecords.success && approvalRecords.data) {
-          this.logger.info(
-            {
-              applicationId,
-              teacherId: teacherInfo.id,
-              approvalRecordsCount: approvalRecords.data.length,
-              approvalRecords: approvalRecords.data.map((a) => ({
-                id: a.id,
-                approver_id: a.approver_id,
-                approval_result: a.approval_result
-              }))
-            },
-            '🔥 DEBUGGING: Found approval records for update'
-          );
-
-          for (const approval of approvalRecords.data) {
-            if (
-              approval.approver_id === teacherInfo.id &&
-              approval.approval_result === ApprovalResult.PENDING
-            ) {
-              const newApprovalResult =
-                request.result === 'approved'
-                  ? ApprovalResult.APPROVED
-                  : ApprovalResult.REJECTED;
-
-              this.logger.info(
-                {
-                  approvalId: approval.id,
-                  oldResult: approval.approval_result,
-                  newResult: newApprovalResult,
-                  teacherId: teacherInfo.id
-                },
-                '🔥 DEBUGGING: Updating approval record'
-              );
-
-              await this.leaveApprovalRepository.update(approval.id, {
-                approval_result: newApprovalResult,
-                approval_time: approvalTime,
-                approval_comment: request.comment,
-                updated_by: teacherInfo.id
-              });
-
-              this.logger.info(
-                {
-                  approvalId: approval.id,
-                  newResult: newApprovalResult
-                },
-                '🔥 DEBUGGING: Approval record updated successfully'
-              );
-
-              break; // 只更新当前教师的审批记录
-            }
-          }
-        }
-      } catch (error) {
-        this.logger.error(
-          { error, applicationId, teacherId: teacherInfo.id },
-          'Failed to update approval record status'
+      if (request.result === 'approved') {
+        const recordUpdateResult = await this.attendanceRecordRepository.update(
+          application.attendance_record_id,
+          { status: newAttendanceStatus } as any
         );
-        // 不抛出错误，因为主要的审批操作已经成功
+
+        if (isLeft(recordUpdateResult)) {
+          this.logger.warn(
+            { recordId: application.attendance_record_id },
+            'Failed to update attendance record status'
+          );
+        }
       }
 
-      const response: ApprovalResponse = {
-        application_id: Number(applicationId), // 确保转换为数字
-        student_id: (app as any)?.student_id || '',
-        student_name: (app as any)?.student_name || '',
-        teacher_id: teacherInfo.id,
-        teacher_name: teacherInfo.name,
-        approved: (request as any)?.approved || false,
-        status: newStatus,
-        approval_time: formatDateTime(approvalTime),
-        approval_comment: request.comment
-      } as any;
-
-      this.logger.info(
-        {
-          applicationId,
-          teacherId: teacherInfo.id,
-          approved: (request as any)?.approved || false
-        },
-        'Approve leave application completed'
-      );
-
-      return response;
-    }, ServiceErrorCode.LEAVE_APPROVAL_FAILED);
-  }
-
-  /**
-   * 查看请假申请附件
-   */
-  async getLeaveAttachments(
-    applicationId: number,
-    userInfo: UserInfo
-  ): Promise<ServiceResult<AttachmentsResponse>> {
-    return wrapServiceCall(async () => {
-      this.logger.info(
-        { applicationId, userId: userInfo.id },
-        'Get leave attachments started'
-      );
-
-      // 查找请假申请
-      const application =
-        await this.leaveApplicationRepository.findById(applicationId);
-      if (!application.success) {
-        throw new Error('请假申请不存在');
-      }
-
-      const app = extractOptionFromServiceResult({
-        success: true,
-        data: application.data
-      });
-      if (!app) {
-        throw new Error('请假申请不存在');
-      }
-
-      // 验证权限
-      if (
-        userInfo.type === 'student' &&
-        (app as any)?.student_id !== userInfo.id
-      ) {
-        throw new Error('无权限查看该请假申请的附件');
-      } else if (
-        userInfo.type === 'teacher' &&
-        (app as any)?.teacher_id !== userInfo.id
-      ) {
-        throw new Error('无权限查看该请假申请的附件');
-      }
-
-      // 查询附件列表
-      const attachmentsResult =
-        await this.leaveAttachmentRepository.findByLeaveApplication(
-          applicationId
-        );
-      if (!isSuccessResult(attachmentsResult)) {
-        throw new Error('查询附件列表失败');
-      }
-
-      // 转换为API响应格式，统一字段名以匹配前端期望
-      const attachments = attachmentsResult.data.map((attachment) => ({
-        id: attachment.id.toString(),
-        file_name: attachment.image_name,
-        file_size: attachment.image_size,
-        file_type: attachment.image_type,
-        upload_time: formatDateTime(attachment.upload_time),
-        // 预览URL - 使用缩略图
-        thumbnail_url: `/api/icalink/v1/attendance/attachments/${attachment.id}/image?thumbnail=true`,
-        // 预览URL - 原图
-        preview_url: `/api/icalink/v1/attendance/attachments/${attachment.id}/image`,
-        // 下载URL
-        download_url: `/api/icalink/v1/attendance/attachments/${attachment.id}/download`
-      }));
-
-      const response: AttachmentsResponse = {
+      // 8. 返回审批结果
+      return right({
         application_id: applicationId,
-        student_id: (app as any)?.student_id || '',
-        student_name: (app as any)?.student_name || '',
-        attachments,
-        total_count: attachments.length,
-        total_size: attachments.reduce(
-          (sum, att) => sum + (att.file_size || 0),
-          0
-        )
-      };
-
-      this.logger.info(
-        {
-          applicationId,
-          userId: userInfo.id,
-          attachmentCount: attachments.length
-        },
-        'Get leave attachments completed'
-      );
-
-      return response;
-    }, ServiceErrorCode.DATABASE_ERROR);
-  }
-
-  /**
-   * 下载请假申请附件
-   */
-  async downloadLeaveAttachment(
-    applicationId: number,
-    attachmentId: number,
-    userInfo: UserInfo,
-    thumbnail?: boolean
-  ): Promise<
-    ServiceResult<{
-      fileName: string;
-      fileContent: Buffer;
-      mimeType: string;
-      fileSize: number;
-    }>
-  > {
-    return wrapServiceCall(async () => {
-      this.logger.info(
-        {
-          applicationId,
-          attachmentId,
-          userId: userInfo.id,
-          thumbnail
-        },
-        'Download leave attachment started'
-      );
-
-      // 查找请假申请
-      const application =
-        await this.leaveApplicationRepository.findById(applicationId);
-      if (!application.success) {
-        throw new Error('请假申请不存在');
-      }
-
-      const app = extractOptionFromServiceResult({
-        success: true,
-        data: application.data
-      });
-      if (!app) {
-        throw new Error('请假申请不存在');
-      }
-
-      // 验证权限
-      if (
-        userInfo.type === 'student' &&
-        (app as any)?.student_id !== userInfo.id
-      ) {
-        throw new Error('无权限下载该请假申请的附件');
-      } else if (
-        userInfo.type === 'teacher' &&
-        (app as any)?.teacher_id !== userInfo.id
-      ) {
-        throw new Error('无权限下载该请假申请的附件');
-      }
-
-      // 查找附件
-      const attachment =
-        await this.leaveAttachmentRepository.findById(attachmentId);
-      if (!attachment.success) {
-        throw new Error('附件不存在');
-      }
-
-      const att = extractOptionFromServiceResult({
-        success: true,
-        data: attachment.data
-      });
-      if (!att) {
-        throw new Error('附件不存在');
-      }
-
-      // 验证附件属于该申请
-      if ((att as any)?.leave_application_id !== applicationId) {
-        throw new Error('附件不属于该请假申请');
-      }
-
-      // 返回文件内容
-      const fileContent =
-        thumbnail && (att as any)?.thumbnail_content
-          ? (att as any)?.thumbnail_content
-          : (att as any)?.image_content;
-
-      const fileName = thumbnail
-        ? `thumbnail_${(att as any)?.image_name || 'attachment'}`
-        : (att as any)?.image_name || 'attachment';
-
-      const response = {
-        fileName,
-        fileContent,
-        mimeType: (att as any)?.image_type || 'application/octet-stream',
-        fileSize: fileContent?.length || 0
-      };
-
-      this.logger.info(
-        {
-          applicationId,
-          attachmentId,
-          userId: userInfo.id,
-          fileSize: response.fileSize
-        },
-        'Download leave attachment completed'
-      );
-
-      return response;
-    }, ServiceErrorCode.DATABASE_ERROR);
-  }
-
-  /**
-   * 验证请假申请权限
-   */
-  async validateLeaveApplicationPermission(
-    attendanceRecordId: number,
-    studentId: string
-  ): Promise<
-    ServiceResult<{
-      canApply: boolean;
-      reason?: string;
-      existingApplication?: {
-        id: number;
-        status: string;
-        applicationTime: Date;
-      };
-    }>
-  > {
-    return wrapServiceCall(async () => {
-      this.logger.info(
-        { attendanceRecordId, studentId },
-        'Validate leave application permission started'
-      );
-
-      // 检查签到记录是否存在
-      const attendanceRecord =
-        await this.attendanceRecordRepository.findById(attendanceRecordId);
-      if (!attendanceRecord.success) {
-        return {
-          canApply: false,
-          reason: '签到记录不存在'
-        };
-      }
-
-      const record = extractOptionFromServiceResult({
-        success: true,
-        data: attendanceRecord.data
-      });
-      if (!record) {
-        return {
-          canApply: false,
-          reason: '签到记录不存在'
-        };
-      }
-
-      // 验证学生是否有权限申请该记录的请假
-      if ((record as any)?.student_id !== studentId) {
-        return {
-          canApply: false,
-          reason: '无权限申请该签到记录的请假'
-        };
-      }
-
-      // 检查是否已存在请假申请
-      const existingApplication =
-        await this.leaveApplicationRepository.findByAttendanceRecord(
-          attendanceRecordId
-        );
-      if (isSuccessResult(existingApplication) && existingApplication.data) {
-        const app = existingApplication.data;
-        return {
-          canApply: false,
-          reason: '该签到记录已存在请假申请',
-          existingApplication: {
-            id: app.id,
-            status: app.status,
-            applicationTime: app.application_time
-          }
-        };
-      }
-
-      // 检查签到记录状态是否允许请假
-      if ((record as any)?.status === 'present') {
-        return {
-          canApply: false,
-          reason: '已签到的记录不能申请请假'
-        };
-      }
-
-      return {
-        canApply: true
-      };
-    }, ServiceErrorCode.DATABASE_ERROR);
-  }
-
-  /**
-   * 获取学生的请假申请列表
-   */
-  async getLeaveApplicationsByStudent(
-    studentId: string,
-    options?: {
-      status?: string;
-      startDate?: Date;
-      endDate?: Date;
-      page?: number;
-      pageSize?: number;
-    }
-  ): Promise<ServiceResult<any>> {
-    return wrapServiceCall(async () => {
-      const conditions: any = {
-        student_id: studentId,
-        status: options?.status,
-        start_date: options?.startDate,
-        end_date: options?.endDate
-      };
-
-      const queryOptions = {
-        pagination:
-          options?.page && options?.pageSize
-            ? {
-                page: options.page,
-                page_size: options.pageSize
-              }
-            : undefined
-      };
-
-      const result =
-        await this.leaveApplicationRepository.findWithDetailsPaginated(
-          conditions,
-          queryOptions
-        );
-
-      if (!isSuccessResult(result)) {
-        throw new Error('获取学生请假申请列表失败');
-      }
-
-      return result.data;
-    }, ServiceErrorCode.DATABASE_ERROR);
-  }
-
-  /**
-   * 获取教师的请假申请列表
-   */
-  async getLeaveApplicationsByTeacher(
-    teacherId: string,
-    options?: {
-      status?: string;
-      startDate?: Date;
-      endDate?: Date;
-      page?: number;
-      pageSize?: number;
-    }
-  ): Promise<ServiceResult<any>> {
-    return wrapServiceCall(async () => {
-      // 首先通过审批记录查找该教师需要审批的申请
-      const approvalConditions: any = {
-        approver_id: teacherId
-      };
-
-      // 如果指定了状态筛选，需要映射到审批状态
-      if (options?.status && options?.status !== 'all') {
-        if (options?.status === 'pending') {
-          approvalConditions.approval_result = ApprovalResult.PENDING;
-        } else if (options?.status === 'approved') {
-          approvalConditions.approval_result = ApprovalResult.APPROVED;
-        } else if (options?.status === 'rejected') {
-          approvalConditions.approval_result = ApprovalResult.REJECTED;
-        } else if (options?.status.includes(',')) {
-          // 处理多状态查询，如 'approved,rejected,cancelled'
-          const statusList = options.status.split(',').map((s) => s.trim());
-          const approvalResults = [];
-
-          if (statusList.includes('approved')) {
-            approvalResults.push(ApprovalResult.APPROVED);
-          }
-          if (statusList.includes('rejected')) {
-            approvalResults.push(ApprovalResult.REJECTED);
-          }
-          if (statusList.includes('cancelled')) {
-            approvalResults.push(ApprovalResult.CANCELLED);
-          }
-
-          // 使用IN查询支持多状态
-          if (approvalResults.length > 0) {
-            approvalConditions.approval_result_in = approvalResults;
-          }
-        }
-      }
-
-      const queryOptions = {
-        pagination:
-          options?.page && options?.pageSize
-            ? {
-                page: options.page,
-                page_size: options.pageSize
-              }
-            : undefined
-      };
-
-      // 查询审批记录，包含详细信息
-      const approvalResult =
-        await this.leaveApprovalRepository.findWithDetailsPaginated(
-          approvalConditions,
-          queryOptions
-        );
-
-      if (!isSuccessResult(approvalResult)) {
-        this.logger.error(
-          { teacherId, error: approvalResult.error },
-          'Failed to get teacher approval records'
-        );
-        throw new Error('获取教师审批记录失败');
-      }
-
-      // 检查返回数据的结构
-      if (!approvalResult.data || !Array.isArray(approvalResult.data.data)) {
-        this.logger.warn(
-          { teacherId, approvalResultData: approvalResult.data.data },
-          'Invalid approval result data structure'
-        );
-
-        return {
-          data: [],
-          total: 0,
-          page: 1,
-          page_size: options?.pageSize || 50,
-          total_pages: 0
-        };
-      }
-
-      // 将审批记录转换为请假申请格式，并去重（按application_id去重）
-      const uniqueRecordsMap = new Map();
-      approvalResult.data.data.forEach((record: any) => {
-        const applicationId =
-          record.application_id || record.leave_application_id;
-        if (!uniqueRecordsMap.has(applicationId)) {
-          uniqueRecordsMap.set(applicationId, record);
+        approval_id: approvalId,
+        student_id: application.student_id,
+        student_name: application.student_name,
+        teacher_id: teacherInfo.userId,
+        teacher_name: teacherInfo.name,
+        approval_result: request.result,
+        approval_time: approvalTime.toISOString(),
+        approval_comment: request.comment,
+        new_attendance_status: newAttendanceStatus,
+        course_info: {
+          course_name: application.course_name,
+          class_date: application.class_date.toISOString().split('T')[0]
         }
       });
-
-      const uniqueRecords = Array.from(uniqueRecordsMap.values());
-
-      // 将审批记录转换为请假申请格式，以兼容现有接口
-      const applications = await Promise.all(
-        uniqueRecords.map(async (record: any) => {
-          const applicationId =
-            record.application_id || record.leave_application_id;
-
-          // 查询附件信息
-          const attachmentsResult =
-            await this.leaveAttachmentRepository.findByLeaveApplication(
-              applicationId
-            );
-          const attachments = isSuccessResult(attachmentsResult)
-            ? attachmentsResult.data.map((attachment) => ({
-                id: attachment.id.toString(),
-                file_name: attachment.image_name,
-                file_size: attachment.image_size,
-                file_type: attachment.image_type,
-                upload_time: formatDateTime(attachment.upload_time),
-                // 预览URL - 使用缩略图
-                thumbnail_url: `/api/icalink/v1/leave-attachments/${attachment.id}/download?thumbnail=true`,
-                // 预览URL - 原图
-                preview_url: `/api/icalink/v1/leave-attachments/${attachment.id}/download`,
-                // 下载URL
-                download_url: `/api/icalink/v1/leave-attachments/${attachment.id}/download`
-              }))
-            : [];
-
-          const mappedStatus = this.mapApprovalResultToApplicationStatus(
-            record.approval_result
-          );
-
-          return {
-            id: applicationId,
-            approval_id: record.approval_id,
-            student_id: record.student_id || '',
-            student_name: record.student_name || '',
-            course_id: record.course_id || '',
-            course_name: record.course_name || record.course_full_name || '',
-            class_date: record.class_date || record.approval_created_at,
-            class_time: record.class_time || '',
-            class_location:
-              record.class_location || record.course_location || '',
-            teacher_name: record.teacher_name || record.course_teachers || '',
-            leave_date: record.class_date || record.approval_created_at,
-            leave_reason: record.leave_reason || '',
-            leave_type: record.leave_type || '',
-            status: mappedStatus,
-            approval_comment: record.approval_comment,
-            approval_time: record.approval_time,
-            application_time:
-              record.application_time || record.approval_created_at,
-            student_info: {
-              student_id: record.student_id || '',
-              student_name: record.student_name || '',
-              class_name: '', // 需要从其他地方获取
-              major_name: '' // 需要从其他地方获取
-            },
-            teacher_info: {
-              teacher_id: record.teacher_id || record.approver_id,
-              teacher_name: record.teacher_name || record.approver_name,
-              teacher_department: '' // 需要从其他地方获取
-            },
-            attachments: attachments, // 返回实际查询到的附件
-            jxz: null // 教学周信息
-          };
-        })
-      );
-
-      return {
-        data: applications,
-        total: applications.length, // 使用去重后的实际数量
-        page: approvalResult.data.page,
-        page_size: approvalResult.data.page_size,
-        total_pages: Math.ceil(
-          applications.length / (approvalResult.data.page_size || 1)
-        )
-      };
-    }, ServiceErrorCode.DATABASE_ERROR);
-  }
-
-  /**
-   * 映射审批结果到前端格式
-   */
-  private mapApprovalResultToFrontend(
-    approvalResult: ApprovalResult
-  ): 'pending' | 'approved' | 'rejected' | 'cancelled' {
-    switch (approvalResult) {
-      case ApprovalResult.PENDING:
-        return 'pending';
-      case ApprovalResult.APPROVED:
-        return 'approved';
-      case ApprovalResult.REJECTED:
-        return 'rejected';
-      case ApprovalResult.CANCELLED:
-        return 'cancelled';
-      default:
-        return 'pending';
-    }
-  }
-
-  /**
-   * 将前端格式转换回审批结果枚举
-   */
-  private mapFrontendToApprovalResult(frontendResult: string): ApprovalResult {
-    switch (frontendResult) {
-      case 'pending':
-        return ApprovalResult.PENDING;
-      case 'approved':
-        return ApprovalResult.APPROVED;
-      case 'rejected':
-        return ApprovalResult.REJECTED;
-      case 'cancelled':
-        return ApprovalResult.CANCELLED;
-      default:
-        return ApprovalResult.PENDING;
-    }
-  }
-
-  /**
-   * 将审批结果映射为申请状态
-   */
-  private mapApprovalResultToApplicationStatus(
-    approvalResult: ApprovalResult
-  ): string {
-    switch (approvalResult) {
-      case ApprovalResult.PENDING:
-        return 'pending';
-      case ApprovalResult.APPROVED:
-        return 'approved';
-      case ApprovalResult.REJECTED:
-        return 'rejected';
-      case ApprovalResult.CANCELLED:
-        return 'cancelled';
-      default:
-        return 'pending';
-    }
-  }
-
-  /**
-   * 获取审批记录
-   */
-  async getApprovalRecord(approvalId: number): Promise<ServiceResult<any>> {
-    return wrapServiceCall(async () => {
-      const result = await this.leaveApprovalRepository.findById(approvalId);
-
-      if (!result.success) {
-        throw new Error('审批记录不存在');
-      }
-
-      const approval = extractOptionFromServiceResult({
-        success: true,
-        data: result.data
+    } catch (error) {
+      this.logger.error(error, 'Failed to approve leave application');
+      return left({
+        code: String(ServiceErrorCode.INTERNAL_ERROR),
+        message: error instanceof Error ? error.message : '审批请假申请失败'
       });
-      if (!approval) {
-        throw new Error('审批记录不存在');
-      }
-
-      return approval;
-    }, ServiceErrorCode.DATABASE_ERROR);
+    }
   }
 
   /**
-   * 获取请假统计信息
-   */
-  async getLeaveStatistics(options?: {
-    studentId?: string;
-    teacherId?: string;
-    startDate?: Date;
-    endDate?: Date;
-  }): Promise<
-    ServiceResult<{
-      totalApplications: number;
-      pendingCount: number;
-      approvedCount: number;
-      rejectedCount: number;
-      cancelledCount: number;
-      approvalRate: number;
-    }>
-  > {
-    return wrapServiceCall(async () => {
-      const conditions: any = {
-        student_id: options?.studentId,
-        teacher_id: options?.teacherId,
-        start_date: options?.startDate,
-        end_date: options?.endDate
-      };
-
-      // 获取总数
-      const totalResult =
-        await this.leaveApplicationRepository.countByConditions(conditions);
-      if (!isSuccessResult(totalResult)) {
-        throw new Error('获取请假申请总数失败');
-      }
-
-      // 获取各状态数量
-      const pendingResult =
-        await this.leaveApplicationRepository.countByConditions({
-          ...conditions,
-          status: 'leave_pending'
-        });
-      const approvedResult =
-        await this.leaveApplicationRepository.countByConditions({
-          ...conditions,
-          status: 'leave'
-        });
-      const rejectedResult =
-        await this.leaveApplicationRepository.countByConditions({
-          ...conditions,
-          status: 'leave_rejected'
-        });
-      const cancelledResult =
-        await this.leaveApplicationRepository.countByConditions({
-          ...conditions,
-          status: 'cancelled'
-        });
-
-      const totalCount = totalResult.data as number;
-      const approvedCount = isSuccessResult(approvedResult)
-        ? (approvedResult.data as number)
-        : 0;
-      const approvalRate =
-        totalCount > 0 ? (approvedCount / totalCount) * 100 : 0;
-
-      return {
-        totalApplications: totalCount,
-        pendingCount: isSuccessResult(pendingResult)
-          ? (pendingResult.data as number)
-          : 0,
-        approvedCount,
-        rejectedCount: isSuccessResult(rejectedResult)
-          ? (rejectedResult.data as number)
-          : 0,
-        cancelledCount: isSuccessResult(cancelledResult)
-          ? (cancelledResult.data as number)
-          : 0,
-        approvalRate
-      };
-    }, ServiceErrorCode.DATABASE_ERROR);
-  }
-
-  /**
-   * 发送请假申请通知
-   */
-  async notifyLeaveApplication(
-    applicationId: number,
-    notificationType: 'submitted' | 'approved' | 'rejected' | 'withdrawn'
-  ): Promise<ServiceResult<boolean>> {
-    return wrapServiceCall(async () => {
-      this.logger.info(
-        { applicationId, notificationType },
-        'Send leave application notification'
-      );
-
-      // 这里可以实现具体的通知逻辑
-      // 比如发送邮件、短信、推送通知等
-      // 暂时返回成功
-      return true;
-    }, ServiceErrorCode.UNKNOWN_ERROR);
-  }
-
-  /**
-   * 自动审批请假申请
-   */
-  async autoApproveLeaveApplication(
-    applicationId: number
-  ): Promise<ServiceResult<boolean>> {
-    return wrapServiceCall(async () => {
-      this.logger.info({ applicationId }, 'Auto approve leave application');
-
-      // 这里可以实现自动审批逻辑
-      // 比如根据请假类型、时长等条件自动审批
-      // 暂时返回false（不自动审批）
-      return false;
-    }, ServiceErrorCode.UNKNOWN_ERROR);
-  }
-
-  /**
-   * 验证请假申请撤回权限
-   */
-  async validateWithdrawPermission(
-    applicationId: number,
-    studentId: string
-  ): Promise<
-    ServiceResult<{
-      canWithdraw: boolean;
-      reason?: string;
-      currentStatus?: string;
-    }>
-  > {
-    return wrapServiceCall(async () => {
-      const application =
-        await this.leaveApplicationRepository.findById(applicationId);
-      if (!application.success) {
-        return {
-          canWithdraw: false,
-          reason: '请假申请不存在'
-        };
-      }
-
-      const optionApp = application.data;
-      if (!optionApp.some) {
-        return {
-          canWithdraw: false,
-          reason: '请假申请不存在'
-        };
-      }
-
-      const app = optionApp.value;
-
-      if (!app) {
-        return {
-          canWithdraw: false,
-          reason: '请假申请不存在'
-        };
-      }
-
-      if (app.student_id !== studentId) {
-        return {
-          canWithdraw: false,
-          reason: '无权限撤回该请假申请',
-          currentStatus: app.status
-        };
-      }
-
-      // 检查状态是否允许撤回 - 只要在课程开始前，任何状态都可以撤回
-      const allowedStatuses = ['leave_pending', 'leave', 'leave_rejected'];
-      if (!allowedStatuses.includes(app.status)) {
-        return {
-          canWithdraw: false,
-          reason: '该请假申请无法撤回',
-          currentStatus: app.status
-        };
-      }
-
-      // 获取课程信息检查是否在课程开始前
-      let canWithdraw = true;
-      try {
-        const courseResult =
-          await this.attendanceCourseRepository.findByCourseCode(
-            app.course_id || ''
-          );
-        if (
-          isSuccessResult(courseResult) &&
-          courseResult.data &&
-          courseResult.data.length > 0
-        ) {
-          const course = courseResult.data[0];
-          const now = new Date();
-          const courseStartTime = new Date(course.start_time);
-
-          // 如果当前时间已经超过课程开始时间，不允许撤回
-          if (now >= courseStartTime) {
-            canWithdraw = false;
-          }
-        }
-      } catch (error) {
-        // 如果无法获取课程时间，允许撤回（兼容性考虑）
-      }
-
-      if (!canWithdraw) {
-        return {
-          canWithdraw: false,
-          reason: '课程已开始，无法撤回请假申请',
-          currentStatus: app.status
-        };
-      }
-
-      return {
-        canWithdraw: true,
-        currentStatus: app.status
-      };
-    }, ServiceErrorCode.DATABASE_ERROR);
-  }
-
-  /**
-   * 验证请假审批权限
-   */
-  async validateApprovalPermission(
-    applicationId: number,
-    teacherId: string
-  ): Promise<
-    ServiceResult<{
-      canApprove: boolean;
-      reason?: string;
-      currentStatus?: string;
-      isAssignedTeacher?: boolean;
-    }>
-  > {
-    return wrapServiceCall(async () => {
-      const application =
-        await this.leaveApplicationRepository.findById(applicationId);
-      if (!application.success) {
-        return {
-          canApprove: false,
-          reason: '请假申请不存在'
-        };
-      }
-
-      const optionApp = application.data;
-      if (!optionApp.some) {
-        return {
-          canApprove: false,
-          reason: '请假申请不存在'
-        };
-      }
-
-      const app = optionApp.value;
-
-      if (!app) {
-        return {
-          canApprove: false,
-          reason: '请假申请不存在'
-        };
-      }
-
-      const isAssignedTeacher = app.teacher_id === teacherId;
-
-      if (!isAssignedTeacher) {
-        return {
-          canApprove: false,
-          reason: '无权限审批该请假申请',
-          currentStatus: app.status,
-          isAssignedTeacher: false
-        };
-      }
-
-      if (app.status !== 'leave_pending') {
-        return {
-          canApprove: false,
-          reason: '只能审批待审批状态的请假申请',
-          currentStatus: app.status,
-          isAssignedTeacher: true
-        };
-      }
-
-      return {
-        canApprove: true,
-        currentStatus: app.status,
-        isAssignedTeacher: true
-      };
-    }, ServiceErrorCode.DATABASE_ERROR);
-  }
-
-  /**
-   * 处理请假申请附件
+   * 处理请假申请附件上传
    */
   async processLeaveAttachments(
     applicationId: number,
@@ -1831,567 +413,801 @@ export default class LeaveService implements ILeaveService {
       content: string; // Base64编码
     }>
   ): Promise<
-    ServiceResult<{
-      uploadedCount: number;
-      totalSize: number;
-      attachmentIds: number[];
-      errors?: Array<{
-        fileName: string;
-        error: string;
-      }>;
-    }>
+    Either<
+      ServiceError,
+      {
+        uploadedCount: number;
+        totalSize: number;
+        attachmentIds: number[];
+        errors?: Array<{
+          fileName: string;
+          error: string;
+        }>;
+      }
+    >
   > {
-    return wrapServiceCall(async () => {
-      const attachmentIds: number[] = [];
+    try {
       const errors: Array<{ fileName: string; error: string }> = [];
       let totalSize = 0;
+      const attachmentIds: number[] = [];
+      const bucketName = 'leave-attachments';
 
+      this.logger.info(
+        { applicationId, imageCount: images.length },
+        'Processing leave attachments with OSS storage'
+      );
+
+      // 逐一处理每个文件
       for (const image of images) {
         try {
-          // 验证文件类型
+          // 1. 验证文件
           if (!image.type.startsWith('image/')) {
-            errors.push({
-              fileName: image.name,
-              error: '只支持图片文件'
-            });
-            continue;
+            throw new Error('只支持图片文件');
           }
-
-          // 验证文件大小
-          if (image.size > 10 * 1024 * 1024) {
-            // 10MB
-            errors.push({
-              fileName: image.name,
-              error: '文件大小不能超过10MB'
-            });
-            continue;
-          }
-
-          // 解码Base64内容
           const fileContent = Buffer.from(image.content, 'base64');
+          const extension = image.name.split('.').pop() || 'jpg';
+          totalSize += fileContent.length;
 
-          // 创建附件记录
+          // 2. 创建数据库记录（不保存图片内容）
           const createResult = await this.leaveAttachmentRepository.create({
             leave_application_id: applicationId,
             image_name: image.name,
             image_type: image.type as any,
-            image_size: image.size,
-            image_extension: '',
-            image_content: fileContent,
-            upload_time: getCurrentDateTime()
-          });
+            image_size: fileContent.length,
+            image_extension: extension,
+            upload_time: getCurrentDateTime(),
+            metadata: {
+              storage_type: 'oss',
+              original_filename: image.name,
+              created_at: new Date().toISOString()
+            } as any
+          } as any);
 
-          if (createResult.success && createResult.data) {
-            // 处理不同的返回数据格式
-            let attachmentId: number = 0;
-
-            if (typeof createResult.data === 'number') {
-              // 直接返回ID
-              attachmentId = createResult.data;
-            } else if (typeof createResult.data === 'object') {
-              // 返回对象，尝试获取ID
-              const data = createResult.data as any;
-              attachmentId =
-                data.id ||
-                data.insertId ||
-                data.value?.id ||
-                data.value?.insertId ||
-                0;
-            }
-
-            if (attachmentId > 0) {
-              attachmentIds.push(attachmentId);
-              totalSize += image.size;
-
-              this.logger.debug(
-                {
-                  fileName: image.name,
-                  attachmentId,
-                  size: image.size
-                },
-                'Attachment uploaded successfully'
-              );
-            } else {
-              this.logger.error(
-                {
-                  fileName: image.name,
-                  createResultData: createResult.data
-                },
-                'Failed to get attachment ID from create result'
-              );
-              errors.push({
-                fileName: image.name,
-                error: '无法获取附件ID'
-              });
-            }
-          } else {
-            this.logger.error(
-              {
-                fileName: image.name,
-                createResult
-              },
-              'Failed to create attachment record'
-            );
-            errors.push({
-              fileName: image.name,
-              error: '上传失败'
-            });
+          if (isLeft(createResult)) {
+            throw new Error('创建附件数据库记录失败');
           }
+
+          // 3. 获取新创建的附件ID
+          let attachmentId: number = 0;
+          const data = createResult.right as any;
+          if (typeof data === 'number') {
+            attachmentId = data;
+          } else if (typeof data === 'object') {
+            attachmentId =
+              data.id ||
+              data.insertId ||
+              data.value?.id ||
+              data.value?.insertId ||
+              0;
+          }
+
+          if (attachmentId === 0) {
+            this.logger.error({ createResult }, 'Failed to get attachmentId');
+            throw new Error('创建附件记录后无法获取ID');
+          }
+
+          // 4. 上传到 OSS
+          const uploadResult = await this.osspStorageService.uploadImage(
+            bucketName,
+            fileContent,
+            {
+              fileName: image.name,
+              mimeType: image.type,
+              extension: extension,
+              generateThumbnail: true,
+              metadata: {
+                'application-id': String(applicationId),
+                'attachment-id': String(attachmentId)
+              }
+            }
+          );
+
+          if (isLeft(uploadResult)) {
+            throw new Error(uploadResult.left.message || 'OSS 上传失败');
+          }
+
+          // 5. 更新数据库记录，保存 OSS 信息到 metadata
+          const ossMetadata = {
+            storage_type: 'oss',
+            original_filename: image.name,
+            created_at: new Date().toISOString(),
+            oss: {
+              bucket_name: bucketName,
+              object_path: uploadResult.right.objectPath,
+              thumbnail_path: uploadResult.right.thumbnailPath,
+              etag: uploadResult.right.etag,
+              version_id: uploadResult.right.versionId,
+              uploaded_at: new Date().toISOString()
+            }
+          };
+
+          await this.leaveAttachmentRepository.update(attachmentId, {
+            metadata: ossMetadata as any
+          } as any);
+
+          attachmentIds.push(attachmentId);
+
+          this.logger.info(
+            {
+              fileName: image.name,
+              attachmentId,
+              size: fileContent.length,
+              objectPath: uploadResult.right.objectPath
+            },
+            'Attachment processed successfully'
+          );
         } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : '未知错误';
           errors.push({
             fileName: image.name,
-            error: error instanceof Error ? error.message : '处理失败'
+            error: errorMessage
           });
+          this.logger.error(
+            { fileName: image.name, error: errorMessage },
+            'Failed to process an attachment'
+          );
         }
       }
 
-      return {
+      this.logger.info(
+        {
+          applicationId,
+          uploadedCount: attachmentIds.length,
+          failedCount: errors.length,
+          totalSize
+        },
+        'Leave attachments processing completed'
+      );
+
+      return right({
         uploadedCount: attachmentIds.length,
         totalSize,
         attachmentIds,
         errors: errors.length > 0 ? errors : undefined
-      };
-    }, ServiceErrorCode.DATABASE_ERROR);
+      });
+    } catch (error) {
+      this.logger.error(
+        { error, applicationId },
+        'Failed to process attachments'
+      );
+      return left({
+        code: String(ServiceErrorCode.INTERNAL_ERROR),
+        message: error instanceof Error ? error.message : '处理附件失败'
+      });
+    }
   }
 
   /**
-   * 生成附件缩略图
-   */
-  async generateThumbnail(attachmentId: number): Promise<
-    ServiceResult<{
-      success: boolean;
-      thumbnailSize?: number;
-    }>
-  > {
-    return wrapServiceCall(async () => {
-      // 这里可以实现缩略图生成逻辑
-      // 暂时返回成功
-      return {
-        success: true,
-        thumbnailSize: 5120 // 5KB
-      };
-    }, ServiceErrorCode.UNKNOWN_ERROR);
-  }
-
-  /**
-   * 获取学生请假统计
-   */
-  async getStudentLeaveStatistics(
-    studentId: string,
-    semester?: string
-  ): Promise<
-    ServiceResult<{
-      totalApplications: number;
-      pendingCount: number;
-      approvedCount: number;
-      rejectedCount: number;
-      cancelledCount: number;
-      approvalRate: number;
-      leaveTypeDistribution: Record<string, number>;
-      monthlyTrends: Array<{
-        month: string;
-        applicationCount: number;
-        approvalRate: number;
-      }>;
-    }>
-  > {
-    return wrapServiceCall(async () => {
-      const basicStats = await this.getLeaveStatistics({ studentId });
-      if (!isSuccessResult(basicStats)) {
-        throw new Error(basicStats.error?.message);
-      }
-
-      // 暂时返回模拟的额外数据
-      return {
-        ...basicStats.data,
-        leaveTypeDistribution: {
-          sick: 5,
-          personal: 3,
-          emergency: 1,
-          other: 2
-        },
-        monthlyTrends: [
-          { month: '2024-01', applicationCount: 2, approvalRate: 100 },
-          { month: '2024-02', applicationCount: 3, approvalRate: 66.7 },
-          { month: '2024-03', applicationCount: 1, approvalRate: 100 }
-        ]
-      };
-    }, ServiceErrorCode.DATABASE_ERROR);
-  }
-
-  /**
-   * 获取教师审批统计
-   */
-  async getTeacherApprovalStatistics(
-    teacherId: string,
-    semester?: string
-  ): Promise<
-    ServiceResult<{
-      totalApplications: number;
-      pendingCount: number;
-      approvedCount: number;
-      rejectedCount: number;
-      approvalRate: number;
-      averageApprovalTimeHours: number;
-      courseStats: Array<{
-        courseId: string;
-        courseName: string;
-        applicationCount: number;
-        approvalRate: number;
-      }>;
-    }>
-  > {
-    return wrapServiceCall(async () => {
-      // 暂时返回模拟数据
-      return {
-        totalApplications: 0,
-        pendingCount: 0,
-        approvedCount: 0,
-        rejectedCount: 0,
-        approvalRate: 0,
-        averageApprovalTimeHours: 0,
-        courseStats: []
-      };
-    }, ServiceErrorCode.DATABASE_ERROR);
-  }
-
-  /**
-   * 获取待审批申请
-   */
-  async getPendingApprovals(
-    teacherId: string,
-    limit?: number
-  ): Promise<
-    ServiceResult<
-      Array<{
-        applicationId: number;
-        studentId: string;
-        studentName: string;
-        courseName: string;
-        leaveType: string;
-        leaveReason: string;
-        applicationTime: Date;
-        classDate: Date;
-        hasAttachments: boolean;
-        urgencyLevel: 'low' | 'medium' | 'high';
-      }>
-    >
-  > {
-    return wrapServiceCall(async () => {
-      const conditions: any = {
-        teacher_id: teacherId,
-        status: 'leave_pending'
-      };
-
-      const queryOptions = {
-        pagination: limit
-          ? {
-              page: 1,
-              page_size: limit
-            }
-          : undefined
-      };
-
-      const result =
-        await this.leaveApplicationRepository.findWithDetailsPaginated(
-          conditions,
-          queryOptions
-        );
-
-      if (!isSuccessResult(result)) {
-        throw new Error('获取待审批申请失败');
-      }
-
-      // 转换为接口要求的格式
-      const applications = result.data.data.map((app) => ({
-        applicationId: app.id,
-        studentId: app.student_id,
-        studentName: app.student_name,
-        courseName: app.course_name || '',
-        leaveType: app.leave_type,
-        leaveReason: app.leave_reason,
-        applicationTime: app.application_time,
-        classDate: new Date(), // 需要从课程信息获取
-        hasAttachments: (app.attachment_count || 0) > 0,
-        urgencyLevel: 'medium' as const // 需要根据业务规则确定
-      }));
-
-      return applications;
-    }, ServiceErrorCode.DATABASE_ERROR);
-  }
-
-  /**
-   * 批量审批申请
-   */
-  async batchApproveApplications(
-    applicationIds: number[],
-    teacherId: string,
-    result: 'approved' | 'rejected',
-    comment?: string
-  ): Promise<
-    ServiceResult<{
-      successCount: number;
-      failedCount: number;
-      results: Array<{
-        applicationId: number;
-        success: boolean;
-        error?: string;
-      }>;
-    }>
-  > {
-    return wrapServiceCall(async () => {
-      let successCount = 0;
-      let failedCount = 0;
-      const results: Array<{
-        applicationId: number;
-        success: boolean;
-        error?: string;
-      }> = [];
-
-      // 创建教师用户信息
-      const teacherInfo: UserInfo = {
-        id: teacherId,
-        type: 'teacher',
-        name: '教师' // 这里需要从数据库获取真实姓名
-      };
-
-      for (const applicationId of applicationIds) {
-        try {
-          const approvalResult = await this.approveLeaveApplication(
-            applicationId,
-            teacherInfo,
-            { result: result, comment }
-          );
-
-          if (isSuccessResult(approvalResult)) {
-            successCount++;
-            results.push({
-              applicationId,
-              success: true
-            });
-          } else {
-            failedCount++;
-            results.push({
-              applicationId,
-              success: false,
-              error: approvalResult.error?.message || '审批失败'
-            });
-          }
-        } catch (error) {
-          failedCount++;
-          results.push({
-            applicationId,
-            success: false,
-            error: error instanceof Error ? error.message : '审批失败'
-          });
-        }
-      }
-
-      return {
-        successCount,
-        failedCount,
-        results
-      };
-    }, ServiceErrorCode.DATABASE_ERROR);
-  }
-
-  /**
-   * 获取请假申请详情
-   */
-  async getLeaveApplicationDetail(
-    applicationId: number,
-    userInfo: UserInfo
-  ): Promise<ServiceResult<any>> {
-    return wrapServiceCall(async () => {
-      const application =
-        await this.leaveApplicationRepository.findById(applicationId);
-      if (!application.success) {
-        throw new Error('请假申请不存在');
-      }
-
-      const optionApp = application.data;
-      if (!optionApp.some) {
-        throw new Error('请假申请不存在');
-      }
-
-      const app = optionApp.value;
-
-      if (!app) {
-        throw new Error('请假申请不存在');
-      }
-
-      // 验证权限
-      if (userInfo.type === 'student' && app.student_id !== userInfo.id) {
-        throw new Error('无权限查看该请假申请');
-      } else if (
-        userInfo.type === 'teacher' &&
-        app.teacher_id !== userInfo.id
-      ) {
-        throw new Error('无权限查看该请假申请');
-      }
-
-      // 获取附件列表
-      const attachmentsResult =
-        await this.leaveAttachmentRepository.getAttachmentList(applicationId);
-      const attachments = isSuccessResult(attachmentsResult)
-        ? attachmentsResult.data
-        : [];
-
-      return {
-        ...app,
-        attachments: attachments.map((att) => ({
-          id: att.id,
-          name: att.image_name,
-          size: att.image_size,
-          type: att.image_type,
-          uploadTime: formatDateTime(att.upload_time)
-        }))
-      };
-    }, ServiceErrorCode.DATABASE_ERROR);
-  }
-
-  /**
-   * 发送请假通知
-   */
-  async sendLeaveNotification(
-    applicationId: number,
-    notificationType: 'submitted' | 'approved' | 'rejected' | 'withdrawn'
-  ): Promise<
-    ServiceResult<{
-      sent: boolean;
-      recipients: string[];
-      method: 'email' | 'sms' | 'push';
-    }>
-  > {
-    return wrapServiceCall(async () => {
-      // 这里可以实现具体的通知逻辑
-      return {
-        sent: true,
-        recipients: ['student@example.com', 'teacher@example.com'],
-        method: 'email' as const
-      };
-    }, ServiceErrorCode.UNKNOWN_ERROR);
-  }
-
-  /**
-   * 导出请假数据
-   */
-  async exportLeaveData(
-    teacherId: string,
-    startDate: Date,
-    endDate: Date,
-    format: 'excel' | 'csv' | 'pdf'
-  ): Promise<
-    ServiceResult<{
-      fileName: string;
-      fileContent: Buffer;
-      mimeType: string;
-    }>
-  > {
-    return wrapServiceCall(async () => {
-      // 这里可以实现数据导出逻辑
-      return {
-        fileName: `leave_data_${formatDate(startDate)}_${formatDate(endDate)}.${format}`,
-        fileContent: Buffer.from('mock data'),
-        mimeType:
-          format === 'excel'
-            ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            : format === 'csv'
-              ? 'text/csv'
-              : 'application/pdf'
-      };
-    }, ServiceErrorCode.UNKNOWN_ERROR);
-  }
-
-  /**
-   * 通过附件ID直接下载附件
+   * 通过附件 ID 下载附件
    */
   async downloadAttachmentById(
     attachmentId: number,
     userInfo: UserInfo,
     thumbnail?: boolean
   ): Promise<
-    ServiceResult<{
+    Either<
+      ServiceError,
+      {
+        fileName: string;
+        fileContent: Buffer;
+        mimeType: string;
+        fileSize: number;
+      }
+    >
+  > {
+    try {
+      this.logger.info(
+        { attachmentId, thumbnail },
+        'Downloading attachment by ID'
+      );
+
+      // 1. 获取附件记录
+      const attachmentMaybe = (await this.leaveAttachmentRepository.findOne(
+        (qb) => qb.where('id', '=', attachmentId)
+      )) as unknown as Maybe<any>;
+
+      if (isNone(attachmentMaybe)) {
+        return left({
+          code: String(ServiceErrorCode.RESOURCE_NOT_FOUND),
+          message: '附件不存在或已被删除'
+        });
+      }
+
+      const record = attachmentMaybe.value;
+
+      // 2. 验证权限（暂时跳过）
+      this.logger.debug({ userInfo }, 'User permission check for download');
+
+      // 3. 从 metadata 读取存储信息
+      const metadata = record.metadata || {};
+      const storageType = metadata.storage_type || 'database';
+      const ossInfo = metadata.oss;
+
+      // 4. 如果是 OSS 存储且有 OSS 信息，从 OSS 下载
+      if (storageType === 'oss' && ossInfo) {
+        const ossObjectPath = thumbnail
+          ? ossInfo.thumbnail_path
+          : ossInfo.object_path;
+
+        if (!ossObjectPath) {
+          this.logger.warn(
+            { attachmentId, thumbnail },
+            'OSS path not found, falling back to database'
+          );
+          return this.downloadFromDatabase(record, thumbnail);
+        }
+
+        this.logger.info(
+          { attachmentId, storageType, ossObjectPath },
+          'Downloading from OSS'
+        );
+
+        const bucketName = ossInfo.bucket_name || 'leave-attachments';
+
+        // 从 OSS 下载
+        const downloadResult = await this.osspStorageService.downloadImage(
+          bucketName,
+          ossObjectPath
+        );
+
+        if (isLeft(downloadResult)) {
+          // OSS 下载失败，降级到数据库
+          this.logger.warn(
+            { attachmentId, error: downloadResult.left.message },
+            'OSS download failed, falling back to database'
+          );
+          return this.downloadFromDatabase(record, thumbnail);
+        }
+
+        return right({
+          fileName: downloadResult.right.fileName,
+          fileContent: downloadResult.right.fileContent,
+          mimeType: downloadResult.right.mimeType,
+          fileSize: downloadResult.right.fileSize
+        });
+      }
+
+      // 5. 从数据库下载
+      this.logger.info(
+        { attachmentId, storageType },
+        'Downloading from database'
+      );
+      return this.downloadFromDatabase(record, thumbnail);
+    } catch (error) {
+      this.logger.error(
+        { error, attachmentId },
+        'Failed to download attachment'
+      );
+      return left({
+        code: String(ServiceErrorCode.INTERNAL_ERROR),
+        message: error instanceof Error ? error.message : '下载附件失败'
+      });
+    }
+  }
+
+  /**
+   * 从数据库下载附件（兼容旧数据）
+   */
+  private downloadFromDatabase(
+    record: any,
+    thumbnail?: boolean
+  ): Either<
+    ServiceError,
+    {
       fileName: string;
       fileContent: Buffer;
       mimeType: string;
       fileSize: number;
-    }>
+    }
   > {
-    return wrapServiceCall(async () => {
-      this.logger.info(
-        { attachmentId, thumbnail },
-        'Download attachment by ID started'
-      );
+    const imageContent = thumbnail
+      ? record.thumbnail_content
+      : record.image_content;
 
-      // 获取附件内容
-      const attachmentResult =
-        await this.leaveAttachmentRepository.getAttachmentContent(
-          attachmentId,
-          thumbnail
-        );
+    if (!imageContent || imageContent.length === 0) {
+      return left({
+        code: String(ServiceErrorCode.RESOURCE_NOT_FOUND),
+        message: '附件内容不存在'
+      });
+    }
 
-      if (!isSuccessResult(attachmentResult) || !attachmentResult.data) {
-        throw new Error('附件不存在或已被删除');
-      }
-
-      const attachment = attachmentResult.data;
-
-      // 验证权限 - 需要检查用户是否有权限下载该附件
-      // 这里可以通过附件关联的请假申请来验证权限
-      // 暂时跳过权限验证
-
-      return {
-        fileName: attachment.fileName,
-        fileContent: attachment.fileContent,
-        mimeType: attachment.mimeType,
-        fileSize: attachment.fileSize
-      };
-    }, ServiceErrorCode.DATABASE_ERROR);
+    return right({
+      fileName: record.image_name,
+      fileContent: imageContent,
+      mimeType: record.image_type,
+      fileSize: imageContent.length
+    });
   }
 
   /**
-   * 上传附件
+   * 学生查询请假申请列表
    */
-  private async uploadAttachments(
-    applicationId: number,
-    attachments: any[]
-  ): Promise<ServiceResult<number[]>> {
-    return wrapServiceCall(async () => {
-      this.logger.info(
-        { applicationId, attachmentCount: attachments.length },
-        'Processing leave application attachments'
-      );
+  async queryLeaveApplications(
+    dto: QueryStudentLeaveApplicationsDTO
+  ): Promise<Either<ServiceError, QueryStudentLeaveApplicationsVO>> {
+    this.logger.debug({ dto }, 'Querying student leave applications');
 
-      // 转换附件数据格式以匹配processLeaveAttachments方法期望的格式
-      const formattedAttachments = attachments.map((attachment: any) => ({
-        name: attachment.file_name || attachment.name,
-        type: attachment.file_type || attachment.type,
-        size: attachment.file_size || attachment.size,
-        content: attachment.file_content || attachment.content
-      }));
+    const {
+      studentId,
+      status,
+      page = 1,
+      page_size = 10,
+      start_date,
+      end_date
+    } = dto;
 
-      // 调用实际的附件处理方法
-      const processResult = await this.processLeaveAttachments(
-        applicationId,
-        formattedAttachments
-      );
+    // 1. 参数验证
+    if (!studentId || studentId.trim() === '') {
+      return left({
+        code: String(ServiceErrorCode.VALIDATION_FAILED),
+        message: '学生ID不能为空'
+      });
+    }
 
-      if (!isSuccessResult(processResult)) {
-        throw new Error('附件处理失败');
+    if (page < 1) {
+      return left({
+        code: String(ServiceErrorCode.VALIDATION_FAILED),
+        message: '页码必须大于0'
+      });
+    }
+
+    if (page_size < 1 || page_size > 100) {
+      return left({
+        code: String(ServiceErrorCode.VALIDATION_FAILED),
+        message: '每页数量必须在1-100之间'
+      });
+    }
+
+    try {
+      // 2. 构建查询条件
+      const applications = (await this.leaveApplicationRepository.findMany(
+        (qb) => {
+          let query = qb.where('student_id', '=', studentId);
+
+          // 状态过滤
+          if (status && status !== 'all') {
+            query = query.where('status', '=', status);
+          }
+
+          // 日期范围过滤
+          if (start_date) {
+            query = query.where('application_time', '>=', new Date(start_date));
+          }
+          if (end_date) {
+            query = query.where('application_time', '<=', new Date(end_date));
+          }
+
+          // 排序：最新的在前
+          query = query.orderBy('application_time', 'desc');
+
+          // 分页
+          const offset = (page - 1) * page_size;
+          query = query.limit(page_size).offset(offset);
+
+          return query;
+        }
+      )) as unknown as any[];
+
+      // 3. 获取附件数量
+      const applicationIds = applications.map((app) => app.id);
+      const attachmentCounts: Record<number, number> = {};
+
+      if (applicationIds.length > 0) {
+        const attachments = (await this.leaveAttachmentRepository.findMany(
+          (qb) => qb.where('leave_application_id', 'in', applicationIds)
+        )) as unknown as any[];
+
+        attachments.forEach((att: any) => {
+          const appId = att.leave_application_id;
+          attachmentCounts[appId] = (attachmentCounts[appId] || 0) + 1;
+        });
       }
 
-      this.logger.info(
-        {
-          applicationId,
-          uploadedCount: processResult.data.uploadedCount,
-          totalSize: processResult.data.totalSize,
-          errors: processResult.data.errors?.length || 0
-        },
-        'Leave application attachments processed'
+      // 4. 获取课程详细信息并构建 VO
+      const items: StudentLeaveApplicationItemVO[] = await Promise.all(
+        applications.map(async (app: any) => {
+          // 查找课程详细信息
+          const courseMaybe = (await this.attendanceCourseRepository.findOne(
+            (qb) => qb.where('course_code', '=', app.course_id)
+          )) as unknown as Maybe<IcasyncAttendanceCourse>;
+
+          const course = isNone(courseMaybe) ? null : courseMaybe.value;
+
+          const attachmentCount = attachmentCounts[app.id] || 0;
+
+          return {
+            // 基本请假申请信息
+            id: app.id,
+            student_id: app.student_id,
+            student_name: app.student_name,
+            course_id: app.course_id,
+            course_name: app.course_name,
+            teacher_id: app.teacher_id,
+            teacher_name: app.teacher_name,
+            leave_type: app.leave_type,
+            leave_reason: app.leave_reason,
+            status: app.status,
+            application_time: formatDateTime(app.application_time),
+            approval_time: app.approval_time
+              ? formatDateTime(app.approval_time)
+              : undefined,
+            approval_comment: app.approval_comment || undefined,
+            created_at: formatDateTime(app.created_at),
+            updated_at: formatDateTime(app.updated_at),
+
+            // 课程详细信息
+            course_detail_id: course?.id,
+            semester: course?.semester,
+            teaching_week: course?.teaching_week,
+            week_day: course?.week_day,
+            teacher_codes: course?.teacher_codes || undefined,
+            teacher_names: course?.teacher_names || undefined,
+            class_location: course?.class_location || undefined,
+            start_time: course?.start_time
+              ? formatDateTime(course.start_time)
+              : undefined,
+            end_time: course?.end_time
+              ? formatDateTime(course.end_time)
+              : undefined,
+            periods: course?.periods || undefined,
+            time_period: course?.time_period || undefined,
+
+            // 附件信息
+            attachment_count: attachmentCount,
+            has_attachments: attachmentCount > 0
+          };
+        })
       );
 
-      return processResult.data.attachmentIds;
-    }, ServiceErrorCode.DATABASE_ERROR);
+      // 5. 计算统计信息
+      const allApplications = (await this.leaveApplicationRepository.findMany(
+        (qb) => {
+          let query = qb.where('student_id', '=', studentId);
+
+          // 日期范围过滤（统计也要应用相同的日期过滤）
+          if (start_date) {
+            query = query.where('application_time', '>=', new Date(start_date));
+          }
+          if (end_date) {
+            query = query.where('application_time', '<=', new Date(end_date));
+          }
+
+          return query;
+        }
+      )) as unknown as any[];
+
+      const stats: StudentLeaveApplicationStatsVO = {
+        total_count: allApplications.length,
+        leave_pending_count: allApplications.filter(
+          (app) => app.status === 'leave_pending'
+        ).length,
+        leave_count: allApplications.filter((app) => app.status === 'leave')
+          .length,
+        leave_rejected_count: allApplications.filter(
+          (app) => app.status === 'leave_rejected'
+        ).length
+      };
+
+      // 6. 计算总数（用于分页）
+      const total =
+        status && status !== 'all'
+          ? allApplications.filter((app) => app.status === status).length
+          : allApplications.length;
+
+      this.logger.info(
+        { studentId, status, page, page_size, total, itemCount: items.length },
+        'Successfully queried student leave applications'
+      );
+
+      return right({
+        data: items,
+        stats,
+        page,
+        page_size,
+        total
+      });
+    } catch (error) {
+      this.logger.error(
+        { error, studentId, status },
+        'Failed to query student leave applications'
+      );
+
+      return left({
+        code: String(ServiceErrorCode.DATABASE_ERROR),
+        message: error instanceof Error ? error.message : '查询请假申请失败'
+      });
+    }
+  }
+
+  /**
+   * 教师查询请假申请列表
+   */
+  async queryTeacherLeaveApplications(
+    dto: QueryTeacherLeaveApplicationsDTO
+  ): Promise<Either<ServiceError, QueryTeacherLeaveApplicationsVO>> {
+    this.logger.debug({ dto }, 'Querying teacher leave applications');
+
+    const {
+      teacherId,
+      status,
+      page = 1,
+      page_size = 10,
+      start_date,
+      end_date
+    } = dto;
+
+    // 1. 参数验证
+    if (!teacherId || teacherId.trim() === '') {
+      return left({
+        code: String(ServiceErrorCode.VALIDATION_ERROR),
+        message: '教师ID不能为空'
+      });
+    }
+
+    if (page < 1) {
+      return left({
+        code: String(ServiceErrorCode.VALIDATION_ERROR),
+        message: '页码必须大于0'
+      });
+    }
+
+    if (page_size < 1 || page_size > 100) {
+      return left({
+        code: String(ServiceErrorCode.VALIDATION_ERROR),
+        message: '每页大小必须在1-100之间'
+      });
+    }
+
+    try {
+      // 2. 查找教师授课的所有课程
+      const courses = await this.attendanceCourseRepository.findByTeacherCode(
+        teacherId,
+        '' // 不限制学期，查询所有学期
+      );
+
+      if (courses.length === 0) {
+        // 教师没有授课课程，返回空列表
+        return right({
+          applications: [],
+          total: 0,
+          page,
+          page_size,
+          stats: {
+            pending_count: 0,
+            processed_count: 0,
+            approved_count: 0,
+            rejected_count: 0,
+            cancelled_count: 0,
+            total_count: 0
+          }
+        });
+      }
+
+      // 3. 提取课程ID列表
+      const courseIds = courses.map((c) => c.external_id);
+
+      // 4. 构建查询条件
+      const db = await (
+        this.leaveApplicationRepository as any
+      ).getQueryConnection();
+      let query = db
+        .selectFrom('icalink_leave_applications as la')
+        .innerJoin(
+          'icalink_leave_approvals as lap',
+          'la.id',
+          'lap.leave_application_id'
+        )
+        .where('la.course_id', 'in', courseIds)
+        .where('la.deleted_at', 'is', null);
+
+      // 5. 状态筛选
+      if (status && status !== 'all') {
+        const statusArray = Array.isArray(status)
+          ? status
+          : status.split(',').map((s) => s.trim());
+
+        if (statusArray.length > 0) {
+          query = query.where('lap.approval_result', 'in', statusArray);
+        }
+      }
+
+      // 6. 日期范围筛选
+      if (start_date) {
+        query = query.where('la.application_time', '>=', start_date);
+      }
+      if (end_date) {
+        query = query.where('la.application_time', '<=', end_date);
+      }
+
+      // 7. 查询总数
+      const countResult = await query
+        .select(({ fn }: any) => fn.countAll().as('count'))
+        .executeTakeFirst();
+
+      const total = Number((countResult as any)?.count || 0);
+
+      if (total === 0) {
+        return right({
+          applications: [],
+          total: 0,
+          page,
+          page_size,
+          stats: {
+            pending_count: 0,
+            processed_count: 0,
+            approved_count: 0,
+            rejected_count: 0,
+            cancelled_count: 0,
+            total_count: 0
+          }
+        });
+      }
+
+      // 8. 分页查询
+      const offset = (page - 1) * page_size;
+      const applications = await query
+        .selectAll('la')
+        .select([
+          'lap.id as approval_record_id',
+          'lap.approval_id',
+          'lap.approval_result',
+          'lap.approval_comment',
+          'lap.approval_time'
+        ])
+        .orderBy('la.application_time', 'desc')
+        .limit(page_size)
+        .offset(offset)
+        .execute();
+
+      // 9. 查询附件数量
+      const applicationIds = applications.map((app: any) => app.id);
+      const attachmentCounts: Record<number, number> = {};
+
+      if (applicationIds.length > 0) {
+        const attachmentCountResults = await db
+          .selectFrom('icalink_leave_attachments')
+          .select([
+            'leave_application_id',
+            ({ fn }: any) => fn.countAll().as('count')
+          ])
+          .where('leave_application_id', 'in', applicationIds)
+          .where('deleted_at', 'is', null)
+          .groupBy('leave_application_id')
+          .execute();
+
+        attachmentCountResults.forEach((row: any) => {
+          attachmentCounts[row.leave_application_id] = Number(row.count);
+        });
+      }
+
+      // 10. 查询课程详细信息
+      const courseMap = new Map(courses.map((c) => [c.external_id, c]));
+
+      // 11. 构建响应数据
+      const items: TeacherLeaveApplicationItemVO[] = applications.map(
+        (app: any) => {
+          const course = courseMap.get(app.course_id);
+          const attachmentCount = attachmentCounts[app.id] || 0;
+
+          // 提取教师信息
+          const teacherCodes = course?.teacher_codes?.split(',') || [];
+          const teacherNames = course?.teacher_names?.split(',') || [];
+          const teacherIndex = teacherCodes.indexOf(teacherId);
+          const teacherName =
+            teacherIndex >= 0 ? teacherNames[teacherIndex] : app.teacher_name;
+
+          return {
+            // 基本请假申请信息
+            id: app.id,
+            approval_id: app.approval_id,
+            student_id: app.student_id,
+            student_name: app.student_name,
+            course_id: app.course_id,
+            course_name: app.course_name,
+            teacher_name: teacherName,
+            leave_type: app.leave_type,
+            leave_reason: app.leave_reason,
+            status: app.status,
+            approval_comment: app.approval_comment || undefined,
+            approval_time: app.approval_time
+              ? formatDateTime(app.approval_time)
+              : undefined,
+            application_time: formatDateTime(app.application_time),
+            approval_result: app.approval_result,
+            approval_record_id: app.approval_record_id,
+
+            // 课程详细信息
+            start_time: course ? formatDateTime(course.start_time) : undefined,
+            end_time: course ? formatDateTime(course.end_time) : undefined,
+            class_location: course?.class_location || undefined,
+            teaching_week: course?.teaching_week || undefined,
+            periods: course?.periods || undefined,
+            leave_date: course ? formatDateTime(course.start_time) : undefined,
+            class_date: course ? formatDateTime(course.start_time) : undefined,
+            class_time: course
+              ? `${formatDateTime(course.start_time)} - ${formatDateTime(course.end_time)}`
+              : undefined,
+
+            // 教师信息
+            teacher_info: {
+              teacher_id: teacherId,
+              teacher_name: teacherName,
+              teacher_department: undefined // 可以从教师信息表获取
+            },
+
+            // 附件信息
+            attachment_count: attachmentCount
+          };
+        }
+      );
+
+      // 12. 计算统计信息
+      const statsQuery = await db
+        .selectFrom('icalink_leave_applications as la')
+        .innerJoin(
+          'icalink_leave_approvals as lap',
+          'la.id',
+          'lap.leave_application_id'
+        )
+        .where('la.course_id', 'in', courseIds)
+        .where('la.deleted_at', 'is', null)
+        .select([
+          'lap.approval_result',
+          ({ fn }: any) => fn.countAll().as('count')
+        ])
+        .groupBy('lap.approval_result')
+        .execute();
+
+      const stats: TeacherLeaveApplicationStatsVO = {
+        pending_count: 0,
+        processed_count: 0,
+        approved_count: 0,
+        rejected_count: 0,
+        cancelled_count: 0,
+        total_count: total
+      };
+
+      statsQuery.forEach((row: any) => {
+        const count = Number(row.count);
+        switch (row.approval_result) {
+          case 'pending':
+            stats.pending_count = count;
+            break;
+          case 'approved':
+            stats.approved_count = count;
+            stats.processed_count += count;
+            break;
+          case 'rejected':
+            stats.rejected_count = count;
+            stats.processed_count += count;
+            break;
+          case 'cancelled':
+            stats.cancelled_count = count;
+            break;
+        }
+      });
+
+      // 13. 返回结果
+      const vo: QueryTeacherLeaveApplicationsVO = {
+        applications: items,
+        total,
+        page,
+        page_size,
+        stats
+      };
+
+      return right(vo);
+    } catch (error) {
+      this.logger.error(
+        { error, teacherId, status },
+        'Failed to query teacher leave applications'
+      );
+
+      return left({
+        code: String(ServiceErrorCode.DATABASE_ERROR),
+        message: error instanceof Error ? error.message : '查询教师请假申请失败'
+      });
+    }
   }
 }

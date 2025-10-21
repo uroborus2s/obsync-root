@@ -168,7 +168,7 @@ deploy_static_files() {
     remote_exec "sudo mkdir -p $STATIC_WEB_DIR" "创建静态文件目录"
     
     # 清理目标目录
-    remote_exec "rm -rf $STATIC_WEB_DIR/*" "清理现有静态文件"
+    remote_exec "sudo rm -rf $STATIC_WEB_DIR/*" "清理现有静态文件"
     
     # 使用 rsync 同步文件到临时目录，然后移动
     log "同步静态文件..."
@@ -233,13 +233,6 @@ verify_deployment() {
         log_warning "Web 静态文件访问失败"
     fi
     
-    # 测试 HTTPS 访问 (如果有 SSL)
-    if remote_exec "curl -s -f -k https://localhost/web/ >/dev/null 2>&1" "测试 HTTPS Web 访问"; then
-        log_success "HTTPS Web 静态文件访问正常"
-    else
-        log_warning "HTTPS Web 静态文件访问失败"
-    fi
-    
     log_success "静态文件部署验证完成"
 }
 
@@ -256,7 +249,7 @@ cleanup_build_files() {
     # 保留构建结果，只清理临时文件
     if [ -d "node_modules" ]; then
         log "清理 node_modules..."
-        rm -rf node_modules
+        rm -rf dist
     fi
     
     log_success "构建文件清理完成"
@@ -310,15 +303,15 @@ main() {
         exit 1
     fi
     
-    # 执行部署步骤
-    if [ "$DEPLOY_DRY_RUN" != "true" ]; then
-        install_dependencies
-        build_static_files
-    fi
+    # # 执行部署步骤
+    # if [ "$DEPLOY_DRY_RUN" != "true" ]; then
+    #     install_dependencies
+    #     build_static_files
+    # fi
     
-    if [ "$BACKUP_ENABLED" = "true" ]; then
-        backup_existing_files
-    fi
+    # if [ "$BACKUP_ENABLED" = "true" ]; then
+    #     backup_existing_files
+    # fi
     
     deploy_static_files
     verify_deployment

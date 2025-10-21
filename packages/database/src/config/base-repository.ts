@@ -1,37 +1,781 @@
 // @stratix/database 函数式仓储基类
 // 采用函数式编程模式，支持管道操作和查询组合
 
-import type { Insertable, Kysely, Selectable, Updateable } from 'kysely';
-
+import type { Logger } from '@stratix/core';
 import {
-  failure,
+  type Either,
+  eitherLeft,
+  eitherRight,
   fromNullable,
-  mapResult,
-  Option,
-  Result,
-  success
-} from '../utils/helpers.js';
+  isLeft,
+  isNone,
+  type Maybe,
+  tryCatchAsync
+} from '@stratix/utils/functional';
+import type {
+  ColumnDefinitionBuilder,
+  CreateTableBuilder,
+  DeleteQueryBuilder,
+  ExpressionBuilder,
+  Insertable,
+  Kysely,
+  Selectable,
+  SelectQueryBuilder,
+  Updateable,
+  UpdateQueryBuilder
+} from 'kysely';
 
 import {
-  DatabaseErrorHandler,
-  DatabaseResult,
+  getReadConnection,
+  getWriteConnection
+} from '../core/database-manager.js';
+import { getCurrentTransaction } from '../core/transaction-manager.js';
+import {
+  type DatabaseError,
+  ErrorClassifier,
   ValidationError
 } from '../utils/error-handler.js';
 
-import { getCurrentTransaction } from '../utils/transaction-context.js';
-
-// Logger 接口定义
-interface Logger {
-  debug(message: string, meta?: any): void;
-  info(message: string, meta?: any): void;
-  warn(message: string, meta?: any): void;
-  error(message: string, meta?: any): void;
+/**
+ * 数据库操作上下文
+ */
+export interface DatabaseOperationContext {
+  /** 是否为只读操作 */
+  readonly?: boolean;
+  /** 超时时间（毫秒） */
+  timeout?: number;
+  /** 操作标识符 */
+  operationId?: string;
 }
 
-import type {
-  DatabaseAPI,
-  DatabaseOperationContext
-} from '../adapters/database-api.adapter.js';
+/**
+ * 数据库类型枚举
+ */
+export enum DatabaseType {
+  POSTGRESQL = 'postgresql',
+  MYSQL = 'mysql',
+  SQLITE = 'sqlite',
+  MSSQL = 'mssql'
+}
+
+/**
+ * 通用数据库字段类型枚举
+ * 提供跨数据库兼容的统一类型定义
+ */
+export enum DataColumnType {
+  // 🎯 数字类型 - 通用定义
+  /** 32位整数 */
+  INTEGER = 'INTEGER',
+  /** 64位大整数 */
+  BIGINT = 'BIGINT',
+  /** 小整数（16位） */
+  SMALLINT = 'SMALLINT',
+  /** 微整数（8位） */
+  TINYINT = 'TINYINT',
+  /** 精确小数 */
+  DECIMAL = 'DECIMAL',
+  /** 单精度浮点数 */
+  FLOAT = 'FLOAT',
+  /** 双精度浮点数 */
+  DOUBLE = 'DOUBLE',
+
+  // 🎯 字符串类型 - 通用定义
+  /** 可变长度字符串 */
+  STRING = 'STRING',
+  /** 固定长度字符串 */
+  CHAR = 'CHAR',
+  /** 长文本 */
+  TEXT = 'TEXT',
+  /** 中等长度文本 */
+  MEDIUMTEXT = 'MEDIUMTEXT',
+  /** 超长文本 */
+  LONGTEXT = 'LONGTEXT',
+
+  // 🎯 日期时间类型 - 通用定义
+  /** 日期（年月日） */
+  DATE = 'DATE',
+  /** 时间（时分秒） */
+  TIME = 'TIME',
+  /** 时间戳（带时区） */
+  TIMESTAMP = 'TIMESTAMP',
+  /** 日期时间（不带时区） */
+  DATETIME = 'DATETIME',
+
+  // 🎯 布尔类型 - 通用定义
+  /** 布尔值 */
+  BOOLEAN = 'BOOLEAN',
+
+  // 🎯 JSON 类型 - 通用定义
+  /** JSON 数据 */
+  JSON = 'JSON',
+
+  // 🎯 二进制类型 - 通用定义
+  /** 二进制大对象 */
+  BLOB = 'BLOB',
+  /** 二进制数据 */
+  BINARY = 'BINARY',
+
+  // 🎯 特殊类型 - 通用定义
+  /** UUID 标识符 */
+  UUID = 'UUID'
+}
+
+/**
+ * 数据库特定类型映射
+ * 将通用 ColumnType 映射到各数据库的具体类型
+ */
+const DATABASE_TYPE_MAPPING = {
+  [DatabaseType.POSTGRESQL]: {
+    [DataColumnType.INTEGER]: 'integer',
+    [DataColumnType.BIGINT]: 'bigint',
+    [DataColumnType.SMALLINT]: 'smallint',
+    [DataColumnType.TINYINT]: 'smallint', // PostgreSQL 没有 tinyint，使用 smallint
+    [DataColumnType.DECIMAL]: 'decimal',
+    [DataColumnType.FLOAT]: 'real',
+    [DataColumnType.DOUBLE]: 'double precision',
+    [DataColumnType.STRING]: 'varchar',
+    [DataColumnType.CHAR]: 'char',
+    [DataColumnType.TEXT]: 'text',
+    [DataColumnType.MEDIUMTEXT]: 'text', // PostgreSQL 统一使用 text
+    [DataColumnType.LONGTEXT]: 'text',
+    [DataColumnType.DATE]: 'date',
+    [DataColumnType.TIME]: 'time',
+    [DataColumnType.TIMESTAMP]: 'timestamp with time zone',
+    [DataColumnType.DATETIME]: 'timestamp without time zone',
+    [DataColumnType.BOOLEAN]: 'boolean',
+    [DataColumnType.JSON]: 'jsonb', // PostgreSQL 优先使用 jsonb
+    [DataColumnType.BLOB]: 'bytea',
+    [DataColumnType.BINARY]: 'bytea',
+    [DataColumnType.UUID]: 'uuid'
+  },
+  [DatabaseType.MYSQL]: {
+    [DataColumnType.INTEGER]: 'int',
+    [DataColumnType.BIGINT]: 'bigint',
+    [DataColumnType.SMALLINT]: 'smallint',
+    [DataColumnType.TINYINT]: 'tinyint',
+    [DataColumnType.DECIMAL]: 'decimal',
+    [DataColumnType.FLOAT]: 'float',
+    [DataColumnType.DOUBLE]: 'double',
+    [DataColumnType.STRING]: 'varchar',
+    [DataColumnType.CHAR]: 'char',
+    [DataColumnType.TEXT]: 'text',
+    [DataColumnType.MEDIUMTEXT]: 'mediumtext',
+    [DataColumnType.LONGTEXT]: 'longtext',
+    [DataColumnType.DATE]: 'date',
+    [DataColumnType.TIME]: 'time',
+    [DataColumnType.TIMESTAMP]: 'timestamp',
+    [DataColumnType.DATETIME]: 'datetime',
+    [DataColumnType.BOOLEAN]: 'boolean',
+    [DataColumnType.JSON]: 'json',
+    [DataColumnType.BLOB]: 'blob',
+    [DataColumnType.BINARY]: 'binary',
+    [DataColumnType.UUID]: 'char(36)' // MySQL 使用 char(36) 存储 UUID
+  },
+  [DatabaseType.SQLITE]: {
+    [DataColumnType.INTEGER]: 'integer',
+    [DataColumnType.BIGINT]: 'integer', // SQLite 统一使用 integer
+    [DataColumnType.SMALLINT]: 'integer',
+    [DataColumnType.TINYINT]: 'integer',
+    [DataColumnType.DECIMAL]: 'real',
+    [DataColumnType.FLOAT]: 'real',
+    [DataColumnType.DOUBLE]: 'real',
+    [DataColumnType.STRING]: 'text',
+    [DataColumnType.CHAR]: 'text',
+    [DataColumnType.TEXT]: 'text',
+    [DataColumnType.MEDIUMTEXT]: 'text',
+    [DataColumnType.LONGTEXT]: 'text',
+    [DataColumnType.DATE]: 'text', // SQLite 使用 text 存储日期
+    [DataColumnType.TIME]: 'text',
+    [DataColumnType.TIMESTAMP]: 'text',
+    [DataColumnType.DATETIME]: 'text',
+    [DataColumnType.BOOLEAN]: 'integer', // SQLite 使用 integer 存储布尔值
+    [DataColumnType.JSON]: 'text',
+    [DataColumnType.BLOB]: 'blob',
+    [DataColumnType.BINARY]: 'blob',
+    [DataColumnType.UUID]: 'text'
+  },
+  [DatabaseType.MSSQL]: {
+    [DataColumnType.INTEGER]: 'int',
+    [DataColumnType.BIGINT]: 'bigint',
+    [DataColumnType.SMALLINT]: 'smallint',
+    [DataColumnType.TINYINT]: 'tinyint',
+    [DataColumnType.DECIMAL]: 'decimal',
+    [DataColumnType.FLOAT]: 'float',
+    [DataColumnType.DOUBLE]: 'float',
+    [DataColumnType.STRING]: 'nvarchar',
+    [DataColumnType.CHAR]: 'nchar',
+    [DataColumnType.TEXT]: 'ntext',
+    [DataColumnType.MEDIUMTEXT]: 'ntext',
+    [DataColumnType.LONGTEXT]: 'ntext',
+    [DataColumnType.DATE]: 'date',
+    [DataColumnType.TIME]: 'time',
+    [DataColumnType.TIMESTAMP]: 'datetime2',
+    [DataColumnType.DATETIME]: 'datetime2',
+    [DataColumnType.BOOLEAN]: 'bit',
+    [DataColumnType.JSON]: 'nvarchar(max)', // MSSQL 2016+ 支持 JSON，但用 nvarchar 存储
+    [DataColumnType.BLOB]: 'varbinary(max)',
+    [DataColumnType.BINARY]: 'varbinary',
+    [DataColumnType.UUID]: 'uniqueidentifier'
+  }
+} as const;
+
+/**
+ * 字段约束类型
+ */
+export interface ColumnConstraints {
+  /** 是否为主键 */
+  primaryKey?: boolean;
+  /** 是否允许为空 */
+  nullable?: boolean;
+  /** 是否唯一 */
+  unique?: boolean;
+  /** 默认值 */
+  defaultValue?: any;
+  /** 是否自增 */
+  autoIncrement?: boolean;
+  /** 字段长度（适用于 varchar, char 等） */
+  length?: number;
+  /** 精度（适用于 decimal, numeric） */
+  precision?: number;
+  /** 小数位数（适用于 decimal, numeric） */
+  scale?: number;
+  /** 外键引用 */
+  references?: {
+    table: string;
+    column: string;
+    onDelete?: 'CASCADE' | 'SET NULL' | 'RESTRICT' | 'NO ACTION';
+    onUpdate?: 'CASCADE' | 'SET NULL' | 'RESTRICT' | 'NO ACTION';
+  };
+  /** 检查约束 */
+  check?: string;
+  /** 注释 */
+  comment?: string;
+}
+
+/**
+ * 表字段定义
+ */
+export interface ColumnDefinition {
+  /** 字段名 */
+  name: string;
+  /** 字段类型 */
+  type: DataColumnType;
+  /** 字段约束 */
+  constraints?: ColumnConstraints;
+}
+
+/**
+ * 索引定义
+ */
+export interface IndexDefinition {
+  /** 索引名称 */
+  name: string;
+  /** 索引字段 */
+  columns: string[];
+  /** 是否唯一索引 */
+  unique?: boolean;
+  /** 索引类型 */
+  type?: 'btree' | 'hash' | 'gin' | 'gist';
+  /** 条件索引 */
+  where?: string;
+}
+
+/**
+ * 表 Schema 定义
+ */
+export interface TableSchema {
+  /** 表名 */
+  tableName: string;
+  /** 字段定义 */
+  columns: ColumnDefinition[];
+  /** 索引定义 */
+  indexes?: IndexDefinition[];
+  /** 表注释 */
+  comment?: string;
+  /** 表选项（如存储引擎等） */
+  options?: Record<string, any>;
+}
+
+/**
+ * 自动表创建配置
+ */
+export interface AutoTableCreationConfig {
+  /** 是否启用自动表创建 */
+  enabled?: boolean;
+  /** 是否在开发环境自动启用 */
+  autoEnableInDevelopment?: boolean;
+  /** 是否强制重建表（危险操作） */
+  forceRecreate?: boolean;
+  /** 是否创建索引 */
+  createIndexes?: boolean;
+  /** 表创建超时时间（毫秒） */
+  timeout?: number;
+}
+
+/**
+ * 表创建器
+ */
+export class TableCreator {
+  /**
+   * 根据 schema 创建表 - 使用 ifNotExists 优化版本
+   */
+  static async createTable(
+    connection: Kysely<any>,
+    schema: TableSchema,
+    databaseType: DatabaseType,
+    options: { forceRecreate?: boolean } = {}
+  ): Promise<void> {
+    // 如果强制重建，先删除表
+    if (options.forceRecreate) {
+      await this.dropTableIfExists(connection, schema.tableName);
+    }
+
+    // 🎯 使用 Kysely 的 ifNotExists() 方法，避免自己实现表存在性检查
+    let createTableBuilder = connection.schema
+      .createTable(schema.tableName)
+      .ifNotExists();
+
+    // 添加字段
+    for (const column of schema.columns) {
+      createTableBuilder = this.addColumn(
+        createTableBuilder,
+        column,
+        databaseType
+      );
+    }
+
+    // 添加表注释（如果支持）
+    if (schema.comment && databaseType !== DatabaseType.SQLITE) {
+      // SQLite 不支持表注释
+      createTableBuilder = createTableBuilder as any;
+    }
+
+    // 执行创建表语句
+    await createTableBuilder.execute();
+
+    // 创建索引
+    if (schema.indexes && schema.indexes.length > 0) {
+      await this.createIndexes(connection, schema.tableName, schema.indexes);
+    }
+  }
+
+  /**
+   * 添加字段到表创建器 - 使用映射表的统一方法
+   */
+  private static addColumn(
+    builder: CreateTableBuilder<string, never>,
+    column: ColumnDefinition,
+    databaseType: DatabaseType
+  ): CreateTableBuilder<string, never> {
+    const constraints = column.constraints || {};
+
+    // 🎯 使用映射表获取基础类型
+    const baseType = DATABASE_TYPE_MAPPING[databaseType][column.type];
+    if (!baseType) {
+      throw new Error(
+        `不支持的列类型: ${column.type} 在数据库 ${databaseType} 中`
+      );
+    }
+
+    // 根据约束条件调整列类型
+    const columnType = TableCreator.getColumnTypeWithConstraints(
+      baseType,
+      column.type,
+      constraints,
+      databaseType
+    );
+
+    return builder.addColumn(column.name, columnType as any, (col) => {
+      let colBuilder = col;
+
+      // 处理自增（仅对支持的类型和数据库）
+      if (
+        constraints.autoIncrement &&
+        TableCreator.shouldApplyAutoIncrement(column.type, databaseType)
+      ) {
+        colBuilder = colBuilder.autoIncrement();
+      }
+
+      return TableCreator.applyColumnConstraints(colBuilder, constraints);
+    });
+  }
+
+  /**
+   * 根据约束条件调整列类型
+   */
+  private static getColumnTypeWithConstraints(
+    baseType: string,
+    columnType: DataColumnType,
+    constraints: ColumnConstraints,
+    databaseType: DatabaseType
+  ): string {
+    switch (columnType) {
+      case DataColumnType.STRING:
+        // SQLite 的 TEXT 类型不支持长度约束
+        if (databaseType === DatabaseType.SQLITE && baseType === 'text') {
+          return baseType; // SQLite TEXT 类型忽略长度约束
+        }
+
+        if (constraints.length) {
+          return `${baseType}(${constraints.length})`;
+        }
+        // 为 varchar 类型设置默认长度
+        return baseType === 'varchar' || baseType === 'nvarchar'
+          ? `${baseType}(255)`
+          : baseType;
+
+      case DataColumnType.CHAR:
+        if (constraints.length) {
+          return `${baseType}(${constraints.length})`;
+        }
+        // 为 char 类型设置默认长度
+        return `${baseType}(1)`;
+
+      case DataColumnType.DECIMAL:
+        if (constraints.precision && constraints.scale) {
+          return `${baseType}(${constraints.precision},${constraints.scale})`;
+        }
+        return baseType;
+
+      case DataColumnType.BINARY:
+        if (constraints.length) {
+          return `${baseType}(${constraints.length})`;
+        }
+        // 为 binary 类型设置默认长度
+        return `${baseType}(255)`;
+
+      case DataColumnType.INTEGER:
+        // PostgreSQL 自增使用 serial
+        if (
+          constraints.autoIncrement &&
+          databaseType === DatabaseType.POSTGRESQL
+        ) {
+          return 'serial';
+        }
+        return baseType;
+
+      case DataColumnType.BIGINT:
+        // PostgreSQL 自增使用 bigserial
+        if (
+          constraints.autoIncrement &&
+          databaseType === DatabaseType.POSTGRESQL
+        ) {
+          return 'bigserial';
+        }
+        return baseType;
+
+      default:
+        return baseType;
+    }
+  }
+
+  /**
+   * 判断是否应该应用自增约束
+   */
+  private static shouldApplyAutoIncrement(
+    columnType: DataColumnType,
+    databaseType: DatabaseType
+  ): boolean {
+    // 只有整数类型支持自增
+    const supportedTypes = [
+      DataColumnType.INTEGER,
+      DataColumnType.BIGINT,
+      DataColumnType.SMALLINT,
+      DataColumnType.TINYINT
+    ];
+    if (!supportedTypes.includes(columnType)) {
+      return false;
+    }
+
+    // PostgreSQL 使用 serial/bigserial，不需要额外的 autoIncrement()
+    if (databaseType === DatabaseType.POSTGRESQL) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * 删除表（如果存在）
+   */
+  static async dropTableIfExists(
+    connection: Kysely<any>,
+    tableName: string
+  ): Promise<void> {
+    // 🎯 使用 Kysely 的 ifExists() 方法
+    await connection.schema.dropTable(tableName).ifExists().execute();
+  }
+
+  /**
+   * 获取数据库类型
+   */
+  static getDatabaseType(connection: Kysely<any>): DatabaseType {
+    // 这里需要根据连接的方言类型来判断
+    // 简化实现，实际应该从连接配置中获取
+
+    const dialectName = (connection as any).getExecutor?.()?.adapter
+      ?.constructor?.name;
+
+    if (dialectName?.includes('Postgres')) return DatabaseType.POSTGRESQL;
+    if (dialectName?.includes('MySQL')) return DatabaseType.MYSQL;
+    if (dialectName?.includes('Sqlite')) return DatabaseType.SQLITE;
+    if (dialectName?.includes('MSSQL')) return DatabaseType.MSSQL;
+
+    // 默认返回 PostgreSQL
+    return DatabaseType.POSTGRESQL;
+  }
+
+  // 🎯 具体的列类型添加方法和约束应用
+
+  /**
+   * 应用列约束
+   */
+  private static applyColumnConstraints(
+    columnBuilder: ColumnDefinitionBuilder,
+    constraints: ColumnConstraints
+  ): ColumnDefinitionBuilder {
+    let builder = columnBuilder;
+
+    // 应用主键约束
+    if (constraints.primaryKey) {
+      builder = builder.primaryKey();
+    }
+
+    // 应用非空约束
+    if (constraints.nullable === false) {
+      builder = builder.notNull();
+    }
+
+    // 应用唯一约束
+    if (constraints.unique) {
+      builder = builder.unique();
+    }
+
+    // 应用默认值
+    // 🎯 建议：时间相关的默认值应该在应用层处理，而不是使用数据库默认值
+    // 因为不同数据库的时间函数语法不同：
+    // - PostgreSQL: NOW(), CURRENT_TIMESTAMP
+    // - MySQL: NOW(), CURRENT_TIMESTAMP()
+    // - SQLite: datetime('now'), CURRENT_TIMESTAMP
+    // - SQL Server: GETDATE(), CURRENT_TIMESTAMP
+    if (constraints.defaultValue !== undefined) {
+      // 对于非时间类型的默认值，直接应用
+      // 时间默认值建议在应用层通过 Repository 的 create 方法处理
+      if (
+        typeof constraints.defaultValue !== 'string' ||
+        (!constraints.defaultValue.toUpperCase().includes('TIMESTAMP') &&
+          !constraints.defaultValue.toUpperCase().includes('NOW'))
+      ) {
+        builder = builder.defaultTo(constraints.defaultValue);
+      }
+      // 如果是时间相关的默认值，跳过数据库级别的默认值设置
+      // 应该在应用层的 create 方法中处理，例如：
+      // created_at: new Date().toISOString()
+    }
+
+    // 应用外键约束
+    if (constraints.references) {
+      const ref = constraints.references;
+      builder = builder.references(`${ref.table}.${ref.column}`);
+
+      if (ref.onDelete) {
+        builder = builder.onDelete(ref.onDelete.toLowerCase() as any);
+      }
+
+      if (ref.onUpdate) {
+        builder = builder.onUpdate(ref.onUpdate.toLowerCase() as any);
+      }
+    }
+
+    return builder;
+  }
+
+  /**
+   * 创建索引
+   */
+  private static async createIndexes(
+    connection: Kysely<any>,
+    tableName: string,
+    indexes: IndexDefinition[]
+  ): Promise<void> {
+    for (const index of indexes) {
+      let indexBuilder = connection.schema
+        .createIndex(index.name)
+        .on(tableName)
+        .columns(index.columns);
+
+      if (index.unique) {
+        indexBuilder = indexBuilder.unique();
+      }
+
+      if (index.where) {
+        indexBuilder = (indexBuilder as any).where(index.where);
+      }
+
+      await indexBuilder.execute();
+    }
+  }
+}
+
+/**
+ * Schema 构建器 - 简化版本，专注于核心价值
+ *
+ * 🎯 设计理念：
+ * - 保留高价值的便利方法（addTimestamps, addPrimaryKey, addForeignKey）
+ * - 移除冗余的类型特定方法（addString, addInteger 等）
+ * - 统一使用 addColumn() 方法，提供更一致的 API
+ * - 专注于流畅的链式调用和复杂操作的抽象
+ *
+ * ✅ 核心价值：
+ * - 流畅的链式 API 设计
+ * - 便利方法封装常见模式
+ * - TypeScript 类型安全
+ * - 隐藏 TableSchema 构建细节
+ */
+export class SchemaBuilder {
+  private schema: TableSchema;
+
+  constructor(tableName: string) {
+    this.schema = {
+      tableName,
+      columns: [],
+      indexes: []
+    };
+  }
+
+  /**
+   * 添加字段
+   */
+  addColumn(
+    name: string,
+    type: DataColumnType,
+    constraints?: ColumnConstraints
+  ): SchemaBuilder {
+    this.schema.columns.push({
+      name,
+      type,
+      constraints
+    });
+    return this;
+  }
+
+  /**
+   * 添加主键字段（自增整数）
+   */
+  addPrimaryKey(name: string = 'id'): SchemaBuilder {
+    return this.addColumn(name, DataColumnType.INTEGER, {
+      primaryKey: true,
+      autoIncrement: true,
+      nullable: false
+    });
+  }
+
+  /**
+   * 添加 UUID 主键字段
+   */
+  addUuidPrimaryKey(name: string = 'id'): SchemaBuilder {
+    return this.addColumn(name, DataColumnType.UUID, {
+      primaryKey: true,
+      nullable: false
+    });
+  }
+
+  /**
+   * 添加时间戳字段 - 使用字符串类型统一处理
+   */
+  addTimestamp(name: string, constraints?: ColumnConstraints): SchemaBuilder {
+    // 🎯 使用 STRING 类型存储 ISO 时间字符串，确保跨数据库兼容性
+    return this.addColumn(name, DataColumnType.STRING, {
+      length: 255, // 足够存储 ISO 时间字符串
+      ...constraints
+    });
+  }
+
+  /**
+   * 添加外键字段
+   */
+  addForeignKey(
+    name: string,
+    referencedTable: string,
+    referencedColumn: string = 'id',
+    onDelete?: 'CASCADE' | 'SET NULL' | 'RESTRICT' | 'NO ACTION',
+    onUpdate?: 'CASCADE' | 'SET NULL' | 'RESTRICT' | 'NO ACTION'
+  ): SchemaBuilder {
+    return this.addColumn(name, DataColumnType.INTEGER, {
+      nullable: false,
+      references: {
+        table: referencedTable,
+        column: referencedColumn,
+        onDelete,
+        onUpdate
+      }
+    });
+  }
+
+  /**
+   * 添加时间戳字段（created_at, updated_at）- 统一字符串处理
+   */
+  addTimestamps(): SchemaBuilder {
+    // 🎯 使用字符串类型存储时间，在应用层处理时间逻辑
+    // 优势：跨数据库兼容、时区控制、业务逻辑灵活、测试友好
+    return this.addTimestamp('created_at', {
+      nullable: false
+      // 不设置 defaultValue，在应用层通过 Repository 处理
+    }).addTimestamp('updated_at', {
+      nullable: true
+      // updated_at 可以为空，首次创建时不设置
+    });
+  }
+
+  /**
+   * 添加索引
+   */
+  addIndex(
+    name: string,
+    columns: string[],
+    options?: Omit<IndexDefinition, 'name' | 'columns'>
+  ): SchemaBuilder {
+    if (!this.schema.indexes) {
+      this.schema.indexes = [];
+    }
+
+    this.schema.indexes.push({
+      name,
+      columns,
+      ...options
+    });
+    return this;
+  }
+
+  /**
+   * 添加唯一索引
+   */
+  addUniqueIndex(name: string, columns: string[]): SchemaBuilder {
+    return this.addIndex(name, columns, { unique: true });
+  }
+
+  /**
+   * 设置表注释
+   */
+  setComment(comment: string): SchemaBuilder {
+    this.schema.comment = comment;
+    return this;
+  }
+
+  /**
+   * 构建 schema
+   */
+  build(): TableSchema {
+    return { ...this.schema };
+  }
+
+  /**
+   * 静态工厂方法
+   */
+  static create(tableName: string): SchemaBuilder {
+    return new SchemaBuilder(tableName);
+  }
+}
 
 /**
  * 仓储连接配置接口
@@ -114,13 +858,15 @@ export class ConnectionConfigResolver {
 /**
  * 查询选项 - 不可变配置
  */
-export interface QueryOptions {
+export interface QueryOptions<T = any> {
   readonly limit?: number;
   readonly offset?: number;
   readonly orderBy?: OrderByClause | OrderByClause[];
   readonly readonly?: boolean;
   readonly timeout?: number;
   readonly connectionName?: string;
+  /** 选择特定字段（如果不指定则返回所有字段） */
+  readonly select?: ReadonlyArray<keyof T>;
 }
 
 /**
@@ -164,9 +910,21 @@ export interface QueryBuilderContext<DB, TB extends keyof DB> {
 }
 
 /**
- * Where 表达式类型 - 简化版本
+ * Where 表达式类型 - 强类型版本
  */
 export type WhereExpression<DB, TB extends keyof DB> = (qb: any) => any;
+
+export type SelectWhereExpression<DB, TB extends keyof DB> = (
+  qb: SelectQueryBuilder<DB, TB, any>
+) => SelectQueryBuilder<DB, TB, any>;
+
+export type UpdateWhereExpression<DB, TB extends keyof DB> = (
+  qb: UpdateQueryBuilder<DB, TB, TB, any>
+) => UpdateQueryBuilder<DB, TB, TB, any>;
+
+export type DeleteWhereExpression<DB, TB extends keyof DB> = (
+  qb: DeleteQueryBuilder<DB, TB, any>
+) => DeleteQueryBuilder<DB, TB, any>;
 
 /**
  * 简化的查询管道函数类型
@@ -192,7 +950,7 @@ export class QueryBuilderFactory {
    * 添加 WHERE 条件
    */
   static addWhere<DB, TB extends keyof DB, O = {}>(
-    whereExpr: WhereExpression<DB, TB>
+    whereExpr: SelectWhereExpression<DB, TB>
   ): QueryPipe<DB, TB, O> {
     return (qb) => whereExpr(qb as any) as any;
   }
@@ -256,9 +1014,9 @@ export class ValidatorFactory {
   /**
    * 创建必填字段验证器
    */
-  static required<T>(field: keyof T, value: any): Result<any, ValidationError> {
+  static required<T>(field: keyof T, value: any): Either<ValidationError, any> {
     if (value === null || value === undefined || value === '') {
-      return failure(
+      return eitherLeft(
         ValidationError.create(
           `Field '${String(field)}' is required`,
           String(field),
@@ -266,7 +1024,7 @@ export class ValidatorFactory {
         )
       );
     }
-    return success(value);
+    return eitherRight(value);
   }
 
   /**
@@ -276,9 +1034,9 @@ export class ValidatorFactory {
     field: keyof T,
     value: any,
     expectedType: 'string' | 'number' | 'boolean' | 'object'
-  ): Result<any, ValidationError> {
+  ): Either<ValidationError, any> {
     if (typeof value !== expectedType) {
-      return failure(
+      return eitherLeft(
         ValidationError.create(
           `Field '${String(field)}' must be of type ${expectedType}`,
           String(field),
@@ -286,7 +1044,7 @@ export class ValidatorFactory {
         )
       );
     }
-    return success(value);
+    return eitherRight(value);
   }
 
   /**
@@ -297,9 +1055,9 @@ export class ValidatorFactory {
     value: string,
     min?: number,
     max?: number
-  ): Result<string, ValidationError> {
+  ): Either<ValidationError, string> {
     if (min !== undefined && value.length < min) {
-      return failure(
+      return eitherLeft(
         ValidationError.create(
           `Field '${String(field)}' must be at least ${min} characters`,
           String(field),
@@ -309,7 +1067,7 @@ export class ValidatorFactory {
     }
 
     if (max !== undefined && value.length > max) {
-      return failure(
+      return eitherLeft(
         ValidationError.create(
           `Field '${String(field)}' must be at most ${max} characters`,
           String(field),
@@ -318,29 +1076,29 @@ export class ValidatorFactory {
       );
     }
 
-    return success(value);
+    return eitherRight(value);
   }
 
   /**
    * 组合验证器
    */
   static compose<T>(
-    ...validators: Array<(value: T) => Result<T, ValidationError>>
-  ): (value: T) => Result<T, ValidationError> {
+    ...validators: Array<(value: T) => Either<ValidationError, T>>
+  ): (value: T) => Either<ValidationError, T> {
     return (value: T) => {
       for (const validator of validators) {
         const result = validator(value);
-        if (!result.success) {
+        if (result._tag === 'Left') {
           return result;
         }
       }
-      return success(value);
+      return eitherRight(value);
     };
   }
 }
 
 /**
- * 函数式基础仓储接口
+ * 函数式基础仓储接口 - 重构版
  */
 export interface IRepository<
   DB,
@@ -350,50 +1108,60 @@ export interface IRepository<
   UpdateT = Updateable<DB[TB]>
 > {
   // 基础查询
-  findById(id: string | number): Promise<DatabaseResult<Option<T>>>;
+  findById(
+    id: string | number,
+    options?: { select?: ReadonlyArray<keyof T> }
+  ): Promise<Maybe<T>>;
   findOne(
-    criteria: WhereExpression<DB, TB>
-  ): Promise<DatabaseResult<Option<T>>>;
+    criteria: WhereExpression<DB, TB>,
+    options?: { select?: ReadonlyArray<keyof T> }
+  ): Promise<Maybe<T>>;
   findMany(
     criteria?: WhereExpression<DB, TB>,
-    options?: QueryOptions
-  ): Promise<DatabaseResult<T[]>>;
-  findAll(options?: QueryOptions): Promise<DatabaseResult<T[]>>;
+    options?: QueryOptions<T>
+  ): Promise<T[]>;
+  findAll(options?: QueryOptions<T>): Promise<T[]>;
 
   // 基础操作
-  create(data: CreateT): Promise<DatabaseResult<T>>;
-  createMany(data: CreateT[]): Promise<DatabaseResult<T[]>>;
-  update(
-    id: string | number,
-    data: UpdateT
-  ): Promise<DatabaseResult<Option<T>>>;
+  create(data: CreateT): Promise<Either<DatabaseError, T>>;
+  createMany(data: CreateT[]): Promise<Either<DatabaseError, T[]>>;
+  update(id: string | number, data: UpdateT): Promise<Either<DatabaseError, T>>;
   updateMany(
     criteria: WhereExpression<DB, TB>,
     data: UpdateT
-  ): Promise<DatabaseResult<number>>;
-  delete(id: string | number): Promise<DatabaseResult<boolean>>;
+  ): Promise<Either<DatabaseError, number>>;
+  delete(id: string | number): Promise<Either<DatabaseError, T>>;
   deleteMany(
     criteria: WhereExpression<DB, TB>
-  ): Promise<DatabaseResult<number>>;
+  ): Promise<Either<DatabaseError, number>>;
 
   // 聚合查询
-  count(criteria?: WhereExpression<DB, TB>): Promise<DatabaseResult<number>>;
-  exists(criteria: WhereExpression<DB, TB>): Promise<DatabaseResult<boolean>>;
+  count(criteria?: WhereExpression<DB, TB>): Promise<number>;
+  exists(criteria: WhereExpression<DB, TB>): Promise<boolean>;
 
   // 分页查询
   paginate(
     criteria?: WhereExpression<DB, TB>,
     pagination?: PaginationOptions
-  ): Promise<DatabaseResult<PaginatedResult<T>>>;
+  ): Promise<Either<DatabaseError, PaginatedResult<T>>>;
 
   // 事务支持
   withTransaction<R>(
     fn: (repository: this) => Promise<R>
-  ): Promise<DatabaseResult<R>>;
+  ): Promise<Either<DatabaseError, R>>;
+}
+
+function isDatabaseError(error: unknown): error is DatabaseError {
+  return !!(
+    error &&
+    typeof (error as any).type === 'string' &&
+    typeof (error as any).message === 'string'
+  );
 }
 
 /**
- * 函数式基础仓储实现
+ * 函数式基础仓储实现 - 重构版
+ * 使用 tryCatch 和简化的返回类型，移除 DatabaseErrorHandler
  */
 export abstract class BaseRepository<
   DB,
@@ -404,186 +1172,196 @@ export abstract class BaseRepository<
 > implements IRepository<DB, TB, T, CreateT, UpdateT>
 {
   protected abstract readonly tableName: TB;
-  protected readonly primaryKey: string = 'id';
-  protected readConnection!: Kysely<DB>;
-  protected writeConnection!: Kysely<DB>;
+  protected primaryKey: string = 'id';
   protected readonly connectionConfig: ResolvedConnectionConfig;
   protected abstract readonly logger: Logger;
-  protected abstract readonly databaseApi: DatabaseAPI;
 
-  /**
-   * 构造函数 - 根据连接配置自动获取数据库连接
-   * @param databaseAPI - 数据库API适配器，用于获取连接和事务操作
-   * @param connectionOptions - 连接配置选项
-   * @param logger - 日志记录器实例
-   */
-  constructor(connectionOptions?: RepositoryConnectionOptions) {
-    // 解析连接配置
+  protected tableSchema?: TableSchema = undefined;
+  protected autoTableCreation: AutoTableCreationConfig = {};
+
+  constructor(
+    connectionOptions?: RepositoryConnectionOptions,
+    autoTableCreation?: Partial<AutoTableCreationConfig>
+  ) {
     this.connectionConfig = ConnectionConfigResolver.resolve(connectionOptions);
+    this.autoTableCreation = {
+      enabled: false,
+      autoEnableInDevelopment: true,
+      forceRecreate: false,
+      createIndexes: true,
+      timeout: 30000,
+      ...autoTableCreation
+    };
   }
 
-  async onReady() {
-    // 验证连接配置
-    if (!ConnectionConfigResolver.validate(this.connectionConfig)) {
-      throw new Error('Invalid connection configuration');
+  async onReady(): Promise<void> {
+    if (this.tableSchema) {
+      this.tableSchema = this.addAutoTimestampFields(this.tableSchema);
+    }
+    if (!this.autoTableCreation.enabled || !this.tableSchema) {
+      return;
     }
 
-    // 异步获取连接
     try {
-      // 获取读连接
-      const readConnectionResult = await this.databaseApi.getReadConnection(
-        this.connectionConfig.readConnectionName
+      this.logger?.info(
+        {
+          forceRecreate: this.autoTableCreation.forceRecreate,
+          columnsCount: this.tableSchema.columns.length
+        },
+        `Creating table in onReady: ${this.tableName}`
       );
-      if (!readConnectionResult.success) {
-        throw readConnectionResult.error;
-      }
-      this.readConnection = readConnectionResult.data;
 
-      // 获取写连接
-      const writeConnectionResult = await this.databaseApi.getWriteConnection(
-        this.connectionConfig.writeConnectionName
+      const connection = await this.getWriteConnection();
+      const databaseType = TableCreator.getDatabaseType(connection);
+
+      await TableCreator.createTable(
+        connection,
+        this.tableSchema,
+        databaseType,
+        {
+          forceRecreate: this.autoTableCreation.forceRecreate
+        }
       );
-      if (!writeConnectionResult.success) {
-        throw writeConnectionResult.error;
-      }
-      this.writeConnection = writeConnectionResult.data;
+
+      this.logger?.info(
+        `Successfully ensured table exists: ${this.tableName}`,
+        {
+          originalColumnsCount: (this.tableSchema?.columns.length || 0) - 2,
+          totalColumnsCount: this.tableSchema?.columns.length || 0,
+          indexesCount: this.tableSchema?.indexes?.length || 0,
+          forceRecreate: this.autoTableCreation.forceRecreate,
+          autoTimestampsAdded: true
+        }
+      );
     } catch (error) {
-      throw new Error(
-        `Failed to initialize repository connections: ${error instanceof Error ? error.message : String(error)}`
-      );
+      this.logger?.error(`Failed to create table ${this.tableName}:`, error);
+      throw error;
     }
   }
 
-  /**
-   * 获取查询构建器上下文
-   * 增强版本：自动检测并使用事务连接
-   */
-  protected getContext(): QueryBuilderContext<DB, TB> {
+  protected async getContext(): Promise<QueryBuilderContext<DB, TB>> {
     return {
-      db: this.getQueryConnection(),
+      db: await this.getQueryConnection(),
       tableName: this.tableName,
       primaryKey: this.primaryKey
     };
   }
 
-  /**
-   * 获取查询连接（读操作）
-   * 优先使用当前事务，如果没有事务则使用读连接
-   */
-  protected getQueryConnection(): Kysely<DB> {
+  protected async getQueryConnection(): Promise<Kysely<DB>> {
     const currentTransaction = getCurrentTransaction();
     if (currentTransaction) {
-      // 记录事务使用情况（调试用）
       this.logger?.debug('Using transaction for read query', {
         tableName: this.tableName,
         inTransaction: true
       });
-      // Transaction对象在Kysely中可以作为查询构建器使用
       return currentTransaction as unknown as Kysely<DB>;
     }
-    return this.readConnection!;
+    return await getReadConnection(this.connectionConfig.readConnectionName);
   }
 
-  /**
-   * 获取写操作连接
-   * 优先使用当前事务，如果没有事务则使用写连接
-   */
-  protected getWriteConnection(): Kysely<DB> {
+  protected async getWriteConnection(): Promise<Kysely<DB>> {
     const currentTransaction = getCurrentTransaction();
     if (currentTransaction) {
-      // 记录事务使用情况（调试用）
       this.logger?.debug('Using transaction for write query', {
         tableName: this.tableName,
         inTransaction: true
       });
-      // Transaction对象在Kysely中可以作为查询构建器使用
       return currentTransaction as unknown as Kysely<DB>;
     }
-    return this.writeConnection!;
+    return await getWriteConnection(this.connectionConfig.writeConnectionName);
   }
 
-  /**
-   * 验证创建数据
-   */
   protected validateCreateData(
     data: CreateT
-  ): Result<CreateT, ValidationError> {
-    // 默认实现：直接返回成功
-    // 子类可以重写此方法添加具体验证逻辑
-    return success(data);
+  ): Either<ValidationError, CreateT> {
+    return eitherRight(data);
   }
 
-  /**
-   * 验证更新数据
-   */
   protected validateUpdateData(
     data: UpdateT
-  ): Result<UpdateT, ValidationError> {
-    // 默认实现：直接返回成功
-    // 子类可以重写此方法添加具体验证逻辑
-    return success(data);
+  ): Either<ValidationError, UpdateT> {
+    return eitherRight(data);
   }
 
-  /**
-   * 根据 ID 查找单条记录
-   */
-  async findById(id: string | number): Promise<DatabaseResult<Option<T>>> {
-    return await DatabaseErrorHandler.execute(async () => {
-      const result = await (this.getQueryConnection() as any)
-        .selectFrom(this.tableName)
-        .selectAll()
-        .where(this.primaryKey, '=', id)
+  async findById(
+    id: string | number,
+    options?: { select?: ReadonlyArray<keyof T> }
+  ): Promise<Maybe<T>> {
+    try {
+      const connection = await this.getQueryConnection();
+      let query = connection.selectFrom(this.tableName) as any;
+
+      // 如果指定了字段选择，使用 select()；否则使用 selectAll()
+      if (options?.select && options.select.length > 0) {
+        query = query.select(options.select as any);
+      } else {
+        query = query.selectAll();
+      }
+
+      const result = await query
+        .where(this.primaryKey as any, '=', id)
         .executeTakeFirst();
-
-      return fromNullable(result as T | undefined) as Option<T>;
-    }, 'repository-find-by-id');
+      return fromNullable(result as T | undefined);
+    } catch (error) {
+      this.logError('findById', error as Error, { id });
+      // For Maybe-returning methods, we return None on error.
+      // The error is logged, and the calling service can decide how to handle the absence of data.
+      return fromNullable<T>(undefined);
+    }
   }
 
-  /**
-   * 根据条件查找单条记录
-   */
   async findOne(
-    criteria: WhereExpression<DB, TB>
-  ): Promise<DatabaseResult<Option<T>>> {
-    return await DatabaseErrorHandler.execute(async () => {
-      const baseQuery = (this.readConnection as any)
-        .selectFrom(this.tableName)
-        .selectAll();
+    criteria: WhereExpression<DB, TB>,
+    options?: { select?: ReadonlyArray<keyof T> }
+  ): Promise<Maybe<T>> {
+    try {
+      const connection = await this.getQueryConnection();
+      let baseQuery = connection.selectFrom(this.tableName) as any;
+
+      // 如果指定了字段选择，使用 select()；否则使用 selectAll()
+      if (options?.select && options.select.length > 0) {
+        baseQuery = baseQuery.select(options.select as any);
+      } else {
+        baseQuery = baseQuery.selectAll();
+      }
+
       const query = criteria(baseQuery);
       const result = await query.executeTakeFirst();
-
-      return fromNullable(result as T | undefined) as Option<T>;
-    }, 'repository-find-one');
+      return fromNullable(result as T | undefined);
+    } catch (error) {
+      this.logError('findOne', error as Error);
+      return fromNullable<T>(undefined);
+    }
   }
 
-  /**
-   * 根据条件查找多条记录
-   */
   async findMany(
     criteria?: WhereExpression<DB, TB>,
-    options?: QueryOptions
-  ): Promise<DatabaseResult<T[]>> {
-    return await DatabaseErrorHandler.execute(async () => {
-      let query = (this.readConnection as any)
-        .selectFrom(this.tableName)
-        .selectAll();
+    options?: QueryOptions<T>
+  ): Promise<T[]> {
+    try {
+      const connection = await this.getQueryConnection();
+      let query = connection.selectFrom(this.tableName) as any;
 
-      // 应用条件
+      // 如果指定了字段选择，使用 select()；否则使用 selectAll()
+      if (options?.select && options.select.length > 0) {
+        query = query.select(options.select as any);
+      } else {
+        query = query.selectAll();
+      }
+
       if (criteria) {
         query = criteria(query);
       }
 
-      // 应用排序
       if (options?.orderBy) {
         const orderClauses = Array.isArray(options.orderBy)
           ? options.orderBy
           : [options.orderBy];
         for (const clause of orderClauses) {
-          query = query.orderBy(clause.field, clause.direction);
+          query = query.orderBy(clause.field as any, clause.direction);
         }
       }
 
-      // 应用分页
       if (options?.limit !== undefined) {
         query = query.limit(options.limit);
       }
@@ -591,21 +1369,18 @@ export abstract class BaseRepository<
         query = query.offset(options.offset);
       }
 
-      const results = await query.execute();
-      return results as T[];
-    }, 'repository-find-many');
+      return (await query.execute()) as T[];
+    } catch (error) {
+      this.logError('findMany', error as Error);
+      // For array-returning methods, we return an empty array on error.
+      return [];
+    }
   }
 
-  /**
-   * 查找所有记录
-   */
-  async findAll(options?: QueryOptions): Promise<DatabaseResult<T[]>> {
-    return await this.findMany(undefined, options);
+  async findAll(options?: QueryOptions<T>): Promise<T[]> {
+    return this.findMany(undefined, options);
   }
 
-  /**
-   * 处理 JSON 字段序列化
-   */
   protected processJsonFields(data: any): any {
     if (!data || typeof data !== 'object') {
       return data;
@@ -613,14 +1388,11 @@ export abstract class BaseRepository<
 
     const processed = { ...data };
 
-    // 遍历所有字段，将对象类型的字段序列化为 JSON 字符串
     for (const [key, value] of Object.entries(processed)) {
       if (value !== null && value !== undefined && typeof value === 'object') {
-        // 如果是 Date 对象，保持不变
         if (value instanceof Date) {
           continue;
         }
-        // 其他对象类型（包括数组）序列化为 JSON 字符串
         try {
           processed[key] = JSON.stringify(value);
         } catch (error) {
@@ -628,7 +1400,6 @@ export abstract class BaseRepository<
             error,
             value
           });
-          // 序列化失败时保持原值
         }
       }
     }
@@ -636,372 +1407,308 @@ export abstract class BaseRepository<
     return processed;
   }
 
-  /**
-   * 创建单条记录
-   */
-  async create(data: CreateT): Promise<DatabaseResult<T>> {
-    // 验证数据
+  async create(data: CreateT): Promise<Either<DatabaseError, T>> {
     const validationResult = this.validateCreateData(data);
-    if (!validationResult.success) {
-      return failure(validationResult.error);
+    if (isLeft(validationResult)) {
+      return eitherLeft(validationResult.left);
     }
 
-    return await DatabaseErrorHandler.execute(async () => {
-      // 处理 JSON 字段序列化
-      const processedData = this.processJsonFields(data);
+    return tryCatchAsync(
+      async () => {
+        const dataWithTimestamps = this.addTimestampsIfExists(
+          data as any,
+          'create'
+        );
+        const processedData = this.processJsonFields(dataWithTimestamps);
+        const connection = await this.getWriteConnection();
 
-      // 构建查询
-      const query = (this.getWriteConnection() as any)
-        .insertInto(this.tableName)
-        .values(processedData as any);
+        // MySQL 不支持 RETURNING 子句，需要先插入再查询
+        const insertResult = await connection
+          .insertInto(this.tableName)
+          .values(processedData as any)
+          .executeTakeFirstOrThrow();
 
-      // 打印 SQL 用于调试
-      const compiledQuery = query.compile();
-      this.logger.debug('Executing CREATE SQL', {
-        tableName: this.tableName,
-        sql: compiledQuery.sql,
-        parameters: compiledQuery.parameters,
-        originalData: data,
-        processedData: processedData
-      });
+        // 获取插入的 ID
+        const insertId = (insertResult as any).insertId;
 
-      const result = await query.executeTakeFirstOrThrow();
+        // 重新查询插入的记录
+        const query: any = connection.selectFrom(this.tableName).selectAll();
+        const result = await query
+          .where((eb: any) => eb(this.primaryKey, '=', insertId))
+          .executeTakeFirstOrThrow();
 
-      this.logOperation('create', { tableName: this.tableName, data });
-
-      // 简单返回插入结果，不使用 returningAll
-      return result as T;
-    }, 'repository-create');
+        this.logOperation('create', { data });
+        return result as T;
+      },
+      (error) => {
+        if (isDatabaseError(error)) return error;
+        return ErrorClassifier.classify(error);
+      }
+    );
   }
 
-  /**
-   * 批量创建记录
-   */
-  async createMany(data: CreateT[]): Promise<DatabaseResult<T[]>> {
-    // 验证所有数据
+  async createMany(data: CreateT[]): Promise<Either<DatabaseError, T[]>> {
     for (const item of data) {
       const validationResult = this.validateCreateData(item);
-      if (!validationResult.success) {
-        return failure(validationResult.error);
+      if (isLeft(validationResult)) {
+        return eitherLeft(validationResult.left);
       }
     }
 
-    const operation = (db: Kysely<DB>) => {
-      // 处理所有数据的 JSON 字段序列化
-      const processedData = data.map((item) => this.processJsonFields(item));
+    return tryCatchAsync(
+      async () => {
+        const connection = await this.getWriteConnection();
+        const dataWithTimestamps = data.map((item) =>
+          this.addTimestampsIfExists(item as any, 'create')
+        );
+        const processedData = dataWithTimestamps.map((item) =>
+          this.processJsonFields(item)
+        );
 
-      const query = db.insertInto(this.tableName).values(processedData as any);
+        // MySQL 不支持 RETURNING 子句，需要先插入再查询
+        const insertResult = await connection
+          .insertInto(this.tableName)
+          .values(processedData as any)
+          .executeTakeFirstOrThrow();
 
-      // 打印 SQL 用于调试
-      const compiledQuery = query.compile();
-      this.logger.debug('Executing CREATE MANY SQL', {
-        tableName: this.tableName,
-        sql: compiledQuery.sql,
-        parameters: compiledQuery.parameters,
-        dataCount: data.length,
-        firstOriginalItem: data[0],
-        firstProcessedItem: processedData[0]
-      });
+        // 获取插入的起始 ID
+        const firstInsertId = (insertResult as any).insertId;
+        const count = data.length;
 
-      return query.execute().then((results) => {
-        this.logOperation('createMany', {
-          tableName: this.tableName,
-          count: data.length
-        });
+        // 重新查询插入的记录（假设 ID 是连续的）
+        const query: any = connection.selectFrom(this.tableName).selectAll();
+        const results = await query
+          .where((eb: any) => eb(this.primaryKey, '>=', firstInsertId))
+          .where((eb: any) => eb(this.primaryKey, '<', firstInsertId + count))
+          .execute();
+
+        this.logOperation('createMany', { count: data.length });
         return results as T[];
-      });
-    };
-
-    return await DatabaseErrorHandler.execute(async () => {
-      return await operation(this.getWriteConnection() as any);
-    }, 'database-query-execution');
+      },
+      (error) => {
+        if (isDatabaseError(error)) return error;
+        return ErrorClassifier.classify(error);
+      }
+    );
   }
 
-  /**
-   * 更新记录
-   */
   async update(
     id: string | number,
     data: UpdateT
-  ): Promise<DatabaseResult<Option<T>>> {
-    // 验证数据
+  ): Promise<Either<DatabaseError, T>> {
     const validationResult = this.validateUpdateData(data);
-    if (!validationResult.success) {
-      return failure(validationResult.error);
+    if (isLeft(validationResult)) {
+      return eitherLeft(validationResult.left);
     }
 
-    return await DatabaseErrorHandler.execute(async () => {
-      // 处理 JSON 字段序列化
-      const processedData = this.processJsonFields(data);
+    return tryCatchAsync(
+      async () => {
+        const dataWithTimestamps = this.addTimestampsIfExists(
+          data as any,
+          'update'
+        );
+        const processedData = this.processJsonFields(dataWithTimestamps);
+        const connection = await this.getWriteConnection();
 
-      // 构建更新查询
-      const query = (this.getWriteConnection() as any)
-        .updateTable(this.tableName)
-        .set(processedData)
-        .where(this.primaryKey, '=', id);
-
-      // 打印 SQL 用于调试
-      const compiledQuery = query.compile();
-      this.logger.debug('Executing UPDATE SQL', {
-        tableName: this.tableName,
-        sql: compiledQuery.sql,
-        parameters: compiledQuery.parameters,
-        id,
-        originalData: data,
-        processedData: processedData
-      });
-
-      const result = await query.executeTakeFirst();
-
-      this.logOperation('update', {
-        tableName: this.tableName,
-        id,
-        updatedRows: result.numUpdatedRows || 0
-      });
-
-      // 如果需要返回更新后的记录，需要额外查询
-      if (result.numUpdatedRows > 0) {
-        const updatedRecord = await (this.readConnection as any)
-          .selectFrom(this.tableName)
-          .selectAll()
-          .where(this.primaryKey, '=', id)
+        const result = await (connection.updateTable(this.tableName) as any)
+          .set(processedData as any)
+          .where(this.primaryKey as any, '=', id)
           .executeTakeFirst();
-        return fromNullable(updatedRecord as T | undefined) as Option<T>;
-      }
 
-      return fromNullable(undefined) as Option<T>;
-    }, 'repository-update');
+        this.logOperation('update', { id, updatedRows: result.numUpdatedRows });
+
+        if (Number(result.numUpdatedRows || 0) === 0) {
+          throw ValidationError.create(
+            `Record with id ${id} not found for update.`
+          );
+        }
+
+        const updatedRecordOpt = await this.findById(id);
+        if (isNone(updatedRecordOpt)) {
+          throw ErrorClassifier.classify(
+            new Error('Updated record not found after update.')
+          );
+        }
+        return updatedRecordOpt.value;
+      },
+      (error) => {
+        if (isDatabaseError(error)) return error;
+        return ErrorClassifier.classify(error);
+      }
+    );
   }
 
-  /**
-   * 批量更新记录
-   */
   async updateMany(
     criteria: WhereExpression<DB, TB>,
     data: UpdateT
-  ): Promise<DatabaseResult<number>> {
-    // 验证数据
+  ): Promise<Either<DatabaseError, number>> {
     const validationResult = this.validateUpdateData(data);
-    if (!validationResult.success) {
-      return failure(validationResult.error);
+    if (isLeft(validationResult)) {
+      return eitherLeft(validationResult.left);
     }
 
-    const operation = async (db: Kysely<DB>) => {
-      // 处理 JSON 字段序列化
-      const processedData = this.processJsonFields(data);
+    return tryCatchAsync(
+      async () => {
+        const connection = await this.getWriteConnection();
+        const dataWithTimestamps = this.addTimestampsIfExists(
+          data as any,
+          'update'
+        );
+        const processedData = this.processJsonFields(dataWithTimestamps);
 
-      const updateQuery = (db as any)
-        .updateTable(this.tableName)
-        .set(processedData);
-      const finalQuery = criteria(updateQuery);
+        const updateQuery = (connection.updateTable(this.tableName) as any).set(
+          processedData as any
+        );
+        const finalQuery = criteria(updateQuery);
 
-      // 打印 SQL 用于调试
-      const compiledQuery = finalQuery.compile();
-      this.logger.debug('Executing UPDATE MANY SQL', {
-        tableName: this.tableName,
-        sql: compiledQuery.sql,
-        parameters: compiledQuery.parameters,
-        originalData: data,
-        processedData: processedData
-      });
+        const result = await finalQuery.executeTakeFirst();
+        const numUpdatedRows = Number(result.numUpdatedRows || 0);
+        this.logOperation('updateMany', { updatedRows: numUpdatedRows });
+        return numUpdatedRows;
+      },
+      (error) => {
+        if (isDatabaseError(error)) return error;
+        return ErrorClassifier.classify(error);
+      }
+    );
+  }
 
-      const result = await finalQuery.execute();
+  async delete(id: string | number): Promise<Either<DatabaseError, T>> {
+    return tryCatchAsync(
+      async () => {
+        const recordToDeleteOpt = await this.findById(id);
+        if (isNone(recordToDeleteOpt)) {
+          throw ValidationError.create(
+            `Record with id ${id} not found for deletion.`
+          );
+        }
+        const recordToDelete = recordToDeleteOpt.value;
 
-      // 健壮的返回值处理
-      const getUpdatedRowsCount = (result: any): number => {
-        // MySQL可能返回数组格式
-        if (Array.isArray(result) && result.length > 0) {
-          const resultObj = result[0];
-          return Number(
-            resultObj?.numUpdatedRows ||
-              resultObj?.affectedRows ||
-              resultObj?.changedRows ||
-              0
+        const connection = await this.getWriteConnection();
+        const result = await (connection.deleteFrom(this.tableName) as any)
+          .where(this.primaryKey as any, '=', id)
+          .executeTakeFirst();
+
+        const success = Number(result.numDeletedRows || 0) > 0;
+        this.logOperation('delete', { id, success });
+
+        if (!success) {
+          throw ErrorClassifier.classify(
+            new Error(`Failed to delete record with id ${id} after finding it.`)
           );
         }
 
-        // PostgreSQL/SQLite返回对象格式
-        if (result && typeof result === 'object') {
-          return Number(
-            result.numUpdatedRows || result.changes || result.affectedRows || 0
-          );
-        }
-
-        return 0;
-      };
-      return getUpdatedRowsCount(result);
-    };
-
-    return await DatabaseErrorHandler.execute(async () => {
-      return await operation(this.getWriteConnection() as any);
-    }, 'database-query-execution');
+        return recordToDelete;
+      },
+      (error) => {
+        if (isDatabaseError(error)) return error;
+        return ErrorClassifier.classify(error);
+      }
+    );
   }
 
-  /**
-   * 删除记录
-   */
-  async delete(id: string | number): Promise<DatabaseResult<boolean>> {
-    return await DatabaseErrorHandler.execute(async () => {
-      const result = await (this.getWriteConnection() as any)
-        .deleteFrom(this.tableName)
-        .where(this.primaryKey, '=', id)
-        .execute();
-
-      return Number((result as any).numDeletedRows || 0) > 0;
-    }, 'repository-delete');
-  }
-
-  /**
-   * 批量删除记录
-   */
   async deleteMany(
     criteria: WhereExpression<DB, TB>
-  ): Promise<DatabaseResult<number>> {
-    const operation = (db: Kysely<DB>) => {
-      const deleteQuery = db.deleteFrom(this.tableName);
-      const finalQuery = criteria(deleteQuery as any) as any;
-
-      return finalQuery
-        .execute()
-        .then((result: any) => Number(result.numDeletedRows || 0));
-    };
-
-    return await DatabaseErrorHandler.execute(async () => {
-      return await operation(this.getWriteConnection() as any);
-    }, 'database-query-execution');
+  ): Promise<Either<DatabaseError, number>> {
+    return tryCatchAsync(
+      async () => {
+        const connection = await this.getWriteConnection();
+        const deleteQuery = connection.deleteFrom(this.tableName);
+        const finalQuery = criteria(deleteQuery);
+        const result = await finalQuery.executeTakeFirst();
+        const numDeletedRows = Number(result.numDeletedRows || 0);
+        this.logOperation('deleteMany', { deletedRows: numDeletedRows });
+        return numDeletedRows;
+      },
+      (error) => {
+        if (isDatabaseError(error)) return error;
+        return ErrorClassifier.classify(error);
+      }
+    );
   }
 
-  /**
-   * 统计记录数量
-   */
-  async count(
-    criteria?: WhereExpression<DB, TB>
-  ): Promise<DatabaseResult<number>> {
-    const operation = async (db: Kysely<DB>) => {
-      const baseQuery = (db as any)
-        .selectFrom(this.tableName)
-        .select((eb: any) => eb.fn.countAll().as('count'));
+  async count(criteria?: WhereExpression<DB, TB>): Promise<number> {
+    try {
+      const connection = await this.getQueryConnection();
+      const baseQuery = (connection.selectFrom(this.tableName) as any).select(
+        (eb: ExpressionBuilder<DB, TB>) => eb.fn.countAll<string>().as('count')
+      );
 
-      const finalQuery = criteria ? criteria(baseQuery) : baseQuery;
+      const finalQuery = criteria ? criteria(baseQuery as any) : baseQuery;
 
-      const result = await finalQuery.executeTakeFirstOrThrow();
-      return Number((result as any).count);
-    };
-
-    return await this.databaseApi.executeQuery(operation, {
-      readonly: true
-    });
+      const result = (await finalQuery.executeTakeFirstOrThrow()) as {
+        count: string;
+      };
+      return Number(result.count);
+    } catch (error) {
+      this.logError('count', error as Error);
+      return 0;
+    }
   }
 
-  /**
-   * 检查记录是否存在
-   */
-  async exists(
-    criteria: WhereExpression<DB, TB>
-  ): Promise<DatabaseResult<boolean>> {
-    const countResult = await this.count(criteria);
-    return mapResult(countResult, (count) => count > 0);
+  async exists(criteria: WhereExpression<DB, TB>): Promise<boolean> {
+    const count = await this.count(criteria);
+    return count > 0;
   }
 
-  /**
-   * 分页查询记录
-   */
   async paginate(
     criteria?: WhereExpression<DB, TB>,
     pagination?: PaginationOptions
-  ): Promise<DatabaseResult<PaginatedResult<T>>> {
-    const page = pagination?.page || 1;
-    const pageSize = Math.min(
-      pagination?.pageSize || 10,
-      pagination?.maxPageSize || 100
-    );
-    const offset = (page - 1) * pageSize;
+  ): Promise<Either<DatabaseError, PaginatedResult<T>>> {
+    return tryCatchAsync(
+      async () => {
+        const page = pagination?.page || 1;
+        const pageSize = Math.min(
+          pagination?.pageSize || 10,
+          pagination?.maxPageSize || 100
+        );
+        const offset = (page - 1) * pageSize;
 
-    // 获取总数和数据
-    const [totalResult, dataResult] = await Promise.all([
-      this.count(criteria),
-      this.findMany(criteria, {
-        limit: pageSize,
-        offset,
-        readonly: true
-      })
-    ]);
+        const [total, data] = await Promise.all([
+          this.count(criteria),
+          this.findMany(criteria, { limit: pageSize, offset, readonly: true })
+        ]);
 
-    if (!totalResult.success) {
-      return failure(totalResult.error);
-    }
+        const totalPages = Math.ceil(total / pageSize);
 
-    if (!dataResult.success) {
-      return failure(dataResult.error);
-    }
-
-    const total = totalResult.data;
-    const data = dataResult.data;
-    const totalPages = Math.ceil(total / pageSize);
-
-    const result: PaginatedResult<T> = {
-      data,
-      total,
-      page,
-      pageSize,
-      totalPages,
-      hasNext: page < totalPages,
-      hasPrev: page > 1,
-      metadata: {
-        offset,
-        limit: pageSize
+        return {
+          data,
+          total,
+          page,
+          pageSize,
+          totalPages,
+          hasNext: page < totalPages,
+          hasPrev: page > 1,
+          metadata: {
+            offset,
+            limit: pageSize
+          }
+        };
+      },
+      (error) => {
+        if (isDatabaseError(error)) return error;
+        return ErrorClassifier.classify(error);
       }
-    };
-
-    return success(result);
+    );
   }
 
-  /**
-   * 在事务中执行操作
-   */
   async withTransaction<R>(
     fn: (repository: this) => Promise<R>
-  ): Promise<DatabaseResult<R>> {
-    return await this.databaseApi.transaction(async (_trx: any) => {
-      // 创建事务版本的仓储
-      // 注意：这里简化实现，实际应该创建带事务的API实例
-      return await fn(this);
-    });
+  ): Promise<Either<DatabaseError, R>> {
+    return tryCatchAsync(
+      async () => {
+        const connection = await this.getWriteConnection();
+        return await connection.transaction().execute(async (_trx) => {
+          return await fn(this);
+        });
+      },
+      (error) => {
+        if (isDatabaseError(error)) return error;
+        return ErrorClassifier.classify(error);
+      }
+    );
   }
 
-  /**
-   * 高级查询 - 使用管道模式
-   */
-  protected async advancedQuery<R>(
-    queryBuilder: (db: Kysely<DB>) => Promise<R>,
-    options?: DatabaseOperationContext
-  ): Promise<DatabaseResult<R>> {
-    return await this.databaseApi.executeQuery(queryBuilder, options);
-  }
-
-  /**
-   * 批量操作
-   */
-  protected async batchOperations<R>(
-    operations: Array<(db: Kysely<DB>) => Promise<R>>,
-    options?: DatabaseOperationContext
-  ): Promise<DatabaseResult<R[]>> {
-    return await this.databaseApi.executeBatch(operations, options);
-  }
-
-  /**
-   * 并行操作
-   */
-  protected async parallelOperations<R>(
-    operations: Array<(db: Kysely<DB>) => Promise<R>>,
-    options?: DatabaseOperationContext
-  ): Promise<DatabaseResult<R[]>> {
-    return await this.databaseApi.executeParallel(operations, options);
-  }
-
-  /**
-   * 记录操作日志
-   */
   protected logOperation(operation: string, data?: any): void {
     const logData = {
       component: this.constructor.name,
@@ -1013,9 +1720,6 @@ export abstract class BaseRepository<
     this.logger.debug(`Repository operation: ${operation}`, logData);
   }
 
-  /**
-   * 记录错误日志
-   */
   protected logError(operation: string, error: Error, data?: any): void {
     const logData = {
       component: this.constructor.name,
@@ -1035,18 +1739,13 @@ export abstract class BaseRepository<
     );
   }
 
-  /**
-   * 清理日志数据，移除敏感信息
-   */
   private sanitizeLogData(data: any): any {
     if (!data) return data;
 
-    // 如果是对象，递归清理
     if (typeof data === 'object' && data !== null) {
       const sanitized: any = Array.isArray(data) ? [] : {};
 
       for (const [key, value] of Object.entries(data)) {
-        // 移除可能的敏感字段
         const sensitiveFields = [
           'password',
           'token',
@@ -1073,6 +1772,105 @@ export abstract class BaseRepository<
 
     return data;
   }
+
+  private addAutoTimestampFields(schema: TableSchema): TableSchema {
+    const hasCreatedAt = schema.columns.some(
+      (col) => col.name === 'created_at'
+    );
+    const hasUpdatedAt = schema.columns.some(
+      (col) => col.name === 'updated_at'
+    );
+
+    if (hasCreatedAt || hasUpdatedAt) {
+      const conflictFields = [];
+      if (hasCreatedAt) conflictFields.push('created_at');
+      if (hasUpdatedAt) conflictFields.push('updated_at');
+
+      throw new Error(
+        `时间戳字段冲突：表 ${schema.tableName} 的 schema 中已经定义了 ${conflictFields.join(', ')} 字段。` +
+          `请移除这些字段的手动定义，系统会自动管理时间戳字段。` +
+          `\n提示：不要在 SchemaBuilder 中使用 .addTimestamps() 或手动添加 created_at/updated_at 字段，` +
+          `BaseRepository 会自动添加这些字段。`
+      );
+    }
+
+    const enhancedSchema: TableSchema = {
+      ...schema,
+      columns: [
+        ...schema.columns,
+        {
+          name: 'created_at',
+          type: DataColumnType.STRING,
+          constraints: {
+            length: 255,
+            nullable: false
+          }
+        },
+        {
+          name: 'updated_at',
+          type: DataColumnType.STRING,
+          constraints: {
+            length: 255,
+            nullable: true
+          }
+        }
+      ]
+    };
+
+    return enhancedSchema;
+  }
+
+  protected hasColumn(columnName: string): boolean {
+    if (!this.tableSchema) return false;
+    return this.tableSchema.columns.some((col) => col.name === columnName);
+  }
+
+  protected getCurrentTimestamp(): string {
+    return new Date().toLocaleString();
+  }
+
+  protected addTimestampsIfExists<T extends Record<string, any>>(
+    data: T,
+    operation: 'create' | 'update'
+  ): T {
+    const result = { ...data };
+    const now = this.getCurrentTimestamp();
+
+    if (operation === 'create') {
+      if (this.hasColumn('created_at')) {
+        (result as any).created_at = now;
+      }
+      if (this.hasColumn('updated_at')) {
+        (result as any).updated_at = now;
+      }
+    } else if (operation === 'update') {
+      if (this.hasColumn('updated_at')) {
+        (result as any).updated_at = now;
+      }
+    }
+
+    return result;
+  }
+
+  protected addCreateTimestamps<T extends Record<string, any>>(
+    data: T
+  ): T & { created_at: string; updated_at: string } {
+    const now = this.getCurrentTimestamp();
+    return {
+      ...data,
+      created_at: now,
+      updated_at: now
+    };
+  }
+
+  protected addUpdateTimestamp<T extends Record<string, any>>(
+    data: T
+  ): T & { updated_at: string } {
+    return {
+      ...data,
+      updated_at: this.getCurrentTimestamp()
+    };
+  }
 }
 
 /**
@@ -1098,7 +1896,9 @@ export class QueryHelpers {
     max: any
   ): WhereExpression<DB, TB> {
     return (qb) =>
-      qb.where(field as any, '>=', min).where(field as any, '<=', max);
+      qb
+        .where(field as any, '>=' as any, min)
+        .where(field as any, '<=' as any, max);
   }
 
   /**
@@ -1121,8 +1921,8 @@ export class QueryHelpers {
   ): WhereExpression<DB, TB> {
     return (qb) =>
       qb
-        .where(field as any, '>=', startDate)
-        .where(field as any, '<=', endDate);
+        .where(field as any, '>=' as any, startDate)
+        .where(field as any, '<=' as any, endDate);
   }
 
   /**
@@ -1148,7 +1948,7 @@ export class QueryHelpers {
         const orConditions = conditions.map(
           (condition) => (subEb: any) => condition(subEb)
         );
-        return (eb as any).or(orConditions);
+        return eb.or(orConditions);
       });
     };
   }

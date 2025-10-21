@@ -100,11 +100,39 @@ export interface FileInfo {
   download_url?: string;
 }
 
+// Token 缓存相关类型
+export interface TokenCacheError extends Error {
+  code:
+    | 'REDIS_UNAVAILABLE'
+    | 'FALLBACK_DISABLED'
+    | 'INVALID_TOKEN'
+    | 'CACHE_ERROR';
+  details?: any;
+}
+
+// WPS 配置扩展，支持 token 缓存配置
+export interface WpsConfigWithCache extends WpsConfig {
+  /** Token 缓存配置 */
+  tokenCache?: {
+    /** Redis 键前缀 */
+    keyPrefix?: string;
+    /** 默认过期时间（秒） */
+    defaultTtl?: number;
+    /** 提前过期时间（秒） */
+    earlyExpireSeconds?: number;
+    /** 是否启用降级模式 */
+    enableFallback?: boolean;
+  };
+}
+
 // 导出所有类型
 // export * from './auth.js';
 export * from './contact.js';
-// export * from './drive.js';
+export * from './drive.js';
 // export * from './message.js';
 
 // 导出日历相关类型
 export * from './calendar.js';
+
+// 导出 DBSheet 相关类型
+export * from './dbsheet.js';

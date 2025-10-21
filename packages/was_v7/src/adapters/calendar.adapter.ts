@@ -183,12 +183,12 @@ export function createWpsCalendarAdapter(
       const requestBody = { role, user_id };
       const headers = { 'X-Kso-Id-Type': id_type };
 
-      const response = await httpClient.post<CreateCalendarPermissionResponse>(
+      const response = await httpClient.post(
         `/v7/calendars/${calendar_id}/permissions/create`,
         requestBody,
         headers
       );
-      return response.data;
+      return response;
     },
 
     /**
@@ -230,6 +230,7 @@ export function createWpsCalendarAdapter(
 
       do {
         const response = await calendar.getCalendarPermissionList({
+          page_size: 20,
           ...params,
           page_token: pageToken
         });
@@ -309,12 +310,12 @@ export function createWpsCalendarAdapter(
       for (let i = 0; i < permissions.length; i += BATCH_SIZE) {
         permissionBatches.push(permissions.slice(i, i + BATCH_SIZE));
       }
+      const headers = { 'X-Kso-Id-Type': id_type };
 
       // 依次处理每个批次
       for (const batch of permissionBatches) {
         try {
           const requestBody = { permissions: batch };
-          const headers = { 'X-Kso-Id-Type': id_type };
 
           const response =
             await httpClient.post<BatchCreateCalendarPermissionsResponse>(
@@ -350,11 +351,17 @@ export function createWpsCalendarAdapter(
       params: DeleteCalendarPermissionParams
     ): Promise<void> {
       await httpClient.ensureAccessToken();
-      const { calendar_id, calendar_permission_id } = params;
+      const {
+        calendar_id,
+        calendar_permission_id,
+        id_type = 'external'
+      } = params;
+      const headers = { 'X-Kso-Id-Type': id_type };
 
       await httpClient.post(
         `/v7/calendars/${calendar_id}/permissions/${calendar_permission_id}/delete`,
-        {}
+        {},
+        headers
       );
     }
   };

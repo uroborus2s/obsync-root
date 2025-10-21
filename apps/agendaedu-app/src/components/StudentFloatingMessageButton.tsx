@@ -27,7 +27,9 @@ export function StudentFloatingMessageButton({
 
         console.log(response);
         if (response.success && response.data) {
-          setPendingCount(response.data.stats.leave_pending_count);
+          // 安全访问 stats，如果不存在则使用默认值
+          const pendingCount = response.data.stats?.leave_pending_count || 0;
+          setPendingCount(pendingCount);
         } else {
           console.warn('获取待审批申请数量失败:', response.message);
           setPendingCount(0);

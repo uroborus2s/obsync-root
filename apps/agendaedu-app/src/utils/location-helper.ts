@@ -12,23 +12,24 @@ export class LocationHelper {
     return new Promise((resolve, reject) => {
       // 检查是否在WPS环境中
       if (typeof window !== 'undefined' && window.ksoxz_sdk) {
-        console.log('WPS SDK已加载', window.ksoxz_sdk);
-        console.log('🔍 使用WPS JSAPI获取位置...');
-
-        // 如果WPS API失败，尝试使用浏览器API
-        this.getBrowserLocation().then(resolve).catch(reject);
-
-        // window.ksoxz_sdk.getLocationInfo({
-        //   onSuccess: (data: LocationInfo) => {
-        //     console.log('📍 WPS JSAPI获取位置成功:', data);
-        //     resolve(data);
-        //   },
-        //   onError: (error: unknown) => {
-        //     console.error('❌ WPS JSAPI获取位置失败:', error);
-        //     // 如果WPS API失败，尝试使用浏览器API
-        //     this.getBrowserLocation().then(resolve).catch(reject);
-        //   }
-        // });
+        window.ksoxz_sdk.ready(() => {
+          const canUseLocation = window.ksoxz_sdk.canIUse('getLocationInfo');
+          if (!canUseLocation) {
+            this.getBrowserLocation().then(resolve).catch(reject);
+          } else {
+            window.ksoxz_sdk.getLocationInfo({
+              params: { coordinate: 1, withReGeocode: true },
+              onSuccess: (data: LocationInfo) => {
+                resolve(data);
+              },
+              onError: (error: unknown) => {
+                console.error('❌ WPS JSAPI获取位置失败:', error);
+                // 如果WPS API失败，尝试使用浏览器API
+                this.getBrowserLocation().then(resolve).catch(reject);
+              }
+            });
+          }
+        });
       } else {
         console.log('🔍 使用浏览器原生API获取位置...');
         this.getBrowserLocation().then(resolve).catch(reject);
@@ -48,10 +49,18 @@ export class LocationHelper {
 
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          console.log(position);
           const location: LocationInfo = {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
-            address: '当前位置',
+            address: {
+              city: '',
+              provice: '',
+              description: '',
+              district: '',
+              road: '',
+              roadNum: ''
+            },
             accuracy: position.coords.accuracy
           };
           console.log('📍 浏览器API获取位置成功:', location);
@@ -92,17 +101,6 @@ export class LocationHelper {
       (typeof window !== 'undefined' && !!window.ksoxz_sdk) ||
       'geolocation' in navigator
     );
-  }
-
-  /**
-   * 格式化位置信息显示
-   */
-  static formatLocationDisplay(location: LocationInfo): string {
-    if (location.address && location.address !== '当前位置') {
-      return location.address;
-    }
-
-    return `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`;
   }
 
   /**

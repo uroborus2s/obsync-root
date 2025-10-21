@@ -252,20 +252,11 @@ export default class AuthController {
     }
   }
 
-  @Get('/api/auth/cookie')
+  @Post('/api/auth/cookie')
   async setCookie(request: FastifyRequest, reply: FastifyReply) {
     // 根据提供的userInfo生成JWT token 并设置cookie ，和生产方式一样
+    const userInfo = request.body as ExtendedAuthenticatedUser;
 
-    const userInfo = {
-      id: '0306012409318',
-      name: '刘中昊',
-      userType: 'student' as 'student',
-      userNumber: '0306012409318',
-      collegeName: '国际经济贸易学院',
-      majorName: '国际经济与贸易',
-      className: '国际贸易2493',
-      studentInfo: {} as any
-    };
     const jwtPayload = this.createEnhancedJWTPayload(userInfo);
     const config = this.jwtService.getConfig();
     const jwtToken = this.jwtService.generateToken(jwtPayload, {
@@ -274,7 +265,8 @@ export default class AuthController {
     await this.setAuthCookie(reply, jwtToken);
     return reply.send({
       success: true,
-      message: 'Cookie设置成功'
+      message: 'Cookie设置成功',
+      data: { token: jwtToken }
     });
   }
 

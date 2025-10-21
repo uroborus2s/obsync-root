@@ -1,33 +1,34 @@
 // @wps/app-icalink 验证工具函数
 // 基于 Stratix 框架的验证工具
 
-import type { ServiceResult } from '../types/service.js';
+import type { ServiceError } from '@stratix/core';
+import { createServiceError } from '@stratix/core';
+import type { Either } from '@stratix/utils/functional';
 import {
-  createErrorResult,
-  createSuccessResult,
-  ServiceErrorCode
-} from '../types/service.js';
+  eitherLeft as left,
+  eitherRight as right
+} from '@stratix/utils/functional';
+import { ServiceErrorCode } from '../types/service.js';
 
 /**
  * 验证学号格式
- * @param studentId 学号
+ * @param studentId 学号x
  * @returns 验证结果
  */
-export function validateStudentId(studentId: string): ServiceResult<string> {
+export function validateStudentId(
+  studentId: string
+): Either<ServiceError, string> {
   if (!studentId) {
-    return createErrorResult(ServiceErrorCode.VALIDATION_ERROR, '学号不能为空');
+    return left(createServiceError(ServiceErrorCode.VALIDATION_ERROR, '学号不能为空'));
   }
 
   // 学号格式：通常为8-12位数字或字母数字组合
   const studentIdPattern = /^[A-Za-z0-9]{8,12}$/;
   if (!studentIdPattern.test(studentId)) {
-    return createErrorResult(
-      ServiceErrorCode.INVALID_STUDENT_ID,
-      '学号格式不正确，应为8-12位字母数字组合'
-    );
+    return left(createServiceError(ServiceErrorCode.INVALID_STUDENT_ID, '学号格式不正确，应为8-12位字母数字组合'));
   }
 
-  return createSuccessResult(studentId);
+  return right(studentId);
 }
 
 /**
@@ -35,24 +36,20 @@ export function validateStudentId(studentId: string): ServiceResult<string> {
  * @param teacherId 教师工号
  * @returns 验证结果
  */
-export function validateTeacherId(teacherId: string): ServiceResult<string> {
+export function validateTeacherId(
+  teacherId: string
+): Either<ServiceError, string> {
   if (!teacherId) {
-    return createErrorResult(
-      ServiceErrorCode.VALIDATION_ERROR,
-      '教师工号不能为空'
-    );
+    return left(createServiceError(ServiceErrorCode.VALIDATION_ERROR, '教师工号不能为空'));
   }
 
   // 教师工号格式：通常为6-10位数字或字母数字组合
   const teacherIdPattern = /^[A-Za-z0-9]{6,10}$/;
   if (!teacherIdPattern.test(teacherId)) {
-    return createErrorResult(
-      ServiceErrorCode.INVALID_TEACHER_ID,
-      '教师工号格式不正确，应为6-10位字母数字组合'
-    );
+    return left(createServiceError(ServiceErrorCode.INVALID_TEACHER_ID, '教师工号格式不正确，应为6-10位字母数字组合'));
   }
 
-  return createSuccessResult(teacherId);
+  return right(teacherId);
 }
 
 /**
@@ -60,24 +57,20 @@ export function validateTeacherId(teacherId: string): ServiceResult<string> {
  * @param courseId 课程ID
  * @returns 验证结果
  */
-export function validateCourseId(courseId: string): ServiceResult<number> {
+export function validateCourseId(
+  courseId: string
+): Either<ServiceError, number> {
   if (!courseId) {
-    return createErrorResult(
-      ServiceErrorCode.VALIDATION_ERROR,
-      '课程ID不能为空'
-    );
+    return left(createServiceError(ServiceErrorCode.VALIDATION_ERROR, '课程ID不能为空'));
   }
 
   // 尝试转换为数字
   const courseIdNum = parseInt(courseId, 10);
   if (isNaN(courseIdNum) || courseIdNum <= 0) {
-    return createErrorResult(
-      ServiceErrorCode.VALIDATION_ERROR,
-      '课程ID必须是正整数'
-    );
+    return left(createServiceError(ServiceErrorCode.VALIDATION_ERROR, '课程ID必须是正整数'));
   }
 
-  return createSuccessResult(courseIdNum);
+  return right(courseIdNum);
 }
 
 /**
@@ -89,32 +82,23 @@ export function validateCourseId(courseId: string): ServiceResult<number> {
 export function validateDateString(
   dateString: string,
   fieldName: string = '日期'
-): ServiceResult<Date> {
+): Either<ServiceError, Date> {
   if (!dateString) {
-    return createErrorResult(
-      ServiceErrorCode.VALIDATION_ERROR,
-      `${fieldName}不能为空`
-    );
+    return left(createServiceError(ServiceErrorCode.VALIDATION_ERROR, `${fieldName}不能为空`));
   }
 
   // 支持 YYYY-MM-DD 格式
   const datePattern = /^\d{4}-\d{2}-\d{2}$/;
   if (!datePattern.test(dateString)) {
-    return createErrorResult(
-      ServiceErrorCode.INVALID_DATE_FORMAT,
-      `${fieldName}格式不正确，应为YYYY-MM-DD格式`
-    );
+    return left(createServiceError(ServiceErrorCode.INVALID_DATE_FORMAT, `${fieldName}格式不正确，应为YYYY-MM-DD格式`));
   }
 
   const date = new Date(dateString);
   if (isNaN(date.getTime())) {
-    return createErrorResult(
-      ServiceErrorCode.INVALID_DATE_FORMAT,
-      `${fieldName}不是有效的日期`
-    );
+    return left(createServiceError(ServiceErrorCode.INVALID_DATE_FORMAT, `${fieldName}不是有效的日期`));
   }
 
-  return createSuccessResult(date);
+  return right(date);
 }
 
 /**
@@ -126,24 +110,18 @@ export function validateDateString(
 export function validateDateRange(
   startDate: Date,
   endDate: Date
-): ServiceResult<{ startDate: Date; endDate: Date }> {
+): Either<ServiceError, { startDate: Date; endDate: Date }> {
   if (startDate > endDate) {
-    return createErrorResult(
-      ServiceErrorCode.INVALID_TIME_RANGE,
-      '开始日期不能晚于结束日期'
-    );
+    return left(createServiceError(ServiceErrorCode.INVALID_TIME_RANGE, '开始日期不能晚于结束日期'));
   }
 
   // 检查时间范围是否过大（比如超过1年）
   const oneYear = 365 * 24 * 60 * 60 * 1000;
   if (endDate.getTime() - startDate.getTime() > oneYear) {
-    return createErrorResult(
-      ServiceErrorCode.INVALID_TIME_RANGE,
-      '查询时间范围不能超过1年'
-    );
+    return left(createServiceError(ServiceErrorCode.INVALID_TIME_RANGE, '查询时间范围不能超过1年'));
   }
 
-  return createSuccessResult({ startDate, endDate });
+  return right({ startDate, endDate });
 }
 
 /**
@@ -157,29 +135,23 @@ export function validateCoordinates(
   latitude: number,
   longitude: number,
   accuracy?: number
-): ServiceResult<{ latitude: number; longitude: number; accuracy?: number }> {
+): Either<
+  ServiceError,
+  { latitude: number; longitude: number; accuracy?: number }
+> {
   if (latitude < -90 || latitude > 90) {
-    return createErrorResult(
-      ServiceErrorCode.INVALID_COORDINATES,
-      '纬度必须在-90到90之间'
-    );
+    return left(createServiceError(ServiceErrorCode.INVALID_COORDINATES, '纬度必须在-90到90之间'));
   }
 
   if (longitude < -180 || longitude > 180) {
-    return createErrorResult(
-      ServiceErrorCode.INVALID_COORDINATES,
-      '经度必须在-180到180之间'
-    );
+    return left(createServiceError(ServiceErrorCode.INVALID_COORDINATES, '经度必须在-180到180之间'));
   }
 
   if (accuracy !== undefined && accuracy < 0) {
-    return createErrorResult(
-      ServiceErrorCode.INVALID_COORDINATES,
-      '精度不能为负数'
-    );
+    return left(createServiceError(ServiceErrorCode.INVALID_COORDINATES, '精度不能为负数'));
   }
 
-  return createSuccessResult({ latitude, longitude, accuracy });
+  return right({ latitude, longitude, accuracy });
 }
 
 /**
@@ -195,26 +167,20 @@ export function validateImageFile(
   fileSize: number,
   mimeType: string,
   maxSize: number = 10485760 // 10MB
-): ServiceResult<{ fileName: string; fileSize: number; mimeType: string }> {
+): Either<
+  ServiceError,
+  { fileName: string; fileSize: number; mimeType: string }
+> {
   if (!fileName) {
-    return createErrorResult(
-      ServiceErrorCode.VALIDATION_ERROR,
-      '文件名不能为空'
-    );
+    return left(createServiceError(ServiceErrorCode.VALIDATION_ERROR, '文件名不能为空'));
   }
 
   if (fileSize <= 0) {
-    return createErrorResult(
-      ServiceErrorCode.INVALID_FILE_SIZE,
-      '文件大小必须大于0'
-    );
+    return left(createServiceError(ServiceErrorCode.INVALID_FILE_SIZE, '文件大小必须大于0'));
   }
 
   if (fileSize > maxSize) {
-    return createErrorResult(
-      ServiceErrorCode.INVALID_FILE_SIZE,
-      `文件大小不能超过${Math.round(maxSize / 1024 / 1024)}MB`
-    );
+    return left(createServiceError(ServiceErrorCode.INVALID_FILE_SIZE, `文件大小不能超过${Math.round(maxSize / 1024 / 1024)}MB`));
   }
 
   const allowedMimeTypes = [
@@ -225,10 +191,7 @@ export function validateImageFile(
   ];
 
   if (!allowedMimeTypes.includes(mimeType)) {
-    return createErrorResult(
-      ServiceErrorCode.INVALID_IMAGE_FORMAT,
-      '不支持的图片格式，仅支持JPEG、PNG、GIF、WebP格式'
-    );
+    return left(createServiceError(ServiceErrorCode.INVALID_IMAGE_FORMAT, '不支持的图片格式，仅支持JPEG、PNG、GIF、WebP格式'));
   }
 
   // 验证文件扩展名
@@ -236,13 +199,10 @@ export function validateImageFile(
   const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
 
   if (!extension || !allowedExtensions.includes(extension)) {
-    return createErrorResult(
-      ServiceErrorCode.INVALID_IMAGE_FORMAT,
-      '文件扩展名不正确'
-    );
+    return left(createServiceError(ServiceErrorCode.INVALID_IMAGE_FORMAT, '文件扩展名不正确'));
   }
 
-  return createSuccessResult({ fileName, fileSize, mimeType });
+  return right({ fileName, fileSize, mimeType });
 }
 
 /**
@@ -252,21 +212,15 @@ export function validateImageFile(
  */
 export function validateBase64Image(
   base64String: string
-): ServiceResult<Buffer> {
+): Either<ServiceError, Buffer> {
   if (!base64String) {
-    return createErrorResult(
-      ServiceErrorCode.VALIDATION_ERROR,
-      'Base64字符串不能为空'
-    );
+    return left(createServiceError(ServiceErrorCode.VALIDATION_ERROR, 'Base64字符串不能为空'));
   }
 
   // 检查Base64格式
   const base64Pattern = /^data:image\/(jpeg|jpg|png|gif|webp);base64,/;
   if (!base64Pattern.test(base64String)) {
-    return createErrorResult(
-      ServiceErrorCode.INVALID_IMAGE_FORMAT,
-      'Base64图片格式不正确'
-    );
+    return left(createServiceError(ServiceErrorCode.INVALID_IMAGE_FORMAT, 'Base64图片格式不正确'));
   }
 
   try {
@@ -275,18 +229,12 @@ export function validateBase64Image(
     const buffer = Buffer.from(base64Data, 'base64');
 
     if (buffer.length === 0) {
-      return createErrorResult(
-        ServiceErrorCode.INVALID_IMAGE_FORMAT,
-        'Base64图片数据为空'
-      );
+      return left(createServiceError(ServiceErrorCode.INVALID_IMAGE_FORMAT, 'Base64图片数据为空'));
     }
 
-    return createSuccessResult(buffer);
+    return right(buffer);
   } catch (error) {
-    return createErrorResult(
-      ServiceErrorCode.INVALID_IMAGE_FORMAT,
-      'Base64图片解码失败'
-    );
+    return left(createServiceError(ServiceErrorCode.INVALID_IMAGE_FORMAT, 'Base64图片解码失败'));
   }
 }
 
@@ -301,29 +249,20 @@ export function validatePagination(
   page: number = 1,
   pageSize: number = 20,
   maxPageSize: number = 100
-): ServiceResult<{ page: number; pageSize: number }> {
+): Either<ServiceError, { page: number; pageSize: number }> {
   if (page < 1) {
-    return createErrorResult(
-      ServiceErrorCode.VALIDATION_ERROR,
-      '页码必须大于0'
-    );
+    return left(createServiceError(ServiceErrorCode.VALIDATION_ERROR, '页码必须大于0'));
   }
 
   if (pageSize < 1) {
-    return createErrorResult(
-      ServiceErrorCode.VALIDATION_ERROR,
-      '每页大小必须大于0'
-    );
+    return left(createServiceError(ServiceErrorCode.VALIDATION_ERROR, '每页大小必须大于0'));
   }
 
   if (pageSize > maxPageSize) {
-    return createErrorResult(
-      ServiceErrorCode.VALIDATION_ERROR,
-      `每页大小不能超过${maxPageSize}`
-    );
+    return left(createServiceError(ServiceErrorCode.VALIDATION_ERROR, `每页大小不能超过${maxPageSize}`));
   }
 
-  return createSuccessResult({ page, pageSize });
+  return right({ page, pageSize });
 }
 
 /**
@@ -337,28 +276,19 @@ export function validateLeaveReason(
   reason: string,
   minLength: number = 1,
   maxLength: number = 1000
-): ServiceResult<string> {
+): Either<ServiceError, string> {
   if (!reason || reason.trim().length === 0) {
-    return createErrorResult(
-      ServiceErrorCode.VALIDATION_ERROR,
-      '请假原因不能为空'
-    );
+    return left(createServiceError(ServiceErrorCode.VALIDATION_ERROR, '请假原因不能为空'));
   }
 
   const trimmedReason = reason.trim();
 
   if (trimmedReason.length < minLength) {
-    return createErrorResult(
-      ServiceErrorCode.VALIDATION_ERROR,
-      `请假原因至少需要${minLength}个字符`
-    );
+    return left(createServiceError(ServiceErrorCode.VALIDATION_ERROR, `请假原因至少需要${minLength}个字符`));
   }
 
   if (trimmedReason.length > maxLength) {
-    return createErrorResult(
-      ServiceErrorCode.VALIDATION_ERROR,
-      `请假原因不能超过${maxLength}个字符`
-    );
+    return left(createServiceError(ServiceErrorCode.VALIDATION_ERROR, `请假原因不能超过${maxLength}个字符`));
   }
 
   // 检查是否包含敏感词汇（可以根据需要扩展）
@@ -367,14 +297,11 @@ export function validateLeaveReason(
 
   for (const word of sensitiveWords) {
     if (lowerReason.includes(word.toLowerCase())) {
-      return createErrorResult(
-        ServiceErrorCode.VALIDATION_ERROR,
-        '请假原因包含不当内容'
-      );
+      return left(createServiceError(ServiceErrorCode.VALIDATION_ERROR, '请假原因包含不当内容'));
     }
   }
 
-  return createSuccessResult(trimmedReason);
+  return right(trimmedReason);
 }
 
 /**
@@ -386,25 +313,22 @@ export function validateLeaveReason(
 export function validateApprovalComment(
   comment?: string,
   maxLength: number = 1000
-): ServiceResult<string | undefined> {
+): Either<ServiceError, string | undefined> {
   if (!comment) {
-    return createSuccessResult(undefined);
+    return right(undefined);
   }
 
   const trimmedComment = comment.trim();
 
   if (trimmedComment.length === 0) {
-    return createSuccessResult(undefined);
+    return right(undefined);
   }
 
   if (trimmedComment.length > maxLength) {
-    return createErrorResult(
-      ServiceErrorCode.VALIDATION_ERROR,
-      `审批意见不能超过${maxLength}个字符`
-    );
+    return left(createServiceError(ServiceErrorCode.VALIDATION_ERROR, `审批意见不能超过${maxLength}个字符`));
   }
 
-  return createSuccessResult(trimmedComment);
+  return right(trimmedComment);
 }
 
 /**
@@ -414,22 +338,16 @@ export function validateApprovalComment(
  */
 export function validateUserType(
   userType: string
-): ServiceResult<'student' | 'teacher'> {
+): Either<ServiceError, 'student' | 'teacher'> {
   if (!userType) {
-    return createErrorResult(
-      ServiceErrorCode.VALIDATION_ERROR,
-      '用户类型不能为空'
-    );
+    return left(createServiceError(ServiceErrorCode.VALIDATION_ERROR, '用户类型不能为空'));
   }
 
   if (userType !== 'student' && userType !== 'teacher') {
-    return createErrorResult(
-      ServiceErrorCode.VALIDATION_ERROR,
-      '用户类型必须为student或teacher'
-    );
+    return left(createServiceError(ServiceErrorCode.VALIDATION_ERROR, '用户类型必须为student或teacher'));
   }
 
-  return createSuccessResult(userType);
+  return right(userType);
 }
 
 /**
@@ -437,21 +355,17 @@ export function validateUserType(
  * @param leaveType 请假类型
  * @returns 验证结果
  */
-export function validateLeaveType(leaveType: string): ServiceResult<string> {
+export function validateLeaveType(
+  leaveType: string
+): Either<ServiceError, string> {
   if (!leaveType) {
-    return createErrorResult(
-      ServiceErrorCode.VALIDATION_ERROR,
-      '请假类型不能为空'
-    );
+    return left(createServiceError(ServiceErrorCode.VALIDATION_ERROR, '请假类型不能为空'));
   }
 
   const validTypes = ['sick', 'personal', 'emergency', 'other'];
   if (!validTypes.includes(leaveType)) {
-    return createErrorResult(
-      ServiceErrorCode.VALIDATION_ERROR,
-      '无效的请假类型'
-    );
+    return left(createServiceError(ServiceErrorCode.VALIDATION_ERROR, '无效的请假类型'));
   }
 
-  return createSuccessResult(leaveType);
+  return right(leaveType);
 }

@@ -1,6 +1,7 @@
 // @stratix/database 驱动依赖检查工具
 // 检查和验证数据库驱动的可用性
 
+import { isRight } from '@stratix/utils/functional';
 import type { DatabaseType } from '../types/index.js';
 import {
   ConnectionError,
@@ -129,8 +130,8 @@ export class DriverChecker {
 
     for (const type of Object.keys(DRIVER_DEPENDENCIES) as DatabaseType[]) {
       const checkResult = this.checkDatabaseDrivers(type);
-      if (checkResult.success) {
-        results[type] = checkResult.data;
+      if (isRight(checkResult)) {
+        results[type] = checkResult.right;
       }
     }
 
@@ -272,7 +273,7 @@ export class DriverChecker {
  */
 export function isDatabaseTypeAvailable(type: DatabaseType): boolean {
   const result = DriverChecker.checkDatabaseDrivers(type);
-  return result.success && result.data.allAvailable;
+  return isRight(result) && result.right.allAvailable;
 }
 
 /**
@@ -290,7 +291,7 @@ export function getAvailableDatabaseTypes(): DatabaseType[] {
  */
 export function getMissingDrivers(type: DatabaseType): string[] {
   const result = DriverChecker.checkDatabaseDrivers(type);
-  return result.success ? result.data.missingDrivers : [];
+  return isRight(result) ? result.right.missingDrivers : [];
 }
 
 /**

@@ -1,15 +1,17 @@
 // @stratix/database PostgreSQL方言实现
 // 基于Kysely和pg驱动的PostgreSQL数据库支持
 
-import type { Logger } from '@stratix/core';
+import { type Logger } from '@stratix/core';
+import {
+  eitherChain,
+  eitherMap,
+  isLeft,
+  tryCatch
+} from '@stratix/utils/functional';
 import { Kysely, PostgresDialect } from 'kysely';
 import { Pool, PoolConfig } from 'pg';
 import type { ConnectionConfig, DatabaseType } from '../../types/index.js';
-import {
-  DatabaseResult,
-  failureResult,
-  successResult
-} from '../../utils/helpers.js';
+import { DatabaseResult } from '../../utils/error-handler.js';
 import { BaseDialect } from './base-dialect.js';
 
 /**
@@ -29,17 +31,17 @@ export class PostgreSQLDialect extends BaseDialect {
     return this.wrapConnectionCreation(async () => {
       // 验证配置
       const configResult = this.validateConfig(config);
-      if (!configResult.success) {
+      if (isLeft(configResult)) {
         throw new Error(
-          configResult.error?.message || 'Configuration validation failed'
+          configResult.left?.message || 'Configuration validation failed'
         );
       }
 
       // 检查pg驱动是否可用
       const driverResult = await this.checkDriverAvailability();
-      if (!driverResult.success) {
+      if (isLeft(driverResult)) {
         throw new Error(
-          driverResult.error?.message || 'Driver availability check failed'
+          driverResult.left?.message || 'Driver availability check failed'
         );
       }
 
@@ -74,11 +76,8 @@ export class PostgreSQLDialect extends BaseDialect {
   validateConfig(config: ConnectionConfig): DatabaseResult<boolean> {
     // 基础验证
     const baseResult = this.validateBaseConfig(config);
-    if (!baseResult.success) {
-      return baseResult;
-    }
 
-    try {
+    const onSuccess = () => {
       // PostgreSQL特定验证
       if (!config.connectionString) {
         if (!config.host) {
@@ -113,10 +112,12 @@ export class PostgreSQLDialect extends BaseDialect {
         }
       }
 
-      return successResult(true);
-    } catch (error) {
-      return failureResult(this.handleConnectionError(error as Error));
-    }
+      return true;
+    };
+    const onFailure = (error: unknown) =>
+      this.handleConnectionError(error as Error);
+
+    return eitherChain(() => tryCatch(onSuccess, onFailure))(baseResult as any);
   }
 
   /**
@@ -131,11 +132,8 @@ export class PostgreSQLDialect extends BaseDialect {
    */
   async checkDriverAvailability(): Promise<DatabaseResult<boolean>> {
     const pgResult = await this.checkRequiredModule('pg');
-    if (!pgResult.success) {
-      return pgResult;
-    }
 
-    return successResult(true);
+    return eitherMap(() => true)(pgResult) as DatabaseResult<boolean>;
   }
 
   /**
