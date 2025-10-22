@@ -152,7 +152,7 @@ export interface UpdateDBSheetFieldParams {
  * 删除字段参数
  */
 export interface DeleteDBSheetFieldParams {
-  fields: Array<{ id: string }>;
+  fields: Array<string>;
 }
 
 // ============================================================================

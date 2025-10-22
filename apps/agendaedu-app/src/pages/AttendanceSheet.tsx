@@ -737,6 +737,7 @@ function AttendanceSheetContent() {
 
                           {/* 状态标签 - 根据课程状态和学生状态显示不同内容 */}
                           {student.absence_type === 'absent' &&
+                          teacherData.status === 'in_progress' &&
                           new Date() > new Date(course.end_time) ? (
                             // 课程结束后，缺勤学生显示补卡按钮
                             <button

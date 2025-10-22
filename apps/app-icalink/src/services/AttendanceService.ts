@@ -1,5 +1,4 @@
 import type { Logger, ServiceError } from '@stratix/core';
-import { Lifetime, RESOLVER } from '@stratix/core';
 import type { IQueueAdapter } from '@stratix/queue';
 import {
   isLeft,
@@ -55,10 +54,6 @@ interface AttendanceStats {
 }
 
 export default class AttendanceService implements IAttendanceService {
-  static [RESOLVER]: { lifetime: typeof Lifetime.SCOPED } = {
-    lifetime: Lifetime.SCOPED
-  };
-
   constructor(
     private readonly logger: Logger,
     private readonly queueClient: IQueueAdapter,

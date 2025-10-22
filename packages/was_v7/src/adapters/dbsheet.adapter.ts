@@ -236,7 +236,7 @@ export function createWpsDBSheetAdapter(
       await httpClient.ensureAccessToken();
       const response = await httpClient.post<
         WpsDBSheetApiResponse<DBSheetFieldsData>
-      >(`/v7/coop/dbsheet/${fileId}/sheets/${sheetId}/fields/create`, params);
+      >(`/v7/coop/dbsheet/${fileId}/sheets/${sheetId}/fields`, params);
       return response.data.data;
     },
 

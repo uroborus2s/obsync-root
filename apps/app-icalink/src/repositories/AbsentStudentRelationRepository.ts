@@ -188,4 +188,62 @@ export default class AbsentStudentRelationRepository extends BaseRepository<
 
     return result;
   }
+
+  /**
+   * 获取总记录数
+   * 使用 BaseRepository 提供的 count() 方法
+   * @returns 总记录数
+   */
+  public async getTotalCount(): Promise<number> {
+    this.logger.debug('Getting total count of absent student relations');
+
+    // 使用 BaseRepository 的 count() 方法，不传条件则统计所有记录
+    const count = await this.count();
+
+    this.logger.debug({ count }, 'Total count retrieved');
+
+    return count;
+  }
+
+  /**
+   * 分页查询缺勤记录
+   * 使用 BaseRepository 提供的 findMany() 方法配合查询选项
+   * @param offset 偏移量（从0开始）
+   * @param limit 每页数量
+   * @returns 缺勤记录列表
+   */
+  public async findWithPagination(
+    offset: number,
+    limit: number
+  ): Promise<IcalinkAbsentStudentRelation[]> {
+    // 参数验证
+    if (offset < 0 || limit <= 0) {
+      this.logger.warn('findWithPagination called with invalid parameters', {
+        offset,
+        limit
+      });
+      return [];
+    }
+
+    this.logger.debug(
+      { offset, limit },
+      'Finding absent relations with pagination'
+    );
+
+    // 使用 BaseRepository 的 findMany() 方法
+    // 不传 criteria 参数表示查询所有记录
+    // 通过 options 配置排序、分页
+    const result = (await this.findMany(undefined, {
+      orderBy: { field: 'id', direction: 'asc' }, // 按 ID 升序，确保顺序一致
+      limit,
+      offset
+    })) as unknown as IcalinkAbsentStudentRelation[];
+
+    this.logger.debug(
+      { offset, limit, count: result.length },
+      'Pagination query completed'
+    );
+
+    return result;
+  }
 }

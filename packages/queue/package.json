@@ -32,7 +32,7 @@
     "LICENSE"
   ],
   "dependencies": {
-    "bullmq": "2.15.1",
+    "bullmq": "2.4.0",
     "@stratix/utils": "workspace:*"
   },
   "peerDependencies": {

@@ -63,9 +63,6 @@ CREATE TABLE `icalink_leave_applications` (
   `student_name` varchar(200) NOT NULL COMMENT '学生姓名',
   `course_id` varchar(100) NOT NULL COMMENT '课程ID(kkh)',
   `course_name` varchar(500) NOT NULL COMMENT '课程名称',
-  `class_date` date NOT NULL COMMENT '上课日期',
-  `class_time` varchar(50) NOT NULL COMMENT '上课时间',
-  `class_location` varchar(500) COMMENT '上课地点',
   `teacher_id` varchar(100) NOT NULL COMMENT '授课教师ID',
   `teacher_name` varchar(200) NOT NULL COMMENT '授课教师姓名',
   `leave_type` enum('sick','personal','emergency','other') NOT NULL DEFAULT 'personal' COMMENT '请假类型',
@@ -86,7 +83,6 @@ CREATE TABLE `icalink_leave_applications` (
   KEY `idx_teacher_id` (`teacher_id`),
   KEY `idx_status` (`status`),
   KEY `idx_application_time` (`application_time`),
-  KEY `idx_class_date` (`class_date`),
   KEY `idx_student_status` (`student_id`, `status`),
   KEY `idx_teacher_status` (`teacher_id`, `status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci

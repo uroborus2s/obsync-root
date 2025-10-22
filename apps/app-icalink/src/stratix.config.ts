@@ -5,6 +5,7 @@ import osspPlugin from '@stratix/ossp';
 import queuePlugin from '@stratix/queue';
 import redisPlugin from '@stratix/redis';
 import { onRequestPermissionHook } from '@stratix/utils/auth';
+import wasV7Plugin from '@stratix/was-v7';
 
 /**
  * Stratix 应用配置工厂函数
@@ -100,6 +101,15 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
           single: {
             ...redisConfig
           }
+        }
+      },
+      {
+        name: '@stratix/was-v7',
+        plugin: wasV7Plugin,
+        options: {
+          appId: sensitiveConfig.wasV7?.appId || 'your-app-id',
+          appSecret: sensitiveConfig.wasV7?.appSecret || 'your-app-secret',
+          baseUrl: 'https://openapi.wps.cn'
         }
       },
       {

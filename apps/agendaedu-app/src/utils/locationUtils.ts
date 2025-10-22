@@ -72,7 +72,7 @@ export const BUILDING_LOCATIONS: BuildingLocation[] = [
 /**
  * 默认的打卡允许距离（米）
  */
-export const DEFAULT_CHECK_IN_RADIUS = 5000;
+export const DEFAULT_CHECK_IN_RADIUS = 200;
 
 /**
  * 地球半径（公里）

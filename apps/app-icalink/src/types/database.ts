@@ -120,9 +120,6 @@ export interface IcalinkLeaveApplication {
   student_name: string;
   course_id: string;
   course_name: string;
-  class_date: Date;
-  class_time: string;
-  class_location?: string;
   teacher_id: string;
   teacher_name: string;
   leave_type: LeaveType;

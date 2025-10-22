@@ -176,9 +176,7 @@ export default class LeaveService {
         leave_type: request.leave_type,
         leave_reason: request.leave_reason,
         status: 'leave_pending' as LeaveStatus,
-        application_time: getCurrentDateTime(),
-        class_date: course.start_time,
-        class_time: `${course.start_time.toTimeString().slice(0, 5)}-${course.end_time.toTimeString().slice(0, 5)}`
+        application_time: getCurrentDateTime()
       } as any);
 
       if (isLeft(applicationResult)) {
@@ -246,7 +244,6 @@ export default class LeaveService {
         leave_reason: request.leave_reason,
         status: application.status,
         application_time: application.application_time.toISOString(),
-        class_date: course.start_time.toISOString().split('T')[0],
         uploaded_images: uploadedCount
       });
     } catch (error) {
@@ -460,8 +457,7 @@ export default class LeaveService {
         approval_comment: request.comment,
         new_attendance_status: newAttendanceStatus,
         course_info: {
-          course_name: application.course_name,
-          class_date: application.class_date.toISOString().split('T')[0]
+          course_name: application.course_name
         }
       });
     } catch (error) {
@@ -1192,14 +1188,9 @@ export default class LeaveService {
             // 课程详细信息
             start_time: course ? formatDateTime(course.start_time) : undefined,
             end_time: course ? formatDateTime(course.end_time) : undefined,
-            class_location: course?.class_location || undefined,
             teaching_week: course?.teaching_week || undefined,
             periods: course?.periods || undefined,
             leave_date: course ? formatDateTime(course.start_time) : undefined,
-            class_date: course ? formatDateTime(course.start_time) : undefined,
-            class_time: course
-              ? `${formatDateTime(course.start_time)} - ${formatDateTime(course.end_time)}`
-              : undefined,
 
             // 教师信息
             teacher_info: {

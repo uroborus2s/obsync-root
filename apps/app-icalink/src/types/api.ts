@@ -159,7 +159,6 @@ export interface LeaveApplicationInfo {
   leave_reason: string;
   status: LeaveStatus;
   application_time: string;
-  class_date: string;
   approval_time?: string;
   approval_comment?: string;
   has_attachments: boolean;
@@ -263,12 +262,9 @@ export interface TeacherLeaveApplicationItemVO {
   // 课程详细信息
   start_time?: string;
   end_time?: string;
-  class_location?: string;
   teaching_week?: number;
   periods?: string;
   leave_date?: string;
-  class_date?: string;
-  class_time?: string;
 
   // 教师信息
   teacher_info?: {
@@ -348,7 +344,6 @@ export interface LeaveApplicationResponse {
   leave_reason: string;
   status: LeaveStatus;
   application_time: string;
-  class_date: string;
   uploaded_images: number;
 }
 
@@ -417,7 +412,6 @@ export interface ApprovalRequest {
  */
 export interface CourseInfo {
   course_name: string;
-  class_date: string;
 }
 
 /**
