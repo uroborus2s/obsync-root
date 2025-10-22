@@ -1,6 +1,6 @@
 {
   "name": "@stratix/queue",
-  "version": "1.0.0-beta.3",
+  "version": "1.0.0-beta.4",
   "description": "Stratix Queue Plugin based on BullMQ with adapter pattern, dependency injection and cross-plugin sharing",
   "main": "dist/index.js",
   "types": "dist/types/index.d.ts",
@@ -32,7 +32,7 @@
     "LICENSE"
   ],
   "dependencies": {
-    "bullmq": "4.12.0",
+    "bullmq": "3.18.0",
     "@stratix/utils": "workspace:*"
   },
   "peerDependencies": {
