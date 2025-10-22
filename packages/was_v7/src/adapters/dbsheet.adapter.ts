@@ -127,10 +127,10 @@ export function createWpsDBSheetAdapter(
      */
     async getSchemas(fileId: string): Promise<DBSheetSchemaData> {
       await httpClient.ensureAccessToken();
-      const response = await httpClient.get<
-        WpsDBSheetApiResponse<DBSheetSchemaData>
-      >(`/v7/coop/dbsheet/${fileId}/schema`);
-      return response.data.data;
+      const response = await httpClient.get<DBSheetSchemaData>(
+        `/v7/coop/dbsheet/${fileId}/schema`
+      );
+      return response.data;
     },
 
     /**

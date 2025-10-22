@@ -12,7 +12,7 @@ RUN npm install -g pnpm
 COPY package.json tsconfig.json .npmrc ./
 
 # 配置 pnpm 使用腾讯云镜像
-RUN pnpm config set registry http://mirrors.cloud.tencent.com/npm/
+RUN pnpm config set registry https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/
 
 # 安装依赖 (会优先使用 .npmrc 中的私有仓库配置)
 RUN pnpm install
@@ -40,7 +40,7 @@ RUN addgroup --system --gid 1001 nodejs && \
 RUN npm install -g pnpm
 
 # 配置 npm 腾讯云加速器
-RUN pnpm config set registry http://mirrors.cloud.tencent.com/npm/
+RUN pnpm config set registry https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/
 
 # 复制 package.json 和 .npmrc
 COPY --chown=appuser:nodejs package.json ./

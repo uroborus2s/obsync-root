@@ -77,24 +77,21 @@ export default class AttendanceService implements IAttendanceService {
     // 注册签到队列 Worker
     this.logger.info('Registering checkin queue worker...');
 
-    this.queueClient.process(
-      'checkin',
-      async (job) => {
-        this.logger.info(`🔄 Worker received job ${job.id}`, {
-          jobId: job.id,
-          data: job.data
-        });
+    this.queueClient.process('checkin', async (job) => {
+      this.logger.info(`🔄 Worker received job ${job.id}`, {
+        jobId: job.id,
+        data: job.data
+      });
 
-        try {
-          const result = await this.processCheckinJob(job.data);
-          this.logger.info(`✅ Job ${job.id} completed successfully`, result);
-          return result;
-        } catch (error) {
-          this.logger.error(`❌ Job ${job.id} failed:`, error);
-          throw error;
-        }
-      },
-    );
+      try {
+        const result = await this.processCheckinJob(job.data);
+        this.logger.info(`✅ Job ${job.id} completed successfully`, result);
+        return result;
+      } catch (error) {
+        this.logger.error(`❌ Job ${job.id} failed:`, error);
+        throw error;
+      }
+    });
 
     this.logger.info('✅ Checkin queue worker registered successfully');
   }
@@ -342,6 +339,7 @@ export default class AttendanceService implements IAttendanceService {
 
     const vo: StudentCourseDataVO = {
       id: course.id,
+      attendance_record_id: attendanceRecords?.id, // 添加考勤记录ID
       course: {
         external_id: course.external_id,
         kcmc: course.course_name,
@@ -417,8 +415,16 @@ export default class AttendanceService implements IAttendanceService {
       }
     }
 
+    // 查询考勤记录（用于请假）
+    const attendanceRecords =
+      await this.attendanceRecordRepository.findByCourseAndStudent(
+        course.id,
+        userInfo.userId
+      );
+
     const vo: StudentCourseDataVO = {
       id: course.id,
+      attendance_record_id: attendanceRecords?.id, // 添加考勤记录ID
       course: {
         external_id: course.external_id,
         kcmc: course.course_name,
@@ -497,7 +503,7 @@ export default class AttendanceService implements IAttendanceService {
    * 构建教师视图（新版本 - 支持三种课程日期类型）
    */
   private async buildTeacherView(
-    course: any,
+    course: IcasyncAttendanceCourse,
     _userInfo: UserInfo
   ): Promise<Either<ServiceError, TeacherCourseCompleteDataVO>> {
     const isToday = this.compareDate(course.start_time);
@@ -529,7 +535,7 @@ export default class AttendanceService implements IAttendanceService {
    * 优化：通过 Repository 层查询，使用单条 SQL + LEFT JOIN 关联缺勤记录表
    */
   private async buildHistoricalTeacherView(
-    course: any
+    course: IcasyncAttendanceCourse
   ): Promise<Either<ServiceError, TeacherCourseCompleteDataVO>> {
     this.logger.debug(
       { courseId: course.id },
@@ -559,70 +565,12 @@ export default class AttendanceService implements IAttendanceService {
       'Fetched students with attendance status from repository'
     );
 
-    // 构建学生考勤详情列表
-    const students: StudentAttendanceDetail[] = studentsWithStatus.map(
-      (row) => {
-        // 如果 absence_type 为 NULL，说明没有缺勤记录，状态为 present
-        // 如果 absence_type 不为 NULL，使用缺勤类型作为状态
-        const status: AttendanceStatus = row.absence_type
-          ? (row.absence_type as AttendanceStatus)
-          : ('present' as AttendanceStatus);
-
-        return {
-          student_id: row.student_id,
-          student_name: row.student_name || '未知',
-          class_name: row.class_name ?? undefined,
-          major_name: row.major_name ?? undefined,
-          status,
-          checkin_time: undefined, // 历史课程没有签到时间
-          is_late: false,
-          late_minutes: undefined,
-          leave_reason: row.leave_reason ?? undefined
-        };
-      }
-    );
-
-    // 使用 Repository 返回的统计信息，而不是重新计算
-    // 这样可以确保统计数据的一致性
-    const stats: AttendanceStats = {
-      total_count: repositoryStats.total_count,
-      checkin_count: repositoryStats.checkin_count,
-      late_count: 0, // 历史课程没有迟到记录
-      absent_count: repositoryStats.absent_count,
-      leave_count: repositoryStats.leave_count,
-      unstarted_count: 0, // 历史课程没有未开始状态
-      attendance_rate:
-        repositoryStats.total_count > 0
-          ? (repositoryStats.checkin_count / repositoryStats.total_count) * 100
-          : 0
-    };
-
     // 历史课程不允许创建签到窗口
     const vo: TeacherCourseCompleteDataVO = {
-      course_info: {
-        external_id: course.external_id,
-        course_code: course.course_code,
-        course_name: course.course_name,
-        semester: course.semester,
-        teaching_week: course.teaching_week,
-        week_day: course.week_day,
-        class_location: course.class_location,
-        start_time: course.start_time,
-        end_time: course.end_time,
-        periods: course.periods,
-        time_period: `${course.start_time}-${course.end_time}`
-      },
-      teacher_info: this.parseTeacherInfo(
-        course.teacher_code,
-        course.teacher_name
-      ),
-      students,
-      stats,
-      attendance_window: {
-        start_time: '',
-        end_time: '',
-        is_active: false
-      }
+      course,
+      students: result.students,
+      stats: result.stats,
+      status: 'final'
     };
 
     return right(vo);
@@ -633,117 +581,57 @@ export default class AttendanceService implements IAttendanceService {
    * 数据源：v_attendance_realtime_details 视图 + icalink_verification_windows 表
    */
   private async buildCurrentTeacherView(
-    course: any
+    course: IcasyncAttendanceCourse
   ): Promise<Either<ServiceError, TeacherCourseCompleteDataVO>> {
     this.logger.debug({ courseId: course.id }, 'Building current teacher view');
 
-    // 1. 查询教学班的所有学生成员
-    const courseStudents = (await this.courseStudentRepository.findMany((qb) =>
-      qb
-        .where('kkh', '=', course.course_code)
-        .where('xnxq', '=', course.semester)
-    )) as unknown as any[];
+    // 1. 通过 Repository 查询教学班学生及其实时考勤状态
+    // 这个方法会关联 out_jw_kcb_xs、out_xsxx 和 v_attendance_realtime_details
+    // 并按考勤状态排序（缺勤、请假、旷课的放在前面）
+    const result =
+      await this.courseStudentRepository.findStudentsWithRealtimeStatus(
+        course.course_code,
+        course.semester,
+        course.external_id
+      );
 
-    // 2. 查询所有学生的实时签到状态
-    const realtimeDetails =
-      await this.attendanceViewRepository.findByExternalId(course.external_id);
+    const studentsWithStatus = result.students;
+    const repositoryStats = result.stats;
 
-    // 3. 查询最新的签到窗口
+    this.logger.debug(
+      {
+        courseId: course.id,
+        studentCount: studentsWithStatus.length,
+        stats: repositoryStats
+      },
+      'Fetched students with realtime attendance status from repository'
+    );
+
+    // 2. 查询最新的签到窗口
     const latestWindow =
       await this.verificationWindowRepository.findLatestByCourse(course.id);
 
-    // 4. 构建学生考勤详情列表
-    const students: StudentAttendanceDetail[] = courseStudents.map(
-      (cs: any) => {
-        // 查找该学生的实时签到状态
-        const realtimeDetail = realtimeDetails.find(
-          (rd: any) => rd.student_id === cs.xh
-        );
-
-        const status: AttendanceStatus = realtimeDetail
-          ? (realtimeDetail.status as AttendanceStatus)
-          : ('unstarted' as AttendanceStatus);
-
-        return {
-          student_id: cs.xh,
-          student_name: cs.xm,
-          class_name: cs.bjmc,
-          major_name: cs.zymc,
-          status,
-          checkin_time: realtimeDetail?.checkin_time,
-          is_late: realtimeDetail?.is_late || false,
-          late_minutes: realtimeDetail?.late_minutes,
-          leave_reason: realtimeDetail?.leave_reason
-        };
-      }
-    );
-
-    // 5. 计算统计信息
-    const stats = this.calculateTeacherStats(students);
-
-    // 6. 计算是否可以创建新窗口
-    const now = new Date();
-    const courseStartTime = new Date(course.start_time);
-    const courseEndTime = new Date(course.end_time);
-
-    // 时间条件：课程开始后 10 分钟至课程结束时间
-    const windowCreateStart = new Date(
-      courseStartTime.getTime() + 10 * 60 * 1000
-    );
-    const windowCreateEnd = courseEndTime;
-
-    let canCreateWindow = false;
-    let windowInfo = {
-      start_time: '',
-      end_time: '',
-      is_active: false
-    };
+    // 3. 构建签到窗口信息
+    let attendanceWindow = undefined;
 
     if (latestWindow) {
-      const windowStartTime = new Date(latestWindow.open_time);
-      const windowValidEnd = new Date(
-        windowStartTime.getTime() + 2 * 60 * 1000
-      ); // 窗口有效时间 2 分钟
-
-      windowInfo = {
-        start_time: latestWindow.open_time.toISOString(),
-        end_time: windowValidEnd.toISOString(),
-        is_active: now < windowValidEnd
+      attendanceWindow = {
+        id: latestWindow.id,
+        open_time: latestWindow.open_time.toISOString(),
+        window_id: latestWindow.window_id,
+        course_id: latestWindow.course_id,
+        external_id: course.external_id,
+        duration_minutes: latestWindow.duration_minutes
       };
-
-      // 如果不在窗口有效时间内，且在允许创建窗口的时间范围内，则可以创建新窗口
-      canCreateWindow =
-        now >= windowCreateStart &&
-        now <= windowCreateEnd &&
-        now >= windowValidEnd;
-    } else {
-      // 如果没有窗口，且在允许创建窗口的时间范围内，则可以创建新窗口
-      canCreateWindow = now >= windowCreateStart && now <= windowCreateEnd;
     }
 
     const vo: TeacherCourseCompleteDataVO = {
-      course_info: {
-        external_id: course.external_id,
-        course_code: course.course_code,
-        course_name: course.course_name,
-        semester: course.semester,
-        teaching_week: course.teaching_week,
-        week_day: course.week_day,
-        class_location: course.class_location,
-        start_time: course.start_time,
-        end_time: course.end_time,
-        periods: course.periods,
-        time_period: `${course.start_time}-${course.end_time}`
-      },
-      teacher_info: this.parseTeacherInfo(
-        course.teacher_code,
-        course.teacher_name
-      ),
-      students,
-      stats,
-      attendance_window: windowInfo,
-      can_create_window: canCreateWindow
-    } as any; // 临时使用 any，稍后更新类型定义
+      course,
+      students: studentsWithStatus,
+      stats: repositoryStats,
+      status: 'in_progress',
+      attendance_window: attendanceWindow
+    };
 
     return right(vo);
   }
@@ -753,82 +641,21 @@ export default class AttendanceService implements IAttendanceService {
    * 数据源：v_attendance_realtime_details 视图
    */
   private async buildFutureTeacherView(
-    course: any
+    course: IcasyncAttendanceCourse
   ): Promise<Either<ServiceError, TeacherCourseCompleteDataVO>> {
     this.logger.debug({ courseId: course.id }, 'Building future teacher view');
 
-    // 1. 查询教学班的所有学生成员
-    const courseStudents = (await this.courseStudentRepository.findMany((qb) =>
-      qb
-        .where('kkh', '=', course.course_code)
-        .where('xnxq', '=', course.semester)
-    )) as unknown as any[];
-
-    // 2. 查询所有学生的实时签到状态
-    const realtimeDetails =
-      await this.attendanceViewRepository.findByExternalId(course.external_id);
-
-    // 3. 构建学生考勤详情列表（只展示特定状态）
-    const students: StudentAttendanceDetail[] = courseStudents.map(
-      (cs: any) => {
-        // 查找该学生的实时签到状态
-        const realtimeDetail = realtimeDetails.find(
-          (rd: any) => rd.student_id === cs.xh
-        );
-
-        // 未来课程只允许三种状态：leave、leave_pending、unstarted
-        let status: AttendanceStatus = 'unstarted' as AttendanceStatus;
-        if (
-          realtimeDetail &&
-          (realtimeDetail.status === 'leave' ||
-            realtimeDetail.status === 'leave_pending')
-        ) {
-          status = realtimeDetail.status as AttendanceStatus;
-        }
-
-        return {
-          student_id: cs.xh,
-          student_name: cs.xm,
-          class_name: cs.bjmc,
-          major_name: cs.zymc,
-          status,
-          checkin_time: undefined,
-          is_late: false,
-          late_minutes: undefined,
-          leave_reason: realtimeDetail?.leave_reason
-        };
-      }
-    );
-
-    // 4. 计算统计信息
-    const stats = this.calculateTeacherStats(students);
-
-    // 5. 未来课程不允许创建签到窗口
+    // 未来课程暂时返回空数据，因为还未开始
     const vo: TeacherCourseCompleteDataVO = {
-      course_info: {
-        external_id: course.external_id,
-        course_code: course.course_code,
-        course_name: course.course_name,
-        semester: course.semester,
-        teaching_week: course.teaching_week,
-        week_day: course.week_day,
-        class_location: course.class_location,
-        start_time: course.start_time,
-        end_time: course.end_time,
-        periods: course.periods,
-        time_period: `${course.start_time}-${course.end_time}`
+      course,
+      students: [],
+      stats: {
+        total_count: 0,
+        checkin_count: 0,
+        absent_count: 0,
+        leave_count: 0
       },
-      teacher_info: this.parseTeacherInfo(
-        course.teacher_code,
-        course.teacher_name
-      ),
-      students,
-      stats,
-      attendance_window: {
-        start_time: '',
-        end_time: '',
-        is_active: false
-      }
+      status: 'not_started'
     };
 
     return right(vo);
@@ -842,13 +669,17 @@ export default class AttendanceService implements IAttendanceService {
   ): AttendanceStats {
     const totalCount = students.length;
     const checkinCount = students.filter(
-      (s) => s.status === 'present' || s.status === 'late'
+      (s) => s.absence_type === 'present' || s.absence_type === 'late'
     ).length;
-    const lateCount = students.filter((s) => s.status === 'late').length;
-    const absentCount = students.filter((s) => s.status === 'absent').length;
-    const leaveCount = students.filter((s) => s.status === 'leave').length;
+    const lateCount = students.filter((s) => s.absence_type === 'late').length;
+    const absentCount = students.filter(
+      (s) => s.absence_type === 'absent'
+    ).length;
+    const leaveCount = students.filter(
+      (s) => s.absence_type === 'leave' || s.absence_type === 'leave_pending'
+    ).length;
     const unstartedCount = students.filter(
-      (s) => s.status === 'unstarted'
+      (s) => s.absence_type === 'unstarted'
     ).length;
 
     return {
@@ -966,7 +797,8 @@ export default class AttendanceService implements IAttendanceService {
 
     // 4. 幂等性判断：使用 jobId 防止重复提交
     // BullMQ 支持通过 jobId 实现幂等性，相同 jobId 的任务只会被处理一次
-    const jobId = `checkin_${courseExtId}_${studentInfo.userId}_${now.toISOString().split('T')[0]}`;
+    // 包含时分秒，允许同一天多次签到（例如：多节课程）
+    const jobId = `checkin_${courseExtId}_${studentInfo.userId}_${now.toISOString().replace(/[:.]/g, '-').slice(0, 19)}`;
 
     // 检查是否已存在相同的任务
     try {
@@ -1297,7 +1129,7 @@ export default class AttendanceService implements IAttendanceService {
 
     // 2. 验证教师权限（检查是否为该课程的授课教师）
     const teacherCodes =
-      course.teacher_code?.split(',').map((c: string) => c.trim()) || [];
+      course.teacher_codes?.split(',').map((c: string) => c.trim()) || [];
     if (!teacherCodes.includes(teacherId)) {
       this.logger.warn(
         { courseId, teacherId, teacherCodes },
@@ -1353,14 +1185,6 @@ export default class AttendanceService implements IAttendanceService {
       await this.verificationWindowRepository.getMaxVerificationRound(courseId);
     const currentRound = maxRound + 1;
 
-    // 6. 统计预期签到人数
-    const courseStudents = (await this.courseStudentRepository.findMany((qb) =>
-      qb
-        .where('kkh', '=', course.course_code)
-        .where('xnxq', '=', course.semester)
-    )) as unknown as any[];
-    const expectedStudentCount = courseStudents.length;
-
     // 7. 创建签到窗口记录
     const durationMinutes = request.duration_minutes || 2; // 默认 2 分钟
     const startTime = now;
@@ -1370,13 +1194,13 @@ export default class AttendanceService implements IAttendanceService {
     const createResult = await this.verificationWindowRepository.create({
       window_id: windowId,
       course_id: courseId,
+      external_id: course.external_id,
       verification_round: currentRound,
       open_time: startTime,
       close_time: endTime,
       opened_by: teacherId,
       status: 'open',
       duration_minutes: durationMinutes,
-      expected_checkin_count: expectedStudentCount,
       actual_checkin_count: 0
     } as any);
 
@@ -1395,8 +1219,7 @@ export default class AttendanceService implements IAttendanceService {
       {
         windowId,
         courseId,
-        verificationRound: currentRound,
-        expectedStudentCount
+        verificationRound: currentRound
       },
       'Verification window created successfully'
     );
@@ -1407,9 +1230,188 @@ export default class AttendanceService implements IAttendanceService {
       verification_round: currentRound,
       start_time: startTime.toISOString(),
       end_time: endTime.toISOString(),
-      expected_student_count: expectedStudentCount,
       status: 'open',
       message: `签到窗口已创建（第 ${currentRound} 轮），有效时间 ${durationMinutes} 分钟`
     });
+  }
+
+  /**
+   * 教师补卡
+   * @param courseId 课程ID
+   * @param teacherId 教师ID
+   * @param studentId 学生ID
+   * @param reason 补卡原因
+   * @returns 补卡结果
+   *
+   * @description
+   * 教师为学生手动补卡的业务逻辑：
+   * 1. 验证课程是否存在
+   * 2. 验证教师权限（是否为该课程的授课教师）
+   * 3. 验证学生是否注册了该课程
+   * 4. 查询学生信息（班级、专业等）
+   * 5. 创建或更新签到记录，标记为教师手动补卡
+   * 6. 记录补卡人、补卡时间、补卡原因
+   */
+  public async teacherManualCheckin(
+    courseId: number,
+    teacherId: string,
+    studentId: string,
+    reason?: string
+  ): Promise<Either<ServiceError, { record_id: number; message: string }>> {
+    this.logger.info(
+      { courseId, teacherId, studentId },
+      'Teacher manual checkin request'
+    );
+
+    // 1. 验证课程是否存在
+    const courseMaybe = (await this.attendanceCourseRepository.findOne((qb) =>
+      qb.where('id', '=', courseId).where('deleted_at', 'is', null)
+    )) as unknown as Maybe<IcasyncAttendanceCourse>;
+
+    if (isNone(courseMaybe)) {
+      this.logger.warn({ courseId }, 'Course not found');
+      return left({
+        code: String(ServiceErrorCode.RESOURCE_NOT_FOUND),
+        message: '课程不存在'
+      });
+    }
+
+    const course = courseMaybe.value;
+
+    // 2. 验证教师权限（检查是否为该课程的授课教师）
+    const teacherCodes =
+      course.teacher_codes?.split(',').map((c: string) => c.trim()) || [];
+    if (!teacherCodes.includes(teacherId)) {
+      this.logger.warn(
+        { courseId, teacherId, teacherCodes },
+        'Teacher not authorized for this course'
+      );
+      return left({
+        code: String(ServiceErrorCode.FORBIDDEN),
+        message: '您不是该课程的授课教师，无权为学生补卡'
+      });
+    }
+
+    // 3. 验证学生是否注册了该课程
+    const enrollmentMaybe = await this.courseStudentRepository.findOne((qb) =>
+      qb
+        .where('kkh', '=', course.course_code)
+        .where('xh', '=', studentId)
+        .where('zt', 'in', ['add', 'update'])
+    );
+
+    if (isNone(enrollmentMaybe)) {
+      this.logger.warn(
+        { courseId, studentId },
+        'Student not enrolled in this course'
+      );
+      return left({
+        code: String(ServiceErrorCode.VALIDATION_FAILED),
+        message: '该学生未注册此课程'
+      });
+    }
+
+    // 4. 查询学生信息
+    const studentMaybe = (await this.studentRepository.findOne((qb) =>
+      qb.where('xh', '=', studentId)
+    )) as unknown as Maybe<OutXsxx>;
+
+    const studentData = isSome(studentMaybe) ? studentMaybe.value : null;
+
+    // 5. 检查是否已有签到记录
+    const existingRecordMaybe = (await this.attendanceRecordRepository.findOne(
+      (qb) =>
+        qb
+          .where('attendance_course_id', '=', courseId)
+          .where('student_id', '=', studentId)
+          .orderBy('id', 'desc')
+    )) as unknown as Maybe<IcalinkAttendanceRecord>;
+
+    const now = new Date();
+    const manualOverrideTime = now;
+
+    if (isSome(existingRecordMaybe)) {
+      // 更新已有记录
+      const existingRecord = existingRecordMaybe.value;
+
+      const updateResult = await this.attendanceRecordRepository.update(
+        existingRecord.id,
+        {
+          status: 'present' as AttendanceStatus,
+          checkin_time: manualOverrideTime,
+          last_checkin_source: 'manual',
+          last_checkin_reason: reason || '教师补卡',
+          manual_override_by: teacherId,
+          manual_override_time: manualOverrideTime,
+          manual_override_reason: reason || '教师补卡',
+          updated_by: teacherId
+        } as any
+      );
+
+      if (isLeft(updateResult)) {
+        this.logger.error(
+          { error: updateResult.left },
+          'Failed to update attendance record'
+        );
+        return left({
+          code: String(ServiceErrorCode.DATABASE_ERROR),
+          message: '更新签到记录失败'
+        });
+      }
+
+      this.logger.info(
+        { recordId: existingRecord.id, courseId, studentId, teacherId },
+        'Attendance record updated by teacher'
+      );
+
+      return right({
+        record_id: existingRecord.id,
+        message: '补卡成功'
+      });
+    } else {
+      // 创建新记录
+      const newRecord = {
+        attendance_course_id: courseId,
+        student_id: studentId,
+        student_name: studentData?.xm || '',
+        class_name: studentData?.bjmc || '',
+        major_name: studentData?.zymc || '',
+        status: 'present' as AttendanceStatus,
+        checkin_time: manualOverrideTime,
+        checkin_location: '教师补卡',
+        last_checkin_source: 'manual',
+        last_checkin_reason: reason || '教师补卡',
+        manual_override_by: teacherId,
+        manual_override_time: manualOverrideTime,
+        manual_override_reason: reason || '教师补卡',
+        created_by: teacherId
+      } as any;
+
+      const createResult =
+        await this.attendanceRecordRepository.create(newRecord);
+
+      if (isLeft(createResult)) {
+        this.logger.error(
+          { error: createResult.left },
+          'Failed to create attendance record'
+        );
+        return left({
+          code: String(ServiceErrorCode.DATABASE_ERROR),
+          message: '创建签到记录失败'
+        });
+      }
+
+      const recordId = createResult.right.id;
+
+      this.logger.info(
+        { recordId, courseId, studentId, teacherId },
+        'Attendance record created by teacher'
+      );
+
+      return right({
+        record_id: recordId,
+        message: '补卡成功'
+      });
+    }
   }
 }

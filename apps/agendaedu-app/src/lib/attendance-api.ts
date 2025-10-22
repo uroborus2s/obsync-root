@@ -11,18 +11,21 @@ export interface StudentAttendanceSearchResponse {
   success: boolean;
   message?: string;
   data?: {
+    id: number; // 课程ID
+    attendance_record_id?: number; // 考勤记录ID，用于请假申请
     course: {
-      kkh: string;
+      external_id: string;
+      kkh?: string;
       kcmc: string;
-      rq: string;
-      sj_f: string;
-      sj_t: string;
+      rq?: string;
+      sj_f?: string;
+      sj_t?: string;
       room_s: string;
       xm_s: string;
       jc_s: string;
       jxz?: number | null;
       lq?: string | null;
-      status: 'not_started' | 'in_progress' | 'finished';
+      status?: 'not_started' | 'in_progress' | 'finished';
       course_start_time: string;
       course_end_time: string;
     };
@@ -32,7 +35,22 @@ export interface StudentAttendanceSearchResponse {
       bjmc?: string;
       zymc?: string;
     };
-    attendance_status: {
+    final_status?:
+      | 'present'
+      | 'absent'
+      | 'leave'
+      | 'leave_pending'
+      | 'truant'
+      | 'late';
+    pending_status?: 'unstarted' | 'leave' | 'leave_pending';
+    live_status?:
+      | 'present'
+      | 'absent'
+      | 'leave'
+      | 'leave_pending'
+      | 'truant'
+      | 'late';
+    attendance_status?: {
       is_checked_in: boolean;
       status?:
         | 'not_started'
@@ -47,7 +65,7 @@ export interface StudentAttendanceSearchResponse {
       auto_start_time?: string;
       auto_close_time?: string;
     };
-    stats: {
+    stats?: {
       total_count: number;
       checkin_count: number;
       late_count: number;
@@ -148,7 +166,7 @@ export interface StudentCheckInResponse {
 export interface StudentLeaveRequest {
   attendance_record_id: string;
   leave_reason: string;
-  leave_type?: 'sick' | 'personal' | 'emergency' | 'other';
+  leave_type: 'sick' | 'personal' | 'emergency' | 'other'; // 必填字段
   attachments?: Array<{
     file_name: string;
     file_content: string; // Base64编码
@@ -576,9 +594,22 @@ export class AttendanceApiService {
   async studentLeave(
     request: StudentLeaveRequest
   ): Promise<StudentLeaveResponse> {
+    // 将前端的 attachments 字段映射为后端期望的 images 字段
+    const backendRequest = {
+      attendance_record_id: request.attendance_record_id,
+      leave_reason: request.leave_reason,
+      leave_type: request.leave_type,
+      images: request.attachments?.map((attachment) => ({
+        name: attachment.file_name,
+        content: attachment.file_content,
+        type: attachment.file_type as any,
+        size: attachment.file_size
+      }))
+    };
+
     const response = await this.apiClient.post(
       '/icalink/v1/leave-applications',
-      request
+      backendRequest
     );
     return {
       success: !!response.success,

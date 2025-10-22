@@ -15,10 +15,10 @@ DEFAULT_PROJECT_NAME="app-icalink"
 DEFAULT_VERSION="latest"
 
 # 私有仓库配置
-REGISTRY="g-rrng9518-docker.pkg.coding.net"
-DOCKER_USERNAME="sync-1750080420644"
-DOCKER_PASSWORD="483742128078285bba00ae2fae50fe10f8458a26"
-NAMESPACE="obsync/sync"
+REGISTRY="registry.cn-hangzhou.aliyuncs.com"
+DOCKER_USERNAME="32830505@qq.com"
+DOCKER_PASSWORD="f9o8wXcFN75rKeq"
+NAMESPACE="uroborus"
 
 # 支持的平台
 PLATFORMS="linux/amd64"

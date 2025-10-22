@@ -2,6 +2,7 @@ import type { Logger, ServiceError } from '@stratix/core';
 import {
   isLeft,
   isNone,
+  isSome,
   eitherLeft as left,
   eitherRight as right,
   type Either,
@@ -12,6 +13,7 @@ import AttendanceRecordRepository from '../repositories/AttendanceRecordReposito
 import LeaveApplicationRepository from '../repositories/LeaveApplicationRepository.js';
 import LeaveApprovalRepository from '../repositories/LeaveApprovalRepository.js';
 import LeaveAttachmentRepository from '../repositories/LeaveAttachmentRepository.js';
+import StudentRepository from '../repositories/StudentRepository.js';
 import type {
   ApprovalRequest,
   ApprovalResponse,
@@ -47,6 +49,7 @@ export default class LeaveService {
     private readonly leaveAttachmentRepository: LeaveAttachmentRepository,
     private readonly attendanceRecordRepository: AttendanceRecordRepository,
     private readonly attendanceCourseRepository: AttendanceCourseRepository,
+    private readonly studentRepository: StudentRepository,
     private readonly osspStorageService: OsspStorageService,
     private readonly logger: Logger
   ) {}
@@ -60,34 +63,103 @@ export default class LeaveService {
       'Submitting leave application'
     );
     try {
-      // 1. 根据 attendance_record_id 查找考勤记录
+      // 1. 根据 attendance_record_id 查找或创建考勤记录
       const recordId = parseInt(request.attendance_record_id, 10);
-      const recordMaybe = (await this.attendanceRecordRepository.findOne((qb) =>
+      let recordMaybe = (await this.attendanceRecordRepository.findOne((qb) =>
         qb.where('id', '=', recordId)
       )) as unknown as Maybe<IcalinkAttendanceRecord>;
 
+      let record: IcalinkAttendanceRecord;
+      let course: IcasyncAttendanceCourse;
+
       if (isNone(recordMaybe)) {
-        return left({
-          code: String(ServiceErrorCode.RESOURCE_NOT_FOUND),
-          message: '考勤记录不存在'
-        });
+        // 考勤记录不存在，可能是学生还没签到
+        // 尝试通过 course_id 查找课程，然后创建考勤记录
+        this.logger.info(
+          { recordId, studentId: studentInfo.userId },
+          'Attendance record not found, attempting to create one'
+        );
+
+        // 尝试将 attendance_record_id 作为 course_id 来查找课程
+        const courseMaybe = (await this.attendanceCourseRepository.findOne(
+          (qb) => qb.where('id', '=', recordId)
+        )) as unknown as Maybe<IcasyncAttendanceCourse>;
+
+        if (isNone(courseMaybe)) {
+          return left({
+            code: String(ServiceErrorCode.RESOURCE_NOT_FOUND),
+            message: '课程不存在，无法提交请假申请'
+          });
+        }
+
+        course = courseMaybe.value;
+
+        // 先检查是否已存在该学生的考勤记录（避免唯一约束冲突）
+        const existingRecordMaybe =
+          (await this.attendanceRecordRepository.findOne((qb) =>
+            qb
+              .where('attendance_course_id', '=', course.id)
+              .where('student_id', '=', studentInfo.userId)
+          )) as unknown as Maybe<IcalinkAttendanceRecord>;
+
+        if (isSome(existingRecordMaybe)) {
+          // 已存在考勤记录，直接使用
+          record = existingRecordMaybe.value;
+          this.logger.info(
+            { recordId: record.id, studentId: studentInfo.userId },
+            'Found existing attendance record for leave application'
+          );
+        } else {
+          // 查询学生信息以获取班级和专业
+          const studentMaybe = await this.studentRepository.findOne((qb) =>
+            qb.where('xh', '=', studentInfo.userId)
+          );
+
+          const studentData =
+            studentMaybe && isSome(studentMaybe) ? studentMaybe.value : null;
+
+          // 创建考勤记录
+          const newRecordResult = await this.attendanceRecordRepository.create({
+            attendance_course_id: course.id,
+            student_id: studentInfo.userId,
+            student_name: studentInfo.name,
+            class_name: studentData?.bjmc || '',
+            major_name: studentData?.zymc || '',
+            status: 'leave_pending' as AttendanceStatus,
+            created_by: studentInfo.userId
+          } as any);
+
+          if (isLeft(newRecordResult)) {
+            return left({
+              code: String(ServiceErrorCode.INTERNAL_ERROR),
+              message: '创建考勤记录失败',
+              details: newRecordResult.left
+            });
+          }
+
+          record = newRecordResult.right as unknown as IcalinkAttendanceRecord;
+          this.logger.info(
+            { recordId: record.id, studentId: studentInfo.userId },
+            'Created new attendance record for leave application'
+          );
+        }
+      } else {
+        record = recordMaybe.value;
+
+        // 2. 查找课程信息
+        const courseMaybe = (await this.attendanceCourseRepository.findOne(
+          (qb) => qb.where('id', '=', record.attendance_course_id)
+        )) as unknown as Maybe<IcasyncAttendanceCourse>;
+
+        if (isNone(courseMaybe)) {
+          return left({
+            code: String(ServiceErrorCode.RESOURCE_NOT_FOUND),
+            message: '课程不存在'
+          });
+        }
+
+        course = courseMaybe.value;
       }
-
-      const record = recordMaybe.value;
-
-      // 2. 查找课程信息
-      const courseMaybe = (await this.attendanceCourseRepository.findOne((qb) =>
-        qb.where('id', '=', record.attendance_course_id)
-      )) as unknown as Maybe<IcasyncAttendanceCourse>;
-
-      if (isNone(courseMaybe)) {
-        return left({
-          code: String(ServiceErrorCode.RESOURCE_NOT_FOUND),
-          message: '课程不存在'
-        });
-      }
-
-      const course = courseMaybe.value;
 
       // 3. 创建请假申请
       const teacherCodes = course.teacher_codes?.split(',') || [];

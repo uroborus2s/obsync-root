@@ -29,7 +29,7 @@ function AppContent() {
           {/* 原有的教师页面路由 - 保持向后兼容 */}
           <Route path='/' element={<Dashboard />} />
           <Route path='/leave' element={<Leave />} />
-          <Route path='/leave/:attendanceId' element={<Leave />} />
+          <Route path='/leave/:externalId' element={<Leave />} />
           <Route path='/attendance' element={<AttendanceSheet />} />
           <Route path='/approval' element={<Approval />} />
 

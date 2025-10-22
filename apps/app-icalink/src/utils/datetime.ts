@@ -51,14 +51,20 @@ export function formatDateTime(date: Date): string {
 
 /**
  * 格式化日期时间为带时区的 ISO 字符串
- * @param date 日期对象
+ * @param date 日期对象（数据库中的北京时间）
  * @param timezone 时区偏移（默认 +08:00 中国时区）
- * @returns 带时区的 ISO 格式字符串，如：2025-10-25T09:50:00.000+08:00
+ * @returns 带时区的 ISO 格式字符串，如：2025-10-22T10:10:00.000+08:00
+ *
+ * 注意：此函数假设输入的 Date 对象已经是北京时间（UTC+8）
+ * - 数据库存储的是北京时间，直接使用这个时间
+ * - 不进行时区转换，只添加时区标记
  */
 export function formatDateTimeWithTimezone(
   date: Date,
   timezone: string = '+08:00'
 ): string {
+  // 直接使用输入的时间，不进行时区转换
+  // 因为数据库存储的就是北京时间
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');

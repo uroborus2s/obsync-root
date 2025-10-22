@@ -54,7 +54,7 @@ export default class LeaveController {
     const userIdentity = (request as any).userIdentity;
 
     // 2. 验证学生身份
-    if (!userIdentity || userIdentity.type !== 'student') {
+    if (!userIdentity || userIdentity.userType !== 'student') {
       reply.status(403);
       return {
         success: false,

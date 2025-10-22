@@ -1,4 +1,6 @@
-import { TeacherFloatingMessageButton } from '@/components/TeacherFloatingMessageButton';
+import ManualCheckinDialog from '@/components/ManualCheckinDialog';
+import { Toaster, ToastProvider } from '@/components/ui/toast';
+import { useToast } from '@/hooks/use-toast';
 import { authManager } from '@/lib/auth-manager';
 import { icaLinkApiClient } from '@/lib/icalink-api-client';
 import {
@@ -13,65 +15,67 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 interface CourseData {
-  kcmc: string;
-  room_s: string;
-  xm_s: string;
-  jc_s: string;
-  jxz?: number; // 教学周
-  lq?: string; // 楼群或相关标识
-}
-
-interface TeacherData {
-  xh: string;
-  xm: string;
-  bjmc: string;
-  zymc: string;
-}
-
-interface AttendanceStatus {
-  is_checked_in: boolean;
-  status?: 'not_started' | 'active' | 'finished';
-  checkin_time?: string;
-  can_checkin: boolean;
-  can_leave: boolean;
-  auto_start_time: string;
-  auto_close_time: string;
-}
-
-interface CourseStatus {
-  status: 'not_started' | 'in_progress' | 'finished';
-  course_start_time: string;
-  course_end_time: string;
+  id: number;
+  juhe_renwu_id: number;
+  external_id: string;
+  course_code: string;
+  course_name: string;
+  semester: string;
+  teaching_week: number;
+  week_day: number;
+  teacher_codes?: string;
+  teacher_names?: string;
+  class_location?: string;
+  start_time: Date;
+  end_time: Date;
+  periods?: string;
+  time_period: string;
+  attendance_enabled: boolean;
+  attendance_start_offset?: number;
+  attendance_end_offset?: number;
+  late_threshold?: number;
+  auto_absent_after?: number;
+  created_at: string;
+  updated_at: string;
+  created_by?: string;
+  updated_by?: string;
+  deleted_at?: Date;
+  deleted_by?: string;
+  metadata?: any;
 }
 
 interface Stats {
   total_count: number;
   checkin_count: number;
-  late_count: number;
+  late_count?: number;
   absent_count: number;
   leave_count: number;
 }
 
-interface StudentDetail {
-  xh: string;
-  xm: string;
-  bjmc?: string;
-  zymc?: string;
-  status: 'not_started' | 'present' | 'absent' | 'leave' | 'leave_pending';
-  checkin_time?: string;
-  leave_time?: string;
-  leave_reason?: string;
-  location?: string;
-  ip_address?: string;
+interface StudentAttendanceDetail {
+  student_id: string;
+  student_name: string | null;
+  class_name: string | null;
+  major_name: string | null;
+  absence_type: 'present' | 'absent' | 'leave' | 'leave_pending' | 'unstarted';
+  checkin_time?: string | Date | null;
+}
+
+interface AttendanceWindow {
+  id: number;
+  open_time: string;
+  window_id: string;
+  course_id: number;
+  external_id: string;
+  duration_minutes: number;
 }
 
 interface TeacherAttendanceData {
   course: CourseData;
-  student: TeacherData;
-  attendance_status: AttendanceStatus;
-  course_status: CourseStatus;
+  students: StudentAttendanceDetail[];
   stats: Stats;
-  student_details?: StudentDetail[];
+  status: 'not_started' | 'in_progress' | 'final';
+  attendance_window?: AttendanceWindow;
 }
 
 // 扩展的 API 响应类型，支持实际 API 返回的格式
@@ -82,13 +86,26 @@ interface ExtendedApiResponse<T> {
   data?: T;
 }
 
-export function AttendanceSheet() {
+function AttendanceSheetContent() {
   const [searchParams] = useSearchParams();
+  const { toast } = useToast();
   const [teacherData, setTeacherData] = useState<TeacherAttendanceData | null>(
     null
   );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // 验签按钮状态管理
+  const [canCreateWindow, setCanCreateWindow] = useState(false);
+  const [isCreatingWindow, setIsCreatingWindow] = useState(false);
+  const [windowCountdown, setWindowCountdown] = useState<number | null>(null); // 倒计时（秒）
+  const [windowExpired, setWindowExpired] = useState(false); // 窗口是否已过期
+
+  // 补卡对话框状态
+  const [makeupStudent, setMakeupStudent] =
+    useState<StudentAttendanceDetail | null>(null);
+  const [isMakingUp, setIsMakingUp] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const id = searchParams.get('id');
 
@@ -137,34 +154,6 @@ export function AttendanceSheet() {
     return `${dateStr} ${jc_s}节`;
   };
 
-  // 获取课程状态颜色
-  const getCourseStatusColor = (status: string) => {
-    switch (status) {
-      case 'not_started':
-        return 'bg-gray-100 text-gray-800';
-      case 'in_progress':
-        return 'bg-green-100 text-green-800';
-      case 'finished':
-        return 'bg-blue-100 text-blue-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  // 获取课程状态文本
-  const getCourseStatusText = (status: string) => {
-    switch (status) {
-      case 'not_started':
-        return '未开始';
-      case 'in_progress':
-        return '进行中';
-      case 'finished':
-        return '已结束';
-      default:
-        return '未知';
-    }
-  };
-
   const loadTeacherAttendanceData = async () => {
     if (!id) return;
 
@@ -211,11 +200,111 @@ export function AttendanceSheet() {
     }
   };
 
+  // 计算是否可以创建验签窗口
+  const calculateCanCreateWindow = () => {
+    if (!teacherData || teacherData.status !== 'in_progress') {
+      return false;
+    }
+
+    const now = new Date();
+    const courseStartTime = new Date(teacherData.course.start_time);
+    const courseEndTime = new Date(teacherData.course.end_time);
+
+    // 时间条件：课程开始后 10 分钟至课程结束时间
+    const windowCreateStart = new Date(
+      courseStartTime.getTime() + 10 * 60 * 1000
+    );
+
+    // 检查是否在允许创建窗口的时间范围内
+    if (now < windowCreateStart || now > courseEndTime) {
+      return false;
+    }
+
+    // 检查是否已有活跃的签到窗口
+    if (teacherData.attendance_window) {
+      const windowOpenTime = new Date(teacherData.attendance_window.open_time);
+      const windowValidEnd = new Date(
+        windowOpenTime.getTime() +
+          teacherData.attendance_window.duration_minutes * 60 * 1000
+      );
+
+      // 如果窗口还在有效期内，不能创建新窗口
+      if (now < windowValidEnd) {
+        return false;
+      }
+    }
+
+    return true;
+  };
+
   // 当课程ID变化时，重新加载数据
   useEffect(() => {
     loadTeacherAttendanceData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // 定时器：每秒检查验签按钮状态（仅在进行中的课程）
+  useEffect(() => {
+    if (!teacherData || teacherData.status !== 'in_progress') {
+      setCanCreateWindow(false);
+      return;
+    }
+
+    // 立即计算一次
+    setCanCreateWindow(calculateCanCreateWindow());
+
+    // 每秒更新一次
+    const timer = setInterval(() => {
+      setCanCreateWindow(calculateCanCreateWindow());
+    }, 1000);
+
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teacherData]);
+
+  // 定时器：计算验签窗口倒计时
+  useEffect(() => {
+    if (!teacherData?.attendance_window) {
+      setWindowCountdown(null);
+      setWindowExpired(false);
+      return;
+    }
+
+    const updateCountdown = () => {
+      const now = new Date();
+      const windowOpenTime = new Date(teacherData.attendance_window!.open_time);
+      const windowValidEnd = new Date(
+        windowOpenTime.getTime() +
+          teacherData.attendance_window!.duration_minutes * 60 * 1000
+      );
+
+      const remainingMs = windowValidEnd.getTime() - now.getTime();
+      const remainingSeconds = Math.floor(remainingMs / 1000);
+
+      if (remainingSeconds <= 0) {
+        setWindowCountdown(0);
+        setWindowExpired(true);
+      } else {
+        setWindowCountdown(remainingSeconds);
+        setWindowExpired(false);
+      }
+    };
+
+    // 立即计算一次
+    updateCountdown();
+
+    // 每秒更新一次
+    const timer = setInterval(updateCountdown, 1000);
+
+    return () => clearInterval(timer);
+  }, [teacherData?.attendance_window]);
+
+  // 格式化倒计时显示
+  const formatCountdown = (seconds: number): string => {
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const handleAuthRedirect = () => {
     // 保存当前页面URL用于授权后返回
@@ -223,9 +312,117 @@ export function AttendanceSheet() {
     authManager.redirectToAuth(currentUrl);
   };
 
-  const getStatusIcon = (status: StudentDetail['status']) => {
+  // 创建验签窗口
+  const handleCreateVerificationWindow = async () => {
+    if (!teacherData || !canCreateWindow || isCreatingWindow) {
+      return;
+    }
+
+    setIsCreatingWindow(true);
+
+    try {
+      const response = await icaLinkApiClient.post(
+        `/icalink/v1/courses/${teacherData.course.id}/verification-window`,
+        {
+          duration_minutes: 2 // 默认2分钟
+        }
+      );
+
+      if (response.success && response.data) {
+        // 更新本地状态，添加窗口信息
+        setTeacherData({
+          ...teacherData,
+          attendance_window: {
+            id: 0, // 临时ID，实际应该从响应中获取
+            open_time: response.data.start_time,
+            window_id: response.data.window_id,
+            course_id: teacherData.course.id,
+            external_id: teacherData.course.external_id,
+            duration_minutes: 2
+          }
+        });
+
+        toast.success('验签窗口已开启！', {
+          description: `窗口ID: ${response.data.window_id}\n有效时间: 2分钟`,
+          duration: 4000
+        });
+      } else {
+        toast.error('创建验签窗口失败', {
+          description: response.message || '请重试',
+          duration: 4000
+        });
+      }
+    } catch (error) {
+      console.error('创建验签窗口失败:', error);
+      toast.error('创建验签窗口失败', {
+        description: '请重试',
+        duration: 4000
+      });
+    } finally {
+      setIsCreatingWindow(false);
+    }
+  };
+
+  // 打开补卡对话框
+  const handleOpenMakeupDialog = (student: StudentAttendanceDetail) => {
+    setMakeupStudent(student);
+    setIsDialogOpen(true);
+  };
+
+  // 关闭补卡对话框
+  const handleCloseMakeupDialog = () => {
+    if (!isMakingUp) {
+      setIsDialogOpen(false);
+      setMakeupStudent(null);
+    }
+  };
+
+  // 确认补卡
+  const handleConfirmMakeup = async (reason: string) => {
+    if (!teacherData || !makeupStudent) return;
+
+    setIsMakingUp(true);
+
+    try {
+      // 调用教师补卡接口
+      const response = await icaLinkApiClient.post(
+        `/icalink/v1/courses/${teacherData.course.id}/manual-checkin`,
+        {
+          student_id: makeupStudent.student_id,
+          reason: reason || '教师补卡'
+        }
+      );
+
+      if (response.success) {
+        toast.success('补卡成功！', {
+          description: '学生考勤状态已更新',
+          duration: 3000
+        });
+        // 关闭对话框
+        setIsDialogOpen(false);
+        setMakeupStudent(null);
+        // 刷新数据
+        await loadTeacherAttendanceData();
+      } else {
+        toast.error('补卡失败', {
+          description: response.message || '请重试',
+          duration: 4000
+        });
+      }
+    } catch (error) {
+      console.error('补卡失败:', error);
+      toast.error('补卡失败', {
+        description: '请重试',
+        duration: 4000
+      });
+    } finally {
+      setIsMakingUp(false);
+    }
+  };
+
+  const getStatusIcon = (status: StudentAttendanceDetail['absence_type']) => {
     switch (status) {
-      case 'not_started':
+      case 'unstarted':
         return <Calendar className='h-4 w-4 text-gray-500' />;
       case 'present':
         return <CheckCircle className='h-4 w-4 text-green-500' />;
@@ -240,9 +437,9 @@ export function AttendanceSheet() {
     }
   };
 
-  const getStatusText = (status: StudentDetail['status']) => {
+  const getStatusText = (status: StudentAttendanceDetail['absence_type']) => {
     switch (status) {
-      case 'not_started':
+      case 'unstarted':
         return '未开始';
       case 'present':
         return '已签到';
@@ -257,9 +454,37 @@ export function AttendanceSheet() {
     }
   };
 
-  const getStatusColor = (status: StudentDetail['status']) => {
+  // 获取课程状态文本
+  const getCourseStatusText = (status: TeacherAttendanceData['status']) => {
     switch (status) {
       case 'not_started':
+        return '未开始';
+      case 'in_progress':
+        return '进行中';
+      case 'final':
+        return '已结束';
+      default:
+        return '未知';
+    }
+  };
+
+  // 获取课程状态颜色
+  const getCourseStatusColor = (status: TeacherAttendanceData['status']) => {
+    switch (status) {
+      case 'not_started':
+        return 'bg-gray-100 text-gray-600';
+      case 'in_progress':
+        return 'bg-green-100 text-green-600';
+      case 'final':
+        return 'bg-blue-100 text-blue-600';
+      default:
+        return 'bg-gray-100 text-gray-600';
+    }
+  };
+
+  const getStatusColor = (status: StudentAttendanceDetail['absence_type']) => {
+    switch (status) {
+      case 'unstarted':
         return 'text-gray-600 bg-gray-50';
       case 'present':
         return 'text-green-600 bg-green-50';
@@ -272,25 +497,6 @@ export function AttendanceSheet() {
       default:
         return 'text-gray-600 bg-gray-50';
     }
-  };
-
-  // 计算请假总数（包含已批准的请假和待审批的请假）
-  const calculateTotalLeaveCount = (
-    stats: Stats,
-    studentDetails?: StudentDetail[]
-  ) => {
-    // 从stats中获取已批准的请假数量
-    let totalLeave = stats.leave_count;
-
-    // 如果有学生详情，统计待审批的请假数量
-    if (studentDetails) {
-      const pendingLeaveCount = studentDetails.filter(
-        (student) => student.status === 'leave_pending'
-      ).length;
-      totalLeave += pendingLeaveCount;
-    }
-
-    return totalLeave;
   };
 
   if (isLoading) {
@@ -326,7 +532,7 @@ export function AttendanceSheet() {
 
   // 如果有课程ID，显示教师端课程管理页面
   if (id && teacherData) {
-    const { course, course_status, stats } = teacherData;
+    const { course, students, stats } = teacherData;
 
     return (
       <div className='flex h-screen flex-col bg-gray-50'>
@@ -344,48 +550,119 @@ export function AttendanceSheet() {
             <>
               {/* 课程信息 */}
               <div className='mb-6 rounded-lg bg-blue-50 p-4'>
-                <h2 className='mb-3 text-xl font-semibold text-gray-800'>
-                  {course.kcmc}
-                </h2>
+                <div className='mb-3 flex items-center justify-between'>
+                  <div className='flex items-center space-x-3'>
+                    <h2 className='text-xl font-semibold text-gray-800'>
+                      {course.course_name}
+                    </h2>
+                    {/* 课程状态标签 */}
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${getCourseStatusColor(
+                        teacherData.status
+                      )}`}
+                    >
+                      {getCourseStatusText(teacherData.status)}
+                    </span>
+                  </div>
+                  {/* 验签按钮 - 仅在进行中的课程显示 */}
+                  {teacherData.status === 'in_progress' && (
+                    <button
+                      type='button'
+                      onClick={handleCreateVerificationWindow}
+                      disabled={!canCreateWindow || isCreatingWindow}
+                      className={`rounded px-4 py-2 text-sm font-medium transition-colors ${
+                        canCreateWindow && !isCreatingWindow
+                          ? 'bg-blue-600 text-white hover:bg-blue-700'
+                          : 'cursor-not-allowed bg-gray-300 text-gray-500'
+                      }`}
+                    >
+                      {isCreatingWindow ? '创建中...' : '验签'}
+                    </button>
+                  )}
+                </div>
                 <div className='mb-3 text-lg font-medium text-blue-600'>
                   {formatCourseTime(
-                    course_status.course_start_time,
-                    course_status.course_end_time
+                    course.start_time.toString(),
+                    course.end_time.toString()
                   )}
                 </div>
                 <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
                   <div className='space-y-2 text-sm text-gray-600'>
                     <p className='flex items-center'>
                       <MapPin className='mr-2 h-4 w-4 text-gray-400' />
-                      <span className='font-medium'>{course.lq} 室</span>
+                      <span className='font-medium'>
+                        {course.class_location || '未知'} 室
+                      </span>
                     </p>
                     <p className='flex items-center'>
                       <User className='mr-2 h-4 w-4 text-gray-400' />
-                      <span className='font-medium'>{course.xm_s}</span>
+                      <span className='font-medium'>
+                        {course.teacher_names || '未知'}
+                      </span>
                     </p>
                   </div>
                   <div className='space-y-2 text-sm text-gray-600'>
                     <p>
                       <span className='font-medium'>时间：</span>
                       {formatPeriod(
-                        course.jc_s,
-                        course_status.course_start_time
+                        course.periods || '',
+                        course.start_time.toString()
                       )}
                     </p>
                     <p>
                       <span className='font-medium'>教学周：</span>
-                      {course.jxz || '未知'}
+                      {course.teaching_week || '未知'}
                     </p>
                     <p>
-                      <span className='font-medium'>状态：</span>
-                      <span
-                        className={`ml-1 rounded px-2 py-1 text-xs ${getCourseStatusColor(course_status.status)}`}
-                      >
-                        {getCourseStatusText(course_status.status)}
-                      </span>
+                      <span className='font-medium'>学期：</span>
+                      {course.semester}
                     </p>
                   </div>
                 </div>
+
+                {/* 窗口状态显示 - 仅在进行中的课程且有窗口时显示，窗口结束后隐藏 */}
+                {teacherData.status === 'in_progress' &&
+                  teacherData.attendance_window &&
+                  !windowExpired && (
+                    <div className='mt-3 rounded-lg border border-blue-200 bg-blue-100 p-3'>
+                      <div className='flex items-center justify-between'>
+                        <div className='flex items-center space-x-2'>
+                          <div className='h-2 w-2 animate-pulse rounded-full bg-green-500'></div>
+                          <span className='text-sm font-medium text-blue-800'>
+                            验签窗口已开启
+                          </span>
+                        </div>
+                        <span className='text-xs text-blue-600'>
+                          窗口ID: {teacherData.attendance_window.window_id}
+                        </span>
+                      </div>
+                      <div className='mt-2 flex items-center justify-between text-xs text-blue-700'>
+                        <div>
+                          开启时间:{' '}
+                          {new Date(
+                            teacherData.attendance_window.open_time
+                          ).toLocaleTimeString('zh-CN', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit'
+                          })}{' '}
+                          | 有效时长:{' '}
+                          {teacherData.attendance_window.duration_minutes} 分钟
+                        </div>
+                        {windowCountdown !== null && (
+                          <div
+                            className={`ml-4 rounded px-2 py-1 font-mono text-sm font-bold ${
+                              windowCountdown <= 30
+                                ? 'bg-red-200 text-red-700'
+                                : 'bg-green-200 text-green-700'
+                            }`}
+                          >
+                            剩余 {formatCountdown(windowCountdown)}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
               </div>
 
               {/* 签到统计 - 匹配图片样式 */}
@@ -405,10 +682,7 @@ export function AttendanceSheet() {
                   </div>
                   <div className='rounded-lg bg-blue-50 p-4'>
                     <div className='text-3xl font-bold text-blue-600'>
-                      {calculateTotalLeaveCount(
-                        stats,
-                        teacherData.student_details
-                      )}
+                      {stats.leave_count}
                     </div>
                     <div className='mt-1 text-sm text-gray-600'>请假</div>
                   </div>
@@ -422,66 +696,88 @@ export function AttendanceSheet() {
               </div>
 
               {/* 学生签到情况 - 匹配图片样式 */}
-              {teacherData.student_details &&
-                teacherData.student_details.length > 0 && (
-                  <div className='mb-6 rounded-lg bg-white p-4 shadow-sm'>
-                    <h3 className='mb-4 font-semibold text-gray-800'>
-                      学生签到情况
-                    </h3>
-                    <div className='max-h-96 space-y-2 overflow-y-auto'>
-                      {teacherData.student_details.map((student, index) => (
-                        <div
-                          key={index}
-                          className='flex items-center justify-between rounded-lg border border-gray-200 p-3 hover:bg-gray-50'
-                        >
-                          <div className='flex items-center space-x-3'>
-                            <div className='flex h-8 w-8 items-center justify-center rounded-full bg-gray-100'>
-                              <User className='h-4 w-4 text-gray-600' />
-                            </div>
-                            <div>
-                              <div className='font-medium text-gray-900'>
-                                {student.xm}
-                              </div>
-                              <div className='text-xs text-gray-500'>
-                                {student.xh}
-                              </div>
-                            </div>
+              {students && students.length > 0 && (
+                <div className='mb-6 rounded-lg bg-white p-4 shadow-sm'>
+                  <h3 className='mb-4 font-semibold text-gray-800'>
+                    学生签到情况
+                  </h3>
+                  <div className='max-h-96 space-y-2 overflow-y-auto'>
+                    {students.map((student, index) => (
+                      <div
+                        key={index}
+                        className='flex items-center justify-between rounded-lg border border-gray-200 p-3 hover:bg-gray-50'
+                      >
+                        <div className='flex items-center space-x-3'>
+                          <div className='flex h-8 w-8 items-center justify-center rounded-full bg-gray-100'>
+                            <User className='h-4 w-4 text-gray-600' />
                           </div>
-
-                          <div className='flex items-center space-x-2'>
-                            {/* 时间信息 */}
-                            {student.status === 'present' &&
-                              student.checkin_time && (
-                                <span className='text-xs text-gray-500'>
-                                  {new Date(
-                                    student.checkin_time
-                                  ).toLocaleTimeString('zh-CN', {
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                  })}
-                                </span>
-                              )}
-
-                            {/* 状态标签 */}
-                            <span
-                              className={`flex items-center space-x-1 rounded-full px-2 py-1 text-xs ${getStatusColor(
-                                student.status
-                              )}`}
-                            >
-                              {getStatusIcon(student.status)}
-                              <span>{getStatusText(student.status)}</span>
-                            </span>
+                          <div>
+                            <div className='font-medium text-gray-900'>
+                              {student.student_name || '未知'}
+                            </div>
+                            <div className='text-xs text-gray-500'>
+                              {student.student_id}
+                            </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
+
+                        <div className='flex items-center space-x-2'>
+                          {/* 时间信息 */}
+                          {student.absence_type === 'present' &&
+                            student.checkin_time && (
+                              <span className='text-xs text-gray-500'>
+                                {new Date(
+                                  student.checkin_time
+                                ).toLocaleTimeString('zh-CN', {
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                            )}
+
+                          {/* 状态标签 - 根据课程状态和学生状态显示不同内容 */}
+                          {student.absence_type === 'absent' &&
+                          new Date() > new Date(course.end_time) ? (
+                            // 课程结束后，缺勤学生显示补卡按钮
+                            <button
+                              type='button'
+                              onClick={() => handleOpenMakeupDialog(student)}
+                              className='flex items-center space-x-1 rounded-full bg-orange-50 px-2 py-1 text-xs text-orange-600 transition-colors hover:bg-orange-100'
+                            >
+                              {getStatusIcon(student.absence_type)}
+                              <span>补卡</span>
+                            </button>
+                          ) : (
+                            // 其他情况显示普通状态标签
+                            <span
+                              className={`flex items-center space-x-1 rounded-full px-2 py-1 text-xs ${getStatusColor(
+                                student.absence_type
+                              )}`}
+                            >
+                              {getStatusIcon(student.absence_type)}
+                              <span>{getStatusText(student.absence_type)}</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                )}
+                </div>
+              )}
             </>
           </div>
         </div>
 
-        <TeacherFloatingMessageButton className='fixed bottom-24 right-6 z-50' />
+        {/* <TeacherFloatingMessageButton className='fixed bottom-24 right-6 z-50' /> */}
+
+        {/* 补卡对话框 */}
+        <ManualCheckinDialog
+          isOpen={isDialogOpen}
+          student={makeupStudent}
+          onClose={handleCloseMakeupDialog}
+          onConfirm={handleConfirmMakeup}
+          isSubmitting={isMakingUp}
+        />
       </div>
     );
   }
@@ -489,3 +785,15 @@ export function AttendanceSheet() {
   // 原有的签到表功能（没有课程ID时显示）
   return null;
 }
+
+export function AttendanceSheet() {
+  return (
+    <ToastProvider>
+      <Toaster />
+      <AttendanceSheetContent />
+    </ToastProvider>
+  );
+}
+
+// 导出补卡对话框组件供外部使用
+export { default as ManualCheckinDialog } from '@/components/ManualCheckinDialog';

@@ -3,6 +3,7 @@ import { addMinutes, isAfter, isBefore, isEqual, subMinutes } from 'date-fns';
 // 定义从后端获取的完整数据结构
 export interface BackendAttendanceData {
   id: number;
+  attendance_record_id?: number; // 考勤记录ID，用于请假申请
   course: {
     external_id: string;
     kcmc: string; // 课程名称
@@ -21,9 +22,21 @@ export interface BackendAttendanceData {
     bjmc: string; // 班级名称
     zymc: string; // 专业名称
   };
-  final_status?: 'truant' | 'present' | 'absent' | 'leave' | 'leave_pending';
+  final_status?:
+    | 'truant'
+    | 'present'
+    | 'absent'
+    | 'leave'
+    | 'leave_pending'
+    | 'late';
   pending_status?: 'leave' | 'leave_pending' | 'unstarted';
-  live_status?: 'truant' | 'present' | 'absent' | 'leave' | 'leave_pending';
+  live_status?:
+    | 'truant'
+    | 'present'
+    | 'absent'
+    | 'leave'
+    | 'leave_pending'
+    | 'late';
   verification_windows?: {
     id: number;
     window_id: string;

@@ -1,14 +1,21 @@
 -- ====================================================================
--- v_attendance_realtime_details VIEW (v3 - Performance Fix)
+-- v_attendance_realtime_details VIEW (v4 - Performance Optimization)
 -- ====================================================================
 -- Description:
--- This final version uses STRAIGHT_JOIN to force the execution order and
--- CONVERT() function to handle charset mismatches in JOINs, 
--- allowing indexes on large tables to be used effectively.
--- This resolves the critical performance bottleneck identified by EXPLAIN.
+-- 优化多条签到记录的查询性能
+-- 使用相关子查询 + 索引优化，避免全表扫描
+--
+-- 性能优化策略：
+-- 1. 使用相关子查询代替 INNER JOIN + GROUP BY
+-- 2. 利用 (attendance_course_id, student_id, id) 复合索引
+-- 3. 避免对大表进行全表 GROUP BY
+--
+-- 注意：唯一约束已被删除，学生可以有多条签到记录（正常签到 + 补签）
 -- ====================================================================
 
-CREATE OR REPLACE VIEW v_attendance_realtime_details AS
+DROP VIEW IF EXISTS v_attendance_realtime_details;
+
+CREATE VIEW v_attendance_realtime_details AS
 SELECT
     STRAIGHT_JOIN
     sessions.id AS attendance_course_id,
@@ -47,7 +54,6 @@ FROM
     icasync.icasync_attendance_courses AS sessions
 JOIN
     syncdb.out_jw_kcb_xs AS roster_oxs
-      -- Performance Fix #1: Use CONVERT on the small result set's column
       ON roster_oxs.kkh = sessions.course_code
       AND roster_oxs.zt IN ('add', 'update')
 JOIN
@@ -81,3 +87,4 @@ LEFT JOIN
     ) AS lw ON sessions.id = lw.course_id
 WHERE
     sessions.deleted_at IS NULL;
+

@@ -22,7 +22,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 function LeaveContent() {
   const navigate = useNavigate();
-  const { attendanceId } = useParams<{ attendanceId: string }>();
+  const { externalId } = useParams<{ externalId: string }>();
   const { toast } = useToast();
   const [attendanceData, setAttendanceData] =
     useState<StudentAttendanceSearchResponse | null>(null);
@@ -37,13 +37,13 @@ function LeaveContent() {
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
-    if (attendanceId) {
+    if (externalId) {
       loadAttendanceData();
     } else {
-      setError('缺少考勤ID参数');
+      setError('缺少课程ID参数');
       setIsLoading(false);
     }
-  }, [attendanceId]);
+  }, [externalId]);
 
   // 实时更新当前时间
   useEffect(() => {
@@ -55,13 +55,13 @@ function LeaveContent() {
   }, []);
 
   const loadAttendanceData = async () => {
-    if (!attendanceId) return;
+    if (!externalId) return;
 
     setIsLoading(true);
     setError(null);
     try {
       const response =
-        await attendanceApi.getStudentAttendanceRecord(attendanceId);
+        await attendanceApi.getStudentAttendanceRecord(externalId);
       if (response.success && response.data) {
         setAttendanceData(response);
       } else {
@@ -76,9 +76,9 @@ function LeaveContent() {
   };
 
   const handleSubmit = async () => {
-    if (!attendanceId) {
+    if (!externalId) {
       toast.error('提交失败', {
-        description: '缺少考勤ID',
+        description: '缺少课程ID',
         duration: 3000
       });
       return;
@@ -154,8 +154,31 @@ function LeaveContent() {
         }
       }
 
+      // 检查是否有课程ID或考勤记录ID
+      // 优先使用 attendance_record_id，如果不存在则使用课程 id
+      if (!attendanceData || !attendanceData.data) {
+        toast.error('提交失败', {
+          description: '缺少必要的课程信息，无法提交请假申请',
+          duration: 4000
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      const recordId =
+        attendanceData.data.attendance_record_id || attendanceData.data.id;
+
+      if (!recordId) {
+        toast.error('提交失败', {
+          description: '缺少必要的课程信息，无法提交请假申请',
+          duration: 4000
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       const leaveRequest: StudentLeaveRequest = {
-        attendance_record_id: attendanceId,
+        attendance_record_id: String(recordId),
         leave_reason: reason.trim(),
         leave_type: leaveType,
         attachments: attachmentData.length > 0 ? attachmentData : undefined
@@ -171,7 +194,7 @@ function LeaveContent() {
 
         // 请假成功后导航到StudentDashboard页面
         setTimeout(() => {
-          navigate(`/attendance/view?id=${encodeURIComponent(attendanceId)}`);
+          navigate(`/attendance/view?id=${encodeURIComponent(externalId)}`);
           // console.log('请假成功，返回上一页');
         }, 1500);
       } else {
@@ -303,6 +326,12 @@ function LeaveContent() {
 
     const { course, attendance_status } = attendanceData.data;
 
+    // 如果 attendance_status 不存在，默认可以请假
+    if (!attendance_status) {
+      const courseStartTime = new Date(course.course_start_time);
+      return currentTime < courseStartTime;
+    }
+
     // 如果已经签到，不能请假
     if (attendance_status.is_checked_in) {
       return false;
@@ -328,6 +357,15 @@ function LeaveContent() {
     if (!attendanceData?.data) return '数据加载中...';
 
     const { course, attendance_status } = attendanceData.data;
+
+    // 如果 attendance_status 不存在，检查课程时间
+    if (!attendance_status) {
+      const courseStartTime = new Date(course.course_start_time);
+      if (currentTime >= courseStartTime) {
+        return '课程已开始，无法请假';
+      }
+      return '可以申请请假';
+    }
 
     if (attendance_status.is_checked_in) {
       return '已签到的课程无法请假';

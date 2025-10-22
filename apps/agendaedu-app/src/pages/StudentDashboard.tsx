@@ -1,4 +1,3 @@
-import { StudentFloatingMessageButton } from '@/components/StudentFloatingMessageButton';
 import { Toaster, ToastProvider } from '@/components/ui/toast';
 import { useToast } from '@/hooks/use-toast';
 import { attendanceApi } from '@/lib/attendance-api';
@@ -213,15 +212,34 @@ function StudentDashboardContent() {
       if (response.success) {
         toast.success('签到成功!', { description: '签到状态已更新。' });
 
-        // 成功后，直接更新本地状态，不再重新请求
+        // ⭐ 签到成功后，直接更新本地状态
         setAttendanceData((prevData) => {
           if (!prevData) return null;
+
           const updatedData = { ...prevData };
-          if (displayState?.updateStatusField) {
-            // 根据updateStatusField更新对应的状态字段
-            // 签到成功，状态通常更新为 'present'
-            updatedData[displayState.updateStatusField] = 'present';
+          const now = new Date().toISOString();
+
+          // 如果是窗口签到，更新窗口信息和考勤记录
+          if (isWindowCheckin && verification_windows) {
+            updatedData.verification_windows = {
+              ...verification_windows,
+              attendance_record: {
+                id: prevData.attendance_record_id || 0,
+                checkin_time: now,
+                status: 'present',
+                last_checkin_source: 'window',
+                last_checkin_reason: '窗口签到',
+                window_id: verification_windows.window_id
+              }
+            };
           }
+
+          // 更新状态字段（根据 updateStatusField 更新对应的状态）
+          if (displayState?.updateStatusField) {
+            // 使用类型断言来避免类型错误
+            (updatedData as any)[displayState.updateStatusField] = 'present';
+          }
+
           return updatedData;
         });
       } else {
@@ -522,7 +540,7 @@ function StudentDashboardContent() {
           </p>
         </div>
       </div>
-      <StudentFloatingMessageButton />
+      {/* <StudentFloatingMessageButton /> */}
     </div>
   );
 }

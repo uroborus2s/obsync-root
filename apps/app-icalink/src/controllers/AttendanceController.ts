@@ -586,4 +586,122 @@ export default class AttendanceController {
       data: result.right
     };
   }
+
+  /**
+   * 教师补卡
+   * POST /api/icalink/v1/courses/:course_id/manual-checkin
+   *
+   * @param request - Fastify 请求对象
+   * @param reply - Fastify 响应对象
+   * @returns 补卡响应
+   *
+   * @description
+   * 业务逻辑：
+   * 1. 验证教师身份（必须是教师）
+   * 2. 验证课程 ID 是否有效
+   * 3. 验证教师是否为该课程的授课教师
+   * 4. 验证学生是否注册了该课程
+   * 5. 创建或更新签到记录，标记为教师手动补卡
+   * 6. 记录补卡人、补卡时间、补卡原因
+   *
+   * HTTP 状态码：
+   * - 200: 补卡成功
+   * - 400: 参数验证失败
+   * - 403: 权限不足（非教师用户或不是该课程的授课教师）
+   * - 404: 课程不存在或学生未注册课程
+   * - 500: 服务器内部错误
+   */
+  @Post('/api/icalink/v1/courses/:course_id/manual-checkin')
+  async teacherManualCheckin(
+    request: FastifyRequest<{
+      Params: { course_id: string };
+      Body: { student_id: string; reason?: string };
+    }>,
+    reply: FastifyReply
+  ): Promise<ApiResponse<any>> {
+    // 1. 教师身份验证
+    let teacherInfo;
+    try {
+      teacherInfo = getTeacherIdentityFromRequest(request);
+    } catch (error) {
+      reply.status(403);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : '教师身份验证失败',
+        code: String(ServiceErrorCode.UNAUTHORIZED)
+      };
+    }
+
+    // 2. 参数验证
+    const courseId = parseInt(request.params.course_id, 10);
+    if (isNaN(courseId) || courseId <= 0) {
+      reply.status(400);
+      return {
+        success: false,
+        message: '无效的课程ID',
+        code: String(ServiceErrorCode.INVALID_PARAMETER)
+      };
+    }
+
+    const { student_id, reason } = request.body;
+    if (!student_id) {
+      reply.status(400);
+      return {
+        success: false,
+        message: '缺少学生ID',
+        code: String(ServiceErrorCode.INVALID_PARAMETER)
+      };
+    }
+
+    // 3. 调用服务层处理补卡
+    const result = await this.attendanceService.teacherManualCheckin(
+      courseId,
+      teacherInfo.userId,
+      student_id,
+      reason
+    );
+
+    // 4. 处理错误响应
+    if (isLeft(result)) {
+      const { code, message } = result.left;
+      let statusCode = 500;
+
+      switch (code) {
+        case String(ServiceErrorCode.UNAUTHORIZED):
+        case String(ServiceErrorCode.FORBIDDEN):
+          statusCode = 403;
+          break;
+        case String(ServiceErrorCode.RESOURCE_NOT_FOUND):
+        case String(ServiceErrorCode.VALIDATION_FAILED):
+          statusCode = 404;
+          break;
+        case String(ServiceErrorCode.INVALID_PARAMETER):
+          statusCode = 400;
+          break;
+        case String(ServiceErrorCode.DATABASE_ERROR):
+        case String(ServiceErrorCode.UNKNOWN_ERROR):
+          statusCode = 500;
+          break;
+        default:
+          statusCode = 500;
+      }
+
+      reply.status(statusCode);
+      return {
+        success: false,
+        message,
+        code
+      };
+    }
+
+    // 5. 返回成功响应
+    reply.status(200);
+    return {
+      success: true,
+      message: result.right.message,
+      data: {
+        record_id: result.right.record_id
+      }
+    };
+  }
 }

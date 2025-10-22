@@ -3,6 +3,7 @@
 
 import {
   AttendanceStatus,
+  IcasyncAttendanceCourse,
   ImageType,
   LeaveStatus,
   LeaveType
@@ -390,7 +391,6 @@ export interface CreateVerificationWindowResponse {
   verification_round: number;
   start_time: string;
   end_time: string;
-  expected_student_count: number;
   status: 'open';
   message: string;
 }
@@ -630,6 +630,7 @@ export interface GetCourseCompleteDataDTO {
  */
 export interface StudentCourseDataVO {
   id: number;
+  attendance_record_id?: number; // 考勤记录ID，用于请假申请
   course: {
     external_id: string;
     kcmc: string; // 课程名称
@@ -682,10 +683,10 @@ export interface TeacherInfo {
  */
 export interface StudentAttendanceDetail {
   student_id: string;
-  student_name: string;
-  class_name?: string;
-  major_name?: string;
-  status: AttendanceStatus;
+  student_name: string | null;
+  class_name: string | null;
+  major_name: string | null;
+  absence_type: AttendanceStatus;
   checkin_time?: string | Date | null;
 }
 
@@ -727,28 +728,23 @@ export interface StudentCourseCompleteDataVO {
  * 教师视图 - 课程完整数据响应
  */
 export interface TeacherCourseCompleteDataVO {
-  course_info: {
-    external_id: string;
-    course_code: string;
-    course_name: string;
-    semester: string;
-    teaching_week: number;
-    week_day: number;
-    class_location?: string;
-    start_time: string;
-    end_time: string;
-    periods?: string;
-    time_period: string;
-  };
-  teacher_info: TeacherInfo[];
+  course: IcasyncAttendanceCourse;
   students: StudentAttendanceDetail[];
-  stats: AttendanceStats;
-  attendance_window: {
-    start_time: string;
-    end_time: string;
-    is_active: boolean;
+  stats: {
+    total_count: number;
+    checkin_count: number;
+    absent_count: number;
+    leave_count: number;
   };
-  can_create_window?: boolean; // 是否可以创建新的签到窗口（仅当前课程有此字段）
+  status: 'not_started' | 'in_progress' | 'final';
+  attendance_window?: {
+    id: number;
+    open_time: string;
+    window_id: string;
+    course_id: number;
+    external_id: string;
+    duration_minutes: number;
+  };
 }
 
 /**
@@ -796,4 +792,21 @@ export interface AttendanceStatisticsResponse {
       trend: 'up' | 'down' | 'stable';
     }>;
   };
+}
+
+/**
+ * 教师补卡请求
+ */
+export interface TeacherManualCheckinRequest {
+  student_id: string;
+  reason?: string;
+}
+
+/**
+ * 教师补卡响应
+ */
+export interface TeacherManualCheckinResponse {
+  success: boolean;
+  message: string;
+  record_id?: number;
 }

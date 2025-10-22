@@ -1,5 +1,6 @@
 import type { Logger } from '@stratix/core';
-import { BaseRepository } from '@stratix/database';
+import { BaseRepository, sql } from '@stratix/database';
+import { StudentAttendanceDetail } from 'src/types/api.js';
 import type { IcalinkDatabase, OutJwKcbXs } from '../types/database.js';
 
 /**
@@ -36,6 +37,135 @@ export default class CourseStudentRepository extends BaseRepository<
   }
 
   /**
+   * 查询教学班学生及其实时考勤状态（用于当前课程）
+   *
+   * 使用 LEFT JOIN 关联以下表：
+   * - out_xsxx: 学生信息表（获取姓名、班级、专业）
+   * - v_attendance_realtime_details: 实时考勤视图（获取实时考勤状态）
+   *
+   * @param courseCode 课程代码（开课号）
+   * @param semester 学期
+   * @param externalId 课程外部ID（用于关联实时考勤视图）
+   * @returns 学生列表及其实时考勤状态和统计信息
+   */
+  public async findStudentsWithRealtimeStatus(
+    courseCode: string,
+    semester: string,
+    externalId: string
+  ): Promise<{
+    students: Array<StudentAttendanceDetail>;
+    stats: {
+      total_count: number;
+      checkin_count: number;
+      absent_count: number;
+      leave_count: number;
+    };
+  }> {
+    const db = await this.getQueryConnection();
+
+    // 使用 any 类型来处理跨数据库 JOIN 的类型问题
+    // Kysely 的类型系统不支持跨数据库表引用，因此需要使用类型断言
+    let query: any = db.selectFrom('out_jw_kcb_xs as cs');
+    query = query.leftJoin('out_xsxx as s', 's.xh', 'cs.xh');
+    query = query.leftJoin(
+      'icasync.v_attendance_realtime_details as vard',
+      (join: any) =>
+        join
+          .onRef('vard.student_id', '=', 'cs.xh')
+          .on('vard.external_id', '=', externalId)
+    );
+    query = query.select([
+      'cs.xh as student_id',
+      's.xm as student_name',
+      's.bjmc as class_name',
+      's.zymc as major_name',
+      // 使用 COALESCE 将 NULL 转换为 'absent'（缺勤）
+      // 当前课程中，如果没有实时考勤记录，默认为缺勤
+      sql<string>`COALESCE(vard.final_status, 'absent')`.as('absence_type')
+    ]);
+    query = query.where('cs.kkh', '=', courseCode);
+    query = query.where('cs.xnxq', '=', semester);
+    query = query.where('s.zt', 'in', ['add', 'update']); // 只查询有效学生
+    query = query.where('cs.zt', 'in', ['add', 'update']); // 只查询有效学生
+
+    // 按考勤状态排序：缺勤、请假、旷课的放在前面
+    // 排序规则：absent, leave, leave_pending, truant, late, present
+    query = query.orderBy(
+      sql`CASE
+        WHEN COALESCE(vard.final_status, 'absent') = 'absent' THEN 1
+        WHEN COALESCE(vard.final_status, 'absent') = 'leave' THEN 2
+        WHEN COALESCE(vard.final_status, 'absent') = 'leave_pending' THEN 3
+        WHEN COALESCE(vard.final_status, 'absent') = 'truant' THEN 4
+        WHEN COALESCE(vard.final_status, 'absent') = 'late' THEN 5
+        WHEN COALESCE(vard.final_status, 'absent') = 'present' THEN 6
+        ELSE 7
+      END`,
+      'asc'
+    );
+    query = query.orderBy('cs.xh', 'asc'); // 同一状态内按学号排序
+
+    const results = await query.execute();
+
+    // 在 SQL 中计算统计信息
+    let statsQuery: any = db.selectFrom('out_jw_kcb_xs as cs');
+    statsQuery = statsQuery.leftJoin('out_xsxx as s', 's.xh', 'cs.xh');
+    statsQuery = statsQuery.leftJoin(
+      'icasync.v_attendance_realtime_details as vard',
+      (join: any) =>
+        join
+          .onRef('vard.student_id', '=', 'cs.xh')
+          .on('vard.external_id', '=', externalId)
+    );
+    statsQuery = statsQuery.select([
+      sql<number>`COUNT(*)`.as('total_count'),
+      sql<number>`SUM(CASE WHEN COALESCE(vard.final_status, 'absent') IN ('present', 'late') THEN 1 ELSE 0 END)`.as(
+        'checkin_count'
+      ),
+      sql<number>`SUM(CASE WHEN COALESCE(vard.final_status, 'absent') = 'absent' THEN 1 ELSE 0 END)`.as(
+        'absent_count'
+      ),
+      sql<number>`SUM(CASE WHEN COALESCE(vard.final_status, 'absent') IN ('leave', 'leave_pending') THEN 1 ELSE 0 END)`.as(
+        'leave_count'
+      )
+    ]);
+    statsQuery = statsQuery.where('cs.kkh', '=', courseCode);
+    statsQuery = statsQuery.where('cs.xnxq', '=', semester);
+    statsQuery = statsQuery.where('s.zt', 'in', ['add', 'update']);
+    statsQuery = statsQuery.where('cs.zt', 'in', ['add', 'update']);
+
+    const statsResult = await statsQuery.execute();
+    const stats = statsResult[0] || {
+      total_count: 0,
+      checkin_count: 0,
+      absent_count: 0,
+      leave_count: 0
+    };
+
+    this.logger.debug(
+      {
+        courseCode,
+        semester,
+        externalId,
+        totalCount: stats.total_count,
+        checkinCount: stats.checkin_count,
+        absentCount: stats.absent_count,
+        leaveCount: stats.leave_count
+      },
+      'Fetched students with realtime attendance status and stats'
+    );
+
+    return {
+      students: results,
+      stats: {
+        total_count: Number(stats.total_count),
+        checkin_count: Number(stats.checkin_count),
+        absent_count: Number(stats.absent_count),
+        leave_count: Number(stats.leave_count)
+      }
+    };
+  }
+
+  /**
    * 查询教学班学生及其缺勤状态（用于历史课程）
    *
    * 使用 LEFT JOIN 关联以下表：
@@ -52,14 +182,7 @@ export default class CourseStudentRepository extends BaseRepository<
     semester: string,
     courseId: number
   ): Promise<{
-    students: Array<{
-      student_id: string;
-      student_name: string | null;
-      class_name: string | null;
-      major_name: string | null;
-      absence_type: string | null;
-      leave_reason: string | null;
-    }>;
+    students: Array<StudentAttendanceDetail>;
     stats: {
       total_count: number;
       checkin_count: number;
@@ -69,72 +192,103 @@ export default class CourseStudentRepository extends BaseRepository<
   }> {
     const db = await this.getQueryConnection();
 
-    const results = await db
-      .selectFrom('out_jw_kcb_xs as cs')
-      .leftJoin('out_xsxx as s', 's.xh', 'cs.xh')
-      .leftJoin('icasync.icalink_absent_student_relations as asr', (join) =>
+    // 使用 any 类型来处理跨数据库 JOIN 的类型问题
+    // Kysely 的类型系统不支持跨数据库表引用，因此需要使用类型断言
+    let query: any = db.selectFrom('out_jw_kcb_xs as cs');
+    query = query.leftJoin('out_xsxx as s', 's.xh', 'cs.xh');
+    query = query.leftJoin(
+      'icasync.icalink_absent_student_relations as asr',
+      (join: any) =>
         join
           .onRef('asr.student_id', '=', 'cs.xh')
           .on('asr.course_id', '=', courseId)
+    );
+    query = query.select([
+      'cs.xh as student_id',
+      's.xm as student_name',
+      's.bjmc as class_name',
+      's.zymc as major_name',
+      // 使用 COALESCE 将 NULL 转换为 'present'（出勤）
+      sql<string>`COALESCE(asr.absence_type, 'present')`.as('absence_type')
+    ]);
+    query = query.where('cs.kkh', '=', courseCode);
+    query = query.where('cs.xnxq', '=', semester);
+    query = query.where('s.zt', 'in', ['add', 'update']); // 只查询有效学生
+    query = query.where('cs.zt', 'in', ['add', 'update']); // 只查询有效学生
+
+    // 按考勤状态排序：旷课、缺勤、请假、请假未审批的排在前面
+    // 排序规则：truant, absent, leave, leave_pending, late, present
+    query = query.orderBy(
+      sql`CASE
+        WHEN COALESCE(asr.absence_type, 'present') = 'truant' THEN 1
+        WHEN COALESCE(asr.absence_type, 'present') = 'absent' THEN 2
+        WHEN COALESCE(asr.absence_type, 'present') = 'leave' THEN 3
+        WHEN COALESCE(asr.absence_type, 'present') = 'leave_pending' THEN 4
+        WHEN COALESCE(asr.absence_type, 'present') = 'late' THEN 5
+        WHEN COALESCE(asr.absence_type, 'present') = 'present' THEN 6
+        ELSE 7
+      END`,
+      'asc'
+    );
+    query = query.orderBy('cs.xh', 'asc'); // 同一状态内按学号排序
+
+    const results = await query.execute();
+
+    // 在 SQL 中计算统计信息
+    let statsQuery: any = db.selectFrom('out_jw_kcb_xs as cs');
+    statsQuery = statsQuery.leftJoin('out_xsxx as s', 's.xh', 'cs.xh');
+    statsQuery = statsQuery.leftJoin(
+      'icasync.icalink_absent_student_relations as asr',
+      (join: any) =>
+        join
+          .onRef('asr.student_id', '=', 'cs.xh')
+          .on('asr.course_id', '=', courseId)
+    );
+    statsQuery = statsQuery.select([
+      sql<number>`COUNT(*)`.as('total_count'),
+      sql<number>`SUM(CASE WHEN asr.absence_type IS NULL OR asr.absence_type = 'present' THEN 1 ELSE 0 END)`.as(
+        'checkin_count'
+      ),
+      sql<number>`SUM(CASE WHEN asr.absence_type = 'absent' THEN 1 ELSE 0 END)`.as(
+        'absent_count'
+      ),
+      sql<number>`SUM(CASE WHEN asr.absence_type = 'leave' THEN 1 ELSE 0 END)`.as(
+        'leave_count'
       )
-      .select([
-        'cs.xh as student_id',
-        's.xm as student_name',
-        's.bjmc as class_name',
-        's.zymc as major_name',
-        'asr.absence_type'
-      ])
-      .where('cs.kkh', '=', courseCode)
-      .where('cs.xnxq', '=', semester)
-      .where('s.zt', 'in', ['add', 'update']) // 只查询有效学生
-      .where('cs.zt', 'in', ['add', 'update']) // 只查询有效学生
-      .orderBy('cs.xh', 'asc')
-      .execute();
+    ]);
+    statsQuery = statsQuery.where('cs.kkh', '=', courseCode);
+    statsQuery = statsQuery.where('cs.xnxq', '=', semester);
+    statsQuery = statsQuery.where('s.zt', 'in', ['add', 'update']);
+    statsQuery = statsQuery.where('cs.zt', 'in', ['add', 'update']);
 
-    // 计算统计信息
-    const totalCount = results.length;
-    let checkinCount = 0;
-    let absentCount = 0;
-    let leaveCount = 0;
-
-    results.forEach((row) => {
-      if (!row.absence_type) {
-        // 没有缺勤记录，视为已签到
-        checkinCount++;
-      } else if (row.absence_type === 'absent') {
-        absentCount++;
-      } else if (row.absence_type === 'leave') {
-        leaveCount++;
-      }
-    });
+    const statsResult = await statsQuery.execute();
+    const stats = statsResult[0] || {
+      total_count: 0,
+      checkin_count: 0,
+      absent_count: 0,
+      leave_count: 0
+    };
 
     this.logger.debug(
       {
         courseCode,
         semester,
         courseId,
-        totalCount,
-        checkinCount,
-        absentCount,
-        leaveCount
+        totalCount: stats.total_count,
+        checkinCount: stats.checkin_count,
+        absentCount: stats.absent_count,
+        leaveCount: stats.leave_count
       },
       'Fetched students with attendance status and stats'
     );
 
     return {
-      students: results as Array<{
-        student_id: string;
-        student_name: string | null;
-        class_name: string | null;
-        major_name: string | null;
-        absence_type: string | null;
-        leave_reason: string | null;
-      }>,
+      students: results,
       stats: {
-        total_count: totalCount,
-        checkin_count: checkinCount,
-        absent_count: absentCount,
-        leave_count: leaveCount
+        total_count: Number(stats.total_count),
+        checkin_count: Number(stats.checkin_count),
+        absent_count: Number(stats.absent_count),
+        leave_count: Number(stats.leave_count)
       }
     };
   }
