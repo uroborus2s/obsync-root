@@ -6,10 +6,27 @@ import {
 } from '@stratix/database';
 import { isSome, type Maybe } from '@stratix/utils/functional';
 import type {
-  SyncProgressEntity,
   CreateSyncProgressInput,
+  SyncProgressEntity,
   UpdateSyncProgressInput
 } from '../types/sync-progress-entity.js';
+
+/**
+ * 格式化日期为 MySQL DATETIME 格式
+ * MySQL DATETIME 格式: YYYY-MM-DD HH:MM:SS
+ * @param date 日期对象
+ * @returns MySQL DATETIME 格式的字符串
+ */
+function formatDateTimeForMySQL(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
 
 /**
  * 同步进度表 Schema 定义
@@ -29,6 +46,10 @@ const schema = new SchemaBuilder('sync_progress')
   .addColumn('status', DataColumnType.STRING, { length: 20, nullable: false })
   .addColumn('total_count', DataColumnType.INTEGER, { nullable: false })
   .addColumn('synced_count', DataColumnType.INTEGER, { nullable: false })
+  .addColumn('last_synced_id', DataColumnType.BIGINT, {
+    nullable: false,
+    defaultValue: 0
+  })
   .addColumn('current_offset', DataColumnType.INTEGER, { nullable: false })
   .addColumn('batch_size', DataColumnType.INTEGER, { nullable: false })
   .addColumn('started_at', DataColumnType.TIMESTAMP, { nullable: true })
@@ -142,7 +163,7 @@ export default class SyncProgressRepository extends BaseRepository<
 
       const updateData: UpdateSyncProgressInput = {
         ...data,
-        last_updated_at: new Date().toISOString()
+        last_updated_at: formatDateTimeForMySQL(new Date())
       };
 
       const result = await this.update(existing.id, updateData as any);
@@ -164,11 +185,12 @@ export default class SyncProgressRepository extends BaseRepository<
         status: data.status || 'not_started',
         total_count: data.total_count || 0,
         synced_count: data.synced_count || 0,
+        last_synced_id: data.last_synced_id || 0,
         current_offset: data.current_offset || 0,
         batch_size: data.batch_size || 100,
         started_at: data.started_at || null,
         completed_at: data.completed_at || null,
-        last_updated_at: new Date().toISOString(),
+        last_updated_at: formatDateTimeForMySQL(new Date()),
         error_message: data.error_message || null,
         failure_count: data.failure_count || 0
       };
@@ -224,7 +246,7 @@ export default class SyncProgressRepository extends BaseRepository<
     const result = (await this.deleteMany((qb) =>
       qb
         .where('status', '=', 'completed')
-        .where('completed_at', '<', cutoffDate.toISOString())
+        .where('completed_at', '<', formatDateTimeForMySQL(cutoffDate))
     )) as any;
 
     const deletedCount =
@@ -235,4 +257,3 @@ export default class SyncProgressRepository extends BaseRepository<
     return deletedCount;
   }
 }
-

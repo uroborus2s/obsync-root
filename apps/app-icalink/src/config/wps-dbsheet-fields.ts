@@ -5,12 +5,16 @@
 
 import { DBSheetFieldType, type DBSheetField } from '@stratix/was-v7';
 
+export interface WpsDbSheetField extends DBSheetField {
+  dbFieldName: string;
+}
 /**
  * 缺勤学生关系表的 WPS 多维表字段定义
  */
-export const ABSENT_STUDENT_RELATION_FIELDS: DBSheetField[] = [
+export const ABSENT_STUDENT_RELATION_FIELDS: WpsDbSheetField[] = [
   {
     name: 'ID',
+    dbFieldName: 'id',
     type: DBSheetFieldType.Number,
     data: {
       number_format: '0' // 整数格式
@@ -18,6 +22,7 @@ export const ABSENT_STUDENT_RELATION_FIELDS: DBSheetField[] = [
   },
   {
     name: '课程统计ID',
+    dbFieldName: 'course_stats_id',
     type: DBSheetFieldType.Number,
     data: {
       number_format: '0'
@@ -25,41 +30,50 @@ export const ABSENT_STUDENT_RELATION_FIELDS: DBSheetField[] = [
   },
   {
     name: '课程ID',
-    type: DBSheetFieldType.Number,
+    dbFieldName: 'course_id',
+    type: DBSheetFieldType.SingleLineText,
     data: {
       number_format: '0'
     }
   },
   {
     name: '课程代码',
+    dbFieldName: 'course_code',
     type: DBSheetFieldType.SingleLineText
   },
   {
     name: '课程名称',
+    dbFieldName: 'course_name',
     type: DBSheetFieldType.SingleLineText
   },
   {
     name: '学生ID',
+    dbFieldName: 'student_id',
     type: DBSheetFieldType.SingleLineText
   },
   {
     name: '学生姓名',
+    dbFieldName: 'student_name',
     type: DBSheetFieldType.SingleLineText
   },
   {
     name: '学院名称',
+    dbFieldName: 'school_name',
     type: DBSheetFieldType.SingleLineText
   },
   {
     name: '班级名称',
+    dbFieldName: 'class_name',
     type: DBSheetFieldType.SingleLineText
   },
   {
     name: '专业名称',
+    dbFieldName: 'major_name',
     type: DBSheetFieldType.SingleLineText
   },
   {
     name: '缺勤类型',
+    dbFieldName: 'absence_type',
     type: DBSheetFieldType.SingleSelect,
     data: {
       allow_add_item_while_inputting: false,
@@ -72,15 +86,13 @@ export const ABSENT_STUDENT_RELATION_FIELDS: DBSheetField[] = [
     }
   },
   {
-    name: '统计日期',
-    type: DBSheetFieldType.Date
-  },
-  {
     name: '学期',
+    dbFieldName: 'semester',
     type: DBSheetFieldType.SingleLineText
   },
   {
     name: '教学周',
+    dbFieldName: 'teaching_week',
     type: DBSheetFieldType.Number,
     data: {
       number_format: '0'
@@ -88,6 +100,7 @@ export const ABSENT_STUDENT_RELATION_FIELDS: DBSheetField[] = [
   },
   {
     name: '星期',
+    dbFieldName: 'week_day',
     type: DBSheetFieldType.Number,
     data: {
       number_format: '0' // 1-7 表示星期一到星期日
@@ -95,10 +108,12 @@ export const ABSENT_STUDENT_RELATION_FIELDS: DBSheetField[] = [
   },
   {
     name: '节次',
+    dbFieldName: 'periods',
     type: DBSheetFieldType.SingleLineText
   },
   {
     name: '时间段',
+    dbFieldName: 'time_period',
     type: DBSheetFieldType.SingleSelect,
     data: {
       allow_add_item_while_inputting: false,
@@ -110,43 +125,473 @@ export const ABSENT_STUDENT_RELATION_FIELDS: DBSheetField[] = [
   },
   {
     name: '请假原因',
+    dbFieldName: 'leave_reason',
     type: DBSheetFieldType.MultiLineText
   },
   {
     name: '创建时间',
-    type: DBSheetFieldType.Date
+    dbFieldName: 'created_at',
+    type: DBSheetFieldType.SingleLineText
   },
   {
     name: '更新时间',
-    type: DBSheetFieldType.Date
+    dbFieldName: 'updated_at',
+    type: DBSheetFieldType.SingleLineText
   }
 ];
 
 /**
- * 字段名称映射（数据库字段 -> WPS 字段）
+ * 课程签到统计表的 WPS 多维表字段定义
  */
-export const FIELD_NAME_MAPPING: Record<string, string> = {
-  id: 'ID',
-  course_stats_id: '课程统计ID',
-  course_id: '课程ID',
-  course_code: '课程代码',
-  course_name: '课程名称',
-  student_id: '学生ID',
-  student_name: '学生姓名',
-  school_name: '学院名称',
-  class_name: '班级名称',
-  major_name: '专业名称',
-  absence_type: '缺勤类型',
-  stat_date: '统计日期',
-  semester: '学期',
-  teaching_week: '教学周',
-  week_day: '星期',
-  periods: '节次',
-  time_period: '时间段',
-  leave_reason: '请假原因',
-  created_at: '创建时间',
-  updated_at: '更新时间'
-};
+export const COURSE_CHECKIN_STATS_FIELDS: WpsDbSheetField[] = [
+  {
+    name: 'ID',
+    dbFieldName: 'id',
+    type: DBSheetFieldType.Number,
+    data: {
+      number_format: '0' // 整数格式
+    }
+  },
+  {
+    name: '统计日期',
+    dbFieldName: 'stat_date',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '课程ID',
+    dbFieldName: 'course_id',
+    type: DBSheetFieldType.Number,
+    data: {
+      number_format: '0'
+    }
+  },
+  {
+    name: '外部ID',
+    dbFieldName: 'external_id',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '课程代码',
+    dbFieldName: 'course_code',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '课程名称',
+    dbFieldName: 'course_name',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '上课地址',
+    dbFieldName: 'class_location',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '教师姓名',
+    dbFieldName: 'teacher_name',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '教师工号',
+    dbFieldName: 'teacher_codes',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '学期',
+    dbFieldName: 'semester',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '教学周',
+    dbFieldName: 'teaching_week',
+    type: DBSheetFieldType.Number,
+    data: {
+      number_format: '0'
+    }
+  },
+  {
+    name: '星期',
+    dbFieldName: 'week_day',
+    type: DBSheetFieldType.Number,
+    data: {
+      number_format: '0' // 1-7 表示星期一到星期日
+    }
+  },
+  {
+    name: '时间段',
+    dbFieldName: 'time_period',
+    type: DBSheetFieldType.SingleSelect,
+    data: {
+      allow_add_item_while_inputting: false,
+      items: [
+        { value: '上午', color: 2 }, // 蓝色
+        { value: '下午', color: 6 } // 紫色
+      ]
+    }
+  },
+  {
+    name: '节次',
+    dbFieldName: 'periods',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '开始时间',
+    dbFieldName: 'start_time',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '结束时间',
+    dbFieldName: 'end_time',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '应到人数',
+    dbFieldName: 'total_should_attend',
+    type: DBSheetFieldType.Number,
+    data: {
+      number_format: '0'
+    }
+  },
+  {
+    name: '实到人数',
+    dbFieldName: 'present_count',
+    type: DBSheetFieldType.Number,
+    data: {
+      number_format: '0'
+    }
+  },
+  {
+    name: '缺勤人数',
+    dbFieldName: 'absent_count',
+    type: DBSheetFieldType.Number,
+    data: {
+      number_format: '0'
+    }
+  },
+  {
+    name: '旷课人数',
+    dbFieldName: 'truant_count',
+    type: DBSheetFieldType.Number,
+    data: {
+      number_format: '0'
+    }
+  },
+  {
+    name: '请假人数',
+    dbFieldName: 'leave_count',
+    type: DBSheetFieldType.Number,
+    data: {
+      number_format: '0'
+    }
+  }
+];
+
+/**
+ * 课程签到统计表的 WPS 多维表字段定义
+ */
+export const TEACHING_CLASS_FIELDS: WpsDbSheetField[] = [
+  {
+    name: '学号',
+    dbFieldName: 'student_id',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '课程代码',
+    dbFieldName: 'course_code',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '课程名称',
+    dbFieldName: 'course_name',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '姓名',
+    dbFieldName: 'name',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '学院名称',
+    dbFieldName: 'school_name',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '专业名称',
+    dbFieldName: 'major_name',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '班级名称',
+    dbFieldName: 'class_name',
+    type: DBSheetFieldType.SingleLineText
+  }
+];
+
+/**
+ * 课程签到统计表的 WPS 多维表字段定义
+ */
+export const STUDENT_STATISTICS_FIELDS: WpsDbSheetField[] = [
+  {
+    name: '学号',
+    dbFieldName: 'student_id',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '姓名',
+    dbFieldName: 'name',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '学院名称',
+    dbFieldName: 'school_name',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '专业名称',
+    dbFieldName: 'major_name',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '班级名称',
+    dbFieldName: 'class_name',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '课节总数',
+    dbFieldName: 'total_sessions',
+    type: DBSheetFieldType.Number
+  },
+  {
+    name: '已经上课节数',
+    dbFieldName: 'completed_sessions',
+    type: DBSheetFieldType.Number
+  },
+  {
+    name: '缺勤节数',
+    dbFieldName: 'absent_count',
+    type: DBSheetFieldType.Number
+  },
+  {
+    name: '请假节数',
+    dbFieldName: 'leave_count',
+    type: DBSheetFieldType.Number
+  },
+  {
+    name: '旷课次数',
+    dbFieldName: 'truant_count',
+    type: DBSheetFieldType.Number
+  },
+  {
+    name: '缺勤率%',
+    dbFieldName: 'absence_rate',
+    type: DBSheetFieldType.Number
+  }
+];
+
+/**
+ * 课程签到统计表的 WPS 多维表字段定义
+ */
+export const STUDENT_STATISTICS_DETAILS_FIELDS: WpsDbSheetField[] = [
+  {
+    name: '学号',
+    dbFieldName: 'student_id',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '课程代码',
+    dbFieldName: 'course_code',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '课程名称',
+    dbFieldName: 'course_name',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '姓名',
+    dbFieldName: 'name',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '学院名称',
+    dbFieldName: 'school_name',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '专业名称',
+    dbFieldName: 'major_name',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '班级名称',
+    dbFieldName: 'class_name',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '上课地址',
+    dbFieldName: 'class_location',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '教师姓名',
+    dbFieldName: 'teacher_name',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '教师工号',
+    dbFieldName: 'teacher_codes',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '学期',
+    dbFieldName: 'semester',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '教学周',
+    dbFieldName: 'teaching_week',
+    type: DBSheetFieldType.Number,
+    data: {
+      number_format: '0'
+    }
+  },
+  {
+    name: '星期',
+    dbFieldName: 'week_day',
+    type: DBSheetFieldType.Number,
+    data: {
+      number_format: '0' // 1-7 表示星期一到星期日
+    }
+  },
+  {
+    name: '时间段',
+    dbFieldName: 'time_period',
+    type: DBSheetFieldType.SingleSelect,
+    data: {
+      allow_add_item_while_inputting: false,
+      items: [
+        { value: '上午', color: 2 }, // 蓝色
+        { value: '下午', color: 6 } // 紫色
+      ]
+    }
+  },
+  {
+    name: '节次',
+    dbFieldName: 'periods',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '开始时间',
+    dbFieldName: 'start_time',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '结束时间',
+    dbFieldName: 'end_time',
+    type: DBSheetFieldType.SingleLineText
+  },
+  {
+    name: '课节总数',
+    dbFieldName: 'total_sessions',
+    type: DBSheetFieldType.Number
+  },
+  {
+    name: '已经上课节数',
+    dbFieldName: 'completed_sessions',
+    type: DBSheetFieldType.Number
+  },
+  {
+    name: '缺勤节数',
+    dbFieldName: 'absent_count',
+    type: DBSheetFieldType.Number
+  },
+  {
+    name: '请假节数',
+    dbFieldName: 'leave_count',
+    type: DBSheetFieldType.Number
+  },
+  {
+    name: '旷课次数',
+    dbFieldName: 'truant_count',
+    type: DBSheetFieldType.Number
+  },
+  {
+    name: '缺勤率%',
+    dbFieldName: 'absence_rate',
+    type: DBSheetFieldType.Number
+  }
+];
+
+/**
+ * 表同步配置列表
+ * 定义需要同步到 WPS 多维表的所有表配置
+ */
+export const SHEET_LIST = [
+  {
+    name: '缺勤历史明细表',
+    sheetId: 1,
+    wpsFileds: ABSENT_STUDENT_RELATION_FIELDS,
+    views: [
+      {
+        name: '缺勤详细列表',
+        type: 'grid'
+      }
+    ],
+    dbTableName: 'absentStudentRelationRepository',
+    syncTaskName: 'absent_student_relations_sync'
+  },
+  {
+    name: '课程历史统计表',
+    sheetId: 2,
+    wpsFileds: COURSE_CHECKIN_STATS_FIELDS,
+    views: [
+      {
+        name: '课程统计详细列表',
+        type: 'grid'
+      }
+    ],
+    dbTableName: 'courseCheckinStatsRepository',
+    syncTaskName: 'course_checkin_stats_sync'
+  },
+  {
+    name: '教学班表',
+    sheetId: 3,
+    wpsFileds: TEACHING_CLASS_FIELDS,
+    views: [
+      {
+        name: '教学班列表',
+        type: 'grid'
+      }
+    ],
+    dbTableName: 'courseCheckinStatsRepository',
+    syncTaskName: 'v_teaching_class'
+  },
+  {
+    name: '学生历史统计表',
+    sheetId: 4,
+    wpsFileds: STUDENT_STATISTICS_FIELDS,
+    views: [
+      {
+        name: '学生签到历史列表',
+        type: 'grid'
+      }
+    ],
+    dbTableName: 'courseCheckinStatsRepository',
+    syncTaskName: 'view_student_overall_attendance_stats'
+  },
+  {
+    name: '学生历史统计详情表',
+    sheetId: 5,
+    wpsFileds: STUDENT_STATISTICS_DETAILS_FIELDS,
+    views: [
+      {
+        name: '学生签到历史详情列表',
+        type: 'grid'
+      }
+    ],
+    dbTableName: 'courseCheckinStatsRepository',
+    syncTaskName: 'view_student_overall_attendance_stats_details'
+  }
+];
 
 /**
  * 缺勤类型映射（数据库值 -> 显示值）
@@ -223,15 +668,6 @@ export const OPTIONAL_FIELDS = [
   '创建时间',
   '更新时间'
 ] as const;
-
-/**
- * 获取字段的 WPS 名称
- * @param dbFieldName 数据库字段名
- * @returns WPS 字段名
- */
-export function getWpsFieldName(dbFieldName: string): string {
-  return FIELD_NAME_MAPPING[dbFieldName] || dbFieldName;
-}
 
 /**
  * 获取缺勤类型的显示值
@@ -322,3 +758,18 @@ export async function createAbsentStudentRelationFields(
   });
 }
 
+/**
+ * 创建课程签到统计 WPS 多维表字段的辅助函数
+ * @param fileId WPS 文件 ID
+ * @param sheetId WPS Sheet ID
+ * @param wasV7ApiDbsheet WPS DBSheet 适配器
+ */
+export async function createCourseCheckinStatsFields(
+  fileId: string,
+  sheetId: number,
+  wasV7ApiDbsheet: any
+): Promise<void> {
+  await wasV7ApiDbsheet.createFields(fileId, sheetId, {
+    fields: COURSE_CHECKIN_STATS_FIELDS
+  });
+}

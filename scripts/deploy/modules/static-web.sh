@@ -13,6 +13,20 @@ log_success() { echo -e "\033[0;32m✅ [WEB]\033[0m $1"; }
 log_error() { echo -e "\033[0;31m❌ [WEB]\033[0m $1"; }
 log_warning() { echo -e "\033[1;33m⚠️  [WEB]\033[0m $1"; }
 
+# 检测 timeout 命令
+detect_timeout_command() {
+    if command -v timeout >/dev/null 2>&1; then
+        echo "timeout"
+    elif command -v gtimeout >/dev/null 2>&1; then
+        echo "gtimeout"
+    else
+        echo ""
+    fi
+}
+
+# 获取 timeout 命令
+TIMEOUT_CMD=$(detect_timeout_command)
+
 # 获取服务器信息
 get_server_info() {
     case "$DEPLOY_SERVER" in
@@ -96,11 +110,23 @@ install_dependencies() {
     
     # 安装依赖
     log "执行: $WEB_INSTALL_COMMAND"
-    if timeout $BUILD_TIMEOUT $WEB_INSTALL_COMMAND; then
-        log_success "依赖安装完成"
+    if [ -n "$TIMEOUT_CMD" ]; then
+        # 使用 timeout 命令
+        if $TIMEOUT_CMD $BUILD_TIMEOUT $WEB_INSTALL_COMMAND; then
+            log_success "依赖安装完成"
+        else
+            log_error "依赖安装失败或超时"
+            return 1
+        fi
     else
-        log_error "依赖安装失败或超时"
-        return 1
+        # 不使用 timeout，直接执行
+        log_warning "timeout 命令不可用，跳过超时控制"
+        if $WEB_INSTALL_COMMAND; then
+            log_success "依赖安装完成"
+        else
+            log_error "依赖安装失败"
+            return 1
+        fi
     fi
 }
 
@@ -122,11 +148,23 @@ build_static_files() {
     
     # 执行构建
     log "执行: $WEB_BUILD_COMMAND"
-    if timeout $BUILD_TIMEOUT $WEB_BUILD_COMMAND; then
-        log_success "静态文件编译完成"
+    if [ -n "$TIMEOUT_CMD" ]; then
+        # 使用 timeout 命令
+        if $TIMEOUT_CMD $BUILD_TIMEOUT $WEB_BUILD_COMMAND; then
+            log_success "静态文件编译完成"
+        else
+            log_error "静态文件编译失败或超时"
+            return 1
+        fi
     else
-        log_error "静态文件编译失败或超时"
-        return 1
+        # 不使用 timeout，直接执行
+        log_warning "timeout 命令不可用，跳过超时控制"
+        if $WEB_BUILD_COMMAND; then
+            log_success "静态文件编译完成"
+        else
+            log_error "静态文件编译失败"
+            return 1
+        fi
     fi
     
     # 检查构建结果

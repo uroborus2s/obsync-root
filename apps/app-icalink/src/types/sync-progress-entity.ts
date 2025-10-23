@@ -14,7 +14,8 @@ export interface SyncProgressEntity {
   status: string; // 同步状态：not_started, in_progress, completed, failed, paused
   total_count: number; // 总记录数
   synced_count: number; // 已同步记录数
-  current_offset: number; // 当前偏移量
+  last_synced_id: number; // 上次同步的最大记录 ID（用于增量同步）
+  current_offset: number; // 当前偏移量（已废弃，保留用于兼容）
   batch_size: number; // 批次大小
   started_at: string | null; // 开始时间
   completed_at: string | null; // 完成时间
@@ -35,6 +36,7 @@ export interface CreateSyncProgressInput {
   status: string;
   total_count: number;
   synced_count: number;
+  last_synced_id: number; // 上次同步的最大记录 ID
   current_offset: number;
   batch_size: number;
   started_at?: string | null;
@@ -51,6 +53,7 @@ export interface UpdateSyncProgressInput {
   status?: string;
   total_count?: number;
   synced_count?: number;
+  last_synced_id?: number; // 上次同步的最大记录 ID
   current_offset?: number;
   batch_size?: number;
   started_at?: string | null;
@@ -59,4 +62,3 @@ export interface UpdateSyncProgressInput {
   error_message?: string | null;
   failure_count?: number;
 }
-

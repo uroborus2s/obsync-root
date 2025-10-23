@@ -111,6 +111,14 @@ export interface IcalinkAttendanceRecord {
 }
 
 /**
+ * 学生签到历史记录表实体（与 IcalinkAttendanceRecord 结构相同，增加 archived_at 字段）
+ */
+export interface IcalinkAttendanceRecordHistory
+  extends IcalinkAttendanceRecord {
+  archived_at: ColumnType<Date, string, string>;
+}
+
+/**
  * 请假申请表实体
  */
 export interface IcalinkLeaveApplication {
@@ -445,6 +453,8 @@ export interface IcalinkAbsentStudentRelation {
   updated_at: ColumnType<Date, string, string>;
 }
 
+export interface IcalinkCourseCheckinStats {}
+
 /**
  * 签到窗口表实体
  */
@@ -470,6 +480,7 @@ export interface IcalinkVerificationWindow {
 export interface IcalinkDatabase {
   // 考勤相关表
   icalink_attendance_records: IcalinkAttendanceRecord;
+  icalink_attendance_records_history: IcalinkAttendanceRecordHistory;
   icalink_leave_applications: IcalinkLeaveApplication;
   icalink_leave_attachments: IcalinkLeaveAttachment;
   icalink_leave_approvals: IcalinkLeaveApproval;
@@ -477,6 +488,8 @@ export interface IcalinkDatabase {
   icasync_attendance_courses: IcasyncAttendanceCourse;
   icalink_absent_student_relations: IcalinkAbsentStudentRelation;
   icalink_verification_windows: IcalinkVerificationWindow;
+  icalink_course_checkin_stats: any;
+  v_teaching_class: any;
 
   // 考勤相关视图
   v_attendance_realtime_details: VAttendanceRealtimeDetails;

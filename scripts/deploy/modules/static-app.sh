@@ -13,6 +13,20 @@ log_success() { echo -e "\033[0;32m✅ [APP]\033[0m $1"; }
 log_error() { echo -e "\033[0;31m❌ [APP]\033[0m $1"; }
 log_warning() { echo -e "\033[1;33m⚠️  [APP]\033[0m $1"; }
 
+# 检测 timeout 命令
+detect_timeout_command() {
+    if command -v timeout >/dev/null 2>&1; then
+        echo "timeout"
+    elif command -v gtimeout >/dev/null 2>&1; then
+        echo "gtimeout"
+    else
+        echo ""
+    fi
+}
+
+# 获取 timeout 命令
+TIMEOUT_CMD=$(detect_timeout_command)
+
 # 获取服务器信息
 get_server_info() {
     case "$DEPLOY_SERVER" in
@@ -22,9 +36,10 @@ get_server_info() {
             SERVER_NAME="$MAIN_SERVER_NAME"
             ;;
         "backup")
+            SERVER_HOST="$BACKUP_SERVER_HOST"
+            SERVER_USER="$BACKUP_SERVER_USER"
+            SERVER_NAME="$MAIN_SBACKUP_SERVER_NAMEERVER_NAME"
             # 备用服务器通常不需要静态文件
-            log_warning "备用服务器通常不需要静态文件，跳过部署"
-            exit 0
             ;;
         *)
             log_error "无效的服务器: $DEPLOY_SERVER"
@@ -83,11 +98,11 @@ install_dependencies() {
     local node_version=$(node --version)
     log "Node.js 版本: $node_version"
     
-    # 清理可能的缓存
-    if [ -d "node_modules" ]; then
-        log "清理现有 node_modules..."
-        rm -rf node_modules
-    fi
+    # # 清理可能的缓存
+    # if [ -d "node_modules" ]; then
+    #     log "清理现有 node_modules..."
+    #     rm -rf node_modules
+    # fi
 
     if [ -f "pnpm-lock.yaml" ]; then
         log "清理 pnpm-lock.yaml..."
@@ -96,11 +111,23 @@ install_dependencies() {
     
     # 安装依赖
     log "执行: $APP_INSTALL_COMMAND"
-    if timeout $BUILD_TIMEOUT $APP_INSTALL_COMMAND; then
-        log_success "依赖安装完成"
+    if [ -n "$TIMEOUT_CMD" ]; then
+        # 使用 timeout 命令
+        if $TIMEOUT_CMD $BUILD_TIMEOUT $APP_INSTALL_COMMAND; then
+            log_success "依赖安装完成"
+        else
+            log_error "依赖安装失败或超时"
+            return 1
+        fi
     else
-        log_error "依赖安装失败或超时"
-        return 1
+        # 不使用 timeout，直接执行
+        log_warning "timeout 命令不可用，跳过超时控制"
+        if $APP_INSTALL_COMMAND; then
+            log_success "依赖安装完成"
+        else
+            log_error "依赖安装失败"
+            return 1
+        fi
     fi
 }
 
@@ -122,11 +149,23 @@ build_static_files() {
     
     # 执行构建
     log "执行: $APP_BUILD_COMMAND"
-    if timeout $BUILD_TIMEOUT $APP_BUILD_COMMAND; then
-        log_success "静态文件编译完成"
+    if [ -n "$TIMEOUT_CMD" ]; then
+        # 使用 timeout 命令
+        if $TIMEOUT_CMD $BUILD_TIMEOUT $APP_BUILD_COMMAND; then
+            log_success "静态文件编译完成"
+        else
+            log_error "静态文件编译失败或超时"
+            return 1
+        fi
     else
-        log_error "静态文件编译失败或超时"
-        return 1
+        # 不使用 timeout，直接执行
+        log_warning "timeout 命令不可用，跳过超时控制"
+        if $APP_BUILD_COMMAND; then
+            log_success "静态文件编译完成"
+        else
+            log_error "静态文件编译失败"
+            return 1
+        fi
     fi
     
     # 检查构建结果
@@ -243,15 +282,13 @@ cleanup_build_files() {
     fi
     
     log "清理本地构建文件..."
-    
+
     cd "$APP_SOURCE_DIR"
-    
-    # 保留构建结果，只清理临时文件
-    if [ -d "node_modules" ]; then
-        log "清理 dist..."
-        rm -rf dist
-    fi
-    
+
+    # 保留构建结果 (dist 目录)，不清理任何文件
+    # 如果需要清理 node_modules，可以手动执行
+    log "保留构建结果，跳过清理"
+
     log_success "构建文件清理完成"
 }
 

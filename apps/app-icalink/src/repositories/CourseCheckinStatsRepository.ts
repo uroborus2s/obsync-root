@@ -1,9 +1,5 @@
 import type { Logger } from '@stratix/core';
-import {
-  BaseRepository,
-  DataColumnType,
-  SchemaBuilder
-} from '@stratix/database';
+import { BaseRepository } from '@stratix/database';
 import { isSome, type Maybe } from '@stratix/utils/functional';
 import type {
   IcalinkAbsentStudentRelation,
@@ -13,49 +9,18 @@ import type {
 /**
  * 缺勤学生关系表 Schema 定义
  */
-const schema = new SchemaBuilder('icalink_absent_student_relations')
-  .addColumn('id', DataColumnType.BIGINT, {
-    primaryKey: true,
-    autoIncrement: true
-  })
-  .addColumn('course_stats_id', DataColumnType.BIGINT, { nullable: false })
-  .addColumn('course_id', DataColumnType.BIGINT, { nullable: false })
-  .addColumn('course_code', DataColumnType.STRING, { nullable: false })
-  .addColumn('course_name', DataColumnType.STRING, { nullable: false })
-  .addColumn('student_id', DataColumnType.STRING, { nullable: false })
-  .addColumn('student_name', DataColumnType.STRING, { nullable: false })
-  .addColumn('school_name', DataColumnType.STRING, { nullable: true })
-  .addColumn('class_name', DataColumnType.STRING, { nullable: true })
-  .addColumn('major_name', DataColumnType.STRING, { nullable: true })
-  .addColumn('absence_type', DataColumnType.STRING, {
-    nullable: false
-  })
-  .addColumn('stat_date', DataColumnType.DATE, { nullable: false })
-  .addColumn('semester', DataColumnType.STRING, { nullable: false })
-  .addColumn('teaching_week', DataColumnType.INTEGER, { nullable: false })
-  .addColumn('week_day', DataColumnType.INTEGER, { nullable: false })
-  .addColumn('periods', DataColumnType.STRING, { nullable: true })
-  .addColumn('time_period', DataColumnType.STRING, { nullable: false })
-  .addColumn('created_at', DataColumnType.TIMESTAMP, { nullable: false })
-  .addColumn('updated_at', DataColumnType.TIMESTAMP, { nullable: false })
-  .addIndex('idx_asr_course_student', ['course_id', 'student_id'])
-  .addIndex('idx_asr_student_semester', ['student_id', 'semester'])
-  .addIndex('idx_asr_stat_date', ['stat_date'])
-  .setComment('缺勤学生关系表-存储历史课程的最终缺勤状态')
-  .build();
 
 /**
  * 缺勤学生关系仓储实现
  * 负责查询历史课程的最终缺勤状态
  */
-export default class AbsentStudentRelationRepository extends BaseRepository<
+export default class CourseCheckinStatsRepository extends BaseRepository<
   IcalinkDatabase,
-  'icalink_absent_student_relations',
-  IcalinkAbsentStudentRelation
+  'icalink_course_checkin_stats',
+  any
 > {
-  protected readonly tableName = 'icalink_absent_student_relations';
+  protected readonly tableName = 'icalink_course_checkin_stats';
   protected readonly primaryKey = 'id';
-  protected readonly tableSchema = schema;
 
   constructor(protected readonly logger: Logger) {
     super('default');
@@ -256,7 +221,7 @@ export default class AbsentStudentRelationRepository extends BaseRepository<
   public async findByIdGreaterThan(
     lastId: number,
     limit: number
-  ): Promise<IcalinkAbsentStudentRelation[]> {
+  ): Promise<any[]> {
     // 参数验证
     if (lastId < 0 || limit <= 0) {
       this.logger.warn('findByIdGreaterThan called with invalid parameters', {
@@ -297,7 +262,7 @@ export default class AbsentStudentRelationRepository extends BaseRepository<
       const result = (await this.findMany(undefined, {
         orderBy: { field: 'id', direction: 'desc' },
         limit: 1
-      })) as unknown as IcalinkAbsentStudentRelation[];
+      })) as unknown as any[];
 
       if (result.length > 0) {
         const maxId = result[0].id;

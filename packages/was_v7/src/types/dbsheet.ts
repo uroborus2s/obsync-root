@@ -224,7 +224,7 @@ export interface UpdateDBSheetParams {
 /**
  * 记录字段值
  */
-export type DBSheetRecordFields = Record<string, any>;
+export type DBSheetRecordFields = string;
 
 /**
  * 记录定义

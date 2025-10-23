@@ -397,9 +397,9 @@ export const createAfterFastifyCreated =
     instance.log.info(`Initializing proxy for ${services.length} services`);
 
     await instance.register(circuitBreaker, {
-      threshold: 5, // 失败阈值：5次失败后打开断路器
-      timeout: 15000, // 超时时间：3秒未响应视为失败
-      resetTimeout: 10000, // 重置时间：10秒后从打开状态转为半开状态
+      threshold: 15, // 失败阈值：15次失败后打开断路器 (提高容错,适应 Swarm 环境)
+      timeout: 30000, // 超时时间：30秒未响应视为失败 (给服务更多启动时间)
+      resetTimeout: 30000, // 重置时间：30秒后从打开状态转为半开状态 (给服务更多恢复时间)
       timeoutErrorMessage: '请求超时',
       circuitOpenErrorMessage: '服务暂时不可用，请稍后再试'
     });
@@ -436,12 +436,28 @@ export const createAfterFastifyCreated =
                 return;
               }
 
-              instance.log.error('Proxy error occurred', {
+              // 增强错误日志,提供更多诊断信息
+              const errorDetails: any = {
                 error: error.message,
-                stack: error.stack,
+                errorCode: (error as any).code,
+                errorType: error.name,
                 service: name,
-                upstream: config.upstream
-              });
+                upstream: config.upstream,
+                timestamp: new Date().toISOString()
+              };
+
+              // 针对 DNS 解析错误提供特殊提示
+              if ((error as any).code === 'ENOTFOUND') {
+                errorDetails.diagnosis = `DNS 解析失败: 无法找到主机 ${(error as any).hostname}`;
+                errorDetails.suggestions = [
+                  '1. 检查服务是否已启动: docker service ps <service_name>',
+                  '2. 检查服务是否在同一网络: docker network inspect <network_name>',
+                  '3. 检查 DNS 解析: docker exec <container> nslookup <hostname>',
+                  '4. 检查服务日志: docker service logs <service_name>'
+                ];
+              }
+
+              instance.log.error('Proxy error occurred', errorDetails);
 
               try {
                 // 返回标准化的错误响应

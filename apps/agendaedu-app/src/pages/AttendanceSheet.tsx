@@ -739,14 +739,13 @@ function AttendanceSheetContent() {
                           {student.absence_type === 'absent' &&
                           teacherData.status === 'in_progress' &&
                           new Date() > new Date(course.end_time) ? (
-                            // 课程结束后，缺勤学生显示补卡按钮
+                            // 课程结束后，缺勤学生显示补卡按钮 - 微信风格绿底白字
                             <button
                               type='button'
                               onClick={() => handleOpenMakeupDialog(student)}
-                              className='flex items-center space-x-1 rounded-full bg-orange-50 px-2 py-1 text-xs text-orange-600 transition-colors hover:bg-orange-100'
+                              className='rounded-md bg-[#07C160] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#06AD56] active:bg-[#059048]'
                             >
-                              {getStatusIcon(student.absence_type)}
-                              <span>补卡</span>
+                              补签
                             </button>
                           ) : (
                             // 其他情况显示普通状态标签

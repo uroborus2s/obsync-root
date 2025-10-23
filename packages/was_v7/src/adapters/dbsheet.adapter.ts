@@ -333,10 +333,11 @@ export function createWpsDBSheetAdapter(
       params?: QueryDBSheetRecordsParams
     ): Promise<DBSheetRecordsData> {
       await httpClient.ensureAccessToken();
-      const response = await httpClient.post<
-        WpsDBSheetApiResponse<DBSheetRecordsData>
-      >(`/v7/coop/dbsheet/${fileId}/sheets/${sheetId}/records`, params || {});
-      return response.data.data;
+      const response = await httpClient.post<DBSheetRecordsData>(
+        `/v7/coop/dbsheet/${fileId}/sheets/${sheetId}/records`,
+        params || {}
+      );
+      return response.data;
     },
 
     /**
@@ -349,13 +350,11 @@ export function createWpsDBSheetAdapter(
       params: ComplexQueryDBSheetRecordsParams
     ): Promise<DBSheetRecordsData> {
       await httpClient.ensureAccessToken();
-      const response = await httpClient.post<
-        WpsDBSheetApiResponse<DBSheetRecordsData>
-      >(
+      const response = await httpClient.post<DBSheetRecordsData>(
         `/v7/coop/dbsheet/${fileId}/sheets/${sheetId}/records/complex_query`,
         params
       );
-      return response.data.data;
+      return response.data;
     },
 
     /**

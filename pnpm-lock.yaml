@@ -647,8 +647,8 @@ importers:
         specifier: 0.0.1-beta.1
         version: 0.0.1-beta.1(@stratix/core@1.0.0-beta.9)
       '@stratix/queue':
-        specifier: workspace:*
-        version: link:../../packages/queue
+        specifier: 1.0.0-beta.2
+        version: 1.0.0-beta.2(@stratix/core@1.0.0-beta.9)(@stratix/redis@1.0.0-beta.2(@stratix/core@1.0.0-beta.9))
       '@stratix/redis':
         specifier: 1.0.0-beta.2
         version: 1.0.0-beta.2(@stratix/core@1.0.0-beta.9)
@@ -990,8 +990,8 @@ importers:
         specifier: workspace:*
         version: link:../utils
       bullmq:
-        specifier: 2.4.0
-        version: 2.4.0
+        specifier: 5.61.0
+        version: 5.61.0
 
   packages/redis:
     dependencies:
@@ -4389,6 +4389,13 @@ packages:
     peerDependencies:
       '@stratix/core': 1.0.0-beta.7
 
+  '@stratix/queue@1.0.0-beta.2':
+    resolution: {integrity: sha512-5eNpCYmkX5LY07esoZvxBOUEN9nbNna99w/OrI5EvN+jqShV4HKN1dChjHX9Un4RP6m/fyIQE+wrivB521dxog==, tarball: https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/@stratix/queue/-/@stratix/queue-1.0.0-beta.2.tgz}
+    engines: {node: '>=22.0.0'}
+    peerDependencies:
+      '@stratix/core': 1.0.0-beta.9
+      '@stratix/redis': 1.0.0-beta.2
+
   '@stratix/redis@1.0.0-beta.1':
     resolution: {integrity: sha512-G6vwQENRk4aS0jvHPruvrJc4PkOHKKi7EFmsq3BDBg3F3rXjOp6M/YhmtGt8iteLlQXsiGhJryph+N7t+l03cQ==, tarball: https://g-rrng9518-npm.pkg.coding.net/npm/repo/@stratix/redis/-/@stratix/redis-1.0.0-beta.1.tgz}
     engines: {node: '>=22.0.0'}
@@ -5912,8 +5919,8 @@ packages:
     resolution: {integrity: sha512-8f9ZJCUXyT1M35Jx7MkBgmBMo3oHTTBIPLiY9xyL0pl3T5RwcPEY8cUHr5LBNfu/fk6c2T4DJZuVM/8ZZT2D2A==}
     engines: {node: '>=10.0.0'}
 
-  bullmq@2.4.0:
-    resolution: {integrity: sha512-wchNwRagCfRjEqxpALD2P8Pjz110/lFnXjs/vBLWsHP5aYqyicl3EKDkrzEythZC+IEdyeaZ5wtmcSHWOAr7Sg==}
+  bullmq@5.61.0:
+    resolution: {integrity: sha512-khaTjc1JnzaYFl4FrUtsSsqugAW/urRrcZ9Q0ZE+REAw8W+gkHFqxbGlutOu6q7j7n91wibVaaNlOUMdiEvoSQ==}
 
   bundle-name@4.1.0:
     resolution: {integrity: sha512-tjwM5exMg6BGRI+kNmTntNsvdZS1X8BFYS6tnJ2hdH0kVxM6/eVZ2xy+FqStSWvYmtfFMDLIxurorHwDKfDz5Q==}
@@ -7561,11 +7568,6 @@ packages:
     resolution: {integrity: sha512-nFR0zLpU2YCaRxwoCJvL6UvCH2JFyFVIvwTLsIf21AuHlMskA1hhTdk+LlYJtOlYt9v6dvszD2BGRqBL+iQK9Q==}
     deprecated: Glob versions prior to v9 are no longer supported
 
-  glob@8.1.0:
-    resolution: {integrity: sha512-r8hpEjiQEYlF2QU0df3dS+nxxSIreXQS1qRhMJM0Q5NDdR386C7jb7Hwwod8Fgiuex+k0GFjgft18yvxm5XoCQ==}
-    engines: {node: '>=12'}
-    deprecated: Glob versions prior to v9 are no longer supported
-
   global-dirs@3.0.1:
     resolution: {integrity: sha512-NBcGGFbBA9s1VzD41QXDG+3++t9Mn5t1FpLdhESY6oKY4gYTFpX4wO3sqGUa0Srjtbfj3szX0RnemmrVRUdULA==}
     engines: {node: '>=10'}
@@ -8957,10 +8959,6 @@ packages:
   minimatch@3.1.2:
     resolution: {integrity: sha512-J7p63hRiAjw1NDEww1W7i37+ByIrOWO5XQQAzZ3VOcL0PNybwpfmV/N05zFAzwQ9USyEcX6t3UO+K5aqBQOIHw==}
 
-  minimatch@5.1.6:
-    resolution: {integrity: sha512-lKwV/1brpG6mBUFHtb7NUmtABCb2WZZmm2wNiOA5hAb8VdCS4B3dtMWyvcoViccwAW/COERjXLt0zP1zXUN26g==}
-    engines: {node: '>=10'}
-
   minimatch@9.0.3:
     resolution: {integrity: sha512-RHiac9mvaRw0x3AYRgDC1CxAP7HTcNrrECeA8YYJeWnpo+2Q5CegtZjaotWTWxDG3UeGA1coE05iH1mPjT/2mg==}
     engines: {node: '>=16 || 14 >=14.17'}
@@ -9081,6 +9079,9 @@ packages:
   node-abi@3.75.0:
     resolution: {integrity: sha512-OhYaY5sDsIka7H7AtijtI9jwGYLyl29eQn/W623DiN/MIv5sUqc4g7BIDThX+gb7di9f6xK02nkp8sdfFWZLTg==}
     engines: {node: '>=10'}
+
+  node-abort-controller@3.1.1:
+    resolution: {integrity: sha512-AGK2yQKIjRuqnc6VkX2Xj5d+QW8xZ87pa1UK6yA6ouUyuxfHuMP6umE5QK7UmTeOAymo+Zx1Fxiuw9rVx8taHQ==}
 
   node-emoji@2.2.0:
     resolution: {integrity: sha512-Z3lTE9pLaJF47NyMhd4ww1yFTAP8YhYI8SleJiHzM46Fgpm5cnNzSl9XfzFNqbaz+VlJrIj3fXQ4DeN1Rjm6cw==}
@@ -11530,10 +11531,6 @@ packages:
 
   uuid@8.3.2:
     resolution: {integrity: sha512-+NYs2QeMWy+GWFOEm9xnn6HCDp0l7QBD7ml8zLUmJ+93Q5NF0NocErnwkTkXVFNiX3/fpC6afS8Dhb/gz7R7eg==}
-    hasBin: true
-
-  uuid@9.0.1:
-    resolution: {integrity: sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA==}
     hasBin: true
 
   value-equal@1.0.1:
@@ -16812,6 +16809,15 @@ snapshots:
       '@stratix/utils': 1.0.0-beta.1
       minio: 8.0.6
 
+  '@stratix/queue@1.0.0-beta.2(@stratix/core@1.0.0-beta.9)(@stratix/redis@1.0.0-beta.2(@stratix/core@1.0.0-beta.9))':
+    dependencies:
+      '@stratix/core': 1.0.0-beta.9
+      '@stratix/redis': 1.0.0-beta.2(@stratix/core@1.0.0-beta.9)
+      '@stratix/utils': 1.0.0-beta.4
+      bullmq: 5.61.0
+    transitivePeerDependencies:
+      - supports-color
+
   '@stratix/redis@1.0.0-beta.1(@stratix/core@1.0.0-beta.7)':
     dependencies:
       '@stratix/core': 1.0.0-beta.7
@@ -18585,16 +18591,15 @@ snapshots:
   buildcheck@0.0.6:
     optional: true
 
-  bullmq@2.4.0:
+  bullmq@5.61.0:
     dependencies:
       cron-parser: 4.9.0
-      glob: 8.1.0
       ioredis: 5.7.0
-      lodash: 4.17.21
       msgpackr: 1.11.5
+      node-abort-controller: 3.1.1
       semver: 7.7.2
       tslib: 2.8.1
-      uuid: 9.0.1
+      uuid: 11.1.0
     transitivePeerDependencies:
       - supports-color
 
@@ -20540,14 +20545,6 @@ snapshots:
       once: 1.4.0
       path-is-absolute: 1.0.1
 
-  glob@8.1.0:
-    dependencies:
-      fs.realpath: 1.0.0
-      inflight: 1.0.6
-      inherits: 2.0.4
-      minimatch: 5.1.6
-      once: 1.4.0
-
   global-dirs@3.0.1:
     dependencies:
       ini: 2.0.0
@@ -22264,10 +22261,6 @@ snapshots:
     dependencies:
       brace-expansion: 1.1.12
 
-  minimatch@5.1.6:
-    dependencies:
-      brace-expansion: 2.0.2
-
   minimatch@9.0.3:
     dependencies:
       brace-expansion: 2.0.2
@@ -22397,6 +22390,8 @@ snapshots:
   node-abi@3.75.0:
     dependencies:
       semver: 7.7.2
+
+  node-abort-controller@3.1.1: {}
 
   node-emoji@2.2.0:
     dependencies:
@@ -25113,8 +25108,6 @@ snapshots:
   uuid@11.1.0: {}
 
   uuid@8.3.2: {}
-
-  uuid@9.0.1: {}
 
   value-equal@1.0.1: {}
 
