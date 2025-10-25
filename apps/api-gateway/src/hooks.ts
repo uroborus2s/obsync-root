@@ -396,11 +396,19 @@ export const createAfterFastifyCreated =
   async (instance: FastifyInstance) => {
     instance.log.info(`Initializing proxy for ${services.length} services`);
 
+    // 🔧 熔断器配置 - 针对 Docker Swarm 环境优化
+    // 建议：在生产环境中启用熔断器,但需要根据实际负载调整参数
+    // 当前配置适用于中等负载场景 (QPS < 100)
+    //
+    // 📊 参数说明：
+    // - threshold: 失败次数阈值,超过后打开熔断器
+    // - timeout: 单个请求超时时间(毫秒)
+    // - resetTimeout: 熔断器从打开到半开状态的等待时间(毫秒)
     await instance.register(circuitBreaker, {
-      threshold: 15, // 失败阈值：15次失败后打开断路器 (提高容错,适应 Swarm 环境)
-      timeout: 30000, // 超时时间：30秒未响应视为失败 (给服务更多启动时间)
-      resetTimeout: 30000, // 重置时间：30秒后从打开状态转为半开状态 (给服务更多恢复时间)
-      timeoutErrorMessage: '请求超时',
+      threshold: 20, // 失败阈值：20次失败后打开断路器 (进一步提高容错)
+      timeout: 60000, // 超时时间：60秒 (适应签到等耗时操作)
+      resetTimeout: 45000, // 重置时间：45秒后尝试恢复 (给服务充足恢复时间)
+      timeoutErrorMessage: '请求超时，请稍后重试',
       circuitOpenErrorMessage: '服务暂时不可用，请稍后再试'
     });
 
@@ -415,9 +423,7 @@ export const createAfterFastifyCreated =
           prefix: config.prefix,
           rewritePrefix: config.rewritePrefix,
           http2: false,
-          preHandler: config.requireAuth
-            ? [...config.preHandlers!, instance.circuitBreaker()]
-            : undefined,
+          preHandler: config.requireAuth ? [...config.preHandlers!] : undefined,
           timeout: config.timeout || 30000,
           httpMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
           // 增强错误处理 - 防止重复响应

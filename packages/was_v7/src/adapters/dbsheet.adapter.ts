@@ -35,7 +35,10 @@ export interface WpsDBSheetAdapter {
   getSchemas(fileId: string): Promise<DBSheetSchemaData>;
 
   // Sheet 操作
-  createSheet(fileId: string, params: CreateDBSheetParams): Promise<DBSheet>;
+  createSheet(
+    fileId: string,
+    params: CreateDBSheetParams
+  ): Promise<DBSheetData>;
   updateSheetName(
     fileId: string,
     sheetId: number,
@@ -140,12 +143,13 @@ export function createWpsDBSheetAdapter(
     async createSheet(
       fileId: string,
       params: CreateDBSheetParams
-    ): Promise<DBSheet> {
+    ): Promise<DBSheetData> {
       await httpClient.ensureAccessToken();
-      const response = await httpClient.post<
-        WpsDBSheetApiResponse<DBSheetData>
-      >(`/v7/coop/dbsheet/${fileId}/sheets/create`, params);
-      return response.data.data.sheet;
+      const response = await httpClient.post<DBSheetData>(
+        `/v7/coop/dbsheet/${fileId}/sheets/create`,
+        params
+      );
+      return response.data;
     },
 
     /**
@@ -282,10 +286,11 @@ export function createWpsDBSheetAdapter(
       params: CreateDBSheetRecordParams
     ): Promise<DBSheetRecordsData> {
       await httpClient.ensureAccessToken();
-      const response = await httpClient.post<
-        WpsDBSheetApiResponse<DBSheetRecordsData>
-      >(`/v7/coop/dbsheet/${fileId}/sheets/${sheetId}/records/create`, params);
-      return response.data.data;
+      const response = await httpClient.post<DBSheetRecordsData>(
+        `/v7/coop/dbsheet/${fileId}/sheets/${sheetId}/records/create`,
+        params
+      );
+      return response.data;
     },
 
     /**

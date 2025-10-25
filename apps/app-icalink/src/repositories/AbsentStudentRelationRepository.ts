@@ -83,7 +83,7 @@ export default class AbsentStudentRelationRepository extends BaseRepository<
     );
 
     const result = (await this.findOne((qb) =>
-      qb.where('id', '=', courseId).where('student_id', '=', studentId)
+      qb.where('course_id', '=', courseId).where('student_id', '=', studentId)
     )) as unknown as Maybe<IcalinkAbsentStudentRelation>;
 
     return isSome(result) ? result.value : undefined;

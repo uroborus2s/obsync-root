@@ -729,6 +729,7 @@ export interface TeacherCourseCompleteDataVO {
     checkin_count: number;
     absent_count: number;
     leave_count: number;
+    truant_count: number;
   };
   status: 'not_started' | 'in_progress' | 'final';
   attendance_window?: {

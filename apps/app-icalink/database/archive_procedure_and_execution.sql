@@ -16,7 +16,7 @@ BEGIN
     DECLARE v_current_date DATE;
     SET v_current_date = p_start_date;
 
-    WHILE v_current_date <= p_end_date DO
+    WHILE v_current_date < p_end_date DO
 
         START TRANSACTION;
 
@@ -100,8 +100,8 @@ BEGIN
         WHERE created_at >= v_current_date AND created_at < v_current_date + INTERVAL 1 DAY;
 
         -- 步骤 4: 清理原始记录 (修正: 从 icasync 库删除)
-        -- DELETE FROM icasync.icalink_attendance_records
-        -- WHERE created_at >= v_current_date AND created_at < v_current_date + INTERVAL 1 DAY;
+        DELETE FROM icasync.icalink_attendance_records
+        WHERE created_at >= v_current_date AND created_at < v_current_date + INTERVAL 1 DAY;
 
         COMMIT;
 

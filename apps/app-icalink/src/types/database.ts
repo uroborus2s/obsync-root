@@ -8,6 +8,8 @@ type ColumnType<
 // @wps/app-icalink 数据库类型定义
 // 基于 Stratix 框架的数据库实体接口定义
 
+import type { VStudentSemesterAttendanceStats } from './student-attendance-stats.types.js';
+
 /**
  * 签到状态枚举
  */
@@ -494,6 +496,7 @@ export interface IcalinkDatabase {
   // 考勤相关视图
   v_attendance_realtime_details: VAttendanceRealtimeDetails;
   v_attendance_history_details: VAttendanceHistoryDetails;
+  v_student_semester_attendance_stats: VStudentSemesterAttendanceStats;
 
   // RBAC权限管理表
   rbac_roles: RbacRole;

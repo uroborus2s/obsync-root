@@ -50,6 +50,7 @@ interface Stats {
   late_count?: number;
   absent_count: number;
   leave_count: number;
+  truant_count: number;
 }
 
 interface StudentAttendanceDetail {
@@ -57,7 +58,13 @@ interface StudentAttendanceDetail {
   student_name: string | null;
   class_name: string | null;
   major_name: string | null;
-  absence_type: 'present' | 'absent' | 'leave' | 'leave_pending' | 'unstarted';
+  absence_type:
+    | 'present'
+    | 'absent'
+    | 'leave'
+    | 'leave_pending'
+    | 'unstarted'
+    | 'truant';
   checkin_time?: string | Date | null;
 }
 
@@ -449,6 +456,8 @@ function AttendanceSheetContent() {
         return '请假';
       case 'leave_pending':
         return '请假（未批）';
+      case 'truant':
+        return '旷课';
       default:
         return '未知';
     }
@@ -667,7 +676,7 @@ function AttendanceSheetContent() {
 
               {/* 签到统计 - 匹配图片样式 */}
               <div className='mb-6 rounded-lg bg-white p-4 shadow-sm'>
-                <div className='grid grid-cols-4 gap-4 text-center'>
+                <div className='grid grid-cols-5 gap-3 text-center'>
                   <div className='rounded-lg bg-blue-50 p-4'>
                     <div className='text-3xl font-bold text-blue-600'>
                       {stats.total_count}
@@ -685,6 +694,12 @@ function AttendanceSheetContent() {
                       {stats.leave_count}
                     </div>
                     <div className='mt-1 text-sm text-gray-600'>请假</div>
+                  </div>
+                  <div className='rounded-lg bg-orange-50 p-4'>
+                    <div className='text-3xl font-bold text-orange-600'>
+                      {stats.truant_count}
+                    </div>
+                    <div className='mt-1 text-sm text-gray-600'>旷课</div>
                   </div>
                   <div className='rounded-lg bg-red-50 p-4'>
                     <div className='text-3xl font-bold text-red-600'>

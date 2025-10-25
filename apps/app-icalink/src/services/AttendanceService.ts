@@ -634,21 +634,57 @@ export default class AttendanceService implements IAttendanceService {
   /**
    * 构建未来课程的教师视图
    * 数据源：v_attendance_realtime_details 视图
+   *
+   * @description
+   * 未来课程的教师视图需要显示：
+   * 1. 教学班的所有学生列表
+   * 2. 学生的请假状态（如果有提前请假）
+   * 3. 统计信息（总人数、请假人数等）
+   *
+   * 数据来源：
+   * - 教学班学生：通过 CourseStudentRepository 查询
+   * - 请假状态：通过 v_attendance_realtime_details 视图获取（视图会自动关联 icalink_attendance_records 表）
    */
   private async buildFutureTeacherView(
     course: IcasyncAttendanceCourse
   ): Promise<Either<ServiceError, TeacherCourseCompleteDataVO>> {
     this.logger.debug({ courseId: course.id }, 'Building future teacher view');
 
-    // 未来课程暂时返回空数据，因为还未开始
+    // 1. 通过 Repository 查询教学班学生及其实时考勤状态
+    // 这个方法会关联 out_jw_kcb_xs、out_xsxx 和 v_attendance_realtime_details
+    // 对于未来课程，v_attendance_realtime_details 视图会显示学生的请假状态（如果有提前请假）
+    const result =
+      await this.courseStudentRepository.findStudentsWithRealtimeStatus(
+        course.course_code,
+        course.semester,
+        course.external_id
+      );
+
+    const { students: studentsWithStatus, stats: repositoryStats } = result;
+
+    this.logger.debug(
+      {
+        courseId: course.id,
+        totalStudents: repositoryStats.total_count,
+        leaveCount: repositoryStats.leave_count
+      },
+      'Fetched future course students with leave status'
+    );
+
+    // 2. 构建返回数据
+    // 对于未来课程，学生的状态可能是：
+    // - 'absent': 默认状态（还未签到）
+    // - 'leave': 已批准的请假
+    // - 'leave_pending': 待审批的请假
     const vo: TeacherCourseCompleteDataVO = {
       course,
-      students: [],
+      students: studentsWithStatus,
       stats: {
-        total_count: 0,
-        checkin_count: 0,
-        absent_count: 0,
-        leave_count: 0
+        total_count: repositoryStats.total_count,
+        checkin_count: 0, // 未来课程还未开始签到
+        absent_count: repositoryStats.absent_count,
+        leave_count: repositoryStats.leave_count,
+        truant_count: repositoryStats.truant_count
       },
       status: 'not_started'
     };
@@ -714,12 +750,13 @@ export default class AttendanceService implements IAttendanceService {
    * @returns 签到响应
    *
    * @description
-   * 优化后的签到接口：
+   * 优化后的签到接口（性能优化版本）：
    * 1. 移除课程存在性校验（高频请求优化）
    * 2. 移除选课关系校验（高频请求优化）
-   * 3. 使用前端传递的时间参数进行验证
-   * 4. 添加幂等性判断（防止重复提交）
-   * 5. 记录签到时间为加入队列的时间
+   * 3. 移除时间窗口校验（改为异步校验）
+   * 4. 移除幂等性校验（改为异步校验）
+   * 5. 仅进行基本参数验证和权限验证
+   * 6. 快速将任务加入队列，由队列 Worker 异步处理所有校验和业务逻辑
    */
   public async checkin(
     dto: CheckinDTO
@@ -747,81 +784,24 @@ export default class AttendanceService implements IAttendanceService {
       });
     }
 
-    // 3. 时间窗口验证：使用前端传递的时间参数
-    const now = new Date();
-    const courseStartTime = new Date(checkinData.course_start_time);
+    // 3. 记录签到时间（用户点击签到按钮的时间）
+    const checkinTime = new Date();
 
-    let canCheckin = false;
-    let isWindowCheckin = false;
-
-    // 判断是否为窗口期签到
-    if (
+    // 4. 判断签到类型（窗口签到 vs 自主签到）
+    const isWindowCheckin = !!(
       checkinData.window_id &&
       checkinData.window_open_time &&
       checkinData.window_close_time
-    ) {
-      // 窗口期签到：检查当前时间是否在窗口时间范围内
-      const windowOpenTime = new Date(checkinData.window_open_time);
-      const windowCloseTime = new Date(checkinData.window_close_time);
+    );
 
-      if (now >= windowOpenTime && now <= windowCloseTime) {
-        canCheckin = true;
-        isWindowCheckin = true;
-      }
-    } else {
-      // 正常签到：检查当前时间是否在课程开始前10分钟至课程开始后10分钟内
-      const selfCheckinStart = new Date(
-        courseStartTime.getTime() - 10 * 60 * 1000
-      );
-      const selfCheckinEnd = new Date(
-        courseStartTime.getTime() + 10 * 60 * 1000
-      );
-
-      if (now >= selfCheckinStart && now <= selfCheckinEnd) {
-        canCheckin = true;
-        isWindowCheckin = false;
-      }
-    }
-
-    if (!canCheckin) {
-      return left({
-        code: String(ServiceErrorCode.VALIDATION_FAILED),
-        message: '当前不在签到时间窗口内'
-      });
-    }
-
-    // 4. 幂等性判断：使用 jobId 防止重复提交
-    // BullMQ 支持通过 jobId 实现幂等性，相同 jobId 的任务只会被处理一次
+    // 5. 生成唯一的 jobId（用于队列幂等性）
     // 包含时分秒，允许同一天多次签到（例如：多节课程）
-    const jobId = `checkin_${courseExtId}_${studentInfo.userId}_${now.toISOString().replace(/[:.]/g, '-').slice(0, 19)}`;
-
-    // 检查是否已存在相同的任务
-    try {
-      const existingJob = await this.queueClient.getJob('checkin', jobId);
-      if (existingJob) {
-        this.logger.warn(
-          { jobId, studentId: studentInfo.userId },
-          'Duplicate checkin request detected'
-        );
-        return right({
-          status: 'queued',
-          message: '签到请求已在处理中'
-        });
-      }
-    } catch (error) {
-      // 如果查询失败，继续处理（避免因查询失败而阻塞签到）
-      this.logger.warn(
-        { error },
-        'Failed to check existing job, continuing...'
-      );
-    }
-
-    // 5. 记录签到时间（用户点击签到按钮的时间）
-    const checkinTime = now;
+    const jobId = `checkin_${courseExtId}_${studentInfo.userId}_${checkinTime.toISOString().replace(/[:.]/g, '-').slice(0, 19)}`;
 
     // 6. 将签到任务加入队列（异步处理）
+    // 所有校验逻辑（时间窗口、幂等性）都在队列 Worker 中异步完成
     this.logger.info(
-      { courseExtId, studentId: studentInfo.userId, isWindowCheckin },
+      { courseExtId, studentId: studentInfo.userId, isWindowCheckin, jobId },
       'Queueing check-in job'
     );
 
@@ -831,12 +811,12 @@ export default class AttendanceService implements IAttendanceService {
         {
           courseExtId, // 使用外部课程 ID
           studentInfo,
-          checkinData,
+          checkinData, // 包含完整的时间窗口信息
           checkinTime: checkinTime.toISOString(), // 传递签到时间（加入队列的时间）
           isWindowCheckin
         },
         {
-          jobId // 使用 jobId 实现幂等性
+          jobId // 使用 jobId 实现队列级别的幂等性
         }
       );
 
@@ -860,14 +840,16 @@ export default class AttendanceService implements IAttendanceService {
    *
    * @description
    * 在消息队列 Worker 中异步处理签到逻辑：
-   * 1. 查询课程和选课关系（异步校验）
-   * 2. 查询学生信息（获取班级、专业等）
-   * 3. 准备签到数据（位置、时间等）
-   * 4. 处理窗口期签到的特殊逻辑
-   * 5. 创建新的签到记录（业务规则：只新增，不更新）
+   * 1. 时间窗口校验（异步）
+   * 2. 幂等性校验（异步）
+   * 3. 查询课程和选课关系（异步校验）
+   * 4. 查询学生信息（获取班级、专业等）
+   * 5. 准备签到数据（位置、时间等）
+   * 6. 处理窗口期签到的特殊逻辑
+   * 7. 创建新的签到记录（业务规则：只新增，不更新）
    *
    * @note
-   * - 幂等性通过 BullMQ 的 jobId 机制保证，相同 jobId 的任务只会被处理一次
+   * - 时间窗口校验和幂等性校验从同步接口移至异步队列处理
    * - 签到时间是用户点击签到按钮的时间（加入队列的时间），不是队列处理的时间
    * - 业务规则：签到只新增记录，不会更新已有记录
    */
@@ -886,7 +868,75 @@ export default class AttendanceService implements IAttendanceService {
     );
 
     try {
-      // 1. 查询课程信息（在队列中异步校验）
+      // 1. 时间窗口校验（异步）
+      // 使用传入的签到时间和时间窗口参数进行验证
+      const checkinDateTime = new Date(checkinTime);
+      const courseStartTime = new Date(checkinData.course_start_time);
+
+      let timeWindowValid = false;
+
+      if (isWindowCheckin) {
+        // 窗口期签到：检查签到时间是否在窗口时间范围内
+        const windowOpenTime = new Date(checkinData.window_open_time);
+        const windowCloseTime = new Date(checkinData.window_close_time);
+
+        if (
+          checkinDateTime >= windowOpenTime &&
+          checkinDateTime <= windowCloseTime
+        ) {
+          timeWindowValid = true;
+        }
+
+        this.logger.debug(
+          {
+            checkinTime: checkinDateTime.toISOString(),
+            windowOpenTime: windowOpenTime.toISOString(),
+            windowCloseTime: windowCloseTime.toISOString(),
+            valid: timeWindowValid
+          },
+          'Window checkin time validation'
+        );
+      } else {
+        // 自主签到：检查签到时间是否在课程开始前10分钟至课程开始后10分钟内
+        const selfCheckinStart = new Date(
+          courseStartTime.getTime() - 10 * 60 * 1000
+        );
+        const selfCheckinEnd = new Date(
+          courseStartTime.getTime() + 10 * 60 * 1000
+        );
+
+        if (
+          checkinDateTime >= selfCheckinStart &&
+          checkinDateTime <= selfCheckinEnd
+        ) {
+          timeWindowValid = true;
+        }
+
+        this.logger.debug(
+          {
+            checkinTime: checkinDateTime.toISOString(),
+            selfCheckinStart: selfCheckinStart.toISOString(),
+            selfCheckinEnd: selfCheckinEnd.toISOString(),
+            valid: timeWindowValid
+          },
+          'Self checkin time validation'
+        );
+      }
+
+      if (!timeWindowValid) {
+        this.logger.warn(
+          {
+            courseExtId,
+            studentId: studentInfo.userId,
+            checkinTime: checkinDateTime.toISOString(),
+            isWindowCheckin
+          },
+          'Checkin time not in valid window - rejecting'
+        );
+        throw new Error('当前不在签到时间窗口内');
+      }
+
+      // 2. 查询课程信息（需要先获取内部 course.id 用于后续查询）
       const courseMaybe =
         await this.attendanceCourseRepository.findById(courseExtId);
 
@@ -900,7 +950,39 @@ export default class AttendanceService implements IAttendanceService {
 
       const course = courseMaybe.value;
 
-      // 2. 验证选课关系（在队列中异步校验）
+      // 3. 幂等性校验（异步）
+      // 检查是否已存在相同的签到记录（基于课程内部ID、学生、签到时间）
+      const existingRecordMaybe = await this.attendanceRecordRepository.findOne(
+        (qb) =>
+          qb
+            .where('attendance_course_id', '=', course.id)
+            .where('student_id', '=', studentInfo.userId)
+            .where('checkin_time', '=', checkinDateTime)
+      );
+
+      if (isSome(existingRecordMaybe)) {
+        this.logger.warn(
+          {
+            courseId: course.id,
+            courseExtId,
+            studentId: studentInfo.userId,
+            checkinTime: checkinDateTime.toISOString()
+          },
+          'Duplicate checkin record detected - skipping'
+        );
+        // 返回成功，但不创建新记录（幂等性保证）
+        return {
+          success: true,
+          message: 'Checkin already processed (idempotent)',
+          data: {
+            courseId: course.id,
+            studentId: studentInfo.userId,
+            isDuplicate: true
+          }
+        };
+      }
+
+      // 4. 验证选课关系（在队列中异步校验）
       const enrollmentMaybe = await this.courseStudentRepository.findOne((qb) =>
         qb
           .clearSelect()
@@ -918,17 +1000,13 @@ export default class AttendanceService implements IAttendanceService {
         throw new Error('Student not enrolled in course');
       }
 
-      // 3. 查询学生信息（获取班级、专业等信息）
+      // 5. 查询学生信息（获取班级、专业等信息）
       const studentMaybe = await this.studentRepository.findOne((qb) =>
         qb.where('xh', '=', studentInfo.userId)
       );
 
       const studentData =
         studentMaybe && isSome(studentMaybe) ? studentMaybe.value : null;
-
-      // 4. 准备签到时间
-      // 注意：签到时间是用户点击签到按钮的时间（加入队列的时间），不是队列处理的时间
-      const checkinDateTime = new Date(checkinTime);
 
       // 6. 准备签到数据
       const checkinRecordData: Partial<IcalinkAttendanceRecord> = {

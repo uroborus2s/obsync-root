@@ -55,7 +55,6 @@ export default class VerificationWindowRepository extends BaseRepository<
 > {
   protected readonly tableName = 'icalink_verification_windows';
   protected readonly primaryKey = 'id';
-  protected readonly tableSchema = schema;
 
   constructor(protected readonly logger: Logger) {
     super('default');

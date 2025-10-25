@@ -59,6 +59,7 @@ export default class CourseStudentRepository extends BaseRepository<
       checkin_count: number;
       absent_count: number;
       leave_count: number;
+      truant_count: number;
     };
   }> {
     const db = await this.getQueryConnection();
@@ -92,13 +93,12 @@ export default class CourseStudentRepository extends BaseRepository<
     // 排序规则：absent, leave, leave_pending, truant, late, present
     query = query.orderBy(
       sql`CASE
-        WHEN COALESCE(vard.final_status, 'absent') = 'absent' THEN 1
-        WHEN COALESCE(vard.final_status, 'absent') = 'leave' THEN 2
-        WHEN COALESCE(vard.final_status, 'absent') = 'leave_pending' THEN 3
-        WHEN COALESCE(vard.final_status, 'absent') = 'truant' THEN 4
-        WHEN COALESCE(vard.final_status, 'absent') = 'late' THEN 5
-        WHEN COALESCE(vard.final_status, 'absent') = 'present' THEN 6
-        ELSE 7
+        WHEN COALESCE(vard.final_status, 'absent') = 'truant' THEN 1
+        WHEN COALESCE(vard.final_status, 'absent') = 'absent' THEN 2
+        WHEN COALESCE(vard.final_status, 'absent') = 'leave' THEN 3
+        WHEN COALESCE(vard.final_status, 'absent') = 'leave_pending' THEN 4
+        WHEN COALESCE(vard.final_status, 'absent') = 'present' THEN 5
+        ELSE 6
       END`,
       'asc'
     );
@@ -121,6 +121,9 @@ export default class CourseStudentRepository extends BaseRepository<
       sql<number>`SUM(CASE WHEN COALESCE(vard.final_status, 'absent') IN ('present', 'late') THEN 1 ELSE 0 END)`.as(
         'checkin_count'
       ),
+      sql<number>`SUM(CASE WHEN COALESCE(vard.final_status, 'absent') = 'truant' THEN 1 ELSE 0 END)`.as(
+        'truant_count'
+      ),
       sql<number>`SUM(CASE WHEN COALESCE(vard.final_status, 'absent') = 'absent' THEN 1 ELSE 0 END)`.as(
         'absent_count'
       ),
@@ -138,7 +141,8 @@ export default class CourseStudentRepository extends BaseRepository<
       total_count: 0,
       checkin_count: 0,
       absent_count: 0,
-      leave_count: 0
+      leave_count: 0,
+      truant_count: 0
     };
 
     this.logger.debug(
@@ -160,7 +164,8 @@ export default class CourseStudentRepository extends BaseRepository<
         total_count: Number(stats.total_count),
         checkin_count: Number(stats.checkin_count),
         absent_count: Number(stats.absent_count),
-        leave_count: Number(stats.leave_count)
+        leave_count: Number(stats.leave_count),
+        truant_count: Number(stats.truant_count)
       }
     };
   }
@@ -188,6 +193,7 @@ export default class CourseStudentRepository extends BaseRepository<
       checkin_count: number;
       absent_count: number;
       leave_count: number;
+      truant_count: number;
     };
   }> {
     const db = await this.getQueryConnection();
@@ -222,10 +228,9 @@ export default class CourseStudentRepository extends BaseRepository<
       sql`CASE
         WHEN COALESCE(asr.absence_type, 'present') = 'truant' THEN 1
         WHEN COALESCE(asr.absence_type, 'present') = 'absent' THEN 2
-        WHEN COALESCE(asr.absence_type, 'present') = 'leave' THEN 3
-        WHEN COALESCE(asr.absence_type, 'present') = 'leave_pending' THEN 4
-        WHEN COALESCE(asr.absence_type, 'present') = 'late' THEN 5
-        WHEN COALESCE(asr.absence_type, 'present') = 'present' THEN 6
+        WHEN COALESCE(asr.absence_type, 'present') = 'leave_pending' THEN 3
+        WHEN COALESCE(asr.absence_type, 'present') = 'leave' THEN 4
+        WHEN COALESCE(asr.absence_type, 'present') = 'present' THEN 5
         ELSE 7
       END`,
       'asc'
@@ -252,7 +257,10 @@ export default class CourseStudentRepository extends BaseRepository<
       sql<number>`SUM(CASE WHEN asr.absence_type = 'absent' THEN 1 ELSE 0 END)`.as(
         'absent_count'
       ),
-      sql<number>`SUM(CASE WHEN asr.absence_type = 'leave' THEN 1 ELSE 0 END)`.as(
+      sql<number>`SUM(CASE WHEN asr.absence_type = 'truant' THEN 1 ELSE 0 END)`.as(
+        'truant_count'
+      ),
+      sql<number>`SUM(CASE WHEN asr.absence_type = 'leave' or asr.absence_type = 'leave_pending' THEN 1 ELSE 0 END)`.as(
         'leave_count'
       )
     ]);
@@ -266,21 +274,20 @@ export default class CourseStudentRepository extends BaseRepository<
       total_count: 0,
       checkin_count: 0,
       absent_count: 0,
+      truant_count: 0,
       leave_count: 0
     };
 
-    this.logger.debug(
-      {
-        courseCode,
-        semester,
-        courseId,
-        totalCount: stats.total_count,
-        checkinCount: stats.checkin_count,
-        absentCount: stats.absent_count,
-        leaveCount: stats.leave_count
-      },
-      'Fetched students with attendance status and stats'
-    );
+    this.logger.debug('Fetched students with attendance status and stats', {
+      courseCode,
+      semester,
+      courseId,
+      totalCount: stats.total_count,
+      checkinCount: stats.checkin_count,
+      absentCount: stats.absent_count,
+      truantCount: stats.truant_count,
+      leaveCount: stats.leave_count
+    });
 
     return {
       students: results,
@@ -288,7 +295,8 @@ export default class CourseStudentRepository extends BaseRepository<
         total_count: Number(stats.total_count),
         checkin_count: Number(stats.checkin_count),
         absent_count: Number(stats.absent_count),
-        leave_count: Number(stats.leave_count)
+        leave_count: Number(stats.leave_count),
+        truant_count: Number(stats.truant_count)
       }
     };
   }

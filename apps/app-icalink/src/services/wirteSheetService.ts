@@ -1,8 +1,8 @@
 import { Logger } from '@stratix/core';
 import { sleep } from '@stratix/utils/async';
-import { WpsDBSheetAdapter } from '@stratix/was-v7';
+import { WpsDBSheetAdapter, WpsDriveAdapter } from '@stratix/was-v7';
+import VTeachingClassRepository from 'src/repositories/VTeachingClassRepository.js';
 import {
-  ABSENT_STUDENT_RELATION_FIELDS,
   COURSE_CHECKIN_STATS_FIELDS,
   getAbsenceTypeLabel,
   SHEET_LIST,
@@ -13,11 +13,7 @@ import CourseCheckinStatsRepository from '../repositories/CourseCheckinStatsRepo
 import SyncProgressRepository from '../repositories/SyncProgressRepository.js';
 import WpsFieldMappingRepository from '../repositories/WpsFieldMappingRepository.js';
 import type { IcalinkAbsentStudentRelation } from '../types/database.js';
-import {
-  SyncStatus,
-  type SyncProgress,
-  type SyncSummary
-} from '../types/sync-progress.js';
+import { type SyncSummary } from '../types/sync-progress.js';
 
 /**
  * WPS 多维表写入服务配置选项
@@ -83,10 +79,12 @@ export default class WriteSheetService {
   constructor(
     private readonly logger: Logger,
     private readonly wasV7ApiDbsheet: WpsDBSheetAdapter,
+    private readonly wasV7ApiDrive: WpsDriveAdapter,
     private readonly absentStudentRelationRepository: AbsentStudentRelationRepository,
     private readonly syncProgressRepository: SyncProgressRepository,
     private readonly wpsFieldMappingRepository: WpsFieldMappingRepository,
-    private readonly courseCheckinStatsRepository: CourseCheckinStatsRepository
+    private readonly courseCheckinStatsRepository: CourseCheckinStatsRepository,
+    private readonly vTeachingClassRepository: VTeachingClassRepository
   ) {
     // 初始化配置，使用传入的选项或默认值
     this.WPS_FILE_ID = '459309344199';
@@ -108,25 +106,9 @@ export default class WriteSheetService {
   onReady() {
     const process = async () => {
       this.logger.info('WriteSheetService ready, starting incremental sync');
-      try {
-        const files = await this.wasV7ApiDbsheet.getSchemas(this.WPS_FILE_ID);
-        console.log(files);
 
-        for (const sheet of SHEET_LIST) {
-          const res = await this.wasV7ApiDbsheet.createSheet(this.WPS_FILE_ID, {
-            name: sheet.name,
-            fields: sheet.wpsFileds.map((f) => ({
-              name: f.name,
-              type: f.type,
-              data: f.data
-            })),
-            views: sheet.views.map((v) => ({
-              name: v.name,
-              type: v.type
-            }))
-          });
-          console.log(res);
-        }
+      try {
+        // this.createTables();
         // this.wasV7ApiDbsheet.deleteSheet(this.WPS_FILE_ID, 1);
         // const file = await this.wasV7ApiDbsheet.createSheet(this.WPS_FILE_ID, {
         //   name: '教学班记录表',
@@ -142,21 +124,7 @@ export default class WriteSheetService {
         //     }
         //   ]
         // });
-
-        while (true) {
-          const record = await this.wasV7ApiDbsheet.queryRecords(
-            this.WPS_FILE_ID,
-            1
-          );
-          console.log(record);
-          if (record.records.length === 0) {
-            break;
-          }
-          await this.wasV7ApiDbsheet.deleteRecords(this.WPS_FILE_ID, 1, {
-            records: record.records.map((r) => r.id)
-          });
-          await sleep(20);
-        }
+        await this.clearSheet(1);
         await this.triggerSync();
       } catch (error) {
         this.logger.error(
@@ -166,6 +134,64 @@ export default class WriteSheetService {
       }
     };
     process();
+  }
+
+  async clearSheet(sheetId: number) {
+    const files = await this.wasV7ApiDbsheet.getSchemas(this.WPS_FILE_ID);
+    console.log(files);
+    while (true) {
+      const record = await this.wasV7ApiDbsheet.queryRecords(
+        this.WPS_FILE_ID,
+        sheetId
+      );
+      console.log(record);
+      if (record.records.length === 0) {
+        break;
+      }
+      await this.wasV7ApiDbsheet.deleteRecords(this.WPS_FILE_ID, sheetId, {
+        records: record.records.map((r) => r.id)
+      });
+      await sleep(20);
+    }
+  }
+
+  async createSheets(): Promise<void> {
+    try {
+      for (const sheet of SHEET_LIST) {
+        const files = await this.wasV7ApiDbsheet.getSchemas(this.WPS_FILE_ID);
+        console.log(files);
+        if (files.sheets.find((s) => s.name === sheet.name)) {
+          console.log('Sheet exists, skip create');
+          continue;
+        }
+
+        const res = await this.wasV7ApiDbsheet.createSheet(this.WPS_FILE_ID, {
+          name: sheet.name,
+          fields: sheet.wpsFileds.map((f) => ({
+            name: f.name,
+            type: f.type,
+            data: f.data
+          })),
+          views: sheet.views.map((v) => ({
+            name: v.name,
+            type: v.type
+          }))
+        });
+        await sleep(50);
+        console.log(res);
+      }
+    } catch (error) {
+      this.logger.error('Failed to create tables', error);
+    }
+  }
+
+  async createTables() {
+    const res = await this.wasV7ApiDrive.createFile({
+      drive_id: 'q60YOE5',
+      file_type: 'file',
+      name: '签到统计历史表.dpt'
+    });
+    console.log(res);
   }
 
   /**
@@ -986,143 +1012,6 @@ export default class WriteSheetService {
   }
 
   /**
-   * 获取当前同步进度
-   * @returns 同步进度信息
-   */
-  async getSyncProgress(): Promise<SyncProgress | null> {
-    try {
-      const entity = await this.syncProgressRepository.findByTaskName(
-        this.SYNC_TASK_NAME
-      );
-
-      if (!entity) {
-        return null;
-      }
-
-      // 将数据库实体转换为 SyncProgress 类型
-      return {
-        fileId: entity.file_id,
-        sheetId: entity.sheet_id,
-        status: entity.status as SyncStatus,
-        totalCount: entity.total_count,
-        syncedCount: entity.synced_count,
-        currentOffset: entity.current_offset,
-        batchSize: entity.batch_size,
-        startedAt: entity.started_at ? new Date(entity.started_at) : undefined,
-        completedAt: entity.completed_at
-          ? new Date(entity.completed_at)
-          : undefined,
-        lastUpdatedAt: new Date(entity.last_updated_at),
-        errorMessage: entity.error_message || undefined,
-        failureCount: entity.failure_count
-      };
-    } catch (error: any) {
-      this.logger.error('获取同步进度失败', error);
-      return null;
-    }
-  }
-
-  /**
-   * 重置同步进度（清除断点信息）
-   */
-  async resetSyncProgress(): Promise<void> {
-    try {
-      this.logger.info('重置同步进度');
-      await this.syncProgressRepository.deleteByTaskName(this.SYNC_TASK_NAME);
-      this.logger.info('同步进度已重置');
-    } catch (error: any) {
-      this.logger.error('重置同步进度失败', error);
-      throw error;
-    }
-  }
-
-  /**
-   * 批量创建 WPS 多维表字段
-   * 从 ABSENT_STUDENT_RELATION_FIELDS 配置中读取字段定义
-   * 跳过已创建的字段（ID 和 课程统计ID），从 课程ID 开始创建
-   *
-   * @returns Promise<void>
-   * @throws {Error} 如果字段创建失败
-   */
-  async createWpsFields(): Promise<void> {
-    this.logger.info('开始批量创建 WPS 多维表字段');
-
-    // 跳过索引 0（ID）和索引 1（课程统计ID），从索引 2（课程ID）开始
-    const fieldsToCreate = ABSENT_STUDENT_RELATION_FIELDS.slice(2);
-    const totalFields = fieldsToCreate.length;
-
-    this.logger.info(`需要创建 ${totalFields} 个字段（跳过 ID 和 课程统计ID）`);
-
-    let successCount = 0;
-    let skipCount = 0;
-    let failCount = 0;
-
-    // 逐个创建字段
-    for (let i = 0; i < fieldsToCreate.length; i++) {
-      const field = fieldsToCreate[i];
-      const progress = `[${i + 1}/${totalFields}]`;
-
-      try {
-        this.logger.info(
-          `${progress} 正在创建字段: ${field.name} (类型: ${field.type})`
-        );
-
-        // 调用 API 创建单个字段
-        await this.wasV7ApiDbsheet.createFields(
-          this.WPS_FILE_ID,
-          this.WPS_SHEET_ID,
-          {
-            fields: [field]
-          }
-        );
-
-        successCount++;
-        this.logger.info(`${progress} ✅ 字段 "${field.name}" 创建成功`);
-
-        // 添加延迟避免 API 频率限制（每个字段之间延迟 200ms）
-        if (i < fieldsToCreate.length - 1) {
-          await this.delay(200);
-        }
-      } catch (error: any) {
-        // 检查是否是字段已存在的错误
-        const errorMessage = error?.message || String(error);
-        if (
-          errorMessage.includes('已存在') ||
-          errorMessage.includes('already exists') ||
-          errorMessage.includes('duplicate')
-        ) {
-          skipCount++;
-          this.logger.warn(
-            `${progress} ⚠️  字段 "${field.name}" 已存在，跳过创建`
-          );
-        } else {
-          failCount++;
-          this.logger.error(
-            `${progress} ❌ 字段 "${field.name}" 创建失败`,
-            error
-          );
-          // 继续创建下一个字段，不抛出异常
-        }
-      }
-    }
-
-    // 输出创建结果摘要
-    this.logger.info('WPS 多维表字段创建完成', {
-      总字段数: totalFields,
-      成功创建: successCount,
-      已存在跳过: skipCount,
-      创建失败: failCount
-    });
-
-    // 如果有失败的字段，抛出异常
-    if (failCount > 0) {
-      throw new Error(
-        `部分字段创建失败：成功 ${successCount}，失败 ${failCount}，跳过 ${skipCount}`
-      );
-    }
-  }
-
-  /**
    * 创建课程签到统计 WPS 多维表
    * 使用 COURSE_CHECKIN_STATS_FIELDS 配置创建字段
    *
@@ -1219,104 +1108,6 @@ export default class WriteSheetService {
    */
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  /**
-   * 初始化同步进度
-   * @param totalCount 总记录数
-   * @param resumeFromLast 是否从上次位置继续
-   * @returns 起始偏移量
-   */
-  private async initializeSyncProgress(
-    totalCount: number,
-    resumeFromLast: boolean
-  ): Promise<number> {
-    try {
-      // 如果要从上次位置继续，尝试从数据库加载进度
-      if (resumeFromLast) {
-        const existingProgress =
-          await this.syncProgressRepository.findByTaskName(this.SYNC_TASK_NAME);
-
-        if (existingProgress && existingProgress.status !== 'completed') {
-          this.logger.info('从上次中断位置继续同步', {
-            lastOffset: existingProgress.current_offset,
-            syncedCount: existingProgress.synced_count
-          });
-
-          // 更新状态为进行中
-          await this.syncProgressRepository.upsertByTaskName(
-            this.SYNC_TASK_NAME,
-            {
-              status: 'in_progress',
-              last_updated_at: formatDateTimeForMySQL(new Date())
-            }
-          );
-
-          return existingProgress.current_offset;
-        }
-      }
-
-      // 否则从头开始，创建新的进度记录
-      await this.syncProgressRepository.upsertByTaskName(this.SYNC_TASK_NAME, {
-        file_id: this.WPS_FILE_ID,
-        sheet_id: this.WPS_SHEET_ID,
-        status: 'in_progress',
-        total_count: totalCount,
-        synced_count: 0,
-        current_offset: 0,
-        batch_size: this.batchSize,
-        started_at: formatDateTimeForMySQL(new Date()),
-        last_updated_at: formatDateTimeForMySQL(new Date()),
-        failure_count: 0
-      });
-
-      this.logger.info('初始化新的同步任务', {
-        totalCount,
-        batchSize: this.batchSize
-      });
-
-      return 0;
-    } catch (error: any) {
-      this.logger.error('初始化同步进度失败', error);
-      return 0;
-    }
-  }
-
-  /**
-   * 更新同步进度（已废弃，保留用于兼容）
-   * @param currentOffset 当前偏移量
-   * @param syncedCount 已同步数量
-   */
-  private async updateSyncProgress(
-    currentOffset: number,
-    syncedCount: number
-  ): Promise<void> {
-    try {
-      await this.syncProgressRepository.upsertByTaskName(this.SYNC_TASK_NAME, {
-        current_offset: currentOffset,
-        synced_count: syncedCount,
-        last_updated_at: formatDateTimeForMySQL(new Date())
-      });
-
-      // 获取总数用于计算进度百分比
-      const progress = await this.syncProgressRepository.findByTaskName(
-        this.SYNC_TASK_NAME
-      );
-
-      if (progress) {
-        const percentage = Math.round(
-          (syncedCount / progress.total_count) * 100
-        );
-        this.logger.debug('同步进度已更新', {
-          currentOffset,
-          syncedCount,
-          totalCount: progress.total_count,
-          progress: `${percentage}%`
-        });
-      }
-    } catch (error: any) {
-      this.logger.error('更新同步进度失败', error);
-    }
   }
 
   /**
@@ -1521,7 +1312,7 @@ export default class WriteSheetService {
    */
   private async writeRecordsBatchToWps(
     sheetId: number,
-    wpsRecords: Array<{ fields_value: string }>,
+    wpsRecords: Array<{ fields_value: any }>,
     batchNumber: number
   ): Promise<void> {
     try {
@@ -1683,7 +1474,7 @@ export default class WriteSheetService {
             this[dbTableName as keyof WriteSheetService] as any
           ).findByIdGreaterThan(currentLastId, this.batchSize);
 
-          if (records.length === 0) {
+          if (records.length === 0 || currentLastId >= 500) {
             this.logger.info(`没有更多新数据，同步完成`);
             break;
           }
@@ -1940,7 +1731,7 @@ export default class WriteSheetService {
    */
   private async writeRecordsToWps(
     sheetId: number,
-    records: Array<{ fields_value: string }>
+    records: Array<{ fields_value: any }>
   ): Promise<void> {
     if (records.length === 0) {
       this.logger.info('没有记录需要写入，跳过');

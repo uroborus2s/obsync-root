@@ -181,9 +181,12 @@ export function validateLocationForCheckIn(
 
   // 计算距离
   const distance = calculateDistance(userLocation, building.location);
-
+  let valid;
+  if (building.name === '实验楼') {
+    valid = distance <= 150;
+  }
   // 验证距离是否在允许范围内
-  const valid = distance <= maxDistance;
+  valid = distance <= maxDistance;
 
   return {
     valid,

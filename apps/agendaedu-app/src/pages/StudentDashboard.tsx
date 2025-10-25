@@ -437,7 +437,7 @@ function StudentDashboardContent() {
             </div>
             <div className='flex items-center text-gray-600'>
               <MapPin className='mr-3 h-4 w-4 text-gray-400' />
-              <span className='text-sm'>{course.lq} 室</span>
+              <span className='text-sm'>{course.room_s} 室</span>
             </div>
             <div className='flex items-center text-gray-600'>
               <User className='mr-3 h-4 w-4 text-gray-400' />

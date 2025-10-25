@@ -282,6 +282,14 @@ export const COURSE_CHECKIN_STATS_FIELDS: WpsDbSheetField[] = [
     data: {
       number_format: '0'
     }
+  },
+  {
+    name: '请假未审批人数',
+    dbFieldName: 'leave_count',
+    type: DBSheetFieldType.Number,
+    data: {
+      number_format: '0'
+    }
   }
 ];
 
@@ -528,7 +536,7 @@ export const STUDENT_STATISTICS_DETAILS_FIELDS: WpsDbSheetField[] = [
 export const SHEET_LIST = [
   {
     name: '缺勤历史明细表',
-    sheetId: 1,
+    sheetId: 2,
     wpsFileds: ABSENT_STUDENT_RELATION_FIELDS,
     views: [
       {
@@ -541,7 +549,7 @@ export const SHEET_LIST = [
   },
   {
     name: '课程历史统计表',
-    sheetId: 2,
+    sheetId: 3,
     wpsFileds: COURSE_CHECKIN_STATS_FIELDS,
     views: [
       {
@@ -554,7 +562,7 @@ export const SHEET_LIST = [
   },
   {
     name: '教学班表',
-    sheetId: 3,
+    sheetId: 4,
     wpsFileds: TEACHING_CLASS_FIELDS,
     views: [
       {
@@ -562,12 +570,12 @@ export const SHEET_LIST = [
         type: 'grid'
       }
     ],
-    dbTableName: 'courseCheckinStatsRepository',
+    dbTableName: 'vTeachingClassRepository',
     syncTaskName: 'v_teaching_class'
   },
   {
     name: '学生历史统计表',
-    sheetId: 4,
+    sheetId: 5,
     wpsFileds: STUDENT_STATISTICS_FIELDS,
     views: [
       {
@@ -578,19 +586,19 @@ export const SHEET_LIST = [
     dbTableName: 'courseCheckinStatsRepository',
     syncTaskName: 'view_student_overall_attendance_stats'
   },
-  {
-    name: '学生历史统计详情表',
-    sheetId: 5,
-    wpsFileds: STUDENT_STATISTICS_DETAILS_FIELDS,
-    views: [
-      {
-        name: '学生签到历史详情列表',
-        type: 'grid'
-      }
-    ],
-    dbTableName: 'courseCheckinStatsRepository',
-    syncTaskName: 'view_student_overall_attendance_stats_details'
-  }
+  // {
+  //   name: '学生历史统计详情表',
+  //   sheetId: 6,
+  //   wpsFileds: STUDENT_STATISTICS_DETAILS_FIELDS,
+  //   views: [
+  //     {
+  //       name: '学生签到历史详情列表',
+  //       type: 'grid'
+  //     }
+  //   ],
+  //   dbTableName: 'courseCheckinStatsRepository',
+  //   syncTaskName: 'view_student_overall_attendance_stats_details'
+  // }
 ];
 
 /**
