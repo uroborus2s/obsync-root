@@ -26,8 +26,20 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      // 代理签到统计API到本地app-icalink服务
-      '/api/icalink/v1/attendance/stats': {
+      // 代理工作流API到本地API Gateway
+      '/api/workflows': {
+        target: 'http://localhost:8090',
+        changeOrigin: true,
+        secure: false,
+      },
+      // 代理签到统计API到本地API Gateway
+      '/api/icalink': {
+        target: 'http://localhost:8090',
+        changeOrigin: true,
+        secure: false,
+      },
+      // 代理认证API到本地API Gateway
+      '/api/auth': {
         target: 'http://localhost:8090',
         changeOrigin: true,
         secure: false,

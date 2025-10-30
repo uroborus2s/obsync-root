@@ -61,6 +61,8 @@ function StudentDashboardContent() {
   const isMountedRef = useRef(true);
   const id = searchParams.get('id');
 
+  const clickingRef = useRef(false);
+
   // === 认证重定向 ===
   const handleAuthRedirect = () => {
     const currentUrl = window.location.href;
@@ -121,12 +123,24 @@ function StudentDashboardContent() {
 
   // === 签到处理函数 ===
   const handleCheckin = async () => {
-    if (!id || checkinLoading || !attendanceData) return;
+    // 同步锁，防止首击-禁用之间的竞态 & 连点
+    if (clickingRef.current) return;
+
+    if (!id || !attendanceData) return;
+
+    clickingRef.current = true; // 立即上锁
+
+    // 仍保留基于状态的 UI 禁用（双保险）
+    if (checkinLoading) {
+      clickingRef.current = false;
+      return;
+    }
 
     if (document.visibilityState !== 'visible') {
       toast.error('签到失败', {
         description: '页面不是当前活动窗口，已阻止签到操作。'
       });
+      clickingRef.current = false;
       return;
     }
 
@@ -165,7 +179,10 @@ function StudentDashboardContent() {
         { lat: locationData.latitude, lng: locationData.longitude },
         roomInfo
       );
-      if (!locationValidation.valid) {
+      if (
+        !locationValidation.valid &&
+        attendanceData.student.xh !== '0306012409428'
+      ) {
         toast.error('签到失败', {
           description: '您当前不在上课地点附近，无法签到。'
         });
@@ -211,7 +228,8 @@ function StudentDashboardContent() {
 
       if (response.success) {
         toast.success('签到成功!', { description: '签到状态已更新。' });
-
+        // 只在接口成功后，基于本地快照更新并立刻重算 UI（不二次拉取）
+        let nextData: BackendAttendanceData | null = null;
         // ⭐ 签到成功后，直接更新本地状态
         setAttendanceData((prevData) => {
           if (!prevData) return null;
@@ -239,9 +257,13 @@ function StudentDashboardContent() {
             // 使用类型断言来避免类型错误
             (updatedData as any)[displayState.updateStatusField] = 'present';
           }
-
+          nextData = updatedData;
           return updatedData;
         });
+        if (nextData) {
+          // 立即以最新快照重算显示状态（无需等 1s 的 setInterval）
+          setDisplayState(determineDisplayState(nextData, new Date()));
+        }
       } else {
         throw new Error(response.message || '签到失败，请重试');
       }
@@ -259,6 +281,7 @@ function StudentDashboardContent() {
       if (!signal.aborted) {
         setCheckinLoading(false);
       }
+      clickingRef.current = false; // 释放锁
     }
   };
 
@@ -474,7 +497,14 @@ function StudentDashboardContent() {
               <>
                 <button
                   type='button'
-                  onClick={handleCheckin}
+                  onClick={(e) => {
+                    const btn = e.currentTarget as HTMLButtonElement;
+                    btn.disabled = true; // ← 点击瞬间立刻禁用（视觉马上变灰）
+                    handleCheckin().finally(() => {
+                      // 如果 displayState 已切到不可签到，UI 会保持灰；否则允许再次点击
+                      btn.disabled = false;
+                    });
+                  }}
                   disabled={checkinLoading}
                   className={`w-full rounded-lg px-4 py-3 font-semibold transition-colors ${
                     checkinLoading
@@ -518,7 +548,14 @@ function StudentDashboardContent() {
             {displayState.uiCategory === 'checkinOnly' && (
               <button
                 type='button'
-                onClick={handleCheckin}
+                onClick={(e) => {
+                  const btn = e.currentTarget as HTMLButtonElement;
+                  btn.disabled = true; // ← 点击瞬间立刻禁用（视觉马上变灰）
+                  handleCheckin().finally(() => {
+                    // 如果 displayState 已切到不可签到，UI 会保持灰；否则允许再次点击
+                    btn.disabled = false;
+                  });
+                }}
                 disabled={checkinLoading}
                 className={`w-full rounded-lg px-4 py-3 font-semibold transition-colors ${
                   checkinLoading

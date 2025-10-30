@@ -133,7 +133,7 @@ export default class WriteSheetService {
         );
       }
     };
-    process();
+    // process();
   }
 
   async clearSheet(sheetId: number) {
@@ -188,6 +188,7 @@ export default class WriteSheetService {
   async createTables() {
     const res = await this.wasV7ApiDrive.createFile({
       drive_id: 'q60YOE5',
+      parent_id: '0',
       file_type: 'file',
       name: '签到统计历史表.dpt'
     });

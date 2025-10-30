@@ -1,228 +1,221 @@
 import type { Logger } from '@stratix/core';
 import { BaseRepository } from '@stratix/database';
-import { isSome, type Maybe } from '@stratix/utils/functional';
 import type {
-  IcalinkAbsentStudentRelation,
+  IcalinkCourseCheckinStats,
   IcalinkDatabase
 } from '../types/database.js';
 
 /**
- * 缺勤学生关系表 Schema 定义
- */
-
-/**
- * 缺勤学生关系仓储实现
- * 负责查询历史课程的最终缺勤状态
+ * 课程签到统计表仓储实现
+ * 负责查询课程的历史签到统计数据
  */
 export default class CourseCheckinStatsRepository extends BaseRepository<
   IcalinkDatabase,
   'icalink_course_checkin_stats',
-  any
+  IcalinkCourseCheckinStats
 > {
   protected readonly tableName = 'icalink_course_checkin_stats';
   protected readonly primaryKey = 'id';
 
   constructor(protected readonly logger: Logger) {
     super('default');
-    this.logger.info('✅ AbsentStudentRelationRepository initialized');
+    this.logger.info('✅ CourseCheckinStatsRepository initialized');
   }
 
   /**
-   * 根据课程ID和学生ID查找缺勤记录
-   * @param courseId 课程ID（icasync_attendance_courses.id）
-   * @param studentId 学生ID
-   * @returns 缺勤记录（可能不存在）
+   * 分页查询课程签到统计数据（增强版）
+   * @param page 页码（从1开始）
+   * @param pageSize 每页数量
+   * @param searchKeyword 搜索关键词（课程名称、课程代码、教师姓名、教师工号）
+   * @param teachingWeek 教学周筛选
+   * @param sortField 排序字段
+   * @param sortOrder 排序方向
+   * @returns 分页结果
    */
-  public async findByCourseAndStudent(
-    courseId: number,
-    studentId: string
-  ): Promise<IcalinkAbsentStudentRelation | undefined> {
-    if (!courseId || !studentId) {
-      this.logger.warn('findByCourseAndStudent called with invalid parameters');
-      return undefined;
+  public async findWithPagination(params: {
+    page: number;
+    pageSize: number;
+    searchKeyword?: string;
+    teachingWeek?: number;
+    sortField?: string;
+    sortOrder?: 'asc' | 'desc';
+  }): Promise<{
+    data: IcalinkCourseCheckinStats[];
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+  }> {
+    const {
+      page,
+      pageSize,
+      searchKeyword,
+      teachingWeek,
+      sortField,
+      sortOrder
+    } = params;
+
+    // 参数验证
+    if (page < 1 || pageSize <= 0) {
+      this.logger.warn('findWithPagination called with invalid parameters', {
+        page,
+        pageSize
+      });
+      return {
+        data: [],
+        total: 0,
+        page,
+        pageSize,
+        totalPages: 0
+      };
     }
 
+    const offset = (page - 1) * pageSize;
+
     this.logger.debug(
-      { courseId, studentId },
-      'Finding absent relation by course and student'
+      {
+        page,
+        pageSize,
+        offset,
+        searchKeyword,
+        teachingWeek,
+        sortField,
+        sortOrder
+      },
+      'Finding course checkin stats with pagination'
     );
 
-    const result = (await this.findOne((qb) =>
-      qb.where('id', '=', courseId).where('student_id', '=', studentId)
-    )) as unknown as Maybe<IcalinkAbsentStudentRelation>;
+    // 构建查询条件
+    const buildQuery = (qb: any) => {
+      let query = qb;
 
-    return isSome(result) ? result.value : undefined;
+      // 搜索条件：课程名称、课程代码、教师姓名、教师工号
+      if (searchKeyword && searchKeyword.trim()) {
+        const keyword = `%${searchKeyword.trim()}%`;
+        query = query.where((eb: any) =>
+          eb.or([
+            eb('course_name', 'like', keyword),
+            eb('course_code', 'like', keyword),
+            eb('teacher_name', 'like', keyword),
+            eb('teacher_codes', 'like', keyword)
+          ])
+        );
+      }
+
+      // 教学周筛选
+      if (teachingWeek !== undefined && teachingWeek > 0) {
+        query = query.where('teaching_week', '=', teachingWeek);
+      }
+
+      return query;
+    };
+
+    // 查询总数
+    const total = await this.count(buildQuery);
+
+    // 查询数据
+    const data = (await this.findMany(buildQuery, {
+      orderBy: {
+        field: sortField || 'stat_date',
+        direction: sortOrder || 'desc'
+      },
+      limit: pageSize,
+      offset
+    })) as unknown as IcalinkCourseCheckinStats[];
+
+    const totalPages = Math.ceil(total / pageSize);
+
+    this.logger.debug(
+      { total, dataCount: data.length, totalPages },
+      'Pagination query completed'
+    );
+
+    return {
+      data,
+      total,
+      page,
+      pageSize,
+      totalPages
+    };
   }
 
   /**
-   * 根据学生ID和学期查找所有缺勤记录
-   * @param studentId 学生ID
-   * @param semester 学期
-   * @returns 缺勤记录列表
+   * 根据课程代码查找统计记录
+   * @param courseCode 课程代码
+   * @returns 统计记录列表
    */
-  public async findByStudentAndSemester(
-    studentId: string,
-    semester: string
-  ): Promise<IcalinkAbsentStudentRelation[]> {
-    if (!studentId || !semester) {
-      this.logger.warn(
-        'findByStudentAndSemester called with invalid parameters'
-      );
+  public async findByCourseCode(
+    courseCode: string
+  ): Promise<IcalinkCourseCheckinStats[]> {
+    if (!courseCode) {
+      this.logger.warn('findByCourseCode called with invalid courseCode');
       return [];
     }
 
-    this.logger.debug(
-      { studentId, semester },
-      'Finding absent relations by student and semester'
-    );
+    this.logger.debug({ courseCode }, 'Finding course stats by course code');
 
     const result = (await this.findMany(
-      (qb) =>
-        qb.where('student_id', '=', studentId).where('semester', '=', semester),
+      (qb) => qb.where('course_code', '=', courseCode),
       {
         orderBy: { field: 'stat_date', direction: 'desc' }
       }
-    )) as unknown as IcalinkAbsentStudentRelation[];
+    )) as unknown as IcalinkCourseCheckinStats[];
 
     return result;
   }
 
   /**
-   * 根据课程ID查找所有缺勤记录
-   * @param courseId 课程ID
-   * @returns 缺勤记录列表
-   */
-  public async findByCourse(
-    courseId: number
-  ): Promise<IcalinkAbsentStudentRelation[]> {
-    if (!courseId) {
-      this.logger.warn('findByCourse called with invalid courseId');
-      return [];
-    }
-
-    this.logger.debug({ courseId }, 'Finding absent relations by course');
-
-    const result = (await this.findMany(
-      (qb) => qb.where('course_id', '=', courseId),
-      {
-        orderBy: { field: 'student_id', direction: 'asc' }
-      }
-    )) as unknown as IcalinkAbsentStudentRelation[];
-
-    return result;
-  }
-
-  /**
-   * 根据日期范围查找缺勤记录
+   * 根据日期范围查找统计记录
    * @param startDate 开始日期
    * @param endDate 结束日期
-   * @param studentId 学生ID（可选）
-   * @returns 缺勤记录列表
+   * @returns 统计记录列表
    */
   public async findByDateRange(
     startDate: Date,
-    endDate: Date,
-    studentId?: string
-  ): Promise<IcalinkAbsentStudentRelation[]> {
+    endDate: Date
+  ): Promise<IcalinkCourseCheckinStats[]> {
     if (!startDate || !endDate) {
       this.logger.warn('findByDateRange called with invalid parameters');
       return [];
     }
 
     this.logger.debug(
-      { startDate, endDate, studentId },
-      'Finding absent relations by date range'
+      { startDate, endDate },
+      'Finding course stats by date range'
     );
 
     const result = (await this.findMany(
-      (qb) => {
-        let query = qb
-          .where('stat_date', '>=', startDate)
-          .where('stat_date', '<=', endDate);
-
-        if (studentId) {
-          query = query.where('student_id', '=', studentId);
-        }
-
-        return query;
-      },
+      (qb) =>
+        qb.where('stat_date', '>=', startDate).where('stat_date', '<=', endDate),
       {
         orderBy: { field: 'stat_date', direction: 'desc' }
       }
-    )) as unknown as IcalinkAbsentStudentRelation[];
+    )) as unknown as IcalinkCourseCheckinStats[];
 
     return result;
   }
 
   /**
    * 获取总记录数
-   * 使用 BaseRepository 提供的 count() 方法
    * @returns 总记录数
    */
   public async getTotalCount(): Promise<number> {
-    this.logger.debug('Getting total count of absent student relations');
-
-    // 使用 BaseRepository 的 count() 方法，不传条件则统计所有记录
+    this.logger.debug('Getting total count of course checkin stats');
     const count = await this.count();
-
     this.logger.debug({ count }, 'Total count retrieved');
-
     return count;
-  }
-
-  /**
-   * 分页查询缺勤记录
-   * 使用 BaseRepository 提供的 findMany() 方法配合查询选项
-   * @param offset 偏移量（从0开始）
-   * @param limit 每页数量
-   * @returns 缺勤记录列表
-   */
-  public async findWithPagination(
-    offset: number,
-    limit: number
-  ): Promise<IcalinkAbsentStudentRelation[]> {
-    // 参数验证
-    if (offset < 0 || limit <= 0) {
-      this.logger.warn('findWithPagination called with invalid parameters', {
-        offset,
-        limit
-      });
-      return [];
-    }
-
-    this.logger.debug(
-      { offset, limit },
-      'Finding absent relations with pagination'
-    );
-
-    // 使用 BaseRepository 的 findMany() 方法
-    // 不传 criteria 参数表示查询所有记录
-    // 通过 options 配置排序、分页
-    const result = (await this.findMany(undefined, {
-      orderBy: { field: 'id', direction: 'asc' }, // 按 ID 升序，确保顺序一致
-      limit,
-      offset
-    })) as unknown as IcalinkAbsentStudentRelation[];
-
-    this.logger.debug(
-      { offset, limit, count: result.length },
-      'Pagination query completed'
-    );
-
-    return result;
   }
 
   /**
    * 查询 ID 大于指定值的记录（用于增量同步）
    * @param lastId 上次同步的最大 ID
    * @param limit 每批数量
-   * @returns 缺勤记录列表
+   * @returns 统计记录列表
    */
   public async findByIdGreaterThan(
     lastId: number,
     limit: number
-  ): Promise<any[]> {
-    // 参数验证
+  ): Promise<IcalinkCourseCheckinStats[]> {
     if (lastId < 0 || limit <= 0) {
       this.logger.warn('findByIdGreaterThan called with invalid parameters', {
         lastId,
@@ -233,14 +226,13 @@ export default class CourseCheckinStatsRepository extends BaseRepository<
 
     this.logger.debug(
       { lastId, limit },
-      'Finding absent relations with id greater than'
+      'Finding course stats with id greater than'
     );
 
-    // 查询 id > lastId 的记录，按 ID 升序排序
     const result = (await this.findMany((qb) => qb.where('id', '>', lastId), {
       orderBy: { field: 'id', direction: 'asc' },
       limit
-    })) as unknown as IcalinkAbsentStudentRelation[];
+    })) as unknown as IcalinkCourseCheckinStats[];
 
     this.logger.debug(
       { lastId, limit, count: result.length },
@@ -255,14 +247,13 @@ export default class CourseCheckinStatsRepository extends BaseRepository<
    * @returns 最大 ID，如果表为空则返回 0
    */
   public async getMaxId(): Promise<number> {
-    this.logger.debug('Getting max id of absent student relations');
+    this.logger.debug('Getting max id of course checkin stats');
 
     try {
-      // 查询最大 ID 的记录
       const result = (await this.findMany(undefined, {
         orderBy: { field: 'id', direction: 'desc' },
         limit: 1
-      })) as unknown as any[];
+      })) as unknown as IcalinkCourseCheckinStats[];
 
       if (result.length > 0) {
         const maxId = result[0].id;
@@ -278,3 +269,4 @@ export default class CourseCheckinStatsRepository extends BaseRepository<
     }
   }
 }
+

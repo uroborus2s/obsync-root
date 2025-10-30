@@ -9,30 +9,21 @@ import {
   type Maybe
 } from '@stratix/utils/functional';
 import AttendanceCourseRepository from '../repositories/AttendanceCourseRepository.js';
-import AttendanceRecordHistoryRepository from '../repositories/AttendanceRecordHistoryRepository.js';
 import AttendanceRecordRepository from '../repositories/AttendanceRecordRepository.js';
 import LeaveApplicationRepository from '../repositories/LeaveApplicationRepository.js';
 import LeaveApprovalRepository from '../repositories/LeaveApprovalRepository.js';
 import LeaveAttachmentRepository from '../repositories/LeaveAttachmentRepository.js';
-import StudentRepository from '../repositories/StudentRepository.js';
 import type {
-  ApprovalRequest,
-  ApprovalResponse,
   LeaveApplicationRequest,
   LeaveApplicationResponse,
   QueryStudentLeaveApplicationsDTO,
   QueryStudentLeaveApplicationsVO,
-  QueryTeacherLeaveApplicationsDTO,
-  QueryTeacherLeaveApplicationsVO,
   StudentLeaveApplicationItemVO,
   StudentLeaveApplicationStatsVO,
-  TeacherLeaveApplicationItemVO,
-  TeacherLeaveApplicationStatsVO,
   UserInfo,
   WithdrawResponse
 } from '../types/api.js';
 import {
-  ApprovalResult,
   AttendanceStatus,
   type IcalinkAttendanceRecord,
   type IcalinkLeaveApplication,
@@ -49,46 +40,22 @@ export default class LeaveService {
     private readonly leaveApprovalRepository: LeaveApprovalRepository,
     private readonly leaveAttachmentRepository: LeaveAttachmentRepository,
     private readonly attendanceRecordRepository: AttendanceRecordRepository,
-    private readonly attendanceRecordHistoryRepository: AttendanceRecordHistoryRepository,
     private readonly attendanceCourseRepository: AttendanceCourseRepository,
-    private readonly studentRepository: StudentRepository,
     private readonly osspStorageService: OsspStorageService,
     private readonly logger: Logger
   ) {}
-
-  /**
-   * 判断课程是否为历史课程（当天之前的课程）
-   * @param courseStartTime 课程开始时间
-   * @returns true 表示历史课程，false 表示当天及以后的课程
-   */
-  private isHistoricalCourse(courseStartTime: Date): boolean {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // 设置为当天 00:00:00
-    return courseStartTime < today;
-  }
-
-  /**
-   * 根据课程时间获取对应的考勤记录 Repository
-   * @param courseStartTime 课程开始时间
-   * @returns 考勤记录 Repository（当天及以后用主表，历史用历史表）
-   */
-  private getAttendanceRepository(courseStartTime: Date) {
-    return this.isHistoricalCourse(courseStartTime)
-      ? this.attendanceRecordHistoryRepository
-      : this.attendanceRecordRepository;
-  }
 
   public async submitLeaveApplication(
     studentInfo: UserInfo,
     request: LeaveApplicationRequest
   ): Promise<Either<ServiceError, LeaveApplicationResponse>> {
     this.logger.info(
-      { studentId: studentInfo.userId },
+      { studentId: request.student_id },
       'Submitting leave application'
     );
     try {
-      // 1. 将 attendance_record_id 作为 course_id 来查找课程
-      const courseId = parseInt(request.attendance_record_id, 10);
+      // 1. 将 course_id 参数作为课程 ID 来查找课程
+      const courseId = parseInt(request.course_id, 10);
       const courseMaybe = (await this.attendanceCourseRepository.findOne((qb) =>
         qb.where('id', '=', courseId)
       )) as unknown as Maybe<IcasyncAttendanceCourse>;
@@ -102,16 +69,14 @@ export default class LeaveService {
 
       const course = courseMaybe.value;
 
-      // 2. 根据课程时间判断使用哪个表
-      const attendanceRepo = this.getAttendanceRepository(course.start_time);
-
-      // 3. 检查是否已存在请假记录（一节课只能有一次请假）
-      const existingRecordMaybe = (await attendanceRepo.findOne((qb) =>
-        qb
-          .where('attendance_course_id', '=', course.id)
-          .where('student_id', '=', studentInfo.userId)
-          .where('status', 'in', ['leave_pending', 'leave'])
-      )) as unknown as Maybe<IcalinkAttendanceRecord>;
+      // 2. 检查是否已存在请假记录（一节课只能有一次请假）
+      const existingRecordMaybe =
+        (await this.attendanceRecordRepository.findOne((qb) =>
+          qb
+            .where('attendance_course_id', '=', course.id)
+            .where('student_id', '=', request.student_id)
+            .where('status', 'in', ['leave_pending', 'leave'])
+        )) as unknown as Maybe<IcalinkAttendanceRecord>;
 
       if (isSome(existingRecordMaybe)) {
         return left({
@@ -120,23 +85,50 @@ export default class LeaveService {
         });
       }
 
-      // 4. 查询学生信息以获取班级和专业
-      const studentMaybe = await this.studentRepository.findOne((qb) =>
-        qb.where('xh', '=', studentInfo.userId)
-      );
+      // 5. 解析教师列表
+      const teacherCodes =
+        course.teacher_codes
+          ?.split(',')
+          .map((t) => t.trim())
+          .filter((t) => t) || [];
+      const teacherNames =
+        course.teacher_names
+          ?.split(',')
+          .map((t) => t.trim())
+          .filter((t) => t) || [];
 
-      const studentData =
-        studentMaybe && isSome(studentMaybe) ? studentMaybe.value : null;
+      // 确保至少有一位教师
+      if (teacherCodes.length === 0) {
+        return left({
+          code: String(ServiceErrorCode.VALIDATION_ERROR),
+          message: '课程没有授课教师，无法提交请假申请'
+        });
+      }
 
-      // 5. 创建考勤记录（状态为 leave_pending）
-      const newRecordResult = await attendanceRepo.create({
+      // 6. 验证附件数量和大小限制
+      if (request.images && request.images.length > 10) {
+        return left({
+          code: String(ServiceErrorCode.VALIDATION_ERROR),
+          message: '附件数量不能超过10个'
+        });
+      }
+
+      const currentTime = getCurrentDateTime();
+
+      // 7. 使用事务创建所有记录
+      // 注意：由于 BaseRepository 不直接支持事务，我们需要手动处理
+      // 如果任何步骤失败，后续步骤不会执行，保证数据一致性
+
+      // 7.1 创建考勤记录（状态为 leave_pending）
+      const newRecordResult = await this.attendanceRecordRepository.create({
         attendance_course_id: course.id,
-        student_id: studentInfo.userId,
-        student_name: studentInfo.name,
-        class_name: studentData?.bjmc || '',
-        major_name: studentData?.zymc || '',
+        student_id: request.student_id,
+        student_name: request.student_name,
+        class_name: request.class_name,
+        major_name: request.major_name,
         status: 'leave_pending' as AttendanceStatus,
-        created_by: studentInfo.userId
+        last_checkin_reason: request.leave_reason,
+        created_by: request.student_id
       } as any);
 
       if (isLeft(newRecordResult)) {
@@ -167,31 +159,34 @@ export default class LeaveService {
         {
           recordId: record.id,
           studentId: studentInfo.userId,
-          courseId: course.id,
-          isHistorical: this.isHistoricalCourse(course.start_time)
+          courseId: course.id
         },
         'Created new attendance record for leave application'
       );
 
-      // 3. 创建请假申请
-      const teacherCodes = course.teacher_codes?.split(',') || [];
-      const teacherNames = course.teacher_names?.split(',') || [];
-
+      // 7.2 创建请假申请记录
       const applicationResult = await this.leaveApplicationRepository.create({
         attendance_record_id: record.id,
-        student_id: studentInfo.userId,
-        student_name: studentInfo.name,
+        student_id: request.student_id,
+        student_name: request.student_name,
         course_id: course.course_code,
         course_name: course.course_name,
-        teacher_id: teacherCodes[0] || '',
-        teacher_name: teacherNames[0] || '',
+        teacher_id: course.teacher_codes,
+        teacher_name: course.teacher_names,
         leave_type: request.leave_type,
         leave_reason: request.leave_reason,
         status: 'leave_pending' as LeaveStatus,
-        application_time: getCurrentDateTime()
+        application_time: currentTime
       } as any);
 
       if (isLeft(applicationResult)) {
+        // 如果创建请假申请失败，删除已创建的考勤记录（回滚）
+        await this.attendanceRecordRepository.delete(record.id);
+        this.logger.error(
+          { recordId: record.id },
+          'Rolled back attendance record due to application creation failure'
+        );
+
         return left({
           code: String(ServiceErrorCode.INTERNAL_ERROR),
           message: '创建请假申请失败',
@@ -201,24 +196,53 @@ export default class LeaveService {
 
       const application = applicationResult.right;
 
-      // 4. 创建审批记录
-      const approvalResult = await this.leaveApprovalRepository.create({
-        leave_application_id: application.id,
-        approver_id: teacherCodes[0] || '',
-        approver_name: teacherNames[0] || '',
-        approval_result: 'pending' as ApprovalResult,
-        approval_order: 1,
-        is_final_approver: true
-      } as any);
+      // 7.3 批量创建审批记录
+      const approvalPromises = teacherCodes.map((teacherCode, index) => {
+        return this.leaveApprovalRepository.create({
+          leave_application_id: application.id,
+          approver_id: teacherCode,
+          approver_name: teacherNames[index] || teacherCode,
+          approval_result: 'pending' as any, // 空字符串表示待审批
+          approval_comment: '',
+          approval_time: null,
+          approval_order: index + 1,
+          is_final_approver: index === teacherCodes.length - 1
+        } as any);
+      });
 
-      if (isLeft(approvalResult)) {
-        this.logger.warn(
-          { applicationId: application.id },
-          'Failed to create approval record, but application was created'
+      const approvalResults = await Promise.all(approvalPromises);
+
+      // 检查是否有审批记录创建失败
+      const failedApprovals = approvalResults.filter(isLeft);
+      if (failedApprovals.length > 0) {
+        // 如果有审批记录创建失败，回滚所有操作
+        await this.leaveApplicationRepository.delete(application.id);
+        await this.attendanceRecordRepository.delete(record.id);
+        this.logger.error(
+          {
+            applicationId: application.id,
+            recordId: record.id,
+            failedCount: failedApprovals.length
+          },
+          'Rolled back all records due to approval creation failure'
         );
+
+        return left({
+          code: String(ServiceErrorCode.INTERNAL_ERROR),
+          message: '创建审批记录失败'
+        });
       }
 
-      // 5. 处理附件上传（如果有）
+      this.logger.info(
+        {
+          applicationId: application.id,
+          teacherCount: teacherCodes.length,
+          successCount: approvalResults.filter((r) => !isLeft(r)).length
+        },
+        'Created approval records for all teachers'
+      );
+
+      // 7.4 处理附件上传（如果有）
       let uploadedCount = 0;
       if (request.images && request.images.length > 0) {
         const attachmentResult = await this.processLeaveAttachments(
@@ -231,6 +255,7 @@ export default class LeaveService {
             { applicationId: application.id, error: attachmentResult.left },
             'Failed to process attachments, but application was created'
           );
+          // 附件上传失败不影响整体流程，只记录警告
         } else {
           uploadedCount = attachmentResult.right.uploadedCount;
           this.logger.info(
@@ -244,18 +269,20 @@ export default class LeaveService {
         }
       }
 
-      // 6. 返回完整的响应
+      // 8. 返回完整的响应
       return right({
         application_id: application.id,
         attendance_record_id: record.id,
-        student_id: studentInfo.userId,
-        student_name: studentInfo.name,
+        student_id: request.student_id,
+        student_name: request.student_name,
         course_name: course.course_name,
         teacher_name: teacherNames[0] || '',
         leave_type: request.leave_type,
         leave_reason: request.leave_reason,
         status: application.status,
         application_time: application.application_time.toISOString(),
+        approval_count: teacherCodes.length,
+        attachment_count: uploadedCount,
         uploaded_images: uploadedCount
       });
     } catch (error) {
@@ -301,39 +328,22 @@ export default class LeaveService {
 
       const previousStatus = application.status;
 
-      // 1. 获取课程信息以判断使用哪个表
-      const courseMaybe = (await this.attendanceCourseRepository.findOne((qb) =>
-        qb.where('course_code', '=', application.course_id)
-      )) as unknown as Maybe<IcasyncAttendanceCourse>;
-
-      if (isNone(courseMaybe)) {
-        return left({
-          code: String(ServiceErrorCode.RESOURCE_NOT_FOUND),
-          message: '课程不存在'
-        });
-      }
-
-      const course = courseMaybe.value;
-      const attendanceRepo = this.getAttendanceRepository(course.start_time);
-
-      // 2. 删除考勤记录（撤回请假直接删除记录）
-      const deleteResult = await attendanceRepo.delete(
+      // 1. 删除考勤记录（撤回请假直接删除记录）
+      const deleteResult = await this.attendanceRecordRepository.delete(
         application.attendance_record_id
       );
 
       if (isLeft(deleteResult)) {
         this.logger.warn(
           {
-            recordId: application.attendance_record_id,
-            isHistorical: this.isHistoricalCourse(course.start_time)
+            recordId: application.attendance_record_id
           },
           'Failed to delete attendance record after withdraw'
         );
       } else {
         this.logger.info(
           {
-            recordId: application.attendance_record_id,
-            isHistorical: this.isHistoricalCourse(course.start_time)
+            recordId: application.attendance_record_id
           },
           'Attendance record deleted after leave withdrawal'
         );
@@ -371,220 +381,81 @@ export default class LeaveService {
   }
 
   public async approveLeaveApplication(
-    approvalId: number,
-    teacherInfo: UserInfo,
-    request: ApprovalRequest
-  ): Promise<Either<ServiceError, ApprovalResponse>> {
+    attendanceRecordId: number,
+    action: 'approve' | 'reject',
+    comment?: string
+  ): Promise<Either<ServiceError, { message: string }>> {
     this.logger.info(
-      { approvalId, teacherId: teacherInfo.userId, result: request.result },
-      'Approving leave application'
+      { attendanceRecordId, action, comment },
+      'Processing leave approval'
     );
+
     try {
-      // 1. 查找审批记录
-      const approvalMaybe = (await this.leaveApprovalRepository.findOne((qb) =>
-        qb.where('id', '=', approvalId)
+      // 1. 查找考勤记录
+      const recordMaybe = (await this.attendanceRecordRepository.findOne((qb) =>
+        qb.where('id', '=', attendanceRecordId)
       )) as unknown as Maybe<any>;
 
-      if (isNone(approvalMaybe)) {
+      if (isNone(recordMaybe)) {
         return left({
           code: String(ServiceErrorCode.RESOURCE_NOT_FOUND),
-          message: '审批记录不存在'
+          message: '考勤记录不存在'
         });
       }
 
-      const approval = approvalMaybe.value;
-
-      // 2. 验证审批记录状态
-      if (approval.approval_result !== 'pending') {
-        return left({
-          code: String(ServiceErrorCode.INVALID_OPERATION),
-          message: '该审批记录已处理，不能重复审批'
-        });
-      }
-
-      // 3. 验证审批人权限
-      if (approval.approver_id !== teacherInfo.userId) {
-        return left({
-          code: String(ServiceErrorCode.PERMISSION_DENIED),
-          message: '无权审批此请假申请'
-        });
-      }
-
-      // 4. 查找请假申请
-      const applicationId = approval.leave_application_id;
-      const appMaybe = (await this.leaveApplicationRepository.findOne((qb) =>
-        qb.where('id', '=', applicationId)
-      )) as unknown as Maybe<IcalinkLeaveApplication>;
-
-      if (isNone(appMaybe)) {
-        return left({
-          code: String(ServiceErrorCode.RESOURCE_NOT_FOUND),
-          message: '请假申请不存在'
-        });
-      }
-
-      const application = appMaybe.value;
-
-      if (application.status !== 'leave_pending') {
-        return left({
-          code: String(ServiceErrorCode.INVALID_OPERATION),
-          message: '只能审批待审批的请假申请'
-        });
-      }
-
-      const approvalTime = getCurrentDateTime();
-
-      // 5. 更新审批记录
-      const approvalUpdateResult = await this.leaveApprovalRepository.update(
-        approvalId,
-        {
-          approval_result: request.result as ApprovalResult,
-          approval_comment: request.comment || '',
-          approval_time: approvalTime
-        } as any
-      );
-
-      if (isLeft(approvalUpdateResult)) {
-        return left({
-          code: String(ServiceErrorCode.INTERNAL_ERROR),
-          message: '更新审批记录失败',
-          details: approvalUpdateResult.left
-        });
-      }
-
-      // 6. 更新请假申请状态
-      const newStatus =
-        request.result === 'approved'
-          ? ('leave' as LeaveStatus)
-          : ('leave_rejected' as LeaveStatus);
-
-      const updateResult = await this.leaveApplicationRepository.update(
-        applicationId,
-        {
-          status: newStatus,
-          approval_time: approvalTime,
-          approval_comment: request.comment || ''
-        } as any
-      );
-
-      if (isLeft(updateResult)) {
-        return left({
-          code: String(ServiceErrorCode.INTERNAL_ERROR),
-          message: '更新请假申请状态失败',
-          details: updateResult.left
-        });
-      }
-
-      // 7. 获取课程信息以判断使用哪个表
-      const courseMaybe = (await this.attendanceCourseRepository.findOne((qb) =>
-        qb.where('course_code', '=', application.course_id)
-      )) as unknown as Maybe<IcasyncAttendanceCourse>;
-
-      if (isNone(courseMaybe)) {
-        this.logger.warn(
-          { courseCode: application.course_id },
-          'Course not found for leave approval'
-        );
-        // 课程不存在，但审批已完成，继续返回结果
-        return right({
-          application_id: applicationId,
-          approval_id: approvalId,
-          student_id: application.student_id,
-          student_name: application.student_name,
-          teacher_id: teacherInfo.userId,
-          teacher_name: teacherInfo.name,
-          approval_result: request.result,
-          approval_time: approvalTime.toISOString(),
-          approval_comment: request.comment,
-          new_attendance_status:
-            request.result === 'approved'
-              ? AttendanceStatus.LEAVE
-              : AttendanceStatus.ABSENT,
-          course_info: {
-            course_name: application.course_name
-          }
-        });
-      }
-
-      const course = courseMaybe.value;
-      const attendanceRepo = this.getAttendanceRepository(course.start_time);
-
-      // 8. 根据审批结果处理考勤记录
-      if (request.result === 'approved') {
+      // 2. 根据审批结果处理考勤记录
+      if (action === 'approve') {
         // 审批通过：更新考勤记录状态为 leave
-        const recordUpdateResult = await attendanceRepo.update(
-          application.attendance_record_id,
+        const updateResult = await this.attendanceRecordRepository.update(
+          attendanceRecordId,
           { status: AttendanceStatus.LEAVE } as any
         );
 
-        if (isLeft(recordUpdateResult)) {
-          this.logger.warn(
-            {
-              recordId: application.attendance_record_id,
-              isHistorical: this.isHistoricalCourse(course.start_time)
-            },
-            'Failed to update attendance record status to leave'
+        if (isLeft(updateResult)) {
+          this.logger.error(
+            { recordId: attendanceRecordId },
+            'Failed to update attendance record status'
           );
-        } else {
-          this.logger.info(
-            {
-              recordId: application.attendance_record_id,
-              oldStatus: 'leave_pending',
-              newStatus: 'leave',
-              isHistorical: this.isHistoricalCourse(course.start_time)
-            },
-            'Attendance record status updated to leave after approval'
-          );
+          return left({
+            code: String(ServiceErrorCode.DATABASE_ERROR),
+            message: '更新考勤记录失败'
+          });
         }
+
+        this.logger.info(
+          { recordId: attendanceRecordId, newStatus: AttendanceStatus.LEAVE },
+          'Attendance record status updated to leave'
+        );
       } else {
         // 审批拒绝：删除考勤记录
-        const deleteResult = await attendanceRepo.delete(
-          application.attendance_record_id
-        );
+        const deleteResult =
+          await this.attendanceRecordRepository.delete(attendanceRecordId);
 
         if (isLeft(deleteResult)) {
-          this.logger.warn(
-            {
-              recordId: application.attendance_record_id,
-              isHistorical: this.isHistoricalCourse(course.start_time)
-            },
-            'Failed to delete attendance record after rejection'
+          this.logger.error(
+            { recordId: attendanceRecordId },
+            'Failed to delete attendance record'
           );
-        } else {
-          this.logger.info(
-            {
-              recordId: application.attendance_record_id,
-              isHistorical: this.isHistoricalCourse(course.start_time)
-            },
-            'Attendance record deleted after leave rejection'
-          );
+          return left({
+            code: String(ServiceErrorCode.DATABASE_ERROR),
+            message: '删除考勤记录失败'
+          });
         }
+
+        this.logger.info(
+          { recordId: attendanceRecordId },
+          'Attendance record deleted after rejection'
+        );
       }
 
-      // 9. 返回审批结果
       return right({
-        application_id: applicationId,
-        approval_id: approvalId,
-        student_id: application.student_id,
-        student_name: application.student_name,
-        teacher_id: teacherInfo.userId,
-        teacher_name: teacherInfo.name,
-        approval_result: request.result,
-        approval_time: approvalTime.toISOString(),
-        approval_comment: request.comment,
-        new_attendance_status:
-          request.result === 'approved'
-            ? AttendanceStatus.LEAVE
-            : AttendanceStatus.ABSENT,
-        course_info: {
-          course_name: application.course_name
-        }
+        message: `请假申请已${action === 'approve' ? '批准' : '拒绝'}`
       });
     } catch (error) {
-      this.logger.error(error, 'Failed to approve leave application');
+      this.logger.error(error, 'Failed to process leave approval');
       return left({
         code: String(ServiceErrorCode.INTERNAL_ERROR),
-        message: error instanceof Error ? error.message : '审批请假申请失败'
+        message: error instanceof Error ? error.message : '处理审批失败'
       });
     }
   }
@@ -1109,21 +980,22 @@ export default class LeaveService {
   }
 
   /**
-   * 教师查询请假申请列表
+   * 教师查询指定学生在指定课程的待审批请假申请
+   * 用于前端点击"审批"按钮后获取请假申请详情
+   * @param teacherId 教师 ID（从登录态获取）
+   * @param studentId 学生 ID
+   * @param courseId 课程 ID
+   * @returns 请假申请详情列表（包装成数组格式）
    */
-  async queryTeacherLeaveApplications(
-    dto: QueryTeacherLeaveApplicationsDTO
-  ): Promise<Either<ServiceError, QueryTeacherLeaveApplicationsVO>> {
-    this.logger.debug({ dto }, 'Querying teacher leave applications');
-
-    const {
-      teacherId,
-      status,
-      page = 1,
-      page_size = 10,
-      start_date,
-      end_date
-    } = dto;
+  async queryPendingLeaveApplicationByStudentAndCourse(
+    teacherId: string,
+    studentId: string,
+    courseId: string
+  ): Promise<Either<ServiceError, any>> {
+    this.logger.debug(
+      { teacherId, studentId, courseId },
+      'Querying pending leave application by student and course'
+    );
 
     // 1. 参数验证
     if (!teacherId || teacherId.trim() === '') {
@@ -1133,263 +1005,62 @@ export default class LeaveService {
       });
     }
 
-    if (page < 1) {
+    if (!studentId || studentId.trim() === '') {
       return left({
         code: String(ServiceErrorCode.VALIDATION_ERROR),
-        message: '页码必须大于0'
+        message: '学生ID不能为空'
       });
     }
 
-    if (page_size < 1 || page_size > 100) {
+    if (!courseId || courseId.trim() === '') {
       return left({
         code: String(ServiceErrorCode.VALIDATION_ERROR),
-        message: '每页大小必须在1-100之间'
+        message: '课程ID不能为空'
       });
     }
 
     try {
-      // 2. 查找教师授课的所有课程
-      const courses = await this.attendanceCourseRepository.findByTeacherCode(
-        teacherId,
-        '' // 不限制学期，查询所有学期
+      // 2. 调用 Repository 层查询
+      const applicationMaybe =
+        await this.leaveApplicationRepository.findPendingByStudentAndCourse({
+          studentId,
+          courseId,
+          approverId: teacherId
+        });
+
+      // 3. 如果没有找到，返回空数组
+      if (isNone(applicationMaybe)) {
+        this.logger.debug(
+          { teacherId, studentId, courseId },
+          'No pending leave application found'
+        );
+        return right({ applications: [] });
+      }
+
+      // 4. 直接返回 Repository 的字段
+      const application = applicationMaybe.value;
+
+      this.logger.debug(
+        {
+          applicationId: application.application_id,
+          approvalId: application.leave_approval_id,
+          attendanceRecordId: application.attendance_record_id,
+          attachmentCount: application.attachments.length
+        },
+        'Found pending leave application'
       );
 
-      if (courses.length === 0) {
-        // 教师没有授课课程，返回空列表
-        return right({
-          applications: [],
-          total: 0,
-          page,
-          page_size,
-          stats: {
-            pending_count: 0,
-            processed_count: 0,
-            approved_count: 0,
-            rejected_count: 0,
-            cancelled_count: 0,
-            total_count: 0
-          }
-        });
-      }
-
-      // 3. 提取课程ID列表
-      const courseIds = courses.map((c) => c.external_id);
-
-      // 4. 构建查询条件
-      const db = await (
-        this.leaveApplicationRepository as any
-      ).getQueryConnection();
-      let query = db
-        .selectFrom('icalink_leave_applications as la')
-        .innerJoin(
-          'icalink_leave_approvals as lap',
-          'la.id',
-          'lap.leave_application_id'
-        )
-        .where('la.course_id', 'in', courseIds)
-        .where('la.deleted_at', 'is', null);
-
-      // 5. 状态筛选
-      if (status && status !== 'all') {
-        const statusArray = Array.isArray(status)
-          ? status
-          : status.split(',').map((s) => s.trim());
-
-        if (statusArray.length > 0) {
-          query = query.where('lap.approval_result', 'in', statusArray);
-        }
-      }
-
-      // 6. 日期范围筛选
-      if (start_date) {
-        query = query.where('la.application_time', '>=', start_date);
-      }
-      if (end_date) {
-        query = query.where('la.application_time', '<=', end_date);
-      }
-
-      // 7. 查询总数
-      const countResult = await query
-        .select(({ fn }: any) => fn.countAll().as('count'))
-        .executeTakeFirst();
-
-      const total = Number((countResult as any)?.count || 0);
-
-      if (total === 0) {
-        return right({
-          applications: [],
-          total: 0,
-          page,
-          page_size,
-          stats: {
-            pending_count: 0,
-            processed_count: 0,
-            approved_count: 0,
-            rejected_count: 0,
-            cancelled_count: 0,
-            total_count: 0
-          }
-        });
-      }
-
-      // 8. 分页查询
-      const offset = (page - 1) * page_size;
-      const applications = await query
-        .selectAll('la')
-        .select([
-          'lap.id as approval_record_id',
-          'lap.approval_id',
-          'lap.approval_result',
-          'lap.approval_comment',
-          'lap.approval_time'
-        ])
-        .orderBy('la.application_time', 'desc')
-        .limit(page_size)
-        .offset(offset)
-        .execute();
-
-      // 9. 查询附件数量
-      const applicationIds = applications.map((app: any) => app.id);
-      const attachmentCounts: Record<number, number> = {};
-
-      if (applicationIds.length > 0) {
-        const attachmentCountResults = await db
-          .selectFrom('icalink_leave_attachments')
-          .select([
-            'leave_application_id',
-            ({ fn }: any) => fn.countAll().as('count')
-          ])
-          .where('leave_application_id', 'in', applicationIds)
-          .where('deleted_at', 'is', null)
-          .groupBy('leave_application_id')
-          .execute();
-
-        attachmentCountResults.forEach((row: any) => {
-          attachmentCounts[row.leave_application_id] = Number(row.count);
-        });
-      }
-
-      // 10. 查询课程详细信息
-      const courseMap = new Map(courses.map((c) => [c.external_id, c]));
-
-      // 11. 构建响应数据
-      const items: TeacherLeaveApplicationItemVO[] = applications.map(
-        (app: any) => {
-          const course = courseMap.get(app.course_id);
-          const attachmentCount = attachmentCounts[app.id] || 0;
-
-          // 提取教师信息
-          const teacherCodes = course?.teacher_codes?.split(',') || [];
-          const teacherNames = course?.teacher_names?.split(',') || [];
-          const teacherIndex = teacherCodes.indexOf(teacherId);
-          const teacherName =
-            teacherIndex >= 0 ? teacherNames[teacherIndex] : app.teacher_name;
-
-          return {
-            // 基本请假申请信息
-            id: app.id,
-            approval_id: app.approval_id,
-            student_id: app.student_id,
-            student_name: app.student_name,
-            course_id: app.course_id,
-            course_name: app.course_name,
-            teacher_name: teacherName,
-            leave_type: app.leave_type,
-            leave_reason: app.leave_reason,
-            status: app.status,
-            approval_comment: app.approval_comment || undefined,
-            approval_time: app.approval_time
-              ? formatDateTime(app.approval_time)
-              : undefined,
-            application_time: formatDateTime(app.application_time),
-            approval_result: app.approval_result,
-            approval_record_id: app.approval_record_id,
-
-            // 课程详细信息
-            start_time: course ? formatDateTime(course.start_time) : undefined,
-            end_time: course ? formatDateTime(course.end_time) : undefined,
-            teaching_week: course?.teaching_week || undefined,
-            periods: course?.periods || undefined,
-            leave_date: course ? formatDateTime(course.start_time) : undefined,
-
-            // 教师信息
-            teacher_info: {
-              teacher_id: teacherId,
-              teacher_name: teacherName,
-              teacher_department: undefined // 可以从教师信息表获取
-            },
-
-            // 附件信息
-            attachment_count: attachmentCount
-          };
-        }
-      );
-
-      // 12. 计算统计信息
-      const statsQuery = await db
-        .selectFrom('icalink_leave_applications as la')
-        .innerJoin(
-          'icalink_leave_approvals as lap',
-          'la.id',
-          'lap.leave_application_id'
-        )
-        .where('la.course_id', 'in', courseIds)
-        .where('la.deleted_at', 'is', null)
-        .select([
-          'lap.approval_result',
-          ({ fn }: any) => fn.countAll().as('count')
-        ])
-        .groupBy('lap.approval_result')
-        .execute();
-
-      const stats: TeacherLeaveApplicationStatsVO = {
-        pending_count: 0,
-        processed_count: 0,
-        approved_count: 0,
-        rejected_count: 0,
-        cancelled_count: 0,
-        total_count: total
-      };
-
-      statsQuery.forEach((row: any) => {
-        const count = Number(row.count);
-        switch (row.approval_result) {
-          case 'pending':
-            stats.pending_count = count;
-            break;
-          case 'approved':
-            stats.approved_count = count;
-            stats.processed_count += count;
-            break;
-          case 'rejected':
-            stats.rejected_count = count;
-            stats.processed_count += count;
-            break;
-          case 'cancelled':
-            stats.cancelled_count = count;
-            break;
-        }
-      });
-
-      // 13. 返回结果
-      const vo: QueryTeacherLeaveApplicationsVO = {
-        applications: items,
-        total,
-        page,
-        page_size,
-        stats
-      };
-
-      return right(vo);
+      // 5. 返回结果（包装成数组）
+      return right(application);
     } catch (error) {
       this.logger.error(
-        { error, teacherId, status },
-        'Failed to query teacher leave applications'
+        { error, teacherId, studentId, courseId },
+        'Failed to query pending leave application'
       );
 
       return left({
         code: String(ServiceErrorCode.DATABASE_ERROR),
-        message: error instanceof Error ? error.message : '查询教师请假申请失败'
+        message: error instanceof Error ? error.message : '查询请假申请详情失败'
       });
     }
   }

@@ -93,10 +93,10 @@ export default class CourseStudentRepository extends BaseRepository<
     // 排序规则：absent, leave, leave_pending, truant, late, present
     query = query.orderBy(
       sql`CASE
-        WHEN COALESCE(vard.final_status, 'absent') = 'truant' THEN 1
+        WHEN COALESCE(vard.final_status, 'absent') = 'truant' THEN 3
         WHEN COALESCE(vard.final_status, 'absent') = 'absent' THEN 2
-        WHEN COALESCE(vard.final_status, 'absent') = 'leave' THEN 3
-        WHEN COALESCE(vard.final_status, 'absent') = 'leave_pending' THEN 4
+        WHEN COALESCE(vard.final_status, 'absent') = 'leave' THEN 4
+        WHEN COALESCE(vard.final_status, 'absent') = 'leave_pending' THEN 1
         WHEN COALESCE(vard.final_status, 'absent') = 'present' THEN 5
         ELSE 6
       END`,

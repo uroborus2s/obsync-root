@@ -23,9 +23,14 @@ export function useUser() {
     setAuthState((prev) => ({ ...prev, loading: true, error: null }))
 
     try {
+      console.log('🔍 useUser: 开始加载用户信息')
+      console.log('🍪 useUser: 当前Cookie:', document.cookie)
+
       const result = parseUserFromCookie()
+      console.log('📊 useUser: Cookie解析结果:', result)
 
       if (result.success && result.user) {
+        console.log('✅ useUser: 用户信息加载成功:', result.user)
         setAuthState({
           isAuthenticated: true,
           user: result.user,
@@ -33,6 +38,7 @@ export function useUser() {
           error: null,
         })
       } else {
+        console.warn('❌ useUser: 用户信息加载失败:', result.error)
         setAuthState({
           isAuthenticated: false,
           user: null,
@@ -42,10 +48,12 @@ export function useUser() {
 
         // 如果JWT过期，清除Cookie
         if (result.expired) {
+          console.log('⏰ useUser: JWT已过期，清除Cookie')
           clearJWTCookie()
         }
       }
     } catch (error) {
+      console.error('💥 useUser: 加载用户信息异常:', error)
       setAuthState({
         isAuthenticated: false,
         user: null,

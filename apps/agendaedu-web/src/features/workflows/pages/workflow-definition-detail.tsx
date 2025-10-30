@@ -89,20 +89,29 @@ export default function WorkflowDefinitionDetail() {
           </div>
         </Header>
         <Main>
-          <Alert>
-            <AlertCircle className='h-4 w-4' />
-            <AlertDescription>
-              {definitionError?.message || '工作流定义不存在'}
-            </AlertDescription>
-          </Alert>
-          <Button
-            onClick={() => refetchDefinition()}
-            className='mt-4'
-            variant='outline'
-          >
-            <RefreshCw className='mr-2 h-4 w-4' />
-            重试
-          </Button>
+          <div className='space-y-4'>
+            <Alert variant='destructive'>
+              <AlertCircle className='h-4 w-4' />
+              <AlertDescription>
+                {definitionError?.message?.includes('404') ||
+                definitionError?.message?.includes('not found')
+                  ? `工作流定义 ID ${definitionId} 不存在，可能已被删除或ID不正确`
+                  : definitionError?.message || '加载工作流定义失败'}
+              </AlertDescription>
+            </Alert>
+            <div className='flex gap-2'>
+              <Link to='/workflows/definitions'>
+                <Button variant='default'>
+                  <ArrowLeft className='mr-2 h-4 w-4' />
+                  返回工作流列表
+                </Button>
+              </Link>
+              <Button onClick={() => refetchDefinition()} variant='outline'>
+                <RefreshCw className='mr-2 h-4 w-4' />
+                重试
+              </Button>
+            </div>
+          </div>
         </Main>
       </div>
     )

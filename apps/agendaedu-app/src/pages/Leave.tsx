@@ -177,11 +177,27 @@ function LeaveContent() {
         return;
       }
 
+      // 获取学生信息
+      const student = attendanceData.data.student;
+      if (!student || !student.xh || !student.xm) {
+        toast.error('提交失败', {
+          description: '缺少学生信息，无法提交请假申请',
+          duration: 4000
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       const leaveRequest: StudentLeaveRequest = {
         attendance_record_id: String(recordId),
         leave_reason: reason.trim(),
         leave_type: leaveType,
-        attachments: attachmentData.length > 0 ? attachmentData : undefined
+        attachments: attachmentData.length > 0 ? attachmentData : undefined,
+        // 添加学生信息
+        student_id: student.xh,
+        student_name: student.xm,
+        class_name: student.bjmc || '',
+        major_name: student.zymc || ''
       };
 
       const response = await attendanceApi.studentLeave(leaveRequest);

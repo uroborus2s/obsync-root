@@ -4,12 +4,9 @@ import { isLeft } from '@stratix/utils/functional';
 import AttendanceService from '../services/AttendanceService.js';
 import LeaveService from '../services/LeaveService.js';
 import type {
-  ApiResponse,
   CheckinDTO,
   CheckinRequest,
-  CheckinResponse,
-  CreateVerificationWindowRequest,
-  CreateVerificationWindowResponse
+  CreateVerificationWindowRequest
 } from '../types/api.js';
 import { ServiceErrorCode } from '../types/service.js';
 import { getTeacherIdentityFromRequest } from '../utils/user-identity.js';
@@ -26,11 +23,11 @@ export default class AttendanceController {
   async checkAuthStatus(
     request: FastifyRequest,
     reply: FastifyReply
-  ): Promise<ApiResponse<any>> {
-    return {
+  ): Promise<void> {
+    return reply.status(200).send({
       success: true,
       message: '用户已认证'
-    };
+    });
   }
 
   /**
@@ -74,46 +71,73 @@ export default class AttendanceController {
       Querystring: { type?: 'student' | 'teacher' };
     }>,
     reply: FastifyReply
-  ): Promise<ApiResponse<any>> {
+  ): Promise<void> {
     const { external_id } = request.params;
     const { type = 'teacher' } = request.query;
     const userIdentity = (request as any).userIdentity;
 
-    // 调用服务层
-    const result = await this.attendanceService.getCourseCompleteData({
-      externalId: external_id,
-      userInfo: userIdentity,
-      type
-    });
+    try {
+      // 调用服务层
+      const result = await this.attendanceService.getCourseCompleteData({
+        externalId: external_id,
+        userInfo: userIdentity,
+        type
+      });
 
-    // 处理错误
-    if (isLeft(result)) {
-      const error = result.left;
+      // 处理错误
+      if (isLeft(result)) {
+        const error = result.left;
 
-      // 根据错误类型设置正确的 HTTP 状态码
-      if (error.code === 'RESOURCE_NOT_FOUND') {
-        reply.status(404);
-      } else if (error.code === 'UNAUTHORIZED' || error.code === 'FORBIDDEN') {
-        reply.status(403);
-      } else if (error.code === 'DATABASE_ERROR') {
-        reply.status(500);
-      } else {
-        reply.status(400);
+        // 根据错误类型设置正确的 HTTP 状态码并立即发送响应
+        if (error.code === 'RESOURCE_NOT_FOUND') {
+          return reply.status(404).send({
+            success: false,
+            message: error.message,
+            code: error.code
+          });
+        } else if (
+          error.code === 'UNAUTHORIZED' ||
+          error.code === 'FORBIDDEN'
+        ) {
+          return reply.status(403).send({
+            success: false,
+            message: error.message,
+            code: error.code
+          });
+        } else if (error.code === 'DATABASE_ERROR') {
+          return reply.status(500).send({
+            success: false,
+            message: error.message,
+            code: error.code
+          });
+        } else {
+          return reply.status(400).send({
+            success: false,
+            message: error.message,
+            code: error.code
+          });
+        }
       }
 
-      return {
-        success: false,
-        message: error.message,
-        code: error.code
-      };
-    }
+      // 返回成功结果
+      return reply.status(200).send({
+        success: true,
+        message: '获取课程完整数据成功',
+        data: result.right
+      });
+    } catch (error: any) {
+      // 捕获所有未预期的错误
+      this.logger.error('获取课程完整数据失败', error);
 
-    // 返回成功结果
-    return {
-      success: true,
-      message: '获取课程完整数据成功',
-      data: result.right
-    };
+      // 检查响应是否已发送
+      if (!reply.sent) {
+        return reply.status(500).send({
+          success: false,
+          message: '服务器内部错误',
+          code: 'INTERNAL_SERVER_ERROR'
+        });
+      }
+    }
   }
 
   /**
@@ -152,63 +176,73 @@ export default class AttendanceController {
       Body: CheckinRequest;
     }>,
     reply: FastifyReply
-  ): Promise<ApiResponse<CheckinResponse>> {
+  ): Promise<void> {
     const { course_id } = request.params;
     const userIdentity = (request as any).userIdentity;
 
-    // 1. 用户认证检查
-    if (!userIdentity) {
-      reply.status(401);
-      return {
-        success: false,
-        message: '用户未认证',
-        code: String(ServiceErrorCode.UNAUTHORIZED)
-      };
-    }
-
-    // 2. 构建签到 DTO
-    const checkinDto: CheckinDTO = {
-      courseExtId: course_id,
-      studentInfo: userIdentity,
-      checkinData: request.body
-    };
-
-    // 3. 调用服务层处理签到
-    const result = await this.attendanceService.checkin(checkinDto);
-
-    // 4. 错误处理
-    if (isLeft(result)) {
-      const { code, message } = result.left;
-      let statusCode = 500; // Default to internal server error
-
-      // 根据错误类型设置正确的 HTTP 状态码
-      switch (code) {
-        case String(ServiceErrorCode.UNAUTHORIZED):
-        case String(ServiceErrorCode.FORBIDDEN):
-          statusCode = 403;
-          break;
-        case String(ServiceErrorCode.RESOURCE_NOT_FOUND):
-          statusCode = 404;
-          break;
-        case String(ServiceErrorCode.VALIDATION_ERROR):
-        case String(ServiceErrorCode.INVALID_OPERATION):
-          statusCode = 422;
-          break;
-        case String(ServiceErrorCode.DATABASE_ERROR):
-        case String(ServiceErrorCode.UNKNOWN_ERROR):
-          statusCode = 500;
-          break;
-        default:
-          statusCode = 500;
+    try {
+      // 1. 用户认证检查
+      if (!userIdentity) {
+        return reply.status(401).send({
+          success: false,
+          message: '用户未认证',
+          code: String(ServiceErrorCode.UNAUTHORIZED)
+        });
       }
 
-      reply.status(statusCode);
-      return { success: false, message, code };
-    }
+      // 2. 构建签到 DTO
+      const checkinDto: CheckinDTO = {
+        courseExtId: course_id,
+        studentInfo: userIdentity,
+        checkinData: request.body
+      };
 
-    // 5. 返回成功响应（202 Accepted - 异步处理）
-    reply.status(200);
-    return { success: true, message: '签到成功', data: result.right };
+      // 3. 调用服务层处理签到
+      const result = await this.attendanceService.checkin(checkinDto);
+
+      // 4. 错误处理
+      if (isLeft(result)) {
+        const { code, message } = result.left;
+        let statusCode = 500; // Default to internal server error
+
+        // 根据错误类型设置正确的 HTTP 状态码
+        switch (code) {
+          case String(ServiceErrorCode.UNAUTHORIZED):
+          case String(ServiceErrorCode.FORBIDDEN):
+            statusCode = 403;
+            break;
+          case String(ServiceErrorCode.RESOURCE_NOT_FOUND):
+            statusCode = 404;
+            break;
+          case String(ServiceErrorCode.VALIDATION_ERROR):
+          case String(ServiceErrorCode.INVALID_OPERATION):
+            statusCode = 422;
+            break;
+          case String(ServiceErrorCode.DATABASE_ERROR):
+          case String(ServiceErrorCode.UNKNOWN_ERROR):
+            statusCode = 500;
+            break;
+          default:
+            statusCode = 500;
+        }
+
+        return reply.status(statusCode).send({ success: false, message, code });
+      }
+
+      // 5. 返回成功响应（202 Accepted - 异步处理）
+      return reply
+        .status(200)
+        .send({ success: true, message: '签到成功', data: result.right });
+    } catch (error: any) {
+      this.logger.error('签到失败', error);
+      if (!reply.sent) {
+        return reply.status(500).send({
+          success: false,
+          message: '服务器内部错误',
+          code: 'INTERNAL_SERVER_ERROR'
+        });
+      }
+    }
   }
 
   // Disabled - AttendanceStatsRepository removed
@@ -287,55 +321,6 @@ export default class AttendanceController {
   //     data: result.right
   //   };
   // }
-
-  @Get('/api/icalink/v1/attendance/leave-applications')
-  async getStudentLeaveApplications(
-    request: FastifyRequest<{
-      Querystring: {
-        status?: 'leave_pending' | 'leave' | 'leave_rejected' | 'all';
-        page?: number;
-        page_size?: number;
-        start_date?: string;
-        end_date?: string;
-      };
-    }>,
-    reply: FastifyReply
-  ): Promise<ApiResponse<any>> {
-    const userIdentity = (request as any).userIdentity;
-    if (userIdentity?.userType !== 'student') {
-      reply.status(401);
-      return {
-        success: false,
-        message: '用户身份验证失败：需要学生权限',
-        code: String(ServiceErrorCode.UNAUTHORIZED)
-      };
-    }
-
-    const result = await this.leaveService.queryLeaveApplications({
-      studentId: userIdentity.id,
-      status: request.query.status,
-      page: request.query.page,
-      page_size: request.query.page_size,
-      start_date: request.query.start_date,
-      end_date: request.query.end_date
-    });
-
-    if (isLeft(result)) {
-      reply.status(400);
-      const error = result.left as any;
-      return {
-        success: false,
-        message: error.message,
-        code: error.code
-      };
-    }
-
-    return {
-      success: true,
-      message: '获取请假申请列表成功',
-      data: result.right
-    };
-  }
 
   /**
    * 查看请假附件图片
@@ -509,82 +494,89 @@ export default class AttendanceController {
       Body: CreateVerificationWindowRequest;
     }>,
     reply: FastifyReply
-  ): Promise<ApiResponse<CreateVerificationWindowResponse>> {
-    // 1. 教师身份验证
-    let teacherInfo;
+  ): Promise<void> {
     try {
-      teacherInfo = getTeacherIdentityFromRequest(request);
-    } catch (error) {
-      reply.status(403);
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : '教师身份验证失败',
-        code: String(ServiceErrorCode.UNAUTHORIZED)
-      };
-    }
-
-    // 2. 参数验证
-    const courseId = parseInt(request.params.course_id, 10);
-    if (isNaN(courseId) || courseId <= 0) {
-      reply.status(400);
-      return {
-        success: false,
-        message: '无效的课程ID',
-        code: String(ServiceErrorCode.INVALID_PARAMETER)
-      };
-    }
-
-    // 3. 调用服务层创建签到窗口
-    const result = await this.attendanceService.createVerificationWindow(
-      courseId,
-      teacherInfo.userId,
-      request.body
-    );
-
-    // 4. 错误处理
-    if (isLeft(result)) {
-      const { code, message } = result.left;
-      let statusCode = 500;
-
-      // 根据错误类型设置正确的 HTTP 状态码
-      switch (code) {
-        case String(ServiceErrorCode.UNAUTHORIZED):
-        case String(ServiceErrorCode.FORBIDDEN):
-          statusCode = 403;
-          break;
-        case String(ServiceErrorCode.RESOURCE_NOT_FOUND):
-          statusCode = 404;
-          break;
-        case String(ServiceErrorCode.INVALID_OPERATION):
-          statusCode = 422;
-          break;
-        case String(ServiceErrorCode.VALIDATION_ERROR):
-        case String(ServiceErrorCode.INVALID_PARAMETER):
-          statusCode = 400;
-          break;
-        case String(ServiceErrorCode.DATABASE_ERROR):
-        case String(ServiceErrorCode.UNKNOWN_ERROR):
-          statusCode = 500;
-          break;
-        default:
-          statusCode = 500;
+      // 1. 教师身份验证
+      let teacherInfo;
+      try {
+        teacherInfo = getTeacherIdentityFromRequest(request);
+      } catch (error) {
+        return reply.status(403).send({
+          success: false,
+          message: error instanceof Error ? error.message : '教师身份验证失败',
+          code: String(ServiceErrorCode.UNAUTHORIZED)
+        });
       }
 
-      reply.status(statusCode);
-      return {
-        success: false,
-        message,
-        code
-      };
-    }
+      // 2. 参数验证
+      const courseId = parseInt(request.params.course_id, 10);
+      if (isNaN(courseId) || courseId <= 0) {
+        return reply.status(400).send({
+          success: false,
+          message: '无效的课程ID',
+          code: String(ServiceErrorCode.INVALID_PARAMETER)
+        });
+      }
 
-    // 5. 返回成功响应
-    reply.status(201);
-    return {
-      success: true,
-      message: '签到窗口创建成功',
-      data: result.right
-    };
+      // 3. 调用服务层创建签到窗口
+      const result = await this.attendanceService.createVerificationWindow(
+        courseId,
+        teacherInfo.userId,
+        request.body
+      );
+
+      // 4. 错误处理
+      if (isLeft(result)) {
+        const { code, message } = result.left;
+        let statusCode = 500;
+
+        // 根据错误类型设置正确的 HTTP 状态码
+        switch (code) {
+          case String(ServiceErrorCode.UNAUTHORIZED):
+          case String(ServiceErrorCode.FORBIDDEN):
+            statusCode = 403;
+            break;
+          case String(ServiceErrorCode.RESOURCE_NOT_FOUND):
+            statusCode = 404;
+            break;
+          case String(ServiceErrorCode.INVALID_OPERATION):
+            statusCode = 422;
+            break;
+          case String(ServiceErrorCode.VALIDATION_ERROR):
+          case String(ServiceErrorCode.INVALID_PARAMETER):
+            statusCode = 400;
+            break;
+          case String(ServiceErrorCode.DATABASE_ERROR):
+          case String(ServiceErrorCode.UNKNOWN_ERROR):
+            statusCode = 500;
+            break;
+          default:
+            statusCode = 500;
+        }
+
+        return reply.status(statusCode).send({
+          success: false,
+          message,
+          code
+        });
+      }
+
+      // 5. 返回成功响应
+      return reply.status(201).send({
+        success: true,
+        message: '签到窗口创建成功',
+        data: result.right
+      });
+    } catch (error: any) {
+      this.logger.error('创建签到窗口失败', error);
+      if (!reply.sent) {
+        return reply.status(500).send({
+          success: false,
+          message: '服务器内部错误',
+          code: 'INTERNAL_SERVER_ERROR'
+        });
+      }
+    }
   }
 
   /**
@@ -618,90 +610,96 @@ export default class AttendanceController {
       Body: { student_id: string; reason?: string };
     }>,
     reply: FastifyReply
-  ): Promise<ApiResponse<any>> {
-    // 1. 教师身份验证
-    let teacherInfo;
+  ): Promise<void> {
     try {
-      teacherInfo = getTeacherIdentityFromRequest(request);
-    } catch (error) {
-      reply.status(403);
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : '教师身份验证失败',
-        code: String(ServiceErrorCode.UNAUTHORIZED)
-      };
-    }
-
-    // 2. 参数验证
-    const courseId = parseInt(request.params.course_id, 10);
-    if (isNaN(courseId) || courseId <= 0) {
-      reply.status(400);
-      return {
-        success: false,
-        message: '无效的课程ID',
-        code: String(ServiceErrorCode.INVALID_PARAMETER)
-      };
-    }
-
-    const { student_id, reason } = request.body;
-    if (!student_id) {
-      reply.status(400);
-      return {
-        success: false,
-        message: '缺少学生ID',
-        code: String(ServiceErrorCode.INVALID_PARAMETER)
-      };
-    }
-
-    // 3. 调用服务层处理补卡
-    const result = await this.attendanceService.teacherManualCheckin(
-      courseId,
-      teacherInfo.userId,
-      student_id,
-      reason
-    );
-
-    // 4. 处理错误响应
-    if (isLeft(result)) {
-      const { code, message } = result.left;
-      let statusCode = 500;
-
-      switch (code) {
-        case String(ServiceErrorCode.UNAUTHORIZED):
-        case String(ServiceErrorCode.FORBIDDEN):
-          statusCode = 403;
-          break;
-        case String(ServiceErrorCode.RESOURCE_NOT_FOUND):
-        case String(ServiceErrorCode.VALIDATION_FAILED):
-          statusCode = 404;
-          break;
-        case String(ServiceErrorCode.INVALID_PARAMETER):
-          statusCode = 400;
-          break;
-        case String(ServiceErrorCode.DATABASE_ERROR):
-        case String(ServiceErrorCode.UNKNOWN_ERROR):
-          statusCode = 500;
-          break;
-        default:
-          statusCode = 500;
+      // 1. 教师身份验证
+      let teacherInfo;
+      try {
+        teacherInfo = getTeacherIdentityFromRequest(request);
+      } catch (error) {
+        return reply.status(403).send({
+          success: false,
+          message: error instanceof Error ? error.message : '教师身份验证失败',
+          code: String(ServiceErrorCode.UNAUTHORIZED)
+        });
       }
 
-      reply.status(statusCode);
-      return {
-        success: false,
-        message,
-        code
-      };
-    }
-
-    // 5. 返回成功响应
-    reply.status(200);
-    return {
-      success: true,
-      message: result.right.message,
-      data: {
-        record_id: result.right.record_id
+      // 2. 参数验证
+      const courseId = parseInt(request.params.course_id, 10);
+      if (isNaN(courseId) || courseId <= 0) {
+        return reply.status(400).send({
+          success: false,
+          message: '无效的课程ID',
+          code: String(ServiceErrorCode.INVALID_PARAMETER)
+        });
       }
-    };
+
+      const { student_id, reason } = request.body;
+      if (!student_id) {
+        return reply.status(400).send({
+          success: false,
+          message: '缺少学生ID',
+          code: String(ServiceErrorCode.INVALID_PARAMETER)
+        });
+      }
+
+      // 3. 调用服务层处理补卡
+      const result = await this.attendanceService.teacherManualCheckin(
+        courseId,
+        teacherInfo.userId,
+        student_id,
+        reason
+      );
+
+      // 4. 处理错误响应
+      if (isLeft(result)) {
+        const { code, message } = result.left;
+        let statusCode = 500;
+
+        switch (code) {
+          case String(ServiceErrorCode.UNAUTHORIZED):
+          case String(ServiceErrorCode.FORBIDDEN):
+            statusCode = 403;
+            break;
+          case String(ServiceErrorCode.RESOURCE_NOT_FOUND):
+          case String(ServiceErrorCode.VALIDATION_FAILED):
+            statusCode = 404;
+            break;
+          case String(ServiceErrorCode.INVALID_PARAMETER):
+            statusCode = 400;
+            break;
+          case String(ServiceErrorCode.DATABASE_ERROR):
+          case String(ServiceErrorCode.UNKNOWN_ERROR):
+            statusCode = 500;
+            break;
+          default:
+            statusCode = 500;
+        }
+
+        return reply.status(statusCode).send({
+          success: false,
+          message,
+          code
+        });
+      }
+
+      // 5. 返回成功响应
+      return reply.status(200).send({
+        success: true,
+        message: result.right.message,
+        data: {
+          record_id: result.right.record_id
+        }
+      });
+    } catch (error: any) {
+      this.logger.error('教师补卡失败', error);
+      if (!reply.sent) {
+        return reply.status(500).send({
+          success: false,
+          message: '服务器内部错误',
+          code: 'INTERNAL_SERVER_ERROR'
+        });
+      }
+    }
   }
 }

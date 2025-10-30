@@ -1,54 +1,10 @@
 import type { Logger } from '@stratix/core';
-import {
-  BaseRepository,
-  DataColumnType,
-  SchemaBuilder
-} from '@stratix/database';
-import { isNone } from '@stratix/utils/functional';
+import { BaseRepository } from '@stratix/database';
+import { isLeft, isNone } from '@stratix/utils/functional';
 import type {
   IcalinkAttendanceRecord,
   IcalinkDatabase
 } from '../types/database.js';
-
-const schema = SchemaBuilder.create('icalink_attendance_records')
-  .addPrimaryKey('id')
-  .addForeignKey('attendance_course_id', 'icasync_attendance_courses')
-  .addColumn('student_id', DataColumnType.STRING, { nullable: false })
-  .addColumn('student_name', DataColumnType.STRING, { nullable: false })
-  .addColumn('class_name', DataColumnType.STRING, { nullable: true })
-  .addColumn('major_name', DataColumnType.STRING, { nullable: true })
-  .addColumn('status', DataColumnType.STRING, { nullable: false })
-  .addColumn('checkin_time', DataColumnType.TIMESTAMP, { nullable: true })
-  .addColumn('checkin_location', DataColumnType.STRING, { nullable: true })
-  .addColumn('checkin_latitude', DataColumnType.DECIMAL, {
-    precision: 10,
-    scale: 7,
-    nullable: true
-  })
-  .addColumn('checkin_longitude', DataColumnType.DECIMAL, {
-    precision: 10,
-    scale: 7,
-    nullable: true
-  })
-  .addColumn('checkin_accuracy', DataColumnType.FLOAT, { nullable: true })
-  .addColumn('ip_address', DataColumnType.STRING, { nullable: true })
-  .addColumn('user_agent', DataColumnType.STRING, { nullable: true })
-  .addColumn('is_late', DataColumnType.BOOLEAN, {
-    defaultValue: false,
-    nullable: false
-  })
-  .addColumn('late_minutes', DataColumnType.INTEGER, { nullable: true })
-  .addColumn('remark', DataColumnType.TEXT, { nullable: true })
-  .addColumn('created_by', DataColumnType.STRING, { nullable: true })
-  .addColumn('updated_by', DataColumnType.STRING, { nullable: true })
-  .addColumn('metadata', DataColumnType.JSON, { nullable: true })
-  .addIndex('idx_attendance_record_course_student', [
-    'attendance_course_id',
-    'student_id'
-  ])
-  .addIndex('idx_attendance_record_student', ['student_id'])
-  .setComment('学生签到记录表')
-  .build();
 
 export default class AttendanceRecordRepository extends BaseRepository<
   IcalinkDatabase,
@@ -57,7 +13,6 @@ export default class AttendanceRecordRepository extends BaseRepository<
 > {
   protected readonly tableName = 'icalink_attendance_records';
   protected readonly primaryKey = 'id';
-  protected readonly tableSchema = schema;
 
   constructor(protected readonly logger: Logger) {
     super('default');
@@ -125,5 +80,86 @@ export default class AttendanceRecordRepository extends BaseRepository<
       last_checkin_reason: record.last_checkin_reason || '',
       window_id: record.window_id || ''
     };
+  }
+
+  /**
+   * 更新考勤记录状态
+   * @param attendanceRecordId 考勤记录 ID
+   * @param status 新状态
+   * @returns 更新结果
+   */
+  public async updateStatus(
+    attendanceRecordId: number,
+    status: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      this.logger.debug(
+        { attendanceRecordId, status },
+        'Updating attendance record status'
+      );
+
+      const result = await this.update(attendanceRecordId, { status } as any);
+
+      if (isLeft(result)) {
+        this.logger.error(
+          { attendanceRecordId, status, error: result.left },
+          'Failed to update attendance record status'
+        );
+        return { success: false, error: '更新考勤记录状态失败' };
+      }
+
+      this.logger.info(
+        { attendanceRecordId, status },
+        'Successfully updated attendance record status'
+      );
+      return { success: true };
+    } catch (error) {
+      this.logger.error(
+        { error, attendanceRecordId, status },
+        'Error updating attendance record status'
+      );
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : '更新考勤记录状态失败'
+      };
+    }
+  }
+
+  /**
+   * 物理删除考勤记录
+   * @param attendanceRecordId 考勤记录 ID
+   * @returns 删除结果
+   */
+  public async deleteRecord(
+    attendanceRecordId: number
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      this.logger.debug({ attendanceRecordId }, 'Deleting attendance record');
+
+      const result = await this.delete(attendanceRecordId);
+
+      if (isLeft(result)) {
+        this.logger.error(
+          { attendanceRecordId, error: result.left },
+          'Failed to delete attendance record'
+        );
+        return { success: false, error: '删除考勤记录失败' };
+      }
+
+      this.logger.info(
+        { attendanceRecordId },
+        'Successfully deleted attendance record'
+      );
+      return { success: true };
+    } catch (error) {
+      this.logger.error(
+        { error, attendanceRecordId },
+        'Error deleting attendance record'
+      );
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : '删除考勤记录失败'
+      };
+    }
   }
 }

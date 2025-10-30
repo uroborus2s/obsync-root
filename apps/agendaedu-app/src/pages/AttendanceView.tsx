@@ -222,14 +222,13 @@ export function AttendanceView() {
   // 认证成功，根据用户类型展示对应页面
   if (state.authenticated && state.userInfo && state.courseInfo) {
     // 将课程信息通过URL参数或context传递给页面组件
-    const courseInfo = state.courseInfo;
 
     if (state.userInfo.userType === 'student') {
       // 学生用户展示学生页面
       return (
         <div>
           {/* 可以在这里添加课程信息显示 */}
-          <div className='mb-4 bg-blue-50 p-4'>
+          {/* <div className='mb-4 bg-blue-50 p-4'>
             <h2 className='text-lg font-semibold text-blue-800'>
               {courseInfo.course_name}
             </h2>
@@ -237,7 +236,7 @@ export function AttendanceView() {
               {courseInfo.teacher_name} • {courseInfo.class_location} •{' '}
               {courseInfo.class_date} {courseInfo.class_time}
             </p>
-          </div>
+          </div> */}
           <StudentDashboard />
         </div>
       );
@@ -246,15 +245,11 @@ export function AttendanceView() {
       return (
         <div>
           {/* 可以在这里添加课程信息显示 */}
-          <div className='mb-4 bg-green-50 p-4'>
+          {/* <div className='mb-4 bg-green-50 p-4'>
             <h2 className='text-lg font-semibold text-green-800'>
               {courseInfo.course_name}
             </h2>
-            <p className='text-green-600'>
-              {courseInfo.class_location} • {courseInfo.class_date}{' '}
-              {courseInfo.class_time}
-            </p>
-          </div>
+          </div> */}
           <AttendanceSheet />
         </div>
       );

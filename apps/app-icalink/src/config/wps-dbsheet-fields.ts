@@ -586,19 +586,19 @@ export const SHEET_LIST = [
     dbTableName: 'courseCheckinStatsRepository',
     syncTaskName: 'view_student_overall_attendance_stats'
   },
-  // {
-  //   name: '学生历史统计详情表',
-  //   sheetId: 6,
-  //   wpsFileds: STUDENT_STATISTICS_DETAILS_FIELDS,
-  //   views: [
-  //     {
-  //       name: '学生签到历史详情列表',
-  //       type: 'grid'
-  //     }
-  //   ],
-  //   dbTableName: 'courseCheckinStatsRepository',
-  //   syncTaskName: 'view_student_overall_attendance_stats_details'
-  // }
+  {
+    name: '学生历史统计详情表',
+    sheetId: 6,
+    wpsFileds: STUDENT_STATISTICS_DETAILS_FIELDS,
+    views: [
+      {
+        name: '学生签到历史详情列表',
+        type: 'grid'
+      }
+    ],
+    dbTableName: 'courseCheckinStatsRepository',
+    syncTaskName: 'view_student_overall_attendance_stats_details'
+  }
 ];
 
 /**

@@ -266,6 +266,92 @@ export class IcaLinkApiClient {
       body: options?.body || '{}' // 确保DELETE请求有body，避免Content-Type问题
     });
   }
+
+  /**
+   * 获取 Blob 数据（用于图片、文件等二进制数据）
+   */
+  async getBlob(
+    endpoint: string,
+    options?: RequestOptions
+  ): Promise<{ success: boolean; data?: Blob; message?: string }> {
+    try {
+      const config: RequestConfig = {
+        url: `${this.baseUrl}${endpoint}`,
+        method: 'GET',
+        headers: {
+          ...((options?.headers as Record<string, string>) || {})
+        },
+        body: undefined,
+        skipAuth: options?.skipAuth || false,
+        retryOnAuth: options?.retryOnAuth !== false
+      };
+
+      // 添加授权头
+      if (!config.skipAuth) {
+        const token = await authManager.getAccessToken();
+        if (token) {
+          config.headers = {
+            ...config.headers,
+            Authorization: `Bearer ${token}`
+          };
+        }
+      }
+
+      const response = await fetch(config.url, {
+        method: config.method,
+        headers: config.headers,
+        credentials: 'include'
+      });
+
+      // 处理401未授权响应
+      if (response.status === 401 && !config.skipAuth && config.retryOnAuth) {
+        // 刷新token后重试
+        if (this.isRefreshing) {
+          return new Promise((resolve, reject) => {
+            this.failedQueue.push({
+              resolve: (value: any) => resolve(value),
+              reject,
+              config
+            });
+          });
+        }
+
+        this.isRefreshing = true;
+        try {
+          if (authManager.isAuthenticated()) {
+            await authManager.refreshAccessToken();
+            this.processQueue(null);
+            // 重试请求
+            return this.getBlob(endpoint, options);
+          } else {
+            this.processQueue(new Error('需要授权'));
+            this.redirectToAuth();
+            return { success: false, message: '需要授权' };
+          }
+        } finally {
+          this.isRefreshing = false;
+        }
+      }
+
+      // 处理其他HTTP错误
+      if (!response.ok) {
+        return {
+          success: false,
+          message: `HTTP ${response.status}: ${response.statusText}`
+        };
+      }
+
+      const blob = await response.blob();
+      return { success: true, data: blob };
+    } catch (error) {
+      console.error('获取Blob数据失败:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : '获取数据失败'
+      };
+    }
+  }
+
   /**
    * 检查用户登录状态
    */

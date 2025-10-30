@@ -779,21 +779,101 @@ export class AttendanceApiService {
   }
 
   /**
-   * 获取整体考勤统计（兼容现有代码）
+   * 获取整体考勤统计（使用学生统计接口聚合数据）
+   * 注意：原 /api/icalink/v1/attendance/overall-stats 接口已废弃
+   * 现改为调用 /api/icalink/v1/stats/student-stats 并在前端聚合数据
    */
   async getOverallStats(
     params?: Partial<AttendanceQueryParams>
   ): Promise<ApiResponse<AttendanceStats>> {
     const queryString = new URLSearchParams()
 
+    // 映射参数：xnxq -> semester
     if (params) {
-      if (params.xnxq) queryString.append('xnxq', params.xnxq)
+      if (params.xnxq) queryString.append('semester', params.xnxq)
       if (params.start_date) queryString.append('start_date', params.start_date)
       if (params.end_date) queryString.append('end_date', params.end_date)
     }
 
-    const endpoint = `/api/icalink/v1/attendance/overall-stats${queryString.toString() ? `?${queryString.toString()}` : ''}`
-    return this.makeRequest<ApiResponse<AttendanceStats>>(endpoint)
+    // 获取足够多的数据用于统计（最多1000条）
+    queryString.append('page', '1')
+    queryString.append('pageSize', '1000')
+
+    const endpoint = `/api/icalink/v1/stats/student-stats${queryString.toString() ? `?${queryString.toString()}` : ''}`
+
+    try {
+      const response = await this.makeRequest<any>(endpoint)
+
+      if (response.success && response.data) {
+        const studentStats = response.data.data || []
+        const totalStudents = response.data.total || 0
+
+        // 如果没有数据，返回空统计
+        if (studentStats.length === 0) {
+          return {
+            success: true,
+            message: '暂无统计数据',
+            data: {
+              total_courses: 0,
+              class_size: 0,
+              average_attendance_rate: 0,
+              total_leave_count: 0,
+              total_absent_count: 0,
+            },
+          }
+        }
+
+        // 聚合计算整体统计数据
+        let totalSessions = 0
+        let totalCompleted = 0
+        let totalAbsent = 0
+        let totalLeave = 0
+        let totalTruant = 0
+
+        studentStats.forEach((student: any) => {
+          totalSessions += student.total_sessions || 0
+          totalCompleted += student.completed_sessions || 0
+          totalAbsent += student.absent_count || 0
+          totalLeave += student.leave_count || 0
+          totalTruant += student.truant_count || 0
+        })
+
+        // 计算平均出勤率
+        const averageAttendanceRate =
+          totalCompleted > 0
+            ? (totalCompleted - totalAbsent) / totalCompleted
+            : 0
+
+        // 估算课程数（基于总课节数和平均每门课的课节数）
+        // 假设每门课平均有 16 个课节（一学期）
+        const estimatedCourses = Math.ceil(totalSessions / 16)
+
+        return {
+          success: true,
+          message: '获取整体统计成功',
+          data: {
+            total_courses: estimatedCourses,
+            class_size: totalStudents,
+            average_attendance_rate: averageAttendanceRate,
+            total_leave_count: totalLeave,
+            total_absent_count: totalAbsent,
+          },
+        }
+      }
+
+      return {
+        success: false,
+        message: response.message || '获取统计数据失败',
+        data: null,
+      }
+    } catch (error) {
+      console.error('获取整体统计失败:', error)
+      return {
+        success: false,
+        message: `获取统计数据失败: ${error instanceof Error ? error.message : '未知错误'}`,
+        data: null,
+      }
+    }
   }
 
   /**

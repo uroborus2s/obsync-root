@@ -97,12 +97,31 @@ BEGIN
         -- 步骤 3: 归档原始记录 (修正: 写入/读取 icasync 库)
         INSERT IGNORE INTO icasync.icalink_attendance_records_history
         SELECT * FROM icasync.icalink_attendance_records
-        WHERE created_at >= v_current_date AND created_at < v_current_date + INTERVAL 1 DAY;
+        WHERE checkin_time >= v_current_date AND checkin_time < v_current_date + INTERVAL 1 DAY;
 
-        -- 步骤 4: 清理原始记录 (修正: 从 icasync 库删除)
+        -- 步骤 4: 归档原始记录 (修正: 写入/读取 icasync 库，将请假或请假未审批的数据写入)
+        INSERT IGNORE INTO icasync.icalink_attendance_records_history
+        SELECT iar.* FROM icasync.icalink_attendance_records iar INNER JOIN icasync.icasync_attendance_courses iac on iac.id = iar.attendance_course_id
+        WHERE iac.start_time >= v_current_date AND iac.start_time < v_current_date + INTERVAL 1 DAY and iar.`status` in ('leave','leave_pending');
+
+        -- 步骤 5: 清理原始记录 (修正: 从 icasync 库删除)
         DELETE FROM icasync.icalink_attendance_records
-        WHERE created_at >= v_current_date AND created_at < v_current_date + INTERVAL 1 DAY;
+        WHERE checkin_time >= v_current_date AND checkin_time < v_current_date + INTERVAL 1 DAY;
 
+        -- 步骤 6: 清理原始记录 (清理当天的请假和请假审批数据)
+        DELETE FROM icasync.icalink_attendance_records
+        WHERE id IN (
+            -- 外层嵌套：从内层结果中提取课程ID，避免直接引用目标表
+            SELECT id 
+            FROM (
+                -- 内层子查询：关联表并筛选符合条件的课程ID
+                SELECT iar.id  -- 去重，避免重复ID
+                FROM icasync.icalink_attendance_records iar 
+                INNER JOIN icasync.icasync_attendance_courses iac 
+                ON iac.id = iar.attendance_course_id
+                WHERE iac.start_time >= v_current_date AND iac.start_time < v_current_date + INTERVAL 1 DAY and iar.`status` in ('leave','leave_pending')
+            ) AS temp  -- 必须给内层子查询起别名
+        );
         COMMIT;
 
         SET v_current_date = v_current_date + INTERVAL 1 DAY;

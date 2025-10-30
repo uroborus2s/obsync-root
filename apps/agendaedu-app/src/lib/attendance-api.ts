@@ -173,6 +173,11 @@ export interface StudentLeaveRequest {
     file_type: string;
     file_size: number;
   }>;
+  // 学生信息（由前端传递）
+  student_id: string; // 学号
+  student_name: string; // 姓名
+  class_name: string; // 班级
+  major_name: string; // 专业
 }
 
 export interface StudentLeaveResponse {
@@ -594,9 +599,10 @@ export class AttendanceApiService {
   async studentLeave(
     request: StudentLeaveRequest
   ): Promise<StudentLeaveResponse> {
+    // 将前端的 attendance_record_id 映射为后端期望的 course_id
     // 将前端的 attachments 字段映射为后端期望的 images 字段
     const backendRequest = {
-      attendance_record_id: request.attendance_record_id,
+      course_id: request.attendance_record_id, // 前端传递的是课程ID
       leave_reason: request.leave_reason,
       leave_type: request.leave_type,
       images: request.attachments?.map((attachment) => ({
@@ -604,7 +610,12 @@ export class AttendanceApiService {
         content: attachment.file_content,
         type: attachment.file_type as any,
         size: attachment.file_size
-      }))
+      })),
+      // 传递学生信息
+      student_id: request.student_id,
+      student_name: request.student_name,
+      class_name: request.class_name,
+      major_name: request.major_name
     };
 
     const response = await this.apiClient.post(

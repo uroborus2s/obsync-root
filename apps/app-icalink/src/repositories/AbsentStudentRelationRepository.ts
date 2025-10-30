@@ -1,48 +1,10 @@
 import type { Logger } from '@stratix/core';
-import {
-  BaseRepository,
-  DataColumnType,
-  SchemaBuilder
-} from '@stratix/database';
+import { BaseRepository } from '@stratix/database';
 import { isSome, type Maybe } from '@stratix/utils/functional';
 import type {
   IcalinkAbsentStudentRelation,
   IcalinkDatabase
 } from '../types/database.js';
-
-/**
- * 缺勤学生关系表 Schema 定义
- */
-const schema = new SchemaBuilder('icalink_absent_student_relations')
-  .addColumn('id', DataColumnType.BIGINT, {
-    primaryKey: true,
-    autoIncrement: true
-  })
-  .addColumn('course_stats_id', DataColumnType.BIGINT, { nullable: false })
-  .addColumn('course_id', DataColumnType.BIGINT, { nullable: false })
-  .addColumn('course_code', DataColumnType.STRING, { nullable: false })
-  .addColumn('course_name', DataColumnType.STRING, { nullable: false })
-  .addColumn('student_id', DataColumnType.STRING, { nullable: false })
-  .addColumn('student_name', DataColumnType.STRING, { nullable: false })
-  .addColumn('school_name', DataColumnType.STRING, { nullable: true })
-  .addColumn('class_name', DataColumnType.STRING, { nullable: true })
-  .addColumn('major_name', DataColumnType.STRING, { nullable: true })
-  .addColumn('absence_type', DataColumnType.STRING, {
-    nullable: false
-  })
-  .addColumn('stat_date', DataColumnType.DATE, { nullable: false })
-  .addColumn('semester', DataColumnType.STRING, { nullable: false })
-  .addColumn('teaching_week', DataColumnType.INTEGER, { nullable: false })
-  .addColumn('week_day', DataColumnType.INTEGER, { nullable: false })
-  .addColumn('periods', DataColumnType.STRING, { nullable: true })
-  .addColumn('time_period', DataColumnType.STRING, { nullable: false })
-  .addColumn('created_at', DataColumnType.TIMESTAMP, { nullable: false })
-  .addColumn('updated_at', DataColumnType.TIMESTAMP, { nullable: false })
-  .addIndex('idx_asr_course_student', ['course_id', 'student_id'])
-  .addIndex('idx_asr_student_semester', ['student_id', 'semester'])
-  .addIndex('idx_asr_stat_date', ['stat_date'])
-  .setComment('缺勤学生关系表-存储历史课程的最终缺勤状态')
-  .build();
 
 /**
  * 缺勤学生关系仓储实现
@@ -55,7 +17,6 @@ export default class AbsentStudentRelationRepository extends BaseRepository<
 > {
   protected readonly tableName = 'icalink_absent_student_relations';
   protected readonly primaryKey = 'id';
-  protected readonly tableSchema = schema;
 
   constructor(protected readonly logger: Logger) {
     super('default');
@@ -206,45 +167,121 @@ export default class AbsentStudentRelationRepository extends BaseRepository<
   }
 
   /**
-   * 分页查询缺勤记录
-   * 使用 BaseRepository 提供的 findMany() 方法配合查询选项
-   * @param offset 偏移量（从0开始）
-   * @param limit 每页数量
-   * @returns 缺勤记录列表
+   * 分页查询缺勤记录（增强版）
+   * @param page 页码（从1开始）
+   * @param pageSize 每页数量
+   * @param searchKeyword 搜索关键词（学生姓名、学生ID、课程名称、课程代码、缺勤类型）
+   * @param teachingWeek 教学周筛选
+   * @param sortField 排序字段
+   * @param sortOrder 排序方向
+   * @returns 分页结果
    */
-  public async findWithPagination(
-    offset: number,
-    limit: number
-  ): Promise<IcalinkAbsentStudentRelation[]> {
+  public async findWithPagination(params: {
+    page: number;
+    pageSize: number;
+    searchKeyword?: string;
+    teachingWeek?: number;
+    sortField?: string;
+    sortOrder?: 'asc' | 'desc';
+  }): Promise<{
+    data: IcalinkAbsentStudentRelation[];
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+  }> {
+    const {
+      page,
+      pageSize,
+      searchKeyword,
+      teachingWeek,
+      sortField,
+      sortOrder
+    } = params;
+
     // 参数验证
-    if (offset < 0 || limit <= 0) {
+    if (page < 1 || pageSize <= 0) {
       this.logger.warn('findWithPagination called with invalid parameters', {
-        offset,
-        limit
+        page,
+        pageSize
       });
-      return [];
+      return {
+        data: [],
+        total: 0,
+        page,
+        pageSize,
+        totalPages: 0
+      };
     }
 
+    const offset = (page - 1) * pageSize;
+
     this.logger.debug(
-      { offset, limit },
+      {
+        page,
+        pageSize,
+        offset,
+        searchKeyword,
+        teachingWeek,
+        sortField,
+        sortOrder
+      },
       'Finding absent relations with pagination'
     );
 
-    // 使用 BaseRepository 的 findMany() 方法
-    // 不传 criteria 参数表示查询所有记录
-    // 通过 options 配置排序、分页
-    const result = (await this.findMany(undefined, {
-      orderBy: { field: 'id', direction: 'asc' }, // 按 ID 升序，确保顺序一致
-      limit,
+    // 构建查询条件
+    const buildQuery = (qb: any) => {
+      let query = qb;
+
+      // 搜索条件：学生姓名、学生ID、课程名称、课程代码、缺勤类型
+      if (searchKeyword && searchKeyword.trim()) {
+        const keyword = `%${searchKeyword.trim()}%`;
+        query = query.where((eb: any) =>
+          eb.or([
+            eb('student_name', 'like', keyword),
+            eb('student_id', 'like', keyword),
+            eb('course_name', 'like', keyword),
+            eb('course_code', 'like', keyword),
+            eb('absence_type', 'like', keyword)
+          ])
+        );
+      }
+
+      // 教学周筛选
+      if (teachingWeek !== undefined && teachingWeek > 0) {
+        query = query.where('teaching_week', '=', teachingWeek);
+      }
+
+      return query;
+    };
+
+    // 查询总数
+    const total = await this.count(buildQuery);
+
+    // 查询数据
+    const data = (await this.findMany(buildQuery, {
+      orderBy: {
+        field: sortField || 'stat_date',
+        direction: sortOrder || 'desc'
+      },
+      limit: pageSize,
       offset
     })) as unknown as IcalinkAbsentStudentRelation[];
 
+    const totalPages = Math.ceil(total / pageSize);
+
     this.logger.debug(
-      { offset, limit, count: result.length },
+      { total, dataCount: data.length, totalPages },
       'Pagination query completed'
     );
 
-    return result;
+    return {
+      data,
+      total,
+      page,
+      pageSize,
+      totalPages
+    };
   }
 
   /**

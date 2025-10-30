@@ -21,6 +21,7 @@ export interface RequestOptions extends AxiosRequestConfig {
 
 export class ApiClient {
   private client: AxiosInstance
+  private isRedirecting = false // 防止重复重定向
 
   constructor(baseURL?: string) {
     this.client = axios.create({
@@ -85,6 +86,15 @@ export class ApiClient {
    * 处理未授权情况 - 保存当前页面并跳转到WPS授权页面
    */
   private handleUnauthorized(): void {
+    // 防止重复重定向
+    if (this.isRedirecting) {
+      console.log('⏭️ API客户端: 已在重定向中，跳过本次401处理')
+      return
+    }
+
+    this.isRedirecting = true
+    console.log('🔒 API客户端: 检测到401未授权，准备重定向到登录页')
+
     // 保存当前页面路径，用于登录成功后返回
     const currentPath = window.location.href
     console.log('💾 API客户端: 保存当前页面路径:', currentPath)

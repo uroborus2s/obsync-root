@@ -227,19 +227,8 @@ export interface CheckinResponse {
 // ==================== API_02: 教师查询请假申请接口 ====================
 
 /**
- * 教师查询请假申请 DTO
- */
-export interface QueryTeacherLeaveApplicationsDTO {
-  teacherId: string;
-  status?: string | string[]; // 支持单个状态或多个状态
-  page?: number;
-  page_size?: number;
-  start_date?: string;
-  end_date?: string;
-}
-
-/**
  * 教师请假申请项 VO
+ * 用于教师查询待审批的请假申请详情
  */
 export interface TeacherLeaveApplicationItemVO {
   // 基本请假申请信息
@@ -285,29 +274,6 @@ export interface TeacherLeaveApplicationItemVO {
   attachment_count: number;
 }
 
-/**
- * 教师请假申请统计 VO
- */
-export interface TeacherLeaveApplicationStatsVO {
-  pending_count: number;
-  processed_count: number;
-  approved_count: number;
-  rejected_count: number;
-  cancelled_count: number;
-  total_count: number;
-}
-
-/**
- * 教师查询请假申请响应 VO
- */
-export interface QueryTeacherLeaveApplicationsVO {
-  applications: TeacherLeaveApplicationItemVO[];
-  total: number;
-  page: number;
-  page_size: number;
-  stats: TeacherLeaveApplicationStatsVO;
-}
-
 // ==================== API_03: 学生请假申请接口 ====================
 
 /**
@@ -324,10 +290,15 @@ export interface ImageAttachment {
  * 请假申请请求
  */
 export interface LeaveApplicationRequest {
-  attendance_record_id: string;
+  course_id: string;
   leave_type: LeaveType;
   leave_reason: string;
   images?: ImageAttachment[];
+  // 学生信息（由前端传递，不从数据库查询）
+  student_id: string; // 学号
+  student_name: string; // 姓名
+  class_name: string; // 班级
+  major_name: string; // 专业
 }
 
 /**
@@ -344,6 +315,8 @@ export interface LeaveApplicationResponse {
   leave_reason: string;
   status: LeaveStatus;
   application_time: string;
+  approval_count: number;
+  attachment_count: number;
   uploaded_images: number;
 }
 

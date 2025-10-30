@@ -1,5 +1,7 @@
+import LeaveApprovalDialog from '@/components/LeaveApprovalDialog';
 import ManualCheckinDialog from '@/components/ManualCheckinDialog';
 import { Toaster, ToastProvider } from '@/components/ui/toast';
+import VerificationConfirmDialog from '@/components/VerificationConfirmDialog';
 import { useToast } from '@/hooks/use-toast';
 import { authManager } from '@/lib/auth-manager';
 import { icaLinkApiClient } from '@/lib/icalink-api-client';
@@ -108,11 +110,23 @@ function AttendanceSheetContent() {
   const [windowCountdown, setWindowCountdown] = useState<number | null>(null); // 倒计时（秒）
   const [windowExpired, setWindowExpired] = useState(false); // 窗口是否已过期
 
+  // 验签确认对话框状态
+  const [isVerificationDialogOpen, setIsVerificationDialogOpen] =
+    useState(false);
+
   // 补卡对话框状态
   const [makeupStudent, setMakeupStudent] =
     useState<StudentAttendanceDetail | null>(null);
   const [isMakingUp, setIsMakingUp] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  // 请假审批对话框状态
+  const [approvalStudent, setApprovalStudent] = useState<{
+    studentId: string;
+    studentName: string;
+  } | null>(null);
+  const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
 
   const id = searchParams.get('id');
 
@@ -319,8 +333,23 @@ function AttendanceSheetContent() {
     authManager.redirectToAuth(currentUrl);
   };
 
-  // 创建验签窗口
-  const handleCreateVerificationWindow = async () => {
+  // 打开验签确认对话框
+  const handleOpenVerificationDialog = () => {
+    if (!teacherData || !canCreateWindow || isCreatingWindow) {
+      return;
+    }
+    setIsVerificationDialogOpen(true);
+  };
+
+  // 关闭验签确认对话框
+  const handleCloseVerificationDialog = () => {
+    if (!isCreatingWindow) {
+      setIsVerificationDialogOpen(false);
+    }
+  };
+
+  // 确认创建验签窗口
+  const handleConfirmCreateVerificationWindow = async () => {
     if (!teacherData || !canCreateWindow || isCreatingWindow) {
       return;
     }
@@ -348,6 +377,9 @@ function AttendanceSheetContent() {
             duration_minutes: 2
           }
         });
+
+        // 关闭确认对话框
+        setIsVerificationDialogOpen(false);
 
         toast.success('验签窗口已开启！', {
           description: `窗口ID: ${response.data.window_id}\n有效时间: 2分钟`,
@@ -424,6 +456,135 @@ function AttendanceSheetContent() {
       });
     } finally {
       setIsMakingUp(false);
+    }
+  };
+
+  // 打开请假审批对话框
+  const handleOpenApprovalDialog = (student: StudentAttendanceDetail) => {
+    setApprovalStudent({
+      studentId: student.student_id,
+      studentName: student.student_name || '未知'
+    });
+    setIsApprovalDialogOpen(true);
+  };
+
+  // 关闭请假审批对话框
+  const handleCloseApprovalDialog = () => {
+    if (!isApproving) {
+      setIsApprovalDialogOpen(false);
+      setApprovalStudent(null);
+    }
+  };
+
+  // 查询请假申请详情
+  const handleFetchLeaveApplication = async (
+    studentId: string,
+    courseId: string
+  ) => {
+    try {
+      const queryParams = new URLSearchParams({
+        student_id: studentId,
+        course_id: courseId
+      });
+
+      const response = await icaLinkApiClient.get(
+        `/icalink/v1/attendance/teacher-leave-applications?${queryParams.toString()}`
+      );
+
+      if (response.success && response.data) {
+        return response.data;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('查询请假申请失败:', error);
+      throw error;
+    }
+  };
+
+  // 同意请假
+  const handleApproveLeave = async (
+    attendanceRecordId: number,
+    comment?: string
+  ) => {
+    setIsApproving(true);
+
+    try {
+      const response = await icaLinkApiClient.post(
+        `/icalink/v1/attendance/teacher-approve-leave`,
+        {
+          attendance_record_id: String(attendanceRecordId),
+          action: 'approve',
+          comment: comment || ''
+        }
+      );
+
+      if (response.success) {
+        toast.success('请假申请已批准', {
+          description: '学生考勤状态已更新',
+          duration: 3000
+        });
+        // 刷新数据
+        await loadTeacherAttendanceData();
+      } else {
+        toast.error('审批失败', {
+          description: response.message || '请重试',
+          duration: 4000
+        });
+        throw new Error(response.message || '审批失败');
+      }
+    } catch (error) {
+      console.error('审批失败:', error);
+      toast.error('审批失败', {
+        description: error instanceof Error ? error.message : '请重试',
+        duration: 4000
+      });
+      throw error;
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  // 拒绝请假
+  const handleRejectLeave = async (
+    attendanceRecordId: number,
+    comment: string
+  ) => {
+    setIsApproving(true);
+
+    try {
+      const response = await icaLinkApiClient.post(
+        `/icalink/v1/attendance/teacher-approve-leave`,
+        {
+          attendance_record_id: String(attendanceRecordId),
+          action: 'reject',
+          comment: comment
+        }
+      );
+
+      if (response.success) {
+        toast.success('请假申请已拒绝', {
+          description: '学生考勤状态已更新',
+          duration: 3000
+        });
+        // 刷新数据
+        await loadTeacherAttendanceData();
+      } else {
+        toast.error('拒绝失败', {
+          description: response.message || '请重试',
+          duration: 4000
+        });
+        throw new Error(response.message || '拒绝失败');
+      }
+    } catch (error) {
+      console.error('拒绝失败:', error);
+      toast.error('拒绝失败', {
+        description: error instanceof Error ? error.message : '请重试',
+        duration: 4000
+      });
+      throw error;
+    } finally {
+      setIsApproving(false);
     }
   };
 
@@ -577,7 +738,7 @@ function AttendanceSheetContent() {
                   {teacherData.status === 'in_progress' && (
                     <button
                       type='button'
-                      onClick={handleCreateVerificationWindow}
+                      onClick={handleOpenVerificationDialog}
                       disabled={!canCreateWindow || isCreatingWindow}
                       className={`rounded px-4 py-2 text-sm font-medium transition-colors ${
                         canCreateWindow && !isCreatingWindow
@@ -678,31 +839,31 @@ function AttendanceSheetContent() {
               <div className='mb-6 rounded-lg bg-white p-4 shadow-sm'>
                 <div className='grid grid-cols-5 gap-3 text-center'>
                   <div className='rounded-lg bg-blue-50 p-4'>
-                    <div className='text-3xl font-bold text-blue-600'>
+                    <div className='text-xl font-bold text-blue-600'>
                       {stats.total_count}
                     </div>
-                    <div className='mt-1 text-sm text-gray-600'>总人数</div>
+                    <div className='mt-1 text-sm text-gray-600'>总数</div>
                   </div>
                   <div className='rounded-lg bg-green-50 p-4'>
-                    <div className='text-3xl font-bold text-green-600'>
+                    <div className='text-xl font-bold text-green-600'>
                       {stats.checkin_count}
                     </div>
-                    <div className='mt-1 text-sm text-gray-600'>已签到</div>
+                    <div className='mt-1 text-sm text-gray-600'>已签</div>
                   </div>
                   <div className='rounded-lg bg-blue-50 p-4'>
-                    <div className='text-3xl font-bold text-blue-600'>
+                    <div className='text-xl font-bold text-blue-600'>
                       {stats.leave_count}
                     </div>
                     <div className='mt-1 text-sm text-gray-600'>请假</div>
                   </div>
                   <div className='rounded-lg bg-orange-50 p-4'>
-                    <div className='text-3xl font-bold text-orange-600'>
+                    <div className='text-xl font-bold text-orange-600'>
                       {stats.truant_count}
                     </div>
                     <div className='mt-1 text-sm text-gray-600'>旷课</div>
                   </div>
                   <div className='rounded-lg bg-red-50 p-4'>
-                    <div className='text-3xl font-bold text-red-600'>
+                    <div className='text-xl font-bold text-red-600'>
                       {stats.absent_count}
                     </div>
                     <div className='mt-1 text-sm text-gray-600'>缺勤</div>
@@ -751,17 +912,63 @@ function AttendanceSheetContent() {
                             )}
 
                           {/* 状态标签 - 根据课程状态和学生状态显示不同内容 */}
-                          {student.absence_type === 'absent' &&
-                          teacherData.status === 'in_progress' &&
-                          new Date() > new Date(course.end_time) ? (
-                            // 课程结束后，缺勤学生显示补卡按钮 - 微信风格绿底白字
-                            <button
-                              type='button'
-                              onClick={() => handleOpenMakeupDialog(student)}
-                              className='rounded-md bg-[#07C160] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#06AD56] active:bg-[#059048]'
-                            >
-                              补签
-                            </button>
+                          {student.absence_type === 'leave_pending' &&
+                          (teacherData.status === 'in_progress' ||
+                            teacherData.status === 'not_started') ? (
+                            // 请假待审批：显示状态标签 + 审批按钮
+                            <div className='flex items-center space-x-2'>
+                              {/* 先显示状态标签 */}
+                              <span
+                                className={`flex items-center space-x-1 rounded-full px-2 py-1 text-xs ${getStatusColor(
+                                  student.absence_type
+                                )}`}
+                              >
+                                {getStatusIcon(student.absence_type)}
+                                <span>
+                                  {getStatusText(student.absence_type)}
+                                </span>
+                              </span>
+                              {/* 再显示审批按钮 - 微信风格绿底白字 */}
+                              <button
+                                type='button'
+                                onClick={() =>
+                                  handleOpenApprovalDialog(student)
+                                }
+                                className='rounded-md bg-[#07C160] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#06AD56] active:bg-[#059048]'
+                              >
+                                审批
+                              </button>
+                            </div>
+                          ) : (student.absence_type === 'absent' ||
+                              student.absence_type === 'truant') &&
+                            teacherData.status === 'in_progress' &&
+                            new Date() >
+                              new Date(
+                                new Date(course.start_time).getTime() +
+                                  10 * 60 * 1000
+                              ) ? (
+                            // 课程开始10分钟后，缺勤/旷课学生显示状态标签 + 补签按钮
+                            <div className='flex items-center space-x-2'>
+                              {/* 先显示状态标签 */}
+                              <span
+                                className={`flex items-center space-x-1 rounded-full px-2 py-1 text-xs ${getStatusColor(
+                                  student.absence_type
+                                )}`}
+                              >
+                                {getStatusIcon(student.absence_type)}
+                                <span>
+                                  {getStatusText(student.absence_type)}
+                                </span>
+                              </span>
+                              {/* 再显示补签按钮 - 微信风格绿底白字 */}
+                              <button
+                                type='button'
+                                onClick={() => handleOpenMakeupDialog(student)}
+                                className='rounded-md bg-[#07C160] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#06AD56] active:bg-[#059048]'
+                              >
+                                补签
+                              </button>
+                            </div>
                           ) : (
                             // 其他情况显示普通状态标签
                             <span
@@ -785,6 +992,14 @@ function AttendanceSheetContent() {
 
         {/* <TeacherFloatingMessageButton className='fixed bottom-24 right-6 z-50' /> */}
 
+        {/* 验签确认对话框 */}
+        <VerificationConfirmDialog
+          isOpen={isVerificationDialogOpen}
+          onClose={handleCloseVerificationDialog}
+          onConfirm={handleConfirmCreateVerificationWindow}
+          isSubmitting={isCreatingWindow}
+        />
+
         {/* 补卡对话框 */}
         <ManualCheckinDialog
           isOpen={isDialogOpen}
@@ -793,6 +1008,20 @@ function AttendanceSheetContent() {
           onConfirm={handleConfirmMakeup}
           isSubmitting={isMakingUp}
         />
+
+        {/* 请假审批对话框 */}
+        {approvalStudent && (
+          <LeaveApprovalDialog
+            isOpen={isApprovalDialogOpen}
+            studentId={approvalStudent.studentId}
+            courseId={course.id}
+            onClose={handleCloseApprovalDialog}
+            onApprove={handleApproveLeave}
+            onReject={handleRejectLeave}
+            onFetchApplication={handleFetchLeaveApplication}
+            isSubmitting={isApproving}
+          />
+        )}
       </div>
     );
   }

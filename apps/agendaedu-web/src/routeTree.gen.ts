@@ -38,6 +38,7 @@ import { Route as AuthenticatedUsersIndexRouteImport } from './routes/_authentic
 import { Route as AuthenticatedTasksIndexRouteImport } from './routes/_authenticated/tasks/index'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
 import { Route as AuthenticatedHelpCenterIndexRouteImport } from './routes/_authenticated/help-center/index'
+import { Route as AuthenticatedDataQueryIndexRouteImport } from './routes/_authenticated/data-query/index'
 import { Route as AuthenticatedChatsIndexRouteImport } from './routes/_authenticated/chats/index'
 import { Route as AuthenticatedAppsIndexRouteImport } from './routes/_authenticated/apps/index'
 import { Route as ClerkAuthenticatedUserManagementRouteImport } from './routes/clerk/_authenticated/user-management'
@@ -60,6 +61,11 @@ import { Route as AuthenticatedRbacUsersRouteImport } from './routes/_authentica
 import { Route as AuthenticatedRbacRolesRouteImport } from './routes/_authenticated/rbac.roles'
 import { Route as AuthenticatedRbacPermissionsRouteImport } from './routes/_authenticated/rbac.permissions'
 import { Route as AuthenticatedRbacMenusRouteImport } from './routes/_authenticated/rbac.menus'
+import { Route as AuthenticatedDataQueryTeachingClassRouteImport } from './routes/_authenticated/data-query/teaching-class'
+import { Route as AuthenticatedDataQueryStudentStatsDetailsRouteImport } from './routes/_authenticated/data-query/student-stats-details'
+import { Route as AuthenticatedDataQueryStudentStatsRouteImport } from './routes/_authenticated/data-query/student-stats'
+import { Route as AuthenticatedDataQueryCourseStatsRouteImport } from './routes/_authenticated/data-query/course-stats'
+import { Route as AuthenticatedDataQueryAbsentHistoryRouteImport } from './routes/_authenticated/data-query/absent-history'
 import { Route as AuthenticatedCoursesSettingsRouteImport } from './routes/_authenticated/courses/settings'
 import { Route as AuthenticatedCoursesScheduleRouteImport } from './routes/_authenticated/courses/schedule'
 import { Route as AuthenticatedAttendanceStudentsRouteImport } from './routes/_authenticated/attendance/students'
@@ -222,6 +228,12 @@ const AuthenticatedHelpCenterIndexRoute =
     path: '/help-center/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedDataQueryIndexRoute =
+  AuthenticatedDataQueryIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedDataQueryRoute,
+  } as any)
 const AuthenticatedChatsIndexRoute = AuthenticatedChatsIndexRouteImport.update({
   id: '/chats/',
   path: '/chats/',
@@ -346,6 +358,36 @@ const AuthenticatedRbacMenusRoute = AuthenticatedRbacMenusRouteImport.update({
   path: '/rbac/menus',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDataQueryTeachingClassRoute =
+  AuthenticatedDataQueryTeachingClassRouteImport.update({
+    id: '/teaching-class',
+    path: '/teaching-class',
+    getParentRoute: () => AuthenticatedDataQueryRoute,
+  } as any)
+const AuthenticatedDataQueryStudentStatsDetailsRoute =
+  AuthenticatedDataQueryStudentStatsDetailsRouteImport.update({
+    id: '/student-stats-details',
+    path: '/student-stats-details',
+    getParentRoute: () => AuthenticatedDataQueryRoute,
+  } as any)
+const AuthenticatedDataQueryStudentStatsRoute =
+  AuthenticatedDataQueryStudentStatsRouteImport.update({
+    id: '/student-stats',
+    path: '/student-stats',
+    getParentRoute: () => AuthenticatedDataQueryRoute,
+  } as any)
+const AuthenticatedDataQueryCourseStatsRoute =
+  AuthenticatedDataQueryCourseStatsRouteImport.update({
+    id: '/course-stats',
+    path: '/course-stats',
+    getParentRoute: () => AuthenticatedDataQueryRoute,
+  } as any)
+const AuthenticatedDataQueryAbsentHistoryRoute =
+  AuthenticatedDataQueryAbsentHistoryRouteImport.update({
+    id: '/absent-history',
+    path: '/absent-history',
+    getParentRoute: () => AuthenticatedDataQueryRoute,
+  } as any)
 const AuthenticatedCoursesSettingsRoute =
   AuthenticatedCoursesSettingsRouteImport.update({
     id: '/settings',
@@ -436,7 +478,7 @@ export interface FileRoutesByFullPath {
   '/basic-management': typeof AuthenticatedBasicManagementRoute
   '/courses': typeof AuthenticatedCoursesRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/data-query': typeof AuthenticatedDataQueryRoute
+  '/data-query': typeof AuthenticatedDataQueryRouteWithChildren
   '/permission-debug': typeof AuthenticatedPermissionDebugRoute
   '/students': typeof AuthenticatedStudentsRoute
   '/tasks': typeof AuthenticatedTasksRouteWithChildren
@@ -450,6 +492,11 @@ export interface FileRoutesByFullPath {
   '/attendance/students': typeof AuthenticatedAttendanceStudentsRoute
   '/courses/schedule': typeof AuthenticatedCoursesScheduleRoute
   '/courses/settings': typeof AuthenticatedCoursesSettingsRoute
+  '/data-query/absent-history': typeof AuthenticatedDataQueryAbsentHistoryRoute
+  '/data-query/course-stats': typeof AuthenticatedDataQueryCourseStatsRoute
+  '/data-query/student-stats': typeof AuthenticatedDataQueryStudentStatsRoute
+  '/data-query/student-stats-details': typeof AuthenticatedDataQueryStudentStatsDetailsRoute
+  '/data-query/teaching-class': typeof AuthenticatedDataQueryTeachingClassRoute
   '/rbac/menus': typeof AuthenticatedRbacMenusRoute
   '/rbac/permissions': typeof AuthenticatedRbacPermissionsRoute
   '/rbac/roles': typeof AuthenticatedRbacRolesRoute
@@ -472,6 +519,7 @@ export interface FileRoutesByFullPath {
   '/clerk/user-management': typeof ClerkAuthenticatedUserManagementRoute
   '/apps': typeof AuthenticatedAppsIndexRoute
   '/chats': typeof AuthenticatedChatsIndexRoute
+  '/data-query/': typeof AuthenticatedDataQueryIndexRoute
   '/help-center': typeof AuthenticatedHelpCenterIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/tasks/': typeof AuthenticatedTasksIndexRoute
@@ -496,7 +544,6 @@ export interface FileRoutesByTo {
   '/basic-management': typeof AuthenticatedBasicManagementRoute
   '/courses': typeof AuthenticatedCoursesRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/data-query': typeof AuthenticatedDataQueryRoute
   '/permission-debug': typeof AuthenticatedPermissionDebugRoute
   '/students': typeof AuthenticatedStudentsRoute
   '/teachers': typeof AuthenticatedTeachersRoute
@@ -509,6 +556,11 @@ export interface FileRoutesByTo {
   '/attendance/students': typeof AuthenticatedAttendanceStudentsRoute
   '/courses/schedule': typeof AuthenticatedCoursesScheduleRoute
   '/courses/settings': typeof AuthenticatedCoursesSettingsRoute
+  '/data-query/absent-history': typeof AuthenticatedDataQueryAbsentHistoryRoute
+  '/data-query/course-stats': typeof AuthenticatedDataQueryCourseStatsRoute
+  '/data-query/student-stats': typeof AuthenticatedDataQueryStudentStatsRoute
+  '/data-query/student-stats-details': typeof AuthenticatedDataQueryStudentStatsDetailsRoute
+  '/data-query/teaching-class': typeof AuthenticatedDataQueryTeachingClassRoute
   '/rbac/menus': typeof AuthenticatedRbacMenusRoute
   '/rbac/permissions': typeof AuthenticatedRbacPermissionsRoute
   '/rbac/roles': typeof AuthenticatedRbacRolesRoute
@@ -530,6 +582,7 @@ export interface FileRoutesByTo {
   '/clerk/user-management': typeof ClerkAuthenticatedUserManagementRoute
   '/apps': typeof AuthenticatedAppsIndexRoute
   '/chats': typeof AuthenticatedChatsIndexRoute
+  '/data-query': typeof AuthenticatedDataQueryIndexRoute
   '/help-center': typeof AuthenticatedHelpCenterIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/tasks': typeof AuthenticatedTasksIndexRoute
@@ -560,7 +613,7 @@ export interface FileRoutesById {
   '/_authenticated/basic-management': typeof AuthenticatedBasicManagementRoute
   '/_authenticated/courses': typeof AuthenticatedCoursesRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/data-query': typeof AuthenticatedDataQueryRoute
+  '/_authenticated/data-query': typeof AuthenticatedDataQueryRouteWithChildren
   '/_authenticated/permission-debug': typeof AuthenticatedPermissionDebugRoute
   '/_authenticated/students': typeof AuthenticatedStudentsRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRouteWithChildren
@@ -574,6 +627,11 @@ export interface FileRoutesById {
   '/_authenticated/attendance/students': typeof AuthenticatedAttendanceStudentsRoute
   '/_authenticated/courses/schedule': typeof AuthenticatedCoursesScheduleRoute
   '/_authenticated/courses/settings': typeof AuthenticatedCoursesSettingsRoute
+  '/_authenticated/data-query/absent-history': typeof AuthenticatedDataQueryAbsentHistoryRoute
+  '/_authenticated/data-query/course-stats': typeof AuthenticatedDataQueryCourseStatsRoute
+  '/_authenticated/data-query/student-stats': typeof AuthenticatedDataQueryStudentStatsRoute
+  '/_authenticated/data-query/student-stats-details': typeof AuthenticatedDataQueryStudentStatsDetailsRoute
+  '/_authenticated/data-query/teaching-class': typeof AuthenticatedDataQueryTeachingClassRoute
   '/_authenticated/rbac/menus': typeof AuthenticatedRbacMenusRoute
   '/_authenticated/rbac/permissions': typeof AuthenticatedRbacPermissionsRoute
   '/_authenticated/rbac/roles': typeof AuthenticatedRbacRolesRoute
@@ -596,6 +654,7 @@ export interface FileRoutesById {
   '/clerk/_authenticated/user-management': typeof ClerkAuthenticatedUserManagementRoute
   '/_authenticated/apps/': typeof AuthenticatedAppsIndexRoute
   '/_authenticated/chats/': typeof AuthenticatedChatsIndexRoute
+  '/_authenticated/data-query/': typeof AuthenticatedDataQueryIndexRoute
   '/_authenticated/help-center/': typeof AuthenticatedHelpCenterIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/tasks/': typeof AuthenticatedTasksIndexRoute
@@ -639,6 +698,11 @@ export interface FileRouteTypes {
     | '/attendance/students'
     | '/courses/schedule'
     | '/courses/settings'
+    | '/data-query/absent-history'
+    | '/data-query/course-stats'
+    | '/data-query/student-stats'
+    | '/data-query/student-stats-details'
+    | '/data-query/teaching-class'
     | '/rbac/menus'
     | '/rbac/permissions'
     | '/rbac/roles'
@@ -661,6 +725,7 @@ export interface FileRouteTypes {
     | '/clerk/user-management'
     | '/apps'
     | '/chats'
+    | '/data-query/'
     | '/help-center'
     | '/settings/'
     | '/tasks/'
@@ -685,7 +750,6 @@ export interface FileRouteTypes {
     | '/basic-management'
     | '/courses'
     | '/dashboard'
-    | '/data-query'
     | '/permission-debug'
     | '/students'
     | '/teachers'
@@ -698,6 +762,11 @@ export interface FileRouteTypes {
     | '/attendance/students'
     | '/courses/schedule'
     | '/courses/settings'
+    | '/data-query/absent-history'
+    | '/data-query/course-stats'
+    | '/data-query/student-stats'
+    | '/data-query/student-stats-details'
+    | '/data-query/teaching-class'
     | '/rbac/menus'
     | '/rbac/permissions'
     | '/rbac/roles'
@@ -719,6 +788,7 @@ export interface FileRouteTypes {
     | '/clerk/user-management'
     | '/apps'
     | '/chats'
+    | '/data-query'
     | '/help-center'
     | '/settings'
     | '/tasks'
@@ -762,6 +832,11 @@ export interface FileRouteTypes {
     | '/_authenticated/attendance/students'
     | '/_authenticated/courses/schedule'
     | '/_authenticated/courses/settings'
+    | '/_authenticated/data-query/absent-history'
+    | '/_authenticated/data-query/course-stats'
+    | '/_authenticated/data-query/student-stats'
+    | '/_authenticated/data-query/student-stats-details'
+    | '/_authenticated/data-query/teaching-class'
     | '/_authenticated/rbac/menus'
     | '/_authenticated/rbac/permissions'
     | '/_authenticated/rbac/roles'
@@ -784,6 +859,7 @@ export interface FileRouteTypes {
     | '/clerk/_authenticated/user-management'
     | '/_authenticated/apps/'
     | '/_authenticated/chats/'
+    | '/_authenticated/data-query/'
     | '/_authenticated/help-center/'
     | '/_authenticated/settings/'
     | '/_authenticated/tasks/'
@@ -1011,6 +1087,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHelpCenterIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/data-query/': {
+      id: '/_authenticated/data-query/'
+      path: '/'
+      fullPath: '/data-query/'
+      preLoaderRoute: typeof AuthenticatedDataQueryIndexRouteImport
+      parentRoute: typeof AuthenticatedDataQueryRoute
+    }
     '/_authenticated/chats/': {
       id: '/_authenticated/chats/'
       path: '/chats'
@@ -1164,6 +1247,41 @@ declare module '@tanstack/react-router' {
       fullPath: '/rbac/menus'
       preLoaderRoute: typeof AuthenticatedRbacMenusRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/data-query/teaching-class': {
+      id: '/_authenticated/data-query/teaching-class'
+      path: '/teaching-class'
+      fullPath: '/data-query/teaching-class'
+      preLoaderRoute: typeof AuthenticatedDataQueryTeachingClassRouteImport
+      parentRoute: typeof AuthenticatedDataQueryRoute
+    }
+    '/_authenticated/data-query/student-stats-details': {
+      id: '/_authenticated/data-query/student-stats-details'
+      path: '/student-stats-details'
+      fullPath: '/data-query/student-stats-details'
+      preLoaderRoute: typeof AuthenticatedDataQueryStudentStatsDetailsRouteImport
+      parentRoute: typeof AuthenticatedDataQueryRoute
+    }
+    '/_authenticated/data-query/student-stats': {
+      id: '/_authenticated/data-query/student-stats'
+      path: '/student-stats'
+      fullPath: '/data-query/student-stats'
+      preLoaderRoute: typeof AuthenticatedDataQueryStudentStatsRouteImport
+      parentRoute: typeof AuthenticatedDataQueryRoute
+    }
+    '/_authenticated/data-query/course-stats': {
+      id: '/_authenticated/data-query/course-stats'
+      path: '/course-stats'
+      fullPath: '/data-query/course-stats'
+      preLoaderRoute: typeof AuthenticatedDataQueryCourseStatsRouteImport
+      parentRoute: typeof AuthenticatedDataQueryRoute
+    }
+    '/_authenticated/data-query/absent-history': {
+      id: '/_authenticated/data-query/absent-history'
+      path: '/absent-history'
+      fullPath: '/data-query/absent-history'
+      preLoaderRoute: typeof AuthenticatedDataQueryAbsentHistoryRouteImport
+      parentRoute: typeof AuthenticatedDataQueryRoute
     }
     '/_authenticated/courses/settings': {
       id: '/_authenticated/courses/settings'
@@ -1369,6 +1487,35 @@ const AuthenticatedCoursesRouteChildren: AuthenticatedCoursesRouteChildren = {
 const AuthenticatedCoursesRouteWithChildren =
   AuthenticatedCoursesRoute._addFileChildren(AuthenticatedCoursesRouteChildren)
 
+interface AuthenticatedDataQueryRouteChildren {
+  AuthenticatedDataQueryAbsentHistoryRoute: typeof AuthenticatedDataQueryAbsentHistoryRoute
+  AuthenticatedDataQueryCourseStatsRoute: typeof AuthenticatedDataQueryCourseStatsRoute
+  AuthenticatedDataQueryStudentStatsRoute: typeof AuthenticatedDataQueryStudentStatsRoute
+  AuthenticatedDataQueryStudentStatsDetailsRoute: typeof AuthenticatedDataQueryStudentStatsDetailsRoute
+  AuthenticatedDataQueryTeachingClassRoute: typeof AuthenticatedDataQueryTeachingClassRoute
+  AuthenticatedDataQueryIndexRoute: typeof AuthenticatedDataQueryIndexRoute
+}
+
+const AuthenticatedDataQueryRouteChildren: AuthenticatedDataQueryRouteChildren =
+  {
+    AuthenticatedDataQueryAbsentHistoryRoute:
+      AuthenticatedDataQueryAbsentHistoryRoute,
+    AuthenticatedDataQueryCourseStatsRoute:
+      AuthenticatedDataQueryCourseStatsRoute,
+    AuthenticatedDataQueryStudentStatsRoute:
+      AuthenticatedDataQueryStudentStatsRoute,
+    AuthenticatedDataQueryStudentStatsDetailsRoute:
+      AuthenticatedDataQueryStudentStatsDetailsRoute,
+    AuthenticatedDataQueryTeachingClassRoute:
+      AuthenticatedDataQueryTeachingClassRoute,
+    AuthenticatedDataQueryIndexRoute: AuthenticatedDataQueryIndexRoute,
+  }
+
+const AuthenticatedDataQueryRouteWithChildren =
+  AuthenticatedDataQueryRoute._addFileChildren(
+    AuthenticatedDataQueryRouteChildren,
+  )
+
 interface AuthenticatedTasksRouteChildren {
   AuthenticatedTasksSettingsRoute: typeof AuthenticatedTasksSettingsRoute
   AuthenticatedTasksSyncRoute: typeof AuthenticatedTasksSyncRoute
@@ -1393,7 +1540,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedBasicManagementRoute: typeof AuthenticatedBasicManagementRoute
   AuthenticatedCoursesRoute: typeof AuthenticatedCoursesRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedDataQueryRoute: typeof AuthenticatedDataQueryRoute
+  AuthenticatedDataQueryRoute: typeof AuthenticatedDataQueryRouteWithChildren
   AuthenticatedPermissionDebugRoute: typeof AuthenticatedPermissionDebugRoute
   AuthenticatedStudentsRoute: typeof AuthenticatedStudentsRoute
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRouteWithChildren
@@ -1419,7 +1566,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedBasicManagementRoute: AuthenticatedBasicManagementRoute,
   AuthenticatedCoursesRoute: AuthenticatedCoursesRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedDataQueryRoute: AuthenticatedDataQueryRoute,
+  AuthenticatedDataQueryRoute: AuthenticatedDataQueryRouteWithChildren,
   AuthenticatedPermissionDebugRoute: AuthenticatedPermissionDebugRoute,
   AuthenticatedStudentsRoute: AuthenticatedStudentsRoute,
   AuthenticatedTasksRoute: AuthenticatedTasksRouteWithChildren,

@@ -112,17 +112,20 @@ function fixUnicodeInPayload(payload: JWTUserPayload): JWTUserPayload {
 }
 
 /**
- * 解析JWT令牌
+ * 解析JWT令牌（支持3部分或4部分JWT）
+ * 4部分JWT是因为Fastify Cookie签名会在JWT后面添加额外的签名
  */
 export function parseJWT(token: string): JWTUserPayload {
   try {
-    // JWT格式: header.payload.signature
+    // JWT格式: header.payload.signature，但有些实现可能有4部分（带Fastify签名）
     const parts = token.split('.')
-    if (parts.length !== 3) {
-      throw new Error('JWT格式无效')
+
+    // 检查JWT格式：支持3部分或4部分
+    if (parts.length !== 3 && parts.length !== 4) {
+      throw new Error(`JWT格式无效 - 应该有3或4部分，实际有${parts.length}部分`)
     }
 
-    // 解码payload
+    // 解码payload部分（第二部分，无论是3部分还是4部分，payload都在第二部分）
     const payload = base64UrlDecode(parts[1])
     const parsedPayload = JSON.parse(payload) as JWTUserPayload
 
@@ -142,13 +145,15 @@ export function parseJWT(token: string): JWTUserPayload {
  */
 export function parseJWTRaw(token: string): JWTUserPayload {
   try {
-    // JWT格式: header.payload.signature
+    // JWT格式: header.payload.signature，但有些实现可能有4部分（带Fastify签名）
     const parts = token.split('.')
-    if (parts.length !== 3) {
-      throw new Error('JWT格式无效')
+
+    // 检查JWT格式：支持3部分或4部分
+    if (parts.length !== 3 && parts.length !== 4) {
+      throw new Error(`JWT格式无效 - 应该有3或4部分，实际有${parts.length}部分`)
     }
 
-    // 解码payload
+    // 解码payload部分（第二部分）
     const payload = base64UrlDecode(parts[1])
     const parsedPayload = JSON.parse(payload) as JWTUserPayload
 

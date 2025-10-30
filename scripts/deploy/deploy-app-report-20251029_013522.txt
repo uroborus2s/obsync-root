@@ -1,0 +1,20 @@
+agendaedu-app 部署报告
+=====================
+
+部署时间: 2025年10月29日 星期三 01时35分46秒 CST
+目标服务器: 主服务器(120.131.12.6) (jlufe_12.6)
+部署环境: prod
+源码目录: /Users/uroborus/NodeProject/wps/obsync-root/scripts/deploy/../../apps/agendaedu-app
+构建目录: /Users/uroborus/NodeProject/wps/obsync-root/scripts/deploy/../../apps/agendaedu-app/dist
+目标目录: /var/www/agendaedu-app
+
+构建信息:
+- Node.js 版本: v24.10.0
+- pnpm 版本: 10.0.0
+- 构建命令: pnpm run build
+
+部署结果:
+- 状态: 成功
+- 文件数量:        4
+- 总大小: 496K
+

@@ -1,5 +1,5 @@
 import type { Logger } from '@stratix/core';
-import { BaseRepository, DataColumnType, SchemaBuilder } from '@stratix/database';
+import { BaseRepository } from '@stratix/database';
 import { isSome, type Maybe } from '@stratix/utils/functional';
 import type { IcalinkDatabase } from '../types/database.js';
 import type { VStudentSemesterAttendanceStats } from '../types/student-attendance-stats.types.js';
@@ -7,21 +7,21 @@ import type { VStudentSemesterAttendanceStats } from '../types/student-attendanc
 /**
  * 学生学期考勤统计视图 Schema 定义
  */
-const schema = SchemaBuilder.create('v_student_semester_attendance_stats')
-  .addColumn('student_id', DataColumnType.STRING, { nullable: false })
-  .addColumn('student_name', DataColumnType.STRING, { nullable: false })
-  .addColumn('school_name', DataColumnType.STRING, { nullable: true })
-  .addColumn('class_name', DataColumnType.STRING, { nullable: true })
-  .addColumn('major_name', DataColumnType.STRING, { nullable: true })
-  .addColumn('semester', DataColumnType.STRING, { nullable: false })
-  .addColumn('total_courses', DataColumnType.INTEGER, { nullable: false })
-  .addColumn('completed_courses', DataColumnType.INTEGER, { nullable: false })
-  .addColumn('absence_count', DataColumnType.INTEGER, { nullable: false })
-  .addColumn('leave_count', DataColumnType.INTEGER, { nullable: false })
-  .addColumn('attendance_count', DataColumnType.INTEGER, { nullable: false })
-  .addColumn('attendance_rate', DataColumnType.DECIMAL, { nullable: false })
-  .setComment('学生学期考勤统计视图')
-  .build();
+// const schema = SchemaBuilder.create('v_student_semester_attendance_stats')
+//   .addColumn('student_id', DataColumnType.STRING, { nullable: false })
+//   .addColumn('student_name', DataColumnType.STRING, { nullable: false })
+//   .addColumn('school_name', DataColumnType.STRING, { nullable: true })
+//   .addColumn('class_name', DataColumnType.STRING, { nullable: true })
+//   .addColumn('major_name', DataColumnType.STRING, { nullable: true })
+//   .addColumn('semester', DataColumnType.STRING, { nullable: false })
+//   .addColumn('total_courses', DataColumnType.INTEGER, { nullable: false })
+//   .addColumn('completed_courses', DataColumnType.INTEGER, { nullable: false })
+//   .addColumn('absence_count', DataColumnType.INTEGER, { nullable: false })
+//   .addColumn('leave_count', DataColumnType.INTEGER, { nullable: false })
+//   .addColumn('attendance_count', DataColumnType.INTEGER, { nullable: false })
+//   .addColumn('attendance_rate', DataColumnType.DECIMAL, { nullable: false })
+//   .setComment('学生学期考勤统计视图')
+//   .build();
 
 /**
  * 学生考勤统计仓储实现
@@ -34,7 +34,6 @@ export default class StudentAttendanceStatsRepository extends BaseRepository<
 > {
   protected readonly tableName = 'v_student_semester_attendance_stats';
   protected readonly primaryKey = 'student_id'; // 视图没有真正的主键，使用 student_id 作为逻辑主键
-  protected readonly tableSchema = schema;
 
   constructor(protected readonly logger: Logger) {
     super('default');
@@ -65,16 +64,16 @@ export default class StudentAttendanceStatsRepository extends BaseRepository<
     try {
       const resultMaybe = (await this.findOne((qb) => {
         let query = qb.where('student_id', '=', studentId);
-        
+
         if (semester) {
           query = query.where('semester', '=', semester);
         }
-        
+
         // 如果没有指定学期，按学期降序排序，取最新的一条
         if (!semester) {
           query = query.orderBy('semester', 'desc');
         }
-        
+
         return query;
       })) as unknown as Maybe<VStudentSemesterAttendanceStats>;
 
@@ -133,9 +132,7 @@ export default class StudentAttendanceStatsRepository extends BaseRepository<
     semester: string
   ): Promise<VStudentSemesterAttendanceStats[]> {
     if (!className || !semester) {
-      this.logger.warn(
-        'findByClassAndSemester called with invalid parameters'
-      );
+      this.logger.warn('findByClassAndSemester called with invalid parameters');
       return [];
     }
 
@@ -165,4 +162,3 @@ export default class StudentAttendanceStatsRepository extends BaseRepository<
     }
   }
 }
-

@@ -1,17 +1,14 @@
-import {
-  IconBook,
-  IconChartBar,
-  IconClipboardCheck,
-  IconDashboard,
-} from '@tabler/icons-react'
+import { IconClipboardCheck } from '@tabler/icons-react'
 import {
   Activity,
+  BarChart3,
+  BookOpen,
   Clock,
   Command,
+  FileSpreadsheet,
   FileText,
   RefreshCw,
-  TrendingUp,
-  UserCheck,
+  Users,
   Workflow,
 } from 'lucide-react'
 import { type SidebarData } from '../types'
@@ -88,54 +85,45 @@ export const sidebarData: SidebarData = {
           },
           items: [
             {
-              title: '签到总览',
-              url: '/attendance/overview' as const,
-              icon: IconDashboard,
+              title: '缺勤历史明细表',
+              url: '/data-query/absent-history' as const,
+              icon: FileText,
               permission: {
                 requiredRoles: ['teacher', 'admin', 'super_admin'],
                 mode: 'or',
               },
             },
             {
-              title: '数据分析',
-              url: '/attendance/analytics' as const,
-              icon: IconChartBar,
+              title: '课程历史统计表',
+              url: '/data-query/course-stats' as const,
+              icon: BarChart3,
               permission: {
                 requiredRoles: ['teacher', 'admin', 'super_admin'],
                 mode: 'or',
               },
             },
             {
-              title: '出勤排行',
-              url: '/attendance/rankings' as const,
-              icon: TrendingUp,
+              title: '学生历史统计表',
+              url: '/data-query/student-stats' as const,
+              icon: Users,
               permission: {
                 requiredRoles: ['teacher', 'admin', 'super_admin'],
                 mode: 'or',
               },
             },
             {
-              title: '学生考勤',
-              url: '/attendance/students' as const,
-              icon: UserCheck,
+              title: '学生历史统计详情表',
+              url: '/data-query/student-stats-details' as const,
+              icon: FileSpreadsheet,
               permission: {
                 requiredRoles: ['teacher', 'admin', 'super_admin'],
                 mode: 'or',
               },
             },
             {
-              title: '课程考勤',
-              url: '/attendance/courses' as const,
-              icon: IconBook,
-              permission: {
-                requiredRoles: ['teacher', 'admin', 'super_admin'],
-                mode: 'or',
-              },
-            },
-            {
-              title: '课程表统计',
-              url: '/attendance/course-statistics' as const,
-              icon: IconChartBar,
+              title: '教学班表',
+              url: '/data-query/teaching-class' as const,
+              icon: BookOpen,
               permission: {
                 requiredRoles: ['teacher', 'admin', 'super_admin'],
                 mode: 'or',

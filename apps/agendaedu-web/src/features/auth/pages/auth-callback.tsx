@@ -3,6 +3,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { decodeStateFromBase64 } from '@/config/wps-auth-config'
 import { AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react'
 import { authManager } from '@/lib/gateway-auth-manager'
+import { parseUserFromCookie } from '@/utils/jwt.utils'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
@@ -17,63 +18,79 @@ export function AuthCallback() {
   useEffect(() => {
     const handleCallback = async () => {
       try {
-        // 处理认证回调
-        authManager.handleAuthCallback()
+        console.log('🔄 认证回调: 开始处理认证回调')
 
-        // 等待认证状态更新
-        await new Promise((resolve) => setTimeout(resolve, 1000))
+        // 检查URL参数
+        const urlParams = new URLSearchParams(window.location.search)
+        console.log(
+          '📋 认证回调: URL参数:',
+          Object.fromEntries(urlParams.entries())
+        )
 
-        // 检查认证状态
-        await authManager.checkAuthStatus()
-        const authState = authManager.getState()
+        // 检查Cookie
+        console.log('🍪 认证回调: 当前Cookie:', document.cookie)
 
-        if (authState.isAuthenticated) {
+        // 等待Cookie设置完成（页面加载时Cookie可能还没完全生效）
+        console.log('⏳ 认证回调: 等待2秒确保Cookie设置完成')
+        await new Promise((resolve) => setTimeout(resolve, 2000))
+
+        // 再次检查Cookie
+        console.log('🍪 认证回调: 等待后的Cookie:', document.cookie)
+
+        // 尝试从Cookie中解析用户信息
+        const parseResult = parseUserFromCookie()
+        console.log('📊 认证回调: Cookie解析结果:', parseResult)
+
+        if (parseResult.success && parseResult.user) {
+          console.log(
+            '✅ 认证回调: Cookie解析成功，用户信息:',
+            parseResult.user
+          )
           setStatus('success')
-
-          // 延迟跳转，让用户看到成功状态
-          setTimeout(() => {
-            // 优先从URL参数中获取state参数（base64编码的返回URL）
-            const urlParams = new URLSearchParams(window.location.search)
-            const encodedState = urlParams.get('state')
-
-            let returnUrl: string | null = null
-
-            if (encodedState) {
-              try {
-                // 解码base64编码的state参数
-                returnUrl = decodeStateFromBase64(encodedState)
-                console.log('🔓 认证回调: 从state参数解码返回URL:', returnUrl)
-              } catch (error) {
-                console.error('❌ 认证回调: 解码state参数失败', error)
-              }
-            }
-
-            // 如果state参数解码失败，尝试从sessionStorage获取
-            if (!returnUrl) {
-              returnUrl = sessionStorage.getItem('wps_auth_return_url')
-              console.log(
-                '📋 认证回调: 从sessionStorage获取返回URL:',
-                returnUrl
-              )
-            }
-
-            // 清理sessionStorage
-            sessionStorage.removeItem('wps_auth_return_url')
-
-            if (returnUrl && returnUrl !== window.location.href) {
-              console.log('🔄 认证回调: 重定向到返回URL:', returnUrl)
-              window.location.href = returnUrl
-            } else {
-              console.log('🏠 认证回调: 重定向到默认页面')
-              navigate({ to: '/dashboard' })
-            }
-          }, 2000)
         } else {
+          console.error('❌ 认证回调: Cookie解析失败:', parseResult.error)
           setStatus('error')
-          setErrorMessage('认证失败，请重试')
+          setErrorMessage(parseResult.error || '认证失败，请重试')
+          return
         }
+
+        // 延迟跳转，让用户看到成功状态
+        setTimeout(() => {
+          // 优先从URL参数中获取state参数（base64编码的返回URL）
+          const urlParams = new URLSearchParams(window.location.search)
+          const encodedState = urlParams.get('state')
+
+          let returnUrl: string | null = null
+
+          if (encodedState) {
+            try {
+              // 解码base64编码的state参数
+              returnUrl = decodeStateFromBase64(encodedState)
+              console.log('🔓 认证回调: 从state参数解码返回URL:', returnUrl)
+            } catch (error) {
+              console.error('❌ 认证回调: 解码state参数失败', error)
+            }
+          }
+
+          // 如果state参数解码失败，尝试从sessionStorage获取
+          if (!returnUrl) {
+            returnUrl = sessionStorage.getItem('wps_auth_return_url')
+            console.log('📋 认证回调: 从sessionStorage获取返回URL:', returnUrl)
+          }
+
+          // 清理sessionStorage
+          sessionStorage.removeItem('wps_auth_return_url')
+
+          if (returnUrl && returnUrl !== window.location.href) {
+            console.log('🔄 认证回调: 重定向到返回URL:', returnUrl)
+            window.location.href = returnUrl
+          } else {
+            console.log('🏠 认证回调: 重定向到默认页面')
+            navigate({ to: '/dashboard' })
+          }
+        }, 1500)
       } catch (error) {
-        console.error('认证回调处理失败:', error)
+        console.error('❌ 认证回调处理失败:', error)
         setStatus('error')
         setErrorMessage(error instanceof Error ? error.message : '认证处理失败')
       }

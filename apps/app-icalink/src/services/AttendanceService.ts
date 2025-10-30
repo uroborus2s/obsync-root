@@ -678,13 +678,16 @@ export default class AttendanceService implements IAttendanceService {
     // - 'leave_pending': 待审批的请假
     const vo: TeacherCourseCompleteDataVO = {
       course,
-      students: studentsWithStatus,
+      students: studentsWithStatus.map((student) => ({
+        ...student,
+        absence_type: 'unstarted' as AttendanceStatus
+      })),
       stats: {
         total_count: repositoryStats.total_count,
         checkin_count: 0, // 未来课程还未开始签到
-        absent_count: repositoryStats.absent_count,
+        absent_count: 0,
         leave_count: repositoryStats.leave_count,
-        truant_count: repositoryStats.truant_count
+        truant_count: 0
       },
       status: 'not_started'
     };
@@ -800,10 +803,11 @@ export default class AttendanceService implements IAttendanceService {
 
     // 6. 将签到任务加入队列（异步处理）
     // 所有校验逻辑（时间窗口、幂等性）都在队列 Worker 中异步完成
-    this.logger.info(
-      { courseExtId, studentId: studentInfo.userId, isWindowCheckin, jobId },
-      'Queueing check-in job'
-    );
+    this.logger.info('Queueing check-in job', {
+      courseExtId,
+      studentId: studentInfo.userId,
+      jobId
+    });
 
     try {
       await this.queueClient.add(
@@ -812,8 +816,8 @@ export default class AttendanceService implements IAttendanceService {
           courseExtId, // 使用外部课程 ID
           studentInfo,
           checkinData, // 包含完整的时间窗口信息
-          checkinTime: checkinTime.toISOString(), // 传递签到时间（加入队列的时间）
-          isWindowCheckin
+          checkinTime: checkinTime.toISOString(),
+          isWindowCheckin // 传递签到时间（加入队列的时间）
         },
         {
           jobId // 使用 jobId 实现队列级别的幂等性
@@ -1322,7 +1326,7 @@ export default class AttendanceService implements IAttendanceService {
    * 2. 验证教师权限（是否为该课程的授课教师）
    * 3. 验证学生是否注册了该课程
    * 4. 查询学生信息（班级、专业等）
-   * 5. 创建或更新签到记录，标记为教师手动补卡
+   * 5. 每次补卡都创建新的签到记录（不更新已有记录）
    * 6. 记录补卡人、补卡时间、补卡原因
    */
   public async teacherManualCheckin(
@@ -1391,100 +1395,52 @@ export default class AttendanceService implements IAttendanceService {
 
     const studentData = isSome(studentMaybe) ? studentMaybe.value : null;
 
-    // 5. 检查是否已有签到记录
-    const existingRecordMaybe = (await this.attendanceRecordRepository.findOne(
-      (qb) =>
-        qb
-          .where('attendance_course_id', '=', courseId)
-          .where('student_id', '=', studentId)
-          .orderBy('id', 'desc')
-    )) as unknown as Maybe<IcalinkAttendanceRecord>;
-
+    // 5. 每次补卡都创建新记录（不检查已有记录）
     const now = new Date();
     const manualOverrideTime = now;
 
-    if (isSome(existingRecordMaybe)) {
-      // 更新已有记录
-      const existingRecord = existingRecordMaybe.value;
+    const newRecord = {
+      attendance_course_id: courseId,
+      student_id: studentId,
+      student_name: studentData?.xm || '',
+      class_name: studentData?.bjmc || '',
+      major_name: studentData?.zymc || '',
+      status: 'present' as AttendanceStatus,
+      checkin_time: manualOverrideTime,
+      checkin_location: '教师补卡',
+      is_late: false,
+      last_checkin_source: 'manual',
+      last_checkin_reason: reason || '教师补卡',
+      manual_override_by: teacherId,
+      manual_override_time: manualOverrideTime,
+      manual_override_reason: reason || '教师补卡',
+      created_by: teacherId
+    } as any;
 
-      const updateResult = await this.attendanceRecordRepository.update(
-        existingRecord.id,
-        {
-          status: 'present' as AttendanceStatus,
-          checkin_time: manualOverrideTime,
-          last_checkin_source: 'manual',
-          last_checkin_reason: reason || '教师补卡',
-          manual_override_by: teacherId,
-          manual_override_time: manualOverrideTime,
-          manual_override_reason: reason || '教师补卡',
-          updated_by: teacherId
-        } as any
+    const createResult =
+      await this.attendanceRecordRepository.create(newRecord);
+
+    if (isLeft(createResult)) {
+      this.logger.error(
+        { error: createResult.left },
+        'Failed to create attendance record'
       );
-
-      if (isLeft(updateResult)) {
-        this.logger.error(
-          { error: updateResult.left },
-          'Failed to update attendance record'
-        );
-        return left({
-          code: String(ServiceErrorCode.DATABASE_ERROR),
-          message: '更新签到记录失败'
-        });
-      }
-
-      this.logger.info(
-        { recordId: existingRecord.id, courseId, studentId, teacherId },
-        'Attendance record updated by teacher'
-      );
-
-      return right({
-        record_id: existingRecord.id,
-        message: '补卡成功'
-      });
-    } else {
-      // 创建新记录
-      const newRecord = {
-        attendance_course_id: courseId,
-        student_id: studentId,
-        student_name: studentData?.xm || '',
-        class_name: studentData?.bjmc || '',
-        major_name: studentData?.zymc || '',
-        status: 'present' as AttendanceStatus,
-        checkin_time: manualOverrideTime,
-        checkin_location: '教师补卡',
-        last_checkin_source: 'manual',
-        last_checkin_reason: reason || '教师补卡',
-        manual_override_by: teacherId,
-        manual_override_time: manualOverrideTime,
-        manual_override_reason: reason || '教师补卡',
-        created_by: teacherId
-      } as any;
-
-      const createResult =
-        await this.attendanceRecordRepository.create(newRecord);
-
-      if (isLeft(createResult)) {
-        this.logger.error(
-          { error: createResult.left },
-          'Failed to create attendance record'
-        );
-        return left({
-          code: String(ServiceErrorCode.DATABASE_ERROR),
-          message: '创建签到记录失败'
-        });
-      }
-
-      const recordId = createResult.right.id;
-
-      this.logger.info(
-        { recordId, courseId, studentId, teacherId },
-        'Attendance record created by teacher'
-      );
-
-      return right({
-        record_id: recordId,
-        message: '补卡成功'
+      return left({
+        code: String(ServiceErrorCode.DATABASE_ERROR),
+        message: '创建签到记录失败'
       });
     }
+
+    const recordId = createResult.right.id;
+
+    this.logger.info(
+      { recordId, courseId, studentId, teacherId },
+      'Attendance record created by teacher manual checkin'
+    );
+
+    return right({
+      record_id: recordId,
+      message: '补卡成功'
+    });
   }
 }

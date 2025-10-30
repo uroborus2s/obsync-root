@@ -64,7 +64,7 @@ export const BUILDING_LOCATIONS: BuildingLocation[] = [
   },
   {
     name: '双创楼',
-    location: { lng: 125.439685, lat: 43.819594 },
+    location: { lng: 125.439352, lat: 43.819478 },
     keywords: ['双创楼', '双创', '创新创业楼', '创业楼']
   }
 ];
