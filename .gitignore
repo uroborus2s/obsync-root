@@ -241,3 +241,6 @@ yarn-error.log*
 
 # cursor
 .cursor
+
+# 数据库
+*.db
