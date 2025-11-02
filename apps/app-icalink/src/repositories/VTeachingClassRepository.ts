@@ -1,29 +1,35 @@
 import type { Logger } from '@stratix/core';
 import { BaseRepository } from '@stratix/database';
-import type { IcalinkDatabase, VTeachingClass } from '../types/database.js';
+import type {
+  IcalinkDatabase,
+  IcalinkTeachingClass
+} from '../types/database.js';
 
 /**
- * 教学班视图仓储实现
+ * 教学班表仓储实现
  * 负责查询教学班的学生和课程信息
+ * 数据源：icalink_teaching_class 表
  */
 export default class VTeachingClassRepository extends BaseRepository<
   IcalinkDatabase,
-  'v_teaching_class',
-  VTeachingClass
+  'icalink_teaching_class',
+  IcalinkTeachingClass
 > {
-  protected readonly tableName = 'v_teaching_class';
-  protected readonly primaryKey = 'student_id'; // 视图没有真正的主键，使用 student_id 作为逻辑主键
+  protected readonly tableName = 'icalink_teaching_class';
+  protected readonly primaryKey = 'id'; // 使用自增id作为主键
 
   constructor(protected readonly logger: Logger) {
     super('default');
-    this.logger.info('✅ VTeachingClassRepository initialized');
+    this.logger.info(
+      '✅ VTeachingClassRepository initialized (using icalink_teaching_class table)'
+    );
   }
 
   /**
-   * 分页查询教学班数据（增强版）
+   * 分页查询教学班数据（关键字搜索版）
    * @param page 页码（从1开始）
    * @param pageSize 每页数量
-   * @param searchKeyword 搜索关键词（学号、姓名、课程代码、课程名称）
+   * @param searchKeyword 搜索关键字（支持学号、姓名、学院、专业、班级、年级、课程编码、课程名称、开课单位）
    * @param sortField 排序字段
    * @param sortOrder 排序方向
    * @returns 分页结果
@@ -35,7 +41,7 @@ export default class VTeachingClassRepository extends BaseRepository<
     sortField?: string;
     sortOrder?: 'asc' | 'desc';
   }): Promise<{
-    data: VTeachingClass[];
+    data: IcalinkTeachingClass[];
     total: number;
     page: number;
     pageSize: number;
@@ -69,22 +75,27 @@ export default class VTeachingClassRepository extends BaseRepository<
         sortField,
         sortOrder
       },
-      'Finding teaching class with pagination'
+      'Finding teaching class with pagination (keyword search)'
     );
 
-    // 构建查询条件
+    // 构建查询条件：关键字搜索所有支持的字段
     const buildQuery = (qb: any) => {
       let query = qb;
 
-      // 搜索条件：学号、姓名、课程代码、课程名称
+      // 关键字搜索：支持学号、姓名、学院、专业、班级、年级、课程编码、课程名称、开课单位
       if (searchKeyword && searchKeyword.trim()) {
-        const keyword = `%${searchKeyword.trim()}%`;
+        const keyword = searchKeyword.trim();
         query = query.where((eb: any) =>
           eb.or([
-            eb('student_id', 'like', keyword),
-            eb('name', 'like', keyword),
-            eb('course_code', 'like', keyword),
-            eb('course_name', 'like', keyword)
+            eb('student_id', 'like', `%${keyword}%`),
+            eb('student_name', 'like', `%${keyword}%`),
+            eb('school_name', 'like', `%${keyword}%`),
+            eb('major_name', 'like', `%${keyword}%`),
+            eb('class_name', 'like', `%${keyword}%`),
+            eb('grade', 'like', `%${keyword}%`),
+            eb('course_code', 'like', `%${keyword}%`),
+            eb('course_name', 'like', `%${keyword}%`),
+            eb('course_unit', 'like', `%${keyword}%`)
           ])
         );
       }
@@ -98,12 +109,12 @@ export default class VTeachingClassRepository extends BaseRepository<
     // 查询数据
     const data = (await this.findMany(buildQuery, {
       orderBy: {
-        field: sortField || 'student_id',
+        field: sortField || 'id',
         direction: sortOrder || 'asc'
       },
       limit: pageSize,
       offset
-    })) as VTeachingClass[];
+    })) as IcalinkTeachingClass[];
 
     const totalPages = Math.ceil(total / pageSize);
 
@@ -126,7 +137,9 @@ export default class VTeachingClassRepository extends BaseRepository<
    * @param studentId 学生ID
    * @returns 教学班记录列表
    */
-  public async findByStudentId(studentId: string): Promise<VTeachingClass[]> {
+  public async findByStudentId(
+    studentId: string
+  ): Promise<IcalinkTeachingClass[]> {
     if (!studentId) {
       this.logger.warn('findByStudentId called with invalid studentId');
       return [];
@@ -136,7 +149,7 @@ export default class VTeachingClassRepository extends BaseRepository<
 
     const result = (await this.findMany((qb) =>
       qb.where('student_id', '=', studentId)
-    )) as VTeachingClass[];
+    )) as IcalinkTeachingClass[];
 
     return result;
   }
@@ -146,7 +159,9 @@ export default class VTeachingClassRepository extends BaseRepository<
    * @param courseCode 课程代码
    * @returns 教学班记录列表
    */
-  public async findByCourseCode(courseCode: string): Promise<VTeachingClass[]> {
+  public async findByCourseCode(
+    courseCode: string
+  ): Promise<IcalinkTeachingClass[]> {
     if (!courseCode) {
       this.logger.warn('findByCourseCode called with invalid courseCode');
       return [];
@@ -156,7 +171,7 @@ export default class VTeachingClassRepository extends BaseRepository<
 
     const result = (await this.findMany((qb) =>
       qb.where('course_code', '=', courseCode)
-    )) as VTeachingClass[];
+    )) as IcalinkTeachingClass[];
 
     return result;
   }

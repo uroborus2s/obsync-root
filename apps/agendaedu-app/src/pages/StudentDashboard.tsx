@@ -502,7 +502,7 @@ function StudentDashboardContent() {
                     btn.disabled = true; // ← 点击瞬间立刻禁用（视觉马上变灰）
                     handleCheckin().finally(() => {
                       // 如果 displayState 已切到不可签到，UI 会保持灰；否则允许再次点击
-                      btn.disabled = false;
+                      // btn.disabled = false;
                     });
                   }}
                   disabled={checkinLoading}

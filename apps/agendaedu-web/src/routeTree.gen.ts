@@ -39,6 +39,7 @@ import { Route as AuthenticatedTasksIndexRouteImport } from './routes/_authentic
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
 import { Route as AuthenticatedHelpCenterIndexRouteImport } from './routes/_authenticated/help-center/index'
 import { Route as AuthenticatedDataQueryIndexRouteImport } from './routes/_authenticated/data-query/index'
+import { Route as AuthenticatedCourseCalendarIndexRouteImport } from './routes/_authenticated/course-calendar/index'
 import { Route as AuthenticatedChatsIndexRouteImport } from './routes/_authenticated/chats/index'
 import { Route as AuthenticatedAppsIndexRouteImport } from './routes/_authenticated/apps/index'
 import { Route as ClerkAuthenticatedUserManagementRouteImport } from './routes/clerk/_authenticated/user-management'
@@ -64,10 +65,12 @@ import { Route as AuthenticatedRbacMenusRouteImport } from './routes/_authentica
 import { Route as AuthenticatedDataQueryTeachingClassRouteImport } from './routes/_authenticated/data-query/teaching-class'
 import { Route as AuthenticatedDataQueryStudentStatsDetailsRouteImport } from './routes/_authenticated/data-query/student-stats-details'
 import { Route as AuthenticatedDataQueryStudentStatsRouteImport } from './routes/_authenticated/data-query/student-stats'
+import { Route as AuthenticatedDataQueryCourseStatsTreeRouteImport } from './routes/_authenticated/data-query/course-stats-tree'
 import { Route as AuthenticatedDataQueryCourseStatsRouteImport } from './routes/_authenticated/data-query/course-stats'
 import { Route as AuthenticatedDataQueryAbsentHistoryRouteImport } from './routes/_authenticated/data-query/absent-history'
 import { Route as AuthenticatedCoursesSettingsRouteImport } from './routes/_authenticated/courses/settings'
 import { Route as AuthenticatedCoursesScheduleRouteImport } from './routes/_authenticated/courses/schedule'
+import { Route as AuthenticatedCourseCalendarStudentRouteImport } from './routes/_authenticated/course-calendar/student'
 import { Route as AuthenticatedAttendanceStudentsRouteImport } from './routes/_authenticated/attendance/students'
 import { Route as AuthenticatedAttendanceRankingsRouteImport } from './routes/_authenticated/attendance/rankings'
 import { Route as AuthenticatedAttendanceOverviewRouteImport } from './routes/_authenticated/attendance/overview'
@@ -234,6 +237,12 @@ const AuthenticatedDataQueryIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedDataQueryRoute,
   } as any)
+const AuthenticatedCourseCalendarIndexRoute =
+  AuthenticatedCourseCalendarIndexRouteImport.update({
+    id: '/course-calendar/',
+    path: '/course-calendar/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedChatsIndexRoute = AuthenticatedChatsIndexRouteImport.update({
   id: '/chats/',
   path: '/chats/',
@@ -376,6 +385,12 @@ const AuthenticatedDataQueryStudentStatsRoute =
     path: '/student-stats',
     getParentRoute: () => AuthenticatedDataQueryRoute,
   } as any)
+const AuthenticatedDataQueryCourseStatsTreeRoute =
+  AuthenticatedDataQueryCourseStatsTreeRouteImport.update({
+    id: '/course-stats-tree',
+    path: '/course-stats-tree',
+    getParentRoute: () => AuthenticatedDataQueryRoute,
+  } as any)
 const AuthenticatedDataQueryCourseStatsRoute =
   AuthenticatedDataQueryCourseStatsRouteImport.update({
     id: '/course-stats',
@@ -399,6 +414,12 @@ const AuthenticatedCoursesScheduleRoute =
     id: '/schedule',
     path: '/schedule',
     getParentRoute: () => AuthenticatedCoursesRoute,
+  } as any)
+const AuthenticatedCourseCalendarStudentRoute =
+  AuthenticatedCourseCalendarStudentRouteImport.update({
+    id: '/course-calendar/student',
+    path: '/course-calendar/student',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedAttendanceStudentsRoute =
   AuthenticatedAttendanceStudentsRouteImport.update({
@@ -490,10 +511,12 @@ export interface FileRoutesByFullPath {
   '/attendance/overview': typeof AuthenticatedAttendanceOverviewRoute
   '/attendance/rankings': typeof AuthenticatedAttendanceRankingsRoute
   '/attendance/students': typeof AuthenticatedAttendanceStudentsRoute
+  '/course-calendar/student': typeof AuthenticatedCourseCalendarStudentRoute
   '/courses/schedule': typeof AuthenticatedCoursesScheduleRoute
   '/courses/settings': typeof AuthenticatedCoursesSettingsRoute
   '/data-query/absent-history': typeof AuthenticatedDataQueryAbsentHistoryRoute
   '/data-query/course-stats': typeof AuthenticatedDataQueryCourseStatsRoute
+  '/data-query/course-stats-tree': typeof AuthenticatedDataQueryCourseStatsTreeRoute
   '/data-query/student-stats': typeof AuthenticatedDataQueryStudentStatsRoute
   '/data-query/student-stats-details': typeof AuthenticatedDataQueryStudentStatsDetailsRoute
   '/data-query/teaching-class': typeof AuthenticatedDataQueryTeachingClassRoute
@@ -519,6 +542,7 @@ export interface FileRoutesByFullPath {
   '/clerk/user-management': typeof ClerkAuthenticatedUserManagementRoute
   '/apps': typeof AuthenticatedAppsIndexRoute
   '/chats': typeof AuthenticatedChatsIndexRoute
+  '/course-calendar': typeof AuthenticatedCourseCalendarIndexRoute
   '/data-query/': typeof AuthenticatedDataQueryIndexRoute
   '/help-center': typeof AuthenticatedHelpCenterIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
@@ -554,10 +578,12 @@ export interface FileRoutesByTo {
   '/attendance/overview': typeof AuthenticatedAttendanceOverviewRoute
   '/attendance/rankings': typeof AuthenticatedAttendanceRankingsRoute
   '/attendance/students': typeof AuthenticatedAttendanceStudentsRoute
+  '/course-calendar/student': typeof AuthenticatedCourseCalendarStudentRoute
   '/courses/schedule': typeof AuthenticatedCoursesScheduleRoute
   '/courses/settings': typeof AuthenticatedCoursesSettingsRoute
   '/data-query/absent-history': typeof AuthenticatedDataQueryAbsentHistoryRoute
   '/data-query/course-stats': typeof AuthenticatedDataQueryCourseStatsRoute
+  '/data-query/course-stats-tree': typeof AuthenticatedDataQueryCourseStatsTreeRoute
   '/data-query/student-stats': typeof AuthenticatedDataQueryStudentStatsRoute
   '/data-query/student-stats-details': typeof AuthenticatedDataQueryStudentStatsDetailsRoute
   '/data-query/teaching-class': typeof AuthenticatedDataQueryTeachingClassRoute
@@ -582,6 +608,7 @@ export interface FileRoutesByTo {
   '/clerk/user-management': typeof ClerkAuthenticatedUserManagementRoute
   '/apps': typeof AuthenticatedAppsIndexRoute
   '/chats': typeof AuthenticatedChatsIndexRoute
+  '/course-calendar': typeof AuthenticatedCourseCalendarIndexRoute
   '/data-query': typeof AuthenticatedDataQueryIndexRoute
   '/help-center': typeof AuthenticatedHelpCenterIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
@@ -625,10 +652,12 @@ export interface FileRoutesById {
   '/_authenticated/attendance/overview': typeof AuthenticatedAttendanceOverviewRoute
   '/_authenticated/attendance/rankings': typeof AuthenticatedAttendanceRankingsRoute
   '/_authenticated/attendance/students': typeof AuthenticatedAttendanceStudentsRoute
+  '/_authenticated/course-calendar/student': typeof AuthenticatedCourseCalendarStudentRoute
   '/_authenticated/courses/schedule': typeof AuthenticatedCoursesScheduleRoute
   '/_authenticated/courses/settings': typeof AuthenticatedCoursesSettingsRoute
   '/_authenticated/data-query/absent-history': typeof AuthenticatedDataQueryAbsentHistoryRoute
   '/_authenticated/data-query/course-stats': typeof AuthenticatedDataQueryCourseStatsRoute
+  '/_authenticated/data-query/course-stats-tree': typeof AuthenticatedDataQueryCourseStatsTreeRoute
   '/_authenticated/data-query/student-stats': typeof AuthenticatedDataQueryStudentStatsRoute
   '/_authenticated/data-query/student-stats-details': typeof AuthenticatedDataQueryStudentStatsDetailsRoute
   '/_authenticated/data-query/teaching-class': typeof AuthenticatedDataQueryTeachingClassRoute
@@ -654,6 +683,7 @@ export interface FileRoutesById {
   '/clerk/_authenticated/user-management': typeof ClerkAuthenticatedUserManagementRoute
   '/_authenticated/apps/': typeof AuthenticatedAppsIndexRoute
   '/_authenticated/chats/': typeof AuthenticatedChatsIndexRoute
+  '/_authenticated/course-calendar/': typeof AuthenticatedCourseCalendarIndexRoute
   '/_authenticated/data-query/': typeof AuthenticatedDataQueryIndexRoute
   '/_authenticated/help-center/': typeof AuthenticatedHelpCenterIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
@@ -696,10 +726,12 @@ export interface FileRouteTypes {
     | '/attendance/overview'
     | '/attendance/rankings'
     | '/attendance/students'
+    | '/course-calendar/student'
     | '/courses/schedule'
     | '/courses/settings'
     | '/data-query/absent-history'
     | '/data-query/course-stats'
+    | '/data-query/course-stats-tree'
     | '/data-query/student-stats'
     | '/data-query/student-stats-details'
     | '/data-query/teaching-class'
@@ -725,6 +757,7 @@ export interface FileRouteTypes {
     | '/clerk/user-management'
     | '/apps'
     | '/chats'
+    | '/course-calendar'
     | '/data-query/'
     | '/help-center'
     | '/settings/'
@@ -760,10 +793,12 @@ export interface FileRouteTypes {
     | '/attendance/overview'
     | '/attendance/rankings'
     | '/attendance/students'
+    | '/course-calendar/student'
     | '/courses/schedule'
     | '/courses/settings'
     | '/data-query/absent-history'
     | '/data-query/course-stats'
+    | '/data-query/course-stats-tree'
     | '/data-query/student-stats'
     | '/data-query/student-stats-details'
     | '/data-query/teaching-class'
@@ -788,6 +823,7 @@ export interface FileRouteTypes {
     | '/clerk/user-management'
     | '/apps'
     | '/chats'
+    | '/course-calendar'
     | '/data-query'
     | '/help-center'
     | '/settings'
@@ -830,10 +866,12 @@ export interface FileRouteTypes {
     | '/_authenticated/attendance/overview'
     | '/_authenticated/attendance/rankings'
     | '/_authenticated/attendance/students'
+    | '/_authenticated/course-calendar/student'
     | '/_authenticated/courses/schedule'
     | '/_authenticated/courses/settings'
     | '/_authenticated/data-query/absent-history'
     | '/_authenticated/data-query/course-stats'
+    | '/_authenticated/data-query/course-stats-tree'
     | '/_authenticated/data-query/student-stats'
     | '/_authenticated/data-query/student-stats-details'
     | '/_authenticated/data-query/teaching-class'
@@ -859,6 +897,7 @@ export interface FileRouteTypes {
     | '/clerk/_authenticated/user-management'
     | '/_authenticated/apps/'
     | '/_authenticated/chats/'
+    | '/_authenticated/course-calendar/'
     | '/_authenticated/data-query/'
     | '/_authenticated/help-center/'
     | '/_authenticated/settings/'
@@ -1094,6 +1133,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDataQueryIndexRouteImport
       parentRoute: typeof AuthenticatedDataQueryRoute
     }
+    '/_authenticated/course-calendar/': {
+      id: '/_authenticated/course-calendar/'
+      path: '/course-calendar'
+      fullPath: '/course-calendar'
+      preLoaderRoute: typeof AuthenticatedCourseCalendarIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/chats/': {
       id: '/_authenticated/chats/'
       path: '/chats'
@@ -1269,6 +1315,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDataQueryStudentStatsRouteImport
       parentRoute: typeof AuthenticatedDataQueryRoute
     }
+    '/_authenticated/data-query/course-stats-tree': {
+      id: '/_authenticated/data-query/course-stats-tree'
+      path: '/course-stats-tree'
+      fullPath: '/data-query/course-stats-tree'
+      preLoaderRoute: typeof AuthenticatedDataQueryCourseStatsTreeRouteImport
+      parentRoute: typeof AuthenticatedDataQueryRoute
+    }
     '/_authenticated/data-query/course-stats': {
       id: '/_authenticated/data-query/course-stats'
       path: '/course-stats'
@@ -1296,6 +1349,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/courses/schedule'
       preLoaderRoute: typeof AuthenticatedCoursesScheduleRouteImport
       parentRoute: typeof AuthenticatedCoursesRoute
+    }
+    '/_authenticated/course-calendar/student': {
+      id: '/_authenticated/course-calendar/student'
+      path: '/course-calendar/student'
+      fullPath: '/course-calendar/student'
+      preLoaderRoute: typeof AuthenticatedCourseCalendarStudentRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/attendance/students': {
       id: '/_authenticated/attendance/students'
@@ -1490,6 +1550,7 @@ const AuthenticatedCoursesRouteWithChildren =
 interface AuthenticatedDataQueryRouteChildren {
   AuthenticatedDataQueryAbsentHistoryRoute: typeof AuthenticatedDataQueryAbsentHistoryRoute
   AuthenticatedDataQueryCourseStatsRoute: typeof AuthenticatedDataQueryCourseStatsRoute
+  AuthenticatedDataQueryCourseStatsTreeRoute: typeof AuthenticatedDataQueryCourseStatsTreeRoute
   AuthenticatedDataQueryStudentStatsRoute: typeof AuthenticatedDataQueryStudentStatsRoute
   AuthenticatedDataQueryStudentStatsDetailsRoute: typeof AuthenticatedDataQueryStudentStatsDetailsRoute
   AuthenticatedDataQueryTeachingClassRoute: typeof AuthenticatedDataQueryTeachingClassRoute
@@ -1502,6 +1563,8 @@ const AuthenticatedDataQueryRouteChildren: AuthenticatedDataQueryRouteChildren =
       AuthenticatedDataQueryAbsentHistoryRoute,
     AuthenticatedDataQueryCourseStatsRoute:
       AuthenticatedDataQueryCourseStatsRoute,
+    AuthenticatedDataQueryCourseStatsTreeRoute:
+      AuthenticatedDataQueryCourseStatsTreeRoute,
     AuthenticatedDataQueryStudentStatsRoute:
       AuthenticatedDataQueryStudentStatsRoute,
     AuthenticatedDataQueryStudentStatsDetailsRoute:
@@ -1546,12 +1609,14 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRouteWithChildren
   AuthenticatedTeachersRoute: typeof AuthenticatedTeachersRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedCourseCalendarStudentRoute: typeof AuthenticatedCourseCalendarStudentRoute
   AuthenticatedRbacMenusRoute: typeof AuthenticatedRbacMenusRoute
   AuthenticatedRbacPermissionsRoute: typeof AuthenticatedRbacPermissionsRoute
   AuthenticatedRbacRolesRoute: typeof AuthenticatedRbacRolesRoute
   AuthenticatedRbacUsersRoute: typeof AuthenticatedRbacUsersRoute
   AuthenticatedAppsIndexRoute: typeof AuthenticatedAppsIndexRoute
   AuthenticatedChatsIndexRoute: typeof AuthenticatedChatsIndexRoute
+  AuthenticatedCourseCalendarIndexRoute: typeof AuthenticatedCourseCalendarIndexRoute
   AuthenticatedHelpCenterIndexRoute: typeof AuthenticatedHelpCenterIndexRoute
   AuthenticatedUsersIndexRoute: typeof AuthenticatedUsersIndexRoute
 }
@@ -1572,12 +1637,15 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedTasksRoute: AuthenticatedTasksRouteWithChildren,
   AuthenticatedTeachersRoute: AuthenticatedTeachersRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedCourseCalendarStudentRoute:
+    AuthenticatedCourseCalendarStudentRoute,
   AuthenticatedRbacMenusRoute: AuthenticatedRbacMenusRoute,
   AuthenticatedRbacPermissionsRoute: AuthenticatedRbacPermissionsRoute,
   AuthenticatedRbacRolesRoute: AuthenticatedRbacRolesRoute,
   AuthenticatedRbacUsersRoute: AuthenticatedRbacUsersRoute,
   AuthenticatedAppsIndexRoute: AuthenticatedAppsIndexRoute,
   AuthenticatedChatsIndexRoute: AuthenticatedChatsIndexRoute,
+  AuthenticatedCourseCalendarIndexRoute: AuthenticatedCourseCalendarIndexRoute,
   AuthenticatedHelpCenterIndexRoute: AuthenticatedHelpCenterIndexRoute,
   AuthenticatedUsersIndexRoute: AuthenticatedUsersIndexRoute,
 }

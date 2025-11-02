@@ -3,8 +3,9 @@ import { Controller, Get } from '@stratix/core';
 import { isLeft } from '@stratix/utils/functional';
 import type AbsentStudentRelationService from '../services/AbsentStudentRelationService.js';
 import type CourseCheckinStatsService from '../services/CourseCheckinStatsService.js';
-import type VStudentOverallAttendanceStatsDetailsService from '../services/VStudentOverallAttendanceStatsDetailsService.js';
-import type VStudentOverallAttendanceStatsService from '../services/VStudentOverallAttendanceStatsService.js';
+import type VCourseCheckinStatsClassService from '../services/VCourseCheckinStatsClassService.js';
+import type VCourseCheckinStatsSummaryService from '../services/VCourseCheckinStatsSummaryService.js';
+import type VCourseCheckinStatsUnitService from '../services/VCourseCheckinStatsUnitService.js';
 import type VTeachingClassService from '../services/VTeachingClassService.js';
 
 /**
@@ -27,7 +28,7 @@ interface StatsQueryParams {
 
 /**
  * 统计数据控制器
- * 提供5个统计数据查询接口
+ * 提供8个统计数据查询接口（包含3个新增的课程签到统计接口）
  */
 @Controller()
 export default class StatsController {
@@ -36,8 +37,9 @@ export default class StatsController {
     private readonly absentStudentRelationService: AbsentStudentRelationService,
     private readonly courseCheckinStatsService: CourseCheckinStatsService,
     private readonly vTeachingClassService: VTeachingClassService,
-    private readonly vStudentOverallAttendanceStatsService: VStudentOverallAttendanceStatsService,
-    private readonly vStudentOverallAttendanceStatsDetailsService: VStudentOverallAttendanceStatsDetailsService
+    private readonly vCourseCheckinStatsUnitService: VCourseCheckinStatsUnitService,
+    private readonly vCourseCheckinStatsClassService: VCourseCheckinStatsClassService,
+    private readonly vCourseCheckinStatsSummaryService: VCourseCheckinStatsSummaryService
   ) {
     this.logger.info('✅ StatsController initialized');
   }
@@ -237,8 +239,9 @@ export default class StatsController {
   }
 
   /**
-   * 查询教学班数据
+   * 查询教学班数据（关键字搜索）
    * GET /api/icalink/v1/stats/teaching-class
+   * 支持通过关键字搜索：学号、姓名、学院、专业、班级、年级、课程编码、课程名称、开课单位
    */
   @Get('/api/icalink/v1/stats/teaching-class', {
     schema: {
@@ -255,7 +258,9 @@ export default class StatsController {
     }
   })
   async getTeachingClass(
-    request: FastifyRequest<{ Querystring: StatsQueryParams }>,
+    request: FastifyRequest<{
+      Querystring: StatsQueryParams;
+    }>,
     reply: FastifyReply
   ): Promise<void> {
     try {
@@ -267,7 +272,7 @@ export default class StatsController {
         sortOrder
       } = request.query;
 
-      this.logger.debug('Querying teaching class', {
+      this.logger.debug('Querying teaching class with keyword search', {
         page,
         pageSize,
         searchKeyword
@@ -305,10 +310,34 @@ export default class StatsController {
   }
 
   /**
-   * 查询学生历史统计数据
-   * GET /api/icalink/v1/stats/student-stats
+   * 查询单位级别签到统计数据
+   * GET /api/icalink/v1/stats/course-stats-unit
+   *
+   * @param request - Fastify请求对象
+   * @param reply - Fastify响应对象
+   * @returns 分页的单位级别签到统计数据
+   *
+   * 查询参数:
+   * - page: 页码（默认1）
+   * - pageSize: 每页数量（默认20，最大100）
+   * - searchKeyword: 搜索关键词（单位名称、单位ID、学期）
+   * - sortField: 排序字段
+   * - sortOrder: 排序方向（asc/desc）
+   *
+   * 响应格式:
+   * {
+   *   success: boolean,
+   *   data: {
+   *     data: Array,
+   *     total: number,
+   *     page: number,
+   *     pageSize: number,
+   *     totalPages: number
+   *   },
+   *   error?: string
+   * }
    */
-  @Get('/api/icalink/v1/stats/student-stats', {
+  @Get('/api/icalink/v1/stats/course-stats-unit', {
     schema: {
       querystring: {
         type: 'object',
@@ -319,10 +348,28 @@ export default class StatsController {
           sortField: { type: 'string' },
           sortOrder: { type: 'string', enum: ['asc', 'desc'] }
         }
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            data: {
+              type: 'object',
+              properties: {
+                data: { type: 'array' },
+                total: { type: 'integer' },
+                page: { type: 'integer' },
+                pageSize: { type: 'integer' },
+                totalPages: { type: 'integer' }
+              }
+            }
+          }
+        }
       }
     }
   })
-  async getStudentStats(
+  async getCourseStatsUnit(
     request: FastifyRequest<{ Querystring: StatsQueryParams }>,
     reply: FastifyReply
   ): Promise<void> {
@@ -335,14 +382,14 @@ export default class StatsController {
         sortOrder
       } = request.query;
 
-      this.logger.debug('Querying student stats', {
+      this.logger.debug('Querying course stats unit', {
         page,
         pageSize,
         searchKeyword
       });
 
       const result =
-        await this.vStudentOverallAttendanceStatsService.findWithPagination({
+        await this.vCourseCheckinStatsUnitService.findWithPagination({
           page,
           pageSize,
           searchKeyword,
@@ -350,24 +397,19 @@ export default class StatsController {
           sortOrder
         });
 
-      // 处理 Either 类型的返回值
-      if (isLeft(result)) {
-        this.logger.error('Failed to query student stats', {
-          error: result.left
+      if (!result.success) {
+        this.logger.error('Failed to query course stats unit', {
+          error: result.error
         });
         return reply.status(500).send({
           success: false,
-          error: result.left.message || 'Failed to query student stats'
+          error: result.error || 'Failed to query course stats unit'
         });
       }
 
-      // 成功时返回标准格式
-      return reply.status(200).send({
-        success: true,
-        data: result.right
-      });
+      return reply.status(200).send(result);
     } catch (error: any) {
-      this.logger.error('Error in getStudentStats', {
+      this.logger.error('Error in getCourseStatsUnit', {
         error: error.message,
         stack: error.stack
       });
@@ -379,70 +421,195 @@ export default class StatsController {
   }
 
   /**
-   * 查询学生历史统计详情数据
-   * GET /api/icalink/v1/stats/student-stats-details
+   * 查询班级级别签到统计数据
+   * GET /api/icalink/v1/stats/course-stats-class
+   *
+   * @param request - Fastify请求对象
+   * @param reply - Fastify响应对象
+   * @returns 分页的班级级别签到统计数据
+   *
+   * 查询参数:
+   * - page: 页码（默认1）
+   * - pageSize: 每页数量（默认20，最大100）
+   * - unitId: 单位ID（用于树形结构的层级查询）
+   * - searchKeyword: 搜索关键词（班级代码、课程名称、单位名称、学期）
+   * - sortField: 排序字段
+   * - sortOrder: 排序方向（asc/desc）
+   *
+   * 响应格式:
+   * {
+   *   success: boolean,
+   *   data: {
+   *     data: Array,
+   *     total: number,
+   *     page: number,
+   *     pageSize: number,
+   *     totalPages: number
+   *   },
+   *   error?: string
+   * }
    */
-  @Get('/api/icalink/v1/stats/student-stats-details', {
+  @Get('/api/icalink/v1/stats/course-stats-class', {
     schema: {
       querystring: {
         type: 'object',
         properties: {
           page: { type: 'integer', minimum: 1, default: 1 },
           pageSize: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+          unitId: { type: 'string' },
           searchKeyword: { type: 'string' },
-          teachingWeek: { type: 'integer', minimum: 1 },
           sortField: { type: 'string' },
           sortOrder: { type: 'string', enum: ['asc', 'desc'] }
         }
       }
     }
   })
-  async getStudentStatsDetails(
-    request: FastifyRequest<{ Querystring: StatsQueryParams }>,
+  async getCourseStatsClass(
+    request: FastifyRequest<{
+      Querystring: StatsQueryParams & { unitId?: string };
+    }>,
     reply: FastifyReply
   ): Promise<void> {
     try {
       const {
         page = 1,
         pageSize = 20,
+        unitId,
         searchKeyword,
-        teachingWeek,
         sortField,
         sortOrder
       } = request.query;
 
-      this.logger.debug('Querying student stats details', {
+      this.logger.debug('Querying course stats class', {
         page,
         pageSize,
-        searchKeyword,
-        teachingWeek
+        unitId,
+        searchKeyword
       });
 
       const result =
-        await this.vStudentOverallAttendanceStatsDetailsService.findWithPagination(
-          {
-            page,
-            pageSize,
-            searchKeyword,
-            teachingWeek,
-            sortField,
-            sortOrder
-          }
-        );
+        await this.vCourseCheckinStatsClassService.findWithPagination({
+          page,
+          pageSize,
+          unitId,
+          searchKeyword,
+          sortField,
+          sortOrder
+        });
 
       if (!result.success) {
-        this.logger.error('Failed to query student stats details', {
+        this.logger.error('Failed to query course stats class', {
           error: result.error
         });
         return reply.status(500).send({
           success: false,
-          error: result.error || 'Failed to query student stats details'
+          error: result.error || 'Failed to query course stats class'
         });
       }
 
       return reply.status(200).send(result);
     } catch (error: any) {
-      this.logger.error('Error in getStudentStatsDetails', {
+      this.logger.error('Error in getCourseStatsClass', {
+        error: error.message,
+        stack: error.stack
+      });
+      return reply.status(500).send({
+        success: false,
+        error: 'Internal server error'
+      });
+    }
+  }
+
+  /**
+   * 查询课程汇总签到统计数据
+   * GET /api/icalink/v1/stats/course-stats-summary
+   *
+   * @param request - Fastify请求对象
+   * @param reply - Fastify响应对象
+   * @returns 分页的课程汇总签到统计数据
+   *
+   * 查询参数:
+   * - page: 页码（默认1）
+   * - pageSize: 每页数量（默认20，最大100）
+   * - classCode: 班级代码（用于树形结构的层级查询）
+   * - searchKeyword: 搜索关键词（课程代码、课程名称、教师名称、上课地点、学期）
+   * - sortField: 排序字段
+   * - sortOrder: 排序方向（asc/desc）
+   *
+   * 响应格式:
+   * {
+   *   success: boolean,
+   *   data: {
+   *     data: Array,
+   *     total: number,
+   *     page: number,
+   *     pageSize: number,
+   *     totalPages: number
+   *   },
+   *   error?: string
+   * }
+   */
+  @Get('/api/icalink/v1/stats/course-stats-summary', {
+    schema: {
+      querystring: {
+        type: 'object',
+        properties: {
+          page: { type: 'integer', minimum: 1, default: 1 },
+          pageSize: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+          classCode: { type: 'string' },
+          searchKeyword: { type: 'string' },
+          sortField: { type: 'string' },
+          sortOrder: { type: 'string', enum: ['asc', 'desc'] }
+        }
+      }
+    }
+  })
+  async getCourseStatsSummary(
+    request: FastifyRequest<{
+      Querystring: StatsQueryParams & { classCode?: string };
+    }>,
+    reply: FastifyReply
+  ): Promise<void> {
+    try {
+      const {
+        page = 1,
+        pageSize = 20,
+        classCode,
+        searchKeyword,
+        sortField,
+        sortOrder
+      } = request.query;
+
+      this.logger.debug('Querying course stats summary', {
+        page,
+        pageSize,
+        classCode,
+        searchKeyword
+      });
+
+      const result =
+        await this.vCourseCheckinStatsSummaryService.findWithPagination({
+          page,
+          pageSize,
+          classCode,
+          searchKeyword,
+          sortField,
+          sortOrder
+        });
+
+      if (!result.success) {
+        this.logger.error('Failed to query course stats summary', {
+          error: result.error
+        });
+        return reply.status(500).send({
+          success: false,
+          error: result.error || 'Failed to query course stats summary'
+        });
+      }
+
+      return reply.status(200).send(result);
+    } catch (error: any) {
+      this.logger.error('Error in getCourseStatsSummary', {
         error: error.message,
         stack: error.stack
       });

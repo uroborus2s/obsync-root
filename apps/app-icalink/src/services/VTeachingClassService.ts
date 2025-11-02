@@ -1,6 +1,6 @@
 import type { Logger } from '@stratix/core';
-import type { VTeachingClass } from '../types/database.js';
 import type VTeachingClassRepository from '../repositories/VTeachingClassRepository.js';
+import type { IcalinkTeachingClass } from '../types/database.js';
 
 /**
  * 服务执行结果
@@ -40,7 +40,7 @@ export interface PaginatedResult<T> {
 export interface IVTeachingClassService {
   findWithPagination(
     params: PaginationParams
-  ): Promise<ServiceResult<PaginatedResult<VTeachingClass>>>;
+  ): Promise<ServiceResult<PaginatedResult<IcalinkTeachingClass>>>;
 }
 
 /**
@@ -62,7 +62,7 @@ export default class VTeachingClassService implements IVTeachingClassService {
    */
   public async findWithPagination(
     params: PaginationParams
-  ): Promise<ServiceResult<PaginatedResult<VTeachingClass>>> {
+  ): Promise<ServiceResult<PaginatedResult<IcalinkTeachingClass>>> {
     try {
       // 参数验证
       if (!params.page || params.page < 1) {
@@ -131,7 +131,7 @@ export default class VTeachingClassService implements IVTeachingClassService {
    */
   public async findByStudentId(
     studentId: string
-  ): Promise<ServiceResult<VTeachingClass[]>> {
+  ): Promise<ServiceResult<IcalinkTeachingClass[]>> {
     try {
       if (!studentId) {
         return {
@@ -170,7 +170,7 @@ export default class VTeachingClassService implements IVTeachingClassService {
    */
   public async findByCourseCode(
     courseCode: string
-  ): Promise<ServiceResult<VTeachingClass[]>> {
+  ): Promise<ServiceResult<IcalinkTeachingClass[]>> {
     try {
       if (!courseCode) {
         return {
@@ -231,4 +231,3 @@ export default class VTeachingClassService implements IVTeachingClassService {
     }
   }
 }
-

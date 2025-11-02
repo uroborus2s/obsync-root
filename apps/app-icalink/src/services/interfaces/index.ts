@@ -9,3 +9,6 @@ export * from './ILeaveService.js';
 
 // 文件存储服务接口
 export * from './IFileStorageService.js';
+
+// 课程日历服务接口
+export * from './ICourseCalendarService.js';

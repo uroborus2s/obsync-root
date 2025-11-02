@@ -28,21 +28,35 @@ export interface CompanyInfo {
 }
 
 /**
+ * 部门领导信息
+ */
+export interface DeptLeader {
+  /** 排序值 */
+  order: number;
+  /** 用户ID */
+  user_id: string;
+}
+
+/**
  * 部门信息
  */
 export interface DeptInfo {
-  /** 创建时间 */
+  /** 部门绝对路径 */
+  abs_path: string;
+  /** 创建时间（时间戳） */
   ctime: number;
+  /** 外部身份源部门ID */
+  ex_dept_id: string;
   /** 部门ID */
   id: string;
+  /** 部门领导列表 */
+  leaders: DeptLeader[];
   /** 部门名称 */
   name: string;
   /** 排序值 */
   order: number;
   /** 父部门ID */
   parent_id: string;
-  /** 部门状态 */
-  status: DeptStatus;
 }
 
 /**
@@ -84,34 +98,39 @@ export interface UserInfo {
 }
 
 /**
- * 查询部门列表请求参数
+ * 查询子部门列表请求参数
+ *
+ * @remarks
+ * - 接口地址：GET https://openapi.wps.cn/v7/depts/{dept_id}/children
+ * - 签名方式：KSO-1
+ * - 权限要求：kso.contact.readwrite 或 kso.contact.read
  */
-export interface GetDeptListParams {
-  /** 父部门ID，不传则查询根部门 */
-  parent_id?: string;
-  /** 分页大小，默认20，最大100 */
+export interface GetDeptChildrenParams {
+  /** 部门ID */
+  dept_id: string;
+  /** 分页大小，默认10，最大50 */
   page_size?: number;
-  /** 分页标记，第一次请求不传 */
+  /** 分页标记，用于翻页 */
   page_token?: string;
+  /** 是否返回总数 */
+  with_total?: boolean;
 }
 
 /**
- * 查询部门列表响应
+ * 查询子部门列表响应
  */
-export interface GetDeptListResponse {
-  /** 部门列表 */
+export interface GetDeptChildrenResponse {
+  /** 子部门列表 */
   items: DeptInfo[];
   /** 下一页标记 */
   next_page_token?: string;
-  /** 总数 */
-  total: number;
 }
 
 /**
  * 批量查询部门信息请求参数
  */
 export interface BatchGetDeptInfoParams {
-  /** 部门ID列表，最多100个 */
+  /** 部门ID列表 */
   dept_ids: string[];
 }
 
@@ -124,11 +143,19 @@ export interface BatchGetDeptInfoResponse {
 }
 
 /**
- * 根据外部部门ID获取部门信息请求参数
+ * 根据外部部门ID批量获取部门信息请求参数
  */
-export interface GetDeptByExIdParams {
-  /** 外部部门ID */
-  ex_dept_id: string;
+export interface GetDeptByExIdsParams {
+  /** 外部身份源部门ID列表 */
+  ex_dept_ids: string[];
+}
+
+/**
+ * 根据外部部门ID批量获取部门信息响应
+ */
+export interface GetDeptByExIdsResponse {
+  /** 部门信息列表 */
+  items: DeptInfo[];
 }
 
 /**

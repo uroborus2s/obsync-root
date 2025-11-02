@@ -113,19 +113,13 @@ describe('WPS V7 统一适配器架构测试', () => {
       expect(typeof adapter.batchDisableUser).toBe('function');
     });
 
-    it('部门适配器应该包含所有必需方法', () => {
+    it('部门适配器应该包含部门管理方法', () => {
       const adapter = createWpsDepartmentAdapter(container);
 
-      expect(typeof adapter.getDeptList).toBe('function');
-      expect(typeof adapter.getAllDeptList).toBe('function');
       expect(typeof adapter.getRootDept).toBe('function');
-      expect(typeof adapter.createDept).toBe('function');
-      expect(typeof adapter.updateDept).toBe('function');
-      expect(typeof adapter.deleteDept).toBe('function');
-      expect(typeof adapter.getDeptByExId).toBe('function');
+      expect(typeof adapter.getDeptChildren).toBe('function');
       expect(typeof adapter.batchGetDeptInfo).toBe('function');
-      expect(typeof adapter.getAllSubDepts).toBe('function');
-      expect(typeof adapter.getDeptTree).toBe('function');
+      expect(typeof adapter.getDeptByExIds).toBe('function');
     });
 
     it('企业适配器应该包含所有必需方法', () => {

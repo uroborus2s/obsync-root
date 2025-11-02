@@ -14,9 +14,7 @@ CREATE PROCEDURE RefreshAbsentRelationsHistory (IN p_teaching_week INT, IN p_wee
     -- =====================================================
 -- 在事务外创建临时表，避免 DDL 触发隐式提交
 -- =====================================================
-	DROP TEMPORARY TABLE
-	IF
-		EXISTS tmp_history_details;
+	DROP TEMPORARY TABLE IF EXISTS tmp_history_details;
 	CREATE TEMPORARY TABLE tmp_history_details ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci AS SELECT
 	* 
 	FROM
@@ -58,7 +56,12 @@ CREATE PROCEDURE RefreshAbsentRelationsHistory (IN p_teaching_week INT, IN p_wee
 		absent_count,
 		truant_count,
 		leave_count,
-	semester) SELECT
+		course_unit_id,
+		course_unit,
+		teaching_class_code,
+		need_checkin,
+		semester
+	) SELECT
 	v_stat_date,
 	t.attendance_course_id,
 	t.external_id,
@@ -98,6 +101,10 @@ CREATE PROCEDURE RefreshAbsentRelationsHistory (IN p_teaching_week INT, IN p_wee
 				WHEN t.final_status IN ('leave', 'leave_pending') THEN
 				1 ELSE 0 
 			END) AS leave_count,
+	t.course_unit_id,
+	t.course_unit,
+	t.teaching_class_code,
+	t.need_checkin,
 	t.semester 
 	FROM
 		tmp_history_details AS t 
@@ -115,6 +122,10 @@ CREATE PROCEDURE RefreshAbsentRelationsHistory (IN p_teaching_week INT, IN p_wee
 		t.periods,
 		t.time_period,
 		t.class_location,
+		t.course_unit_id,
+		t.course_unit,
+		t.teaching_class_code,
+		t.need_checkin,
 		t.semester;
         
     -- 删除旧缺勤明细
@@ -143,7 +154,14 @@ CREATE PROCEDURE RefreshAbsentRelationsHistory (IN p_teaching_week INT, IN p_wee
 			week_day,
 			periods,
 			time_period,
-	semester) SELECT
+			school_id,
+			major_id,
+			class_id,
+			grade,
+			gender,
+			people,
+			semester
+	) SELECT
 	s.id,
 	t.attendance_course_id,
 	t.external_id,
@@ -160,6 +178,12 @@ CREATE PROCEDURE RefreshAbsentRelationsHistory (IN p_teaching_week INT, IN p_wee
 	t.week_day,
 	t.periods,
 	t.time_period,
+	t.school_id,
+	t.major_id,
+	t.class_id,
+	t.grade,
+	t.gender,
+	t.people,
 	t.semester 
 	FROM
 		tmp_history_details AS t
@@ -170,7 +194,7 @@ CREATE PROCEDURE RefreshAbsentRelationsHistory (IN p_teaching_week INT, IN p_wee
 -- 提交事务
 -- =====================================================
 	COMMIT;
-	
+	DROP TEMPORARY TABLE IF EXISTS tmp_history_details;
 END$$
 
 DELIMITER ;

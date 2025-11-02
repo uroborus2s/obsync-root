@@ -27,3 +27,6 @@ export * from './ITeacherRepository.js';
 
 // 签到统计仓储接口
 export * from './IAttendanceStatsRepository.js';
+
+// 日历映射仓储接口
+export * from './ICalendarMappingRepository.js';

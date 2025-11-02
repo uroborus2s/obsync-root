@@ -1,0 +1,20 @@
+CREATE TABLE `icalink_verification_windows` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `window_id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'UUID，用于API调用和关联',
+  `course_id` bigint(20) NOT NULL COMMENT '关联课程ID',
+  `external_id` varchar(100) NOT NULL COMMENT '关联外部ID',
+  `verification_round` int(11) NOT NULL DEFAULT 1 COMMENT '验证轮次',
+  `open_time` datetime NOT NULL COMMENT '窗口开启时间',
+  `close_time` datetime NOT NULL COMMENT '窗口关闭时间',
+  `opened_by` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '开启人ID（教师工号）',
+  `status` enum('open','closed','cancelled','expired') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'open' COMMENT '窗口状态(closed:教师手动关闭, cancelled:被新验证覆盖, expired:超时自动关闭)',
+  `duration_minutes` int(11) NOT NULL DEFAULT 3 COMMENT '持续时长（分钟）',
+  `expected_checkin_count` int(11) NOT NULL DEFAULT 0 COMMENT '预期签到人数',
+  `actual_checkin_count` int(11) NOT NULL DEFAULT 0 COMMENT '实际签到人数',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_window_id` (`window_id`),
+  KEY `idx_course_status` (`course_id`, `status`),
+  KEY `idx_external_id` (`external_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='验证签到窗口表';

@@ -206,6 +206,22 @@ export interface IcalinkSystemConfig {
 }
 
 /**
+ * 课程日历映射表实体
+ */
+export interface IcasyncCalendarMapping {
+  id: ColumnType<number, number | undefined, number>;
+  kkh: string;
+  xnxq: string;
+  calendar_id: string;
+  calendar_name: string | null;
+  is_deleted: boolean;
+  deleted_at: Date | null;
+  created_at: ColumnType<Date, string, string>;
+  updated_at: ColumnType<Date, string, string>;
+  metadata: any | null;
+}
+
+/**
  * 考勤课程表实体（现有表）
  */
 export interface IcasyncAttendanceCourse {
@@ -229,6 +245,7 @@ export interface IcasyncAttendanceCourse {
   attendance_end_offset?: number;
   late_threshold?: number;
   auto_absent_after?: number;
+  need_checkin: boolean;
   created_at: ColumnType<Date, string, string>;
   updated_at: ColumnType<Date, string, string>;
   created_by?: string;
@@ -485,17 +502,50 @@ export interface IcalinkCourseCheckinStats {
 }
 
 /**
+ * 教学班表实体
+ * 对应表: icalink_teaching_class
+ */
+export interface IcalinkTeachingClass {
+  id: number;
+  student_id: string | null;
+  student_name: string | null;
+  school_name: string | null;
+  school_id: string | null;
+  major_id: string | null;
+  major_name: string | null;
+  class_id: string | null;
+  class_name: string | null;
+  grade: string | null;
+  gender: string | null;
+  people: string | null;
+  course_code: string;
+  teaching_class_code: string;
+  course_name: string;
+  course_unit_id: string | null;
+  course_unit: string | null;
+}
+
+/**
  * 教学班视图实体
+ * 对应视图: v_teaching_class
  */
 export interface VTeachingClass {
   student_id: string;
-  course_code: string;
-  name: string;
+  student_name: string;
   school_name: string;
-  college_code: string;
+  school_id: string;
   major_name: string;
+  major_id: string;
   class_name: string;
+  class_id: string;
+  grade: string;
+  gender: string;
+  people: string;
+  course_code: string;
+  teaching_class_code: string;
   course_name: string;
+  course_unit_id: string;
+  course_unit: string;
 }
 
 /**
@@ -513,6 +563,40 @@ export interface VStudentOverallAttendanceStats {
   leave_count: number;
   truant_count: number;
   absence_rate: number;
+}
+
+/**
+ * 学生缺课率统计明细视图实体（每个学生每门课一条记录，汇总所有学期）
+ */
+export interface VStudentAbsenceRateDetail {
+  student_id: string;
+  student_name: string;
+  school_name: string | null;
+  class_name: string | null;
+  major_name: string | null;
+  course_code: string;
+  course_name: string;
+  total_sessions: number;
+  completed_sessions: number;
+  absent_count: number;
+  leave_count: number;
+  absence_rate: number;
+}
+
+/**
+ * 学生缺课率统计汇总视图实体（每个学生一条记录）
+ */
+export interface VStudentAbsenceRateSummary {
+  student_id: string;
+  student_name: string;
+  school_name: string | null;
+  class_name: string | null;
+  major_name: string | null;
+  total_courses: number;
+  total_sessions: number;
+  total_completed_sessions: number;
+  total_absent_count: number;
+  overall_absence_rate: number;
 }
 
 /**
@@ -564,6 +648,74 @@ export interface IcalinkVerificationWindow {
 }
 
 /**
+ * 单位级别签到统计视图实体
+ * 对应视图: v_course_checkin_stats_unit
+ */
+export interface VCourseCheckinStatsUnit {
+  course_unit_id: string;
+  course_unit: string;
+  semester: string;
+  start_week: number;
+  end_week: number;
+  start_time: Date;
+  end_time: Date;
+  course_code_count: number;
+  teaching_class_code_count: number;
+  total_should_attend: number;
+  total_absent: number;
+  total_truant: number;
+  absence_rate: number;
+  truancy_rate: number;
+}
+
+/**
+ * 班级级别签到统计视图实体
+ * 对应视图: v_course_checkin_stats_class
+ */
+export interface VCourseCheckinStatsClass {
+  teaching_class_code: string;
+  course_name: string;
+  semester: string;
+  course_unit_id: string;
+  course_unit: string;
+  start_week: number;
+  end_week: number;
+  start_time: Date;
+  end_time: Date;
+  course_code_count: number;
+  total_should_attend: number;
+  total_absent: number;
+  total_truant: number;
+  absence_rate: number;
+  truancy_rate: number;
+}
+
+/**
+ * 课程汇总签到统计视图实体
+ * 对应视图: v_course_checkin_stats_summary
+ */
+export interface VCourseCheckinStatsSummary {
+  course_code: string;
+  course_name: string;
+  semester: string;
+  class_location: string | null;
+  teacher_name: string | null;
+  teacher_codes: string | null;
+  course_unit_id: string;
+  course_unit: string;
+  teaching_class_code: string;
+  start_week: number;
+  end_week: number;
+  start_time: Date;
+  end_time: Date;
+  total_should_attend: number;
+  total_absent: number;
+  total_truant: number;
+  absence_rate: number;
+  truancy_rate: number;
+}
+
+/**
  * 数据库表结构定义
  */
 export interface IcalinkDatabase {
@@ -575,17 +727,24 @@ export interface IcalinkDatabase {
   icalink_leave_approvals: IcalinkLeaveApproval;
   icalink_system_configs: IcalinkSystemConfig;
   icasync_attendance_courses: IcasyncAttendanceCourse;
+  icasync_calendar_mapping: IcasyncCalendarMapping;
   icalink_absent_student_relations: IcalinkAbsentStudentRelation;
   icalink_verification_windows: IcalinkVerificationWindow;
   icalink_course_checkin_stats: IcalinkCourseCheckinStats;
-  v_teaching_class: VTeachingClass;
+  icalink_teaching_class: IcalinkTeachingClass;
 
   // 考勤相关视图
+  v_teaching_class: VTeachingClass;
   v_attendance_realtime_details: VAttendanceRealtimeDetails;
   v_attendance_history_details: VAttendanceHistoryDetails;
   v_student_semester_attendance_stats: VStudentSemesterAttendanceStats;
   v_student_overall_attendance_stats: VStudentOverallAttendanceStats;
   v_student_overall_attendance_stats_details: VStudentOverallAttendanceStatsDetails;
+  v_student_absence_rate_detail: VStudentAbsenceRateDetail;
+  v_student_absence_rate_summary: VStudentAbsenceRateSummary;
+  v_course_checkin_stats_unit: VCourseCheckinStatsUnit;
+  v_course_checkin_stats_class: VCourseCheckinStatsClass;
+  v_course_checkin_stats_summary: VCourseCheckinStatsSummary;
 
   // RBAC权限管理表
   rbac_roles: RbacRole;

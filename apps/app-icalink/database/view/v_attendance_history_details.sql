@@ -11,6 +11,15 @@ SELECT
   tc.class_name,
   tc.major_name,
   tc.school_name,
+  tc.grade,
+  tc.gender,
+  tc.people,
+  tc.class_id,
+  tc.school_id,
+  tc.major_id,
+  tc.course_unit_id,
+  tc.course_unit,
+  tc.teaching_class_code,
   sessions.teaching_week,
   sessions.week_day,
   sessions.periods,
@@ -21,6 +30,7 @@ SELECT
   sessions.teacher_codes,
   sessions.semester,
   sessions.class_location,
+  sessions.need_checkin,
   CASE
     WHEN arh.last_checkin_source = 'manual' THEN arh.status
     WHEN arh.status IN ('leave', 'leave_pending') THEN arh.status

@@ -13,6 +13,17 @@ export interface StatsQueryParams {
 }
 
 /**
+ * 教学班表查询参数（关键字搜索）
+ */
+export interface TeachingClassQueryParams {
+  page?: number
+  pageSize?: number
+  searchKeyword?: string
+  sortField?: string
+  sortOrder?: 'asc' | 'desc'
+}
+
+/**
  * 分页响应结果
  */
 export interface PaginatedStatsResponse<T> {
@@ -81,16 +92,26 @@ export interface CourseCheckinStats {
 }
 
 /**
- * 教学班记录
+ * 教学班记录（对应 icalink_teaching_class 表）
  */
 export interface TeachingClass {
-  student_id: string
+  id: number
+  student_id: string | null
+  student_name: string | null
+  school_name: string | null
+  school_id: string | null
+  major_id: string | null
+  major_name: string | null
+  class_id: string | null
+  class_name: string | null
+  grade: string | null
+  gender: string | null
+  people: string | null
   course_code: string
+  teaching_class_code: string
   course_name: string
-  name: string
-  school_name: string
-  major_name: string
-  class_name: string
+  course_unit_id: string | null
+  course_unit: string | null
 }
 
 /**
@@ -138,6 +159,71 @@ export interface StudentOverallAttendanceStatsDetails {
   leave_count: number
   leave_pending_count: number
   absence_rate: number
+}
+
+/**
+ * 单位级别签到统计记录
+ */
+export interface CourseCheckinStatsUnit {
+  course_unit_id: string
+  course_unit: string
+  semester: string
+  start_week: number
+  end_week: number
+  start_time: Date
+  end_time: Date
+  course_code_count: number
+  teaching_class_code_count: number
+  total_should_attend: number
+  total_absent: number
+  total_truant: number
+  absence_rate: number
+  truancy_rate: number
+}
+
+/**
+ * 班级级别签到统计记录
+ */
+export interface CourseCheckinStatsClass {
+  teaching_class_code: string
+  course_name: string
+  semester: string
+  course_unit_id: string
+  course_unit: string
+  start_week: number
+  end_week: number
+  start_time: Date
+  end_time: Date
+  course_code_count: number
+  total_should_attend: number
+  total_absent: number
+  total_truant: number
+  absence_rate: number
+  truancy_rate: number
+}
+
+/**
+ * 课程汇总签到统计记录
+ */
+export interface CourseCheckinStatsSummary {
+  course_code: string
+  course_name: string
+  semester: string
+  class_location: string | null
+  teacher_name: string | null
+  teacher_codes: string | null
+  course_unit_id: string
+  course_unit: string
+  teaching_class_code: string
+  start_week: number
+  end_week: number
+  start_time: Date
+  end_time: Date
+  total_should_attend: number
+  total_absent: number
+  total_truant: number
+  absence_rate: number
+  truancy_rate: number
 }
 
 /**
@@ -191,9 +277,10 @@ export class StatsApiService {
 
   /**
    * 查询教学班数据
+   * @param params 查询参数
    */
   async getTeachingClass(
-    params: StatsQueryParams
+    params: TeachingClassQueryParams
   ): Promise<PaginatedStatsResponse<TeachingClass>> {
     const queryParams = new URLSearchParams()
     if (params.page) queryParams.append('page', params.page.toString())
@@ -250,8 +337,73 @@ export class StatsApiService {
       `/api/icalink/v1/stats/student-stats-details?${queryParams.toString()}`
     )
   }
+
+  /**
+   * 查询单位级别签到统计数据
+   */
+  async getCourseStatsUnit(
+    params: StatsQueryParams
+  ): Promise<PaginatedStatsResponse<CourseCheckinStatsUnit>> {
+    const queryParams = new URLSearchParams()
+    if (params.page) queryParams.append('page', params.page.toString())
+    if (params.pageSize)
+      queryParams.append('pageSize', params.pageSize.toString())
+    if (params.searchKeyword)
+      queryParams.append('searchKeyword', params.searchKeyword)
+    if (params.sortField) queryParams.append('sortField', params.sortField)
+    if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder)
+
+    return apiClient.get(
+      `/api/icalink/v1/stats/course-stats-unit?${queryParams.toString()}`
+    )
+  }
+
+  /**
+   * 查询班级级别签到统计数据
+   * @param params 查询参数
+   * @param unitId 单位ID（用于树形结构的层级查询）
+   */
+  async getCourseStatsClass(
+    params: StatsQueryParams & { unitId?: string }
+  ): Promise<PaginatedStatsResponse<CourseCheckinStatsClass>> {
+    const queryParams = new URLSearchParams()
+    if (params.page) queryParams.append('page', params.page.toString())
+    if (params.pageSize)
+      queryParams.append('pageSize', params.pageSize.toString())
+    if (params.unitId) queryParams.append('unitId', params.unitId)
+    if (params.searchKeyword)
+      queryParams.append('searchKeyword', params.searchKeyword)
+    if (params.sortField) queryParams.append('sortField', params.sortField)
+    if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder)
+
+    return apiClient.get(
+      `/api/icalink/v1/stats/course-stats-class?${queryParams.toString()}`
+    )
+  }
+
+  /**
+   * 查询课程汇总签到统计数据
+   * @param params 查询参数
+   * @param classCode 班级代码（用于树形结构的层级查询）
+   */
+  async getCourseStatsSummary(
+    params: StatsQueryParams & { classCode?: string }
+  ): Promise<PaginatedStatsResponse<CourseCheckinStatsSummary>> {
+    const queryParams = new URLSearchParams()
+    if (params.page) queryParams.append('page', params.page.toString())
+    if (params.pageSize)
+      queryParams.append('pageSize', params.pageSize.toString())
+    if (params.classCode) queryParams.append('classCode', params.classCode)
+    if (params.searchKeyword)
+      queryParams.append('searchKeyword', params.searchKeyword)
+    if (params.sortField) queryParams.append('sortField', params.sortField)
+    if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder)
+
+    return apiClient.get(
+      `/api/icalink/v1/stats/course-stats-summary?${queryParams.toString()}`
+    )
+  }
 }
 
 // 创建全局实例
 export const statsApiService = new StatsApiService()
-

@@ -75,16 +75,6 @@ export interface CompanyInfo {
   description?: string;
 }
 
-// 部门信息类型
-export interface DeptInfo {
-  dept_id: string;
-  name: string;
-  parent_id?: string;
-  order?: number;
-  status: number;
-  company_id: string;
-}
-
 // 文件信息类型
 export interface FileInfo {
   file_id: string;

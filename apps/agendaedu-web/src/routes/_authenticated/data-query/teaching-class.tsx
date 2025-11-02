@@ -8,8 +8,8 @@ import {
   Search as SearchIcon,
 } from 'lucide-react'
 import {
-  StatsQueryParams,
   TeachingClass,
+  TeachingClassQueryParams,
   statsApiService,
 } from '@/lib/stats-api'
 import { Button } from '@/components/ui/button'
@@ -45,7 +45,7 @@ export const Route = createFileRoute(
 })
 
 function TeachingClassPage() {
-  const [filters, setFilters] = useState<StatsQueryParams>({
+  const [filters, setFilters] = useState<TeachingClassQueryParams>({
     page: 1,
     pageSize: 20,
     searchKeyword: '',
@@ -63,7 +63,10 @@ function TeachingClassPage() {
   const total = data?.data?.total ?? 0
   const totalPages = data?.data?.totalPages ?? 0
 
-  const handleFilterChange = (key: keyof StatsQueryParams, value: any) => {
+  const handleFilterChange = (
+    key: keyof TeachingClassQueryParams,
+    value: any
+  ) => {
     setFilters((prev) => ({ ...prev, [key]: value, page: 1 }))
   }
 
@@ -83,16 +86,6 @@ function TeachingClassPage() {
     })
   }
 
-  const handleSort = (field: string) => {
-    setFilters((prev) => ({
-      ...prev,
-      sortField: field,
-      sortOrder:
-        prev.sortField === field && prev.sortOrder === 'asc' ? 'desc' : 'asc',
-      page: 1,
-    }))
-  }
-
   return (
     <div className='flex-1 space-y-6 p-4 pt-6 md:p-8'>
       <div className='flex items-center justify-between'>
@@ -106,22 +99,38 @@ function TeachingClassPage() {
       <Card>
         <CardHeader>
           <CardTitle>查询条件</CardTitle>
-          <CardDescription>输入搜索关键词或选择筛选条件</CardDescription>
+          <CardDescription>
+            输入关键字搜索（支持学号、姓名、学院、专业、班级、年级、课程编码、课程名称、开课单位）
+          </CardDescription>
         </CardHeader>
         <CardContent className='space-y-4'>
-          <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
-            <div className='space-y-2'>
-              <Label htmlFor='searchKeyword'>搜索</Label>
+          <div className='space-y-2'>
+            <Label htmlFor='searchKeyword'>搜索关键字</Label>
+            <div className='flex gap-2'>
               <Input
                 id='searchKeyword'
-                placeholder='学号、姓名、课程代码、课程名称'
+                placeholder='输入学号、姓名、学院、专业、班级、年级、课程编码、课程名称或开课单位'
                 value={filters.searchKeyword}
                 onChange={(e) =>
                   handleFilterChange('searchKeyword', e.target.value)
                 }
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    setFilters((prev) => ({ ...prev, page: 1 }))
+                  }
+                }}
               />
+              <Button
+                variant='outline'
+                size='icon'
+                onClick={() => setFilters((prev) => ({ ...prev, page: 1 }))}
+              >
+                <SearchIcon className='h-4 w-4' />
+              </Button>
             </div>
+          </div>
 
+          <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
             <div className='space-y-2'>
               <Label htmlFor='pageSize'>每页显示</Label>
               <Select
@@ -167,49 +176,22 @@ function TeachingClassPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead
-                    className='hover:bg-muted cursor-pointer'
-                    onClick={() => handleSort('student_id')}
-                  >
-                    学号
-                    {filters.sortField === 'student_id' && (
-                      <span className='ml-1'>
-                        {filters.sortOrder === 'asc' ? '↑' : '↓'}
-                      </span>
-                    )}
-                  </TableHead>
-                  <TableHead
-                    className='hover:bg-muted cursor-pointer'
-                    onClick={() => handleSort('name')}
-                  >
-                    姓名
-                    {filters.sortField === 'name' && (
-                      <span className='ml-1'>
-                        {filters.sortOrder === 'asc' ? '↑' : '↓'}
-                      </span>
-                    )}
-                  </TableHead>
-                  <TableHead
-                    className='hover:bg-muted cursor-pointer'
-                    onClick={() => handleSort('course_code')}
-                  >
-                    课程代码
-                    {filters.sortField === 'course_code' && (
-                      <span className='ml-1'>
-                        {filters.sortOrder === 'asc' ? '↑' : '↓'}
-                      </span>
-                    )}
-                  </TableHead>
+                  <TableHead>学号</TableHead>
+                  <TableHead>姓名</TableHead>
+                  <TableHead>学院</TableHead>
+                  <TableHead>专业</TableHead>
+                  <TableHead>班级</TableHead>
+                  <TableHead>年级</TableHead>
+                  <TableHead>课程编号</TableHead>
+                  <TableHead>教学班代码</TableHead>
                   <TableHead>课程名称</TableHead>
-                  <TableHead>学院名称</TableHead>
-                  <TableHead>专业名称</TableHead>
-                  <TableHead>班级名称</TableHead>
+                  <TableHead>开课单位</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className='h-24 text-center'>
+                    <TableCell colSpan={10} className='h-24 text-center'>
                       <SearchIcon className='mx-auto h-6 w-6 animate-pulse' />
                       <p className='mt-2'>正在加载...</p>
                     </TableCell>
@@ -217,7 +199,7 @@ function TeachingClassPage() {
                 ) : isError ? (
                   <TableRow>
                     <TableCell
-                      colSpan={7}
+                      colSpan={10}
                       className='h-24 text-center text-red-500'
                     >
                       加载数据失败: {error?.message || '未知错误'}
@@ -225,7 +207,7 @@ function TeachingClassPage() {
                   </TableRow>
                 ) : records.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className='h-24 text-center'>
+                    <TableCell colSpan={10} className='h-24 text-center'>
                       无结果
                     </TableCell>
                   </TableRow>
@@ -235,14 +217,17 @@ function TeachingClassPage() {
                       key={`${record.student_id}-${record.course_code}-${index}`}
                     >
                       <TableCell className='font-medium'>
-                        {record.student_id}
+                        {record.student_id || '-'}
                       </TableCell>
-                      <TableCell>{record.name}</TableCell>
+                      <TableCell>{record.student_name || '-'}</TableCell>
+                      <TableCell>{record.school_name || '-'}</TableCell>
+                      <TableCell>{record.major_name || '-'}</TableCell>
+                      <TableCell>{record.class_name || '-'}</TableCell>
+                      <TableCell>{record.grade || '-'}</TableCell>
                       <TableCell>{record.course_code}</TableCell>
+                      <TableCell>{record.teaching_class_code}</TableCell>
                       <TableCell>{record.course_name}</TableCell>
-                      <TableCell>{record.school_name}</TableCell>
-                      <TableCell>{record.major_name}</TableCell>
-                      <TableCell>{record.class_name}</TableCell>
+                      <TableCell>{record.course_unit || '-'}</TableCell>
                     </TableRow>
                   ))
                 )}

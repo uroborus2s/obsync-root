@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createContainer, asValue } from 'awilix';
-import { createWpsUserAdapter } from '../adapters/user-adapter.js';
-import { createWpsDepartmentAdapter } from '../adapters/department-adapter.js';
-import { createWpsCompanyAdapter } from '../adapters/company-adapter.js';
-import { createWpsCalendarAdapter } from '../adapters/calendar-adapter.js';
 import type { Logger } from '@stratix/core';
+import { asValue, createContainer } from 'awilix';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createWpsCalendarAdapter } from '../adapters/calendar-adapter.js';
+import { createWpsCompanyAdapter } from '../adapters/company-adapter.js';
+import { createWpsDepartmentAdapter } from '../adapters/department-adapter.js';
+import { createWpsUserAdapter } from '../adapters/user-adapter.js';
 import type { AuthManager } from '../auth/auth-manager.js';
 import type { HttpClient } from '../core/http-client.js';
 
@@ -33,7 +33,7 @@ describe('WPS V7 适配器架构测试', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    
+
     // 创建模拟容器
     container = createContainer();
     container.register({
@@ -46,7 +46,7 @@ describe('WPS V7 适配器架构测试', () => {
   describe('适配器工厂函数', () => {
     it('应该能够创建用户适配器', () => {
       const userAdapter = createWpsUserAdapter(container);
-      
+
       expect(userAdapter).toBeDefined();
       expect(typeof userAdapter.createUser).toBe('function');
       expect(typeof userAdapter.getUser).toBe('function');
@@ -62,23 +62,17 @@ describe('WPS V7 适配器架构测试', () => {
 
     it('应该能够创建部门适配器', () => {
       const deptAdapter = createWpsDepartmentAdapter(container);
-      
+
       expect(deptAdapter).toBeDefined();
-      expect(typeof deptAdapter.getDeptList).toBe('function');
-      expect(typeof deptAdapter.getAllDeptList).toBe('function');
       expect(typeof deptAdapter.getRootDept).toBe('function');
-      expect(typeof deptAdapter.createDept).toBe('function');
-      expect(typeof deptAdapter.updateDept).toBe('function');
-      expect(typeof deptAdapter.deleteDept).toBe('function');
-      expect(typeof deptAdapter.getDeptByExId).toBe('function');
+      expect(typeof deptAdapter.getDeptChildren).toBe('function');
       expect(typeof deptAdapter.batchGetDeptInfo).toBe('function');
-      expect(typeof deptAdapter.getAllSubDepts).toBe('function');
-      expect(typeof deptAdapter.getDeptTree).toBe('function');
+      expect(typeof deptAdapter.getDeptByExIds).toBe('function');
     });
 
     it('应该能够创建企业适配器', () => {
       const companyAdapter = createWpsCompanyAdapter(container);
-      
+
       expect(companyAdapter).toBeDefined();
       expect(typeof companyAdapter.getCurrentCompany).toBe('function');
       expect(typeof companyAdapter.getCompanyInfo).toBe('function');
@@ -86,7 +80,7 @@ describe('WPS V7 适配器架构测试', () => {
 
     it('应该能够创建日历适配器', () => {
       const calendarAdapter = createWpsCalendarAdapter(container);
-      
+
       expect(calendarAdapter).toBeDefined();
       expect(typeof calendarAdapter.createCalendar).toBe('function');
       expect(typeof calendarAdapter.getMainCalendar).toBe('function');
@@ -105,7 +99,7 @@ describe('WPS V7 适配器架构测试', () => {
   describe('依赖注入', () => {
     it('适配器应该正确解析依赖', () => {
       const userAdapter = createWpsUserAdapter(container);
-      
+
       // 验证依赖注入是否正常工作
       expect(container.resolve('logger')).toBe(mockLogger);
       expect(container.resolve('wasV7AuthManager')).toBe(mockAuthManager);
@@ -116,7 +110,7 @@ describe('WPS V7 适配器架构测试', () => {
   describe('认证流程', () => {
     it('应该在API调用前检查token有效性', async () => {
       const userAdapter = createWpsUserAdapter(container);
-      
+
       vi.mocked(mockHttpClient.post).mockResolvedValue({
         data: { user_id: 'test123' }
       });
@@ -132,7 +126,7 @@ describe('WPS V7 适配器架构测试', () => {
 
     it('应该在token过期时自动刷新', async () => {
       const userAdapter = createWpsUserAdapter(container);
-      
+
       // 模拟token过期
       vi.mocked(mockAuthManager.isTokenValid).mockReturnValue(false);
       vi.mocked(mockHttpClient.post).mockResolvedValue({
@@ -146,8 +140,12 @@ describe('WPS V7 适配器架构测试', () => {
       });
 
       expect(mockAuthManager.getAppAccessToken).toHaveBeenCalled();
-      expect(mockLogger.debug).toHaveBeenCalledWith('Token expired, refreshing...');
-      expect(mockLogger.debug).toHaveBeenCalledWith('Token refreshed successfully');
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        'Token expired, refreshing...'
+      );
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        'Token refreshed successfully'
+      );
     });
   });
 
@@ -166,7 +164,10 @@ describe('WPS V7 适配器架构测试', () => {
 
       const result = await userAdapter.createUser(createParams);
 
-      expect(mockHttpClient.post).toHaveBeenCalledWith('/v7/contacts/users', createParams);
+      expect(mockHttpClient.post).toHaveBeenCalledWith(
+        '/v7/contacts/users',
+        createParams
+      );
       expect(result).toEqual({ user_id: 'test123', name: '测试用户' });
     });
 
@@ -180,7 +181,9 @@ describe('WPS V7 适配器架构测试', () => {
 
       const result = await userAdapter.getUser({ user_id: userId });
 
-      expect(mockHttpClient.get).toHaveBeenCalledWith(`/v7/contacts/users/${userId}`);
+      expect(mockHttpClient.get).toHaveBeenCalledWith(
+        `/v7/contacts/users/${userId}`
+      );
       expect(result).toEqual({ id: userId, name: '测试用户' });
     });
   });
