@@ -6,10 +6,10 @@ import {
   Calendar,
   Clock,
   Command,
-  FileSpreadsheet,
   FileText,
   Network,
   RefreshCw,
+  Settings,
   Users,
   Workflow,
 } from 'lucide-react'
@@ -105,24 +105,6 @@ export const sidebarData: SidebarData = {
               },
             },
             {
-              title: '学生历史统计表',
-              url: '/data-query/student-stats' as const,
-              icon: Users,
-              permission: {
-                requiredRoles: ['teacher', 'admin', 'super_admin'],
-                mode: 'or',
-              },
-            },
-            {
-              title: '学生历史统计详情表',
-              url: '/data-query/student-stats-details' as const,
-              icon: FileSpreadsheet,
-              permission: {
-                requiredRoles: ['teacher', 'admin', 'super_admin'],
-                mode: 'or',
-              },
-            },
-            {
               title: '教学班表',
               url: '/data-query/teaching-class' as const,
               icon: BookOpen,
@@ -140,12 +122,39 @@ export const sidebarData: SidebarData = {
                 mode: 'or',
               },
             },
+            {
+              title: '学工签到统计',
+              url: '/attendance/student-stats' as const,
+              icon: Users,
+              permission: {
+                requiredRoles: ['teacher', 'admin', 'super_admin'],
+                mode: 'or',
+              },
+            },
+            {
+              title: '调串课',
+              url: '/course-reschedule' as const,
+              icon: RefreshCw,
+              permission: {
+                requiredRoles: ['teacher', 'admin', 'super_admin'],
+                mode: 'or',
+              },
+            },
           ],
         },
         {
           title: '课程日历',
           url: '/course-calendar' as const,
           icon: Calendar,
+          permission: {
+            requiredRoles: ['teacher', 'admin', 'super_admin'],
+            mode: 'or',
+          },
+        },
+        {
+          title: '系统配置',
+          url: '/system-config' as const,
+          icon: Settings,
           permission: {
             requiredRoles: ['teacher', 'admin', 'super_admin'],
             mode: 'or',

@@ -1,12 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import {
-  ChevronLeft,
-  ChevronRight,
-  RotateCcw,
-  Search as SearchIcon,
-} from 'lucide-react'
+import { ChevronLeft, ChevronRight, Search as SearchIcon } from 'lucide-react'
 import {
   TeachingClass,
   TeachingClassQueryParams,
@@ -22,13 +17,6 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -128,35 +116,6 @@ function TeachingClassPage() {
                 <SearchIcon className='h-4 w-4' />
               </Button>
             </div>
-          </div>
-
-          <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
-            <div className='space-y-2'>
-              <Label htmlFor='pageSize'>每页显示</Label>
-              <Select
-                onValueChange={(value) =>
-                  handleFilterChange('pageSize', Number(value))
-                }
-                value={String(filters.pageSize)}
-              >
-                <SelectTrigger id='pageSize'>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value='10'>10 条</SelectItem>
-                  <SelectItem value='20'>20 条</SelectItem>
-                  <SelectItem value='50'>50 条</SelectItem>
-                  <SelectItem value='100'>100 条</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className='flex gap-4'>
-            <Button onClick={handleReset} variant='outline'>
-              <RotateCcw className='mr-2 h-4 w-4' />
-              重置
-            </Button>
           </div>
         </CardContent>
       </Card>

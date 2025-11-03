@@ -39,7 +39,10 @@ export default withRegisterAutoDI<QueuePluginOptions>(queue, {
     deepMerge(
       {
         defaultQueueOptions: {},
-        defaultWorkerOptions: {}
+        defaultWorkerOptions: {
+          removeOnComplete: { age: 3600, count: 1000 }, // 一小时后或保留1000条
+          removeOnFail: { age: 86400 }
+        }
       },
       options || {}
     ) as T

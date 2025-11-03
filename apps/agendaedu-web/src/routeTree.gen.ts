@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as ClerkRouteRouteImport } from './routes/clerk/route'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedUserDebugRouteImport } from './routes/_authenticated/user-debug'
 import { Route as AuthenticatedTeachersRouteImport } from './routes/_authenticated/teachers'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
 import { Route as AuthenticatedStudentsRouteImport } from './routes/_authenticated/students'
@@ -19,6 +20,7 @@ import { Route as AuthenticatedPermissionDebugRouteImport } from './routes/_auth
 import { Route as AuthenticatedDataQueryRouteImport } from './routes/_authenticated/data-query'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCoursesRouteImport } from './routes/_authenticated/courses'
+import { Route as AuthenticatedCourseRescheduleRouteImport } from './routes/_authenticated/course-reschedule'
 import { Route as AuthenticatedBasicManagementRouteImport } from './routes/_authenticated/basic-management'
 import { Route as AuthenticatedAttendanceRouteImport } from './routes/_authenticated/attendance'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
@@ -32,15 +34,18 @@ import { Route as authCallbackRouteImport } from './routes/(auth)/callback'
 import { Route as ClerkAuthenticatedRouteRouteImport } from './routes/clerk/_authenticated/route'
 import { Route as ClerkauthRouteRouteImport } from './routes/clerk/(auth)/route'
 import { Route as AuthenticatedWorkflowsRouteRouteImport } from './routes/_authenticated/workflows/route'
+import { Route as AuthenticatedSystemConfigRouteRouteImport } from './routes/_authenticated/system-config/route'
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
 import { Route as AuthenticatedWorkflowsIndexRouteImport } from './routes/_authenticated/workflows/index'
 import { Route as AuthenticatedUsersIndexRouteImport } from './routes/_authenticated/users/index'
 import { Route as AuthenticatedTasksIndexRouteImport } from './routes/_authenticated/tasks/index'
+import { Route as AuthenticatedSystemConfigIndexRouteImport } from './routes/_authenticated/system-config/index'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
 import { Route as AuthenticatedHelpCenterIndexRouteImport } from './routes/_authenticated/help-center/index'
 import { Route as AuthenticatedDataQueryIndexRouteImport } from './routes/_authenticated/data-query/index'
 import { Route as AuthenticatedCourseCalendarIndexRouteImport } from './routes/_authenticated/course-calendar/index'
 import { Route as AuthenticatedChatsIndexRouteImport } from './routes/_authenticated/chats/index'
+import { Route as AuthenticatedAttendanceIndexRouteImport } from './routes/_authenticated/attendance/index'
 import { Route as AuthenticatedAppsIndexRouteImport } from './routes/_authenticated/apps/index'
 import { Route as ClerkAuthenticatedUserManagementRouteImport } from './routes/clerk/_authenticated/user-management'
 import { Route as ClerkauthSignUpRouteImport } from './routes/clerk/(auth)/sign-up'
@@ -54,6 +59,9 @@ import { Route as AuthenticatedWorkflowsDefinitionsRouteImport } from './routes/
 import { Route as AuthenticatedWorkflowsCourseRestoreRouteImport } from './routes/_authenticated/workflows/course-restore'
 import { Route as AuthenticatedTasksSyncRouteImport } from './routes/_authenticated/tasks/sync'
 import { Route as AuthenticatedTasksSettingsRouteImport } from './routes/_authenticated/tasks/settings'
+import { Route as AuthenticatedSystemConfigTermRouteImport } from './routes/_authenticated/system-config/term'
+import { Route as AuthenticatedSystemConfigSyncRouteImport } from './routes/_authenticated/system-config/sync'
+import { Route as AuthenticatedSystemConfigCourseRouteImport } from './routes/_authenticated/system-config/course'
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings/notifications'
 import { Route as AuthenticatedSettingsDisplayRouteImport } from './routes/_authenticated/settings/display'
 import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_authenticated/settings/appearance'
@@ -63,8 +71,6 @@ import { Route as AuthenticatedRbacRolesRouteImport } from './routes/_authentica
 import { Route as AuthenticatedRbacPermissionsRouteImport } from './routes/_authenticated/rbac.permissions'
 import { Route as AuthenticatedRbacMenusRouteImport } from './routes/_authenticated/rbac.menus'
 import { Route as AuthenticatedDataQueryTeachingClassRouteImport } from './routes/_authenticated/data-query/teaching-class'
-import { Route as AuthenticatedDataQueryStudentStatsDetailsRouteImport } from './routes/_authenticated/data-query/student-stats-details'
-import { Route as AuthenticatedDataQueryStudentStatsRouteImport } from './routes/_authenticated/data-query/student-stats'
 import { Route as AuthenticatedDataQueryCourseStatsTreeRouteImport } from './routes/_authenticated/data-query/course-stats-tree'
 import { Route as AuthenticatedDataQueryCourseStatsRouteImport } from './routes/_authenticated/data-query/course-stats'
 import { Route as AuthenticatedDataQueryAbsentHistoryRouteImport } from './routes/_authenticated/data-query/absent-history'
@@ -72,6 +78,7 @@ import { Route as AuthenticatedCoursesSettingsRouteImport } from './routes/_auth
 import { Route as AuthenticatedCoursesScheduleRouteImport } from './routes/_authenticated/courses/schedule'
 import { Route as AuthenticatedCourseCalendarStudentRouteImport } from './routes/_authenticated/course-calendar/student'
 import { Route as AuthenticatedAttendanceStudentsRouteImport } from './routes/_authenticated/attendance/students'
+import { Route as AuthenticatedAttendanceStudentStatsRouteImport } from './routes/_authenticated/attendance/student-stats'
 import { Route as AuthenticatedAttendanceRankingsRouteImport } from './routes/_authenticated/attendance/rankings'
 import { Route as AuthenticatedAttendanceOverviewRouteImport } from './routes/_authenticated/attendance/overview'
 import { Route as AuthenticatedAttendanceCoursesRouteImport } from './routes/_authenticated/attendance/courses'
@@ -94,6 +101,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedUserDebugRoute = AuthenticatedUserDebugRouteImport.update({
+  id: '/user-debug',
+  path: '/user-debug',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedTeachersRoute = AuthenticatedTeachersRouteImport.update({
@@ -132,6 +144,12 @@ const AuthenticatedCoursesRoute = AuthenticatedCoursesRouteImport.update({
   path: '/courses',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedCourseRescheduleRoute =
+  AuthenticatedCourseRescheduleRouteImport.update({
+    id: '/course-reschedule',
+    path: '/course-reschedule',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedBasicManagementRoute =
   AuthenticatedBasicManagementRouteImport.update({
     id: '/basic-management',
@@ -197,6 +215,12 @@ const AuthenticatedWorkflowsRouteRoute =
     path: '/workflows',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedSystemConfigRouteRoute =
+  AuthenticatedSystemConfigRouteRouteImport.update({
+    id: '/system-config',
+    path: '/system-config',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedSettingsRouteRoute =
   AuthenticatedSettingsRouteRouteImport.update({
     id: '/settings',
@@ -219,6 +243,12 @@ const AuthenticatedTasksIndexRoute = AuthenticatedTasksIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedTasksRoute,
 } as any)
+const AuthenticatedSystemConfigIndexRoute =
+  AuthenticatedSystemConfigIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedSystemConfigRouteRoute,
+  } as any)
 const AuthenticatedSettingsIndexRoute =
   AuthenticatedSettingsIndexRouteImport.update({
     id: '/',
@@ -248,6 +278,12 @@ const AuthenticatedChatsIndexRoute = AuthenticatedChatsIndexRouteImport.update({
   path: '/chats/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAttendanceIndexRoute =
+  AuthenticatedAttendanceIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedAttendanceRoute,
+  } as any)
 const AuthenticatedAppsIndexRoute = AuthenticatedAppsIndexRouteImport.update({
   id: '/apps/',
   path: '/apps/',
@@ -322,6 +358,24 @@ const AuthenticatedTasksSettingsRoute =
     path: '/settings',
     getParentRoute: () => AuthenticatedTasksRoute,
   } as any)
+const AuthenticatedSystemConfigTermRoute =
+  AuthenticatedSystemConfigTermRouteImport.update({
+    id: '/term',
+    path: '/term',
+    getParentRoute: () => AuthenticatedSystemConfigRouteRoute,
+  } as any)
+const AuthenticatedSystemConfigSyncRoute =
+  AuthenticatedSystemConfigSyncRouteImport.update({
+    id: '/sync',
+    path: '/sync',
+    getParentRoute: () => AuthenticatedSystemConfigRouteRoute,
+  } as any)
+const AuthenticatedSystemConfigCourseRoute =
+  AuthenticatedSystemConfigCourseRouteImport.update({
+    id: '/course',
+    path: '/course',
+    getParentRoute: () => AuthenticatedSystemConfigRouteRoute,
+  } as any)
 const AuthenticatedSettingsNotificationsRoute =
   AuthenticatedSettingsNotificationsRouteImport.update({
     id: '/notifications',
@@ -373,18 +427,6 @@ const AuthenticatedDataQueryTeachingClassRoute =
     path: '/teaching-class',
     getParentRoute: () => AuthenticatedDataQueryRoute,
   } as any)
-const AuthenticatedDataQueryStudentStatsDetailsRoute =
-  AuthenticatedDataQueryStudentStatsDetailsRouteImport.update({
-    id: '/student-stats-details',
-    path: '/student-stats-details',
-    getParentRoute: () => AuthenticatedDataQueryRoute,
-  } as any)
-const AuthenticatedDataQueryStudentStatsRoute =
-  AuthenticatedDataQueryStudentStatsRouteImport.update({
-    id: '/student-stats',
-    path: '/student-stats',
-    getParentRoute: () => AuthenticatedDataQueryRoute,
-  } as any)
 const AuthenticatedDataQueryCourseStatsTreeRoute =
   AuthenticatedDataQueryCourseStatsTreeRouteImport.update({
     id: '/course-stats-tree',
@@ -425,6 +467,12 @@ const AuthenticatedAttendanceStudentsRoute =
   AuthenticatedAttendanceStudentsRouteImport.update({
     id: '/students',
     path: '/students',
+    getParentRoute: () => AuthenticatedAttendanceRoute,
+  } as any)
+const AuthenticatedAttendanceStudentStatsRoute =
+  AuthenticatedAttendanceStudentStatsRouteImport.update({
+    id: '/student-stats',
+    path: '/student-stats',
     getParentRoute: () => AuthenticatedAttendanceRoute,
   } as any)
 const AuthenticatedAttendanceRankingsRoute =
@@ -485,6 +533,7 @@ const AuthenticatedWorkflowsDefinitionsDefinitionIdRoute =
 export interface FileRoutesByFullPath {
   '/clerk': typeof ClerkAuthenticatedRouteRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
+  '/system-config': typeof AuthenticatedSystemConfigRouteRouteWithChildren
   '/workflows': typeof AuthenticatedWorkflowsRouteRouteWithChildren
   '/clerk/': typeof ClerkauthRouteRouteWithChildren
   '/callback': typeof authCallbackRoute
@@ -497,6 +546,7 @@ export interface FileRoutesByFullPath {
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/attendance': typeof AuthenticatedAttendanceRouteWithChildren
   '/basic-management': typeof AuthenticatedBasicManagementRoute
+  '/course-reschedule': typeof AuthenticatedCourseRescheduleRoute
   '/courses': typeof AuthenticatedCoursesRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/data-query': typeof AuthenticatedDataQueryRouteWithChildren
@@ -504,12 +554,14 @@ export interface FileRoutesByFullPath {
   '/students': typeof AuthenticatedStudentsRoute
   '/tasks': typeof AuthenticatedTasksRouteWithChildren
   '/teachers': typeof AuthenticatedTeachersRoute
+  '/user-debug': typeof AuthenticatedUserDebugRoute
   '/': typeof AuthenticatedIndexRoute
   '/attendance/analytics': typeof AuthenticatedAttendanceAnalyticsRoute
   '/attendance/course-statistics': typeof AuthenticatedAttendanceCourseStatisticsRoute
   '/attendance/courses': typeof AuthenticatedAttendanceCoursesRoute
   '/attendance/overview': typeof AuthenticatedAttendanceOverviewRoute
   '/attendance/rankings': typeof AuthenticatedAttendanceRankingsRoute
+  '/attendance/student-stats': typeof AuthenticatedAttendanceStudentStatsRoute
   '/attendance/students': typeof AuthenticatedAttendanceStudentsRoute
   '/course-calendar/student': typeof AuthenticatedCourseCalendarStudentRoute
   '/courses/schedule': typeof AuthenticatedCoursesScheduleRoute
@@ -517,8 +569,6 @@ export interface FileRoutesByFullPath {
   '/data-query/absent-history': typeof AuthenticatedDataQueryAbsentHistoryRoute
   '/data-query/course-stats': typeof AuthenticatedDataQueryCourseStatsRoute
   '/data-query/course-stats-tree': typeof AuthenticatedDataQueryCourseStatsTreeRoute
-  '/data-query/student-stats': typeof AuthenticatedDataQueryStudentStatsRoute
-  '/data-query/student-stats-details': typeof AuthenticatedDataQueryStudentStatsDetailsRoute
   '/data-query/teaching-class': typeof AuthenticatedDataQueryTeachingClassRoute
   '/rbac/menus': typeof AuthenticatedRbacMenusRoute
   '/rbac/permissions': typeof AuthenticatedRbacPermissionsRoute
@@ -528,6 +578,9 @@ export interface FileRoutesByFullPath {
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
+  '/system-config/course': typeof AuthenticatedSystemConfigCourseRoute
+  '/system-config/sync': typeof AuthenticatedSystemConfigSyncRoute
+  '/system-config/term': typeof AuthenticatedSystemConfigTermRoute
   '/tasks/settings': typeof AuthenticatedTasksSettingsRoute
   '/tasks/sync': typeof AuthenticatedTasksSyncRoute
   '/workflows/course-restore': typeof AuthenticatedWorkflowsCourseRestoreRoute
@@ -541,11 +594,13 @@ export interface FileRoutesByFullPath {
   '/clerk/sign-up': typeof ClerkauthSignUpRoute
   '/clerk/user-management': typeof ClerkAuthenticatedUserManagementRoute
   '/apps': typeof AuthenticatedAppsIndexRoute
+  '/attendance/': typeof AuthenticatedAttendanceIndexRoute
   '/chats': typeof AuthenticatedChatsIndexRoute
   '/course-calendar': typeof AuthenticatedCourseCalendarIndexRoute
   '/data-query/': typeof AuthenticatedDataQueryIndexRoute
   '/help-center': typeof AuthenticatedHelpCenterIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
+  '/system-config/': typeof AuthenticatedSystemConfigIndexRoute
   '/tasks/': typeof AuthenticatedTasksIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
   '/workflows/': typeof AuthenticatedWorkflowsIndexRoute
@@ -564,19 +619,21 @@ export interface FileRoutesByTo {
   '/503': typeof errors503Route
   '/admin': typeof AuthenticatedAdminRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
-  '/attendance': typeof AuthenticatedAttendanceRouteWithChildren
   '/basic-management': typeof AuthenticatedBasicManagementRoute
+  '/course-reschedule': typeof AuthenticatedCourseRescheduleRoute
   '/courses': typeof AuthenticatedCoursesRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/permission-debug': typeof AuthenticatedPermissionDebugRoute
   '/students': typeof AuthenticatedStudentsRoute
   '/teachers': typeof AuthenticatedTeachersRoute
+  '/user-debug': typeof AuthenticatedUserDebugRoute
   '/': typeof AuthenticatedIndexRoute
   '/attendance/analytics': typeof AuthenticatedAttendanceAnalyticsRoute
   '/attendance/course-statistics': typeof AuthenticatedAttendanceCourseStatisticsRoute
   '/attendance/courses': typeof AuthenticatedAttendanceCoursesRoute
   '/attendance/overview': typeof AuthenticatedAttendanceOverviewRoute
   '/attendance/rankings': typeof AuthenticatedAttendanceRankingsRoute
+  '/attendance/student-stats': typeof AuthenticatedAttendanceStudentStatsRoute
   '/attendance/students': typeof AuthenticatedAttendanceStudentsRoute
   '/course-calendar/student': typeof AuthenticatedCourseCalendarStudentRoute
   '/courses/schedule': typeof AuthenticatedCoursesScheduleRoute
@@ -584,8 +641,6 @@ export interface FileRoutesByTo {
   '/data-query/absent-history': typeof AuthenticatedDataQueryAbsentHistoryRoute
   '/data-query/course-stats': typeof AuthenticatedDataQueryCourseStatsRoute
   '/data-query/course-stats-tree': typeof AuthenticatedDataQueryCourseStatsTreeRoute
-  '/data-query/student-stats': typeof AuthenticatedDataQueryStudentStatsRoute
-  '/data-query/student-stats-details': typeof AuthenticatedDataQueryStudentStatsDetailsRoute
   '/data-query/teaching-class': typeof AuthenticatedDataQueryTeachingClassRoute
   '/rbac/menus': typeof AuthenticatedRbacMenusRoute
   '/rbac/permissions': typeof AuthenticatedRbacPermissionsRoute
@@ -595,6 +650,9 @@ export interface FileRoutesByTo {
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
+  '/system-config/course': typeof AuthenticatedSystemConfigCourseRoute
+  '/system-config/sync': typeof AuthenticatedSystemConfigSyncRoute
+  '/system-config/term': typeof AuthenticatedSystemConfigTermRoute
   '/tasks/settings': typeof AuthenticatedTasksSettingsRoute
   '/tasks/sync': typeof AuthenticatedTasksSyncRoute
   '/workflows/course-restore': typeof AuthenticatedWorkflowsCourseRestoreRoute
@@ -607,11 +665,13 @@ export interface FileRoutesByTo {
   '/clerk/sign-up': typeof ClerkauthSignUpRoute
   '/clerk/user-management': typeof ClerkAuthenticatedUserManagementRoute
   '/apps': typeof AuthenticatedAppsIndexRoute
+  '/attendance': typeof AuthenticatedAttendanceIndexRoute
   '/chats': typeof AuthenticatedChatsIndexRoute
   '/course-calendar': typeof AuthenticatedCourseCalendarIndexRoute
   '/data-query': typeof AuthenticatedDataQueryIndexRoute
   '/help-center': typeof AuthenticatedHelpCenterIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
+  '/system-config': typeof AuthenticatedSystemConfigIndexRoute
   '/tasks': typeof AuthenticatedTasksIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
   '/workflows': typeof AuthenticatedWorkflowsIndexRoute
@@ -625,6 +685,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/clerk': typeof ClerkRouteRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
+  '/_authenticated/system-config': typeof AuthenticatedSystemConfigRouteRouteWithChildren
   '/_authenticated/workflows': typeof AuthenticatedWorkflowsRouteRouteWithChildren
   '/clerk/(auth)': typeof ClerkauthRouteRouteWithChildren
   '/clerk/_authenticated': typeof ClerkAuthenticatedRouteRouteWithChildren
@@ -638,6 +699,7 @@ export interface FileRoutesById {
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/attendance': typeof AuthenticatedAttendanceRouteWithChildren
   '/_authenticated/basic-management': typeof AuthenticatedBasicManagementRoute
+  '/_authenticated/course-reschedule': typeof AuthenticatedCourseRescheduleRoute
   '/_authenticated/courses': typeof AuthenticatedCoursesRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/data-query': typeof AuthenticatedDataQueryRouteWithChildren
@@ -645,12 +707,14 @@ export interface FileRoutesById {
   '/_authenticated/students': typeof AuthenticatedStudentsRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRouteWithChildren
   '/_authenticated/teachers': typeof AuthenticatedTeachersRoute
+  '/_authenticated/user-debug': typeof AuthenticatedUserDebugRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/attendance/analytics': typeof AuthenticatedAttendanceAnalyticsRoute
   '/_authenticated/attendance/course-statistics': typeof AuthenticatedAttendanceCourseStatisticsRoute
   '/_authenticated/attendance/courses': typeof AuthenticatedAttendanceCoursesRoute
   '/_authenticated/attendance/overview': typeof AuthenticatedAttendanceOverviewRoute
   '/_authenticated/attendance/rankings': typeof AuthenticatedAttendanceRankingsRoute
+  '/_authenticated/attendance/student-stats': typeof AuthenticatedAttendanceStudentStatsRoute
   '/_authenticated/attendance/students': typeof AuthenticatedAttendanceStudentsRoute
   '/_authenticated/course-calendar/student': typeof AuthenticatedCourseCalendarStudentRoute
   '/_authenticated/courses/schedule': typeof AuthenticatedCoursesScheduleRoute
@@ -658,8 +722,6 @@ export interface FileRoutesById {
   '/_authenticated/data-query/absent-history': typeof AuthenticatedDataQueryAbsentHistoryRoute
   '/_authenticated/data-query/course-stats': typeof AuthenticatedDataQueryCourseStatsRoute
   '/_authenticated/data-query/course-stats-tree': typeof AuthenticatedDataQueryCourseStatsTreeRoute
-  '/_authenticated/data-query/student-stats': typeof AuthenticatedDataQueryStudentStatsRoute
-  '/_authenticated/data-query/student-stats-details': typeof AuthenticatedDataQueryStudentStatsDetailsRoute
   '/_authenticated/data-query/teaching-class': typeof AuthenticatedDataQueryTeachingClassRoute
   '/_authenticated/rbac/menus': typeof AuthenticatedRbacMenusRoute
   '/_authenticated/rbac/permissions': typeof AuthenticatedRbacPermissionsRoute
@@ -669,6 +731,9 @@ export interface FileRoutesById {
   '/_authenticated/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/_authenticated/settings/display': typeof AuthenticatedSettingsDisplayRoute
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
+  '/_authenticated/system-config/course': typeof AuthenticatedSystemConfigCourseRoute
+  '/_authenticated/system-config/sync': typeof AuthenticatedSystemConfigSyncRoute
+  '/_authenticated/system-config/term': typeof AuthenticatedSystemConfigTermRoute
   '/_authenticated/tasks/settings': typeof AuthenticatedTasksSettingsRoute
   '/_authenticated/tasks/sync': typeof AuthenticatedTasksSyncRoute
   '/_authenticated/workflows/course-restore': typeof AuthenticatedWorkflowsCourseRestoreRoute
@@ -682,11 +747,13 @@ export interface FileRoutesById {
   '/clerk/(auth)/sign-up': typeof ClerkauthSignUpRoute
   '/clerk/_authenticated/user-management': typeof ClerkAuthenticatedUserManagementRoute
   '/_authenticated/apps/': typeof AuthenticatedAppsIndexRoute
+  '/_authenticated/attendance/': typeof AuthenticatedAttendanceIndexRoute
   '/_authenticated/chats/': typeof AuthenticatedChatsIndexRoute
   '/_authenticated/course-calendar/': typeof AuthenticatedCourseCalendarIndexRoute
   '/_authenticated/data-query/': typeof AuthenticatedDataQueryIndexRoute
   '/_authenticated/help-center/': typeof AuthenticatedHelpCenterIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
+  '/_authenticated/system-config/': typeof AuthenticatedSystemConfigIndexRoute
   '/_authenticated/tasks/': typeof AuthenticatedTasksIndexRoute
   '/_authenticated/users/': typeof AuthenticatedUsersIndexRoute
   '/_authenticated/workflows/': typeof AuthenticatedWorkflowsIndexRoute
@@ -700,6 +767,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/clerk'
     | '/settings'
+    | '/system-config'
     | '/workflows'
     | '/clerk/'
     | '/callback'
@@ -712,6 +780,7 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/attendance'
     | '/basic-management'
+    | '/course-reschedule'
     | '/courses'
     | '/dashboard'
     | '/data-query'
@@ -719,12 +788,14 @@ export interface FileRouteTypes {
     | '/students'
     | '/tasks'
     | '/teachers'
+    | '/user-debug'
     | '/'
     | '/attendance/analytics'
     | '/attendance/course-statistics'
     | '/attendance/courses'
     | '/attendance/overview'
     | '/attendance/rankings'
+    | '/attendance/student-stats'
     | '/attendance/students'
     | '/course-calendar/student'
     | '/courses/schedule'
@@ -732,8 +803,6 @@ export interface FileRouteTypes {
     | '/data-query/absent-history'
     | '/data-query/course-stats'
     | '/data-query/course-stats-tree'
-    | '/data-query/student-stats'
-    | '/data-query/student-stats-details'
     | '/data-query/teaching-class'
     | '/rbac/menus'
     | '/rbac/permissions'
@@ -743,6 +812,9 @@ export interface FileRouteTypes {
     | '/settings/appearance'
     | '/settings/display'
     | '/settings/notifications'
+    | '/system-config/course'
+    | '/system-config/sync'
+    | '/system-config/term'
     | '/tasks/settings'
     | '/tasks/sync'
     | '/workflows/course-restore'
@@ -756,11 +828,13 @@ export interface FileRouteTypes {
     | '/clerk/sign-up'
     | '/clerk/user-management'
     | '/apps'
+    | '/attendance/'
     | '/chats'
     | '/course-calendar'
     | '/data-query/'
     | '/help-center'
     | '/settings/'
+    | '/system-config/'
     | '/tasks/'
     | '/users'
     | '/workflows/'
@@ -779,19 +853,21 @@ export interface FileRouteTypes {
     | '/503'
     | '/admin'
     | '/analytics'
-    | '/attendance'
     | '/basic-management'
+    | '/course-reschedule'
     | '/courses'
     | '/dashboard'
     | '/permission-debug'
     | '/students'
     | '/teachers'
+    | '/user-debug'
     | '/'
     | '/attendance/analytics'
     | '/attendance/course-statistics'
     | '/attendance/courses'
     | '/attendance/overview'
     | '/attendance/rankings'
+    | '/attendance/student-stats'
     | '/attendance/students'
     | '/course-calendar/student'
     | '/courses/schedule'
@@ -799,8 +875,6 @@ export interface FileRouteTypes {
     | '/data-query/absent-history'
     | '/data-query/course-stats'
     | '/data-query/course-stats-tree'
-    | '/data-query/student-stats'
-    | '/data-query/student-stats-details'
     | '/data-query/teaching-class'
     | '/rbac/menus'
     | '/rbac/permissions'
@@ -810,6 +884,9 @@ export interface FileRouteTypes {
     | '/settings/appearance'
     | '/settings/display'
     | '/settings/notifications'
+    | '/system-config/course'
+    | '/system-config/sync'
+    | '/system-config/term'
     | '/tasks/settings'
     | '/tasks/sync'
     | '/workflows/course-restore'
@@ -822,11 +899,13 @@ export interface FileRouteTypes {
     | '/clerk/sign-up'
     | '/clerk/user-management'
     | '/apps'
+    | '/attendance'
     | '/chats'
     | '/course-calendar'
     | '/data-query'
     | '/help-center'
     | '/settings'
+    | '/system-config'
     | '/tasks'
     | '/users'
     | '/workflows'
@@ -839,6 +918,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/clerk'
     | '/_authenticated/settings'
+    | '/_authenticated/system-config'
     | '/_authenticated/workflows'
     | '/clerk/(auth)'
     | '/clerk/_authenticated'
@@ -852,6 +932,7 @@ export interface FileRouteTypes {
     | '/_authenticated/analytics'
     | '/_authenticated/attendance'
     | '/_authenticated/basic-management'
+    | '/_authenticated/course-reschedule'
     | '/_authenticated/courses'
     | '/_authenticated/dashboard'
     | '/_authenticated/data-query'
@@ -859,12 +940,14 @@ export interface FileRouteTypes {
     | '/_authenticated/students'
     | '/_authenticated/tasks'
     | '/_authenticated/teachers'
+    | '/_authenticated/user-debug'
     | '/_authenticated/'
     | '/_authenticated/attendance/analytics'
     | '/_authenticated/attendance/course-statistics'
     | '/_authenticated/attendance/courses'
     | '/_authenticated/attendance/overview'
     | '/_authenticated/attendance/rankings'
+    | '/_authenticated/attendance/student-stats'
     | '/_authenticated/attendance/students'
     | '/_authenticated/course-calendar/student'
     | '/_authenticated/courses/schedule'
@@ -872,8 +955,6 @@ export interface FileRouteTypes {
     | '/_authenticated/data-query/absent-history'
     | '/_authenticated/data-query/course-stats'
     | '/_authenticated/data-query/course-stats-tree'
-    | '/_authenticated/data-query/student-stats'
-    | '/_authenticated/data-query/student-stats-details'
     | '/_authenticated/data-query/teaching-class'
     | '/_authenticated/rbac/menus'
     | '/_authenticated/rbac/permissions'
@@ -883,6 +964,9 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/appearance'
     | '/_authenticated/settings/display'
     | '/_authenticated/settings/notifications'
+    | '/_authenticated/system-config/course'
+    | '/_authenticated/system-config/sync'
+    | '/_authenticated/system-config/term'
     | '/_authenticated/tasks/settings'
     | '/_authenticated/tasks/sync'
     | '/_authenticated/workflows/course-restore'
@@ -896,11 +980,13 @@ export interface FileRouteTypes {
     | '/clerk/(auth)/sign-up'
     | '/clerk/_authenticated/user-management'
     | '/_authenticated/apps/'
+    | '/_authenticated/attendance/'
     | '/_authenticated/chats/'
     | '/_authenticated/course-calendar/'
     | '/_authenticated/data-query/'
     | '/_authenticated/help-center/'
     | '/_authenticated/settings/'
+    | '/_authenticated/system-config/'
     | '/_authenticated/tasks/'
     | '/_authenticated/users/'
     | '/_authenticated/workflows/'
@@ -942,6 +1028,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/user-debug': {
+      id: '/_authenticated/user-debug'
+      path: '/user-debug'
+      fullPath: '/user-debug'
+      preLoaderRoute: typeof AuthenticatedUserDebugRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/teachers': {
@@ -991,6 +1084,13 @@ declare module '@tanstack/react-router' {
       path: '/courses'
       fullPath: '/courses'
       preLoaderRoute: typeof AuthenticatedCoursesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/course-reschedule': {
+      id: '/_authenticated/course-reschedule'
+      path: '/course-reschedule'
+      fullPath: '/course-reschedule'
+      preLoaderRoute: typeof AuthenticatedCourseRescheduleRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/basic-management': {
@@ -1084,6 +1184,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedWorkflowsRouteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/system-config': {
+      id: '/_authenticated/system-config'
+      path: '/system-config'
+      fullPath: '/system-config'
+      preLoaderRoute: typeof AuthenticatedSystemConfigRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/settings': {
       id: '/_authenticated/settings'
       path: '/settings'
@@ -1111,6 +1218,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/tasks/'
       preLoaderRoute: typeof AuthenticatedTasksIndexRouteImport
       parentRoute: typeof AuthenticatedTasksRoute
+    }
+    '/_authenticated/system-config/': {
+      id: '/_authenticated/system-config/'
+      path: '/'
+      fullPath: '/system-config/'
+      preLoaderRoute: typeof AuthenticatedSystemConfigIndexRouteImport
+      parentRoute: typeof AuthenticatedSystemConfigRouteRoute
     }
     '/_authenticated/settings/': {
       id: '/_authenticated/settings/'
@@ -1146,6 +1260,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/chats'
       preLoaderRoute: typeof AuthenticatedChatsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/attendance/': {
+      id: '/_authenticated/attendance/'
+      path: '/'
+      fullPath: '/attendance/'
+      preLoaderRoute: typeof AuthenticatedAttendanceIndexRouteImport
+      parentRoute: typeof AuthenticatedAttendanceRoute
     }
     '/_authenticated/apps/': {
       id: '/_authenticated/apps/'
@@ -1238,6 +1359,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTasksSettingsRouteImport
       parentRoute: typeof AuthenticatedTasksRoute
     }
+    '/_authenticated/system-config/term': {
+      id: '/_authenticated/system-config/term'
+      path: '/term'
+      fullPath: '/system-config/term'
+      preLoaderRoute: typeof AuthenticatedSystemConfigTermRouteImport
+      parentRoute: typeof AuthenticatedSystemConfigRouteRoute
+    }
+    '/_authenticated/system-config/sync': {
+      id: '/_authenticated/system-config/sync'
+      path: '/sync'
+      fullPath: '/system-config/sync'
+      preLoaderRoute: typeof AuthenticatedSystemConfigSyncRouteImport
+      parentRoute: typeof AuthenticatedSystemConfigRouteRoute
+    }
+    '/_authenticated/system-config/course': {
+      id: '/_authenticated/system-config/course'
+      path: '/course'
+      fullPath: '/system-config/course'
+      preLoaderRoute: typeof AuthenticatedSystemConfigCourseRouteImport
+      parentRoute: typeof AuthenticatedSystemConfigRouteRoute
+    }
     '/_authenticated/settings/notifications': {
       id: '/_authenticated/settings/notifications'
       path: '/notifications'
@@ -1301,20 +1443,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDataQueryTeachingClassRouteImport
       parentRoute: typeof AuthenticatedDataQueryRoute
     }
-    '/_authenticated/data-query/student-stats-details': {
-      id: '/_authenticated/data-query/student-stats-details'
-      path: '/student-stats-details'
-      fullPath: '/data-query/student-stats-details'
-      preLoaderRoute: typeof AuthenticatedDataQueryStudentStatsDetailsRouteImport
-      parentRoute: typeof AuthenticatedDataQueryRoute
-    }
-    '/_authenticated/data-query/student-stats': {
-      id: '/_authenticated/data-query/student-stats'
-      path: '/student-stats'
-      fullPath: '/data-query/student-stats'
-      preLoaderRoute: typeof AuthenticatedDataQueryStudentStatsRouteImport
-      parentRoute: typeof AuthenticatedDataQueryRoute
-    }
     '/_authenticated/data-query/course-stats-tree': {
       id: '/_authenticated/data-query/course-stats-tree'
       path: '/course-stats-tree'
@@ -1362,6 +1490,13 @@ declare module '@tanstack/react-router' {
       path: '/students'
       fullPath: '/attendance/students'
       preLoaderRoute: typeof AuthenticatedAttendanceStudentsRouteImport
+      parentRoute: typeof AuthenticatedAttendanceRoute
+    }
+    '/_authenticated/attendance/student-stats': {
+      id: '/_authenticated/attendance/student-stats'
+      path: '/student-stats'
+      fullPath: '/attendance/student-stats'
+      preLoaderRoute: typeof AuthenticatedAttendanceStudentStatsRouteImport
       parentRoute: typeof AuthenticatedAttendanceRoute
     }
     '/_authenticated/attendance/rankings': {
@@ -1453,6 +1588,26 @@ const AuthenticatedSettingsRouteRouteWithChildren =
     AuthenticatedSettingsRouteRouteChildren,
   )
 
+interface AuthenticatedSystemConfigRouteRouteChildren {
+  AuthenticatedSystemConfigCourseRoute: typeof AuthenticatedSystemConfigCourseRoute
+  AuthenticatedSystemConfigSyncRoute: typeof AuthenticatedSystemConfigSyncRoute
+  AuthenticatedSystemConfigTermRoute: typeof AuthenticatedSystemConfigTermRoute
+  AuthenticatedSystemConfigIndexRoute: typeof AuthenticatedSystemConfigIndexRoute
+}
+
+const AuthenticatedSystemConfigRouteRouteChildren: AuthenticatedSystemConfigRouteRouteChildren =
+  {
+    AuthenticatedSystemConfigCourseRoute: AuthenticatedSystemConfigCourseRoute,
+    AuthenticatedSystemConfigSyncRoute: AuthenticatedSystemConfigSyncRoute,
+    AuthenticatedSystemConfigTermRoute: AuthenticatedSystemConfigTermRoute,
+    AuthenticatedSystemConfigIndexRoute: AuthenticatedSystemConfigIndexRoute,
+  }
+
+const AuthenticatedSystemConfigRouteRouteWithChildren =
+  AuthenticatedSystemConfigRouteRoute._addFileChildren(
+    AuthenticatedSystemConfigRouteRouteChildren,
+  )
+
 interface AuthenticatedWorkflowsDefinitionsRouteChildren {
   AuthenticatedWorkflowsDefinitionsDefinitionIdRoute: typeof AuthenticatedWorkflowsDefinitionsDefinitionIdRoute
   AuthenticatedWorkflowsDefinitionsIndexRoute: typeof AuthenticatedWorkflowsDefinitionsIndexRoute
@@ -1514,7 +1669,9 @@ interface AuthenticatedAttendanceRouteChildren {
   AuthenticatedAttendanceCoursesRoute: typeof AuthenticatedAttendanceCoursesRoute
   AuthenticatedAttendanceOverviewRoute: typeof AuthenticatedAttendanceOverviewRoute
   AuthenticatedAttendanceRankingsRoute: typeof AuthenticatedAttendanceRankingsRoute
+  AuthenticatedAttendanceStudentStatsRoute: typeof AuthenticatedAttendanceStudentStatsRoute
   AuthenticatedAttendanceStudentsRoute: typeof AuthenticatedAttendanceStudentsRoute
+  AuthenticatedAttendanceIndexRoute: typeof AuthenticatedAttendanceIndexRoute
 }
 
 const AuthenticatedAttendanceRouteChildren: AuthenticatedAttendanceRouteChildren =
@@ -1526,7 +1683,10 @@ const AuthenticatedAttendanceRouteChildren: AuthenticatedAttendanceRouteChildren
     AuthenticatedAttendanceCoursesRoute: AuthenticatedAttendanceCoursesRoute,
     AuthenticatedAttendanceOverviewRoute: AuthenticatedAttendanceOverviewRoute,
     AuthenticatedAttendanceRankingsRoute: AuthenticatedAttendanceRankingsRoute,
+    AuthenticatedAttendanceStudentStatsRoute:
+      AuthenticatedAttendanceStudentStatsRoute,
     AuthenticatedAttendanceStudentsRoute: AuthenticatedAttendanceStudentsRoute,
+    AuthenticatedAttendanceIndexRoute: AuthenticatedAttendanceIndexRoute,
   }
 
 const AuthenticatedAttendanceRouteWithChildren =
@@ -1551,8 +1711,6 @@ interface AuthenticatedDataQueryRouteChildren {
   AuthenticatedDataQueryAbsentHistoryRoute: typeof AuthenticatedDataQueryAbsentHistoryRoute
   AuthenticatedDataQueryCourseStatsRoute: typeof AuthenticatedDataQueryCourseStatsRoute
   AuthenticatedDataQueryCourseStatsTreeRoute: typeof AuthenticatedDataQueryCourseStatsTreeRoute
-  AuthenticatedDataQueryStudentStatsRoute: typeof AuthenticatedDataQueryStudentStatsRoute
-  AuthenticatedDataQueryStudentStatsDetailsRoute: typeof AuthenticatedDataQueryStudentStatsDetailsRoute
   AuthenticatedDataQueryTeachingClassRoute: typeof AuthenticatedDataQueryTeachingClassRoute
   AuthenticatedDataQueryIndexRoute: typeof AuthenticatedDataQueryIndexRoute
 }
@@ -1565,10 +1723,6 @@ const AuthenticatedDataQueryRouteChildren: AuthenticatedDataQueryRouteChildren =
       AuthenticatedDataQueryCourseStatsRoute,
     AuthenticatedDataQueryCourseStatsTreeRoute:
       AuthenticatedDataQueryCourseStatsTreeRoute,
-    AuthenticatedDataQueryStudentStatsRoute:
-      AuthenticatedDataQueryStudentStatsRoute,
-    AuthenticatedDataQueryStudentStatsDetailsRoute:
-      AuthenticatedDataQueryStudentStatsDetailsRoute,
     AuthenticatedDataQueryTeachingClassRoute:
       AuthenticatedDataQueryTeachingClassRoute,
     AuthenticatedDataQueryIndexRoute: AuthenticatedDataQueryIndexRoute,
@@ -1596,11 +1750,13 @@ const AuthenticatedTasksRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
+  AuthenticatedSystemConfigRouteRoute: typeof AuthenticatedSystemConfigRouteRouteWithChildren
   AuthenticatedWorkflowsRouteRoute: typeof AuthenticatedWorkflowsRouteRouteWithChildren
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
   AuthenticatedAttendanceRoute: typeof AuthenticatedAttendanceRouteWithChildren
   AuthenticatedBasicManagementRoute: typeof AuthenticatedBasicManagementRoute
+  AuthenticatedCourseRescheduleRoute: typeof AuthenticatedCourseRescheduleRoute
   AuthenticatedCoursesRoute: typeof AuthenticatedCoursesRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDataQueryRoute: typeof AuthenticatedDataQueryRouteWithChildren
@@ -1608,6 +1764,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedStudentsRoute: typeof AuthenticatedStudentsRoute
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRouteWithChildren
   AuthenticatedTeachersRoute: typeof AuthenticatedTeachersRoute
+  AuthenticatedUserDebugRoute: typeof AuthenticatedUserDebugRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedCourseCalendarStudentRoute: typeof AuthenticatedCourseCalendarStudentRoute
   AuthenticatedRbacMenusRoute: typeof AuthenticatedRbacMenusRoute
@@ -1623,12 +1780,15 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
+  AuthenticatedSystemConfigRouteRoute:
+    AuthenticatedSystemConfigRouteRouteWithChildren,
   AuthenticatedWorkflowsRouteRoute:
     AuthenticatedWorkflowsRouteRouteWithChildren,
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
   AuthenticatedAttendanceRoute: AuthenticatedAttendanceRouteWithChildren,
   AuthenticatedBasicManagementRoute: AuthenticatedBasicManagementRoute,
+  AuthenticatedCourseRescheduleRoute: AuthenticatedCourseRescheduleRoute,
   AuthenticatedCoursesRoute: AuthenticatedCoursesRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDataQueryRoute: AuthenticatedDataQueryRouteWithChildren,
@@ -1636,6 +1796,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedStudentsRoute: AuthenticatedStudentsRoute,
   AuthenticatedTasksRoute: AuthenticatedTasksRouteWithChildren,
   AuthenticatedTeachersRoute: AuthenticatedTeachersRoute,
+  AuthenticatedUserDebugRoute: AuthenticatedUserDebugRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedCourseCalendarStudentRoute:
     AuthenticatedCourseCalendarStudentRoute,

@@ -20,9 +20,9 @@ SELECT
     MAX(class_id) AS class_id,
     MAX(major_name) AS major_name,
     MAX(major_id) AS major_id,
-    grade AS grade,
-    gender) AS gender,
-    people AS people,
+    MAX(grade) AS grade,
+    MAX(gender) AS gender,
+    MAX(people) AS people,
     
     -- 课程统计
     COUNT(DISTINCT course_code) AS total_courses,
@@ -75,7 +75,7 @@ SELECT
 
 FROM icalink_student_absence_rate_detail
 
-GROUP BY student_id
+GROUP BY student_id, student_name, semester
 
 -- 按总体缺勤率降序排序
 ORDER BY overall_absence_rate DESC;

@@ -319,48 +319,48 @@ export default class LeaveService {
           message: '无权撤回此请假申请'
         });
       }
-      if (application.status !== 'leave_pending') {
+
+      // 放宽状态限制：允许撤回待审批和已批准的请假申请
+      if (
+        application.status !== 'leave_pending' &&
+        application.status !== 'leave'
+      ) {
         return left({
           code: String(ServiceErrorCode.INVALID_OPERATION),
-          message: '只能撤回待审批的请假申请'
+          message: '只能撤回待审批或已批准的请假申请'
         });
       }
 
       const previousStatus = application.status;
 
-      // 1. 删除考勤记录（撤回请假直接删除记录）
+      // 删除考勤记录（撤回请假直接删除记录）
       const deleteResult = await this.attendanceRecordRepository.delete(
         application.attendance_record_id
       );
 
       if (isLeft(deleteResult)) {
-        this.logger.warn(
+        this.logger.error(
           {
-            recordId: application.attendance_record_id
+            recordId: application.attendance_record_id,
+            error: deleteResult.left
           },
           'Failed to delete attendance record after withdraw'
         );
-      } else {
-        this.logger.info(
-          {
-            recordId: application.attendance_record_id
-          },
-          'Attendance record deleted after leave withdrawal'
-        );
-      }
-
-      // 3. 更新请假申请状态为已撤回
-      const updateResult = await this.leaveApplicationRepository.update(
-        applicationId,
-        { status: 'withdrawn' as LeaveStatus } as any
-      );
-      if (isLeft(updateResult)) {
         return left({
           code: String(ServiceErrorCode.INTERNAL_ERROR),
-          message: '撤回请假申请失败',
-          details: updateResult.left
+          message: '删除考勤记录失败',
+          details: deleteResult.left
         });
       }
+
+      this.logger.info(
+        {
+          recordId: application.attendance_record_id,
+          applicationId,
+          previousStatus
+        },
+        'Attendance record deleted after leave withdrawal'
+      );
 
       return right({
         application_id: applicationId,
@@ -368,7 +368,7 @@ export default class LeaveService {
         student_name: application.student_name,
         course_name: application.course_name,
         previous_status: previousStatus,
-        new_status: 'withdrawn' as LeaveStatus,
+        new_status: previousStatus, // 状态保持不变
         withdraw_time: getCurrentDateTime().toISOString()
       });
     } catch (error) {

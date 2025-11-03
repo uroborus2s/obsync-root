@@ -12,3 +12,6 @@ export * from './IFileStorageService.js';
 
 // 课程日历服务接口
 export * from './ICourseCalendarService.js';
+
+// 部门服务接口
+export * from './IDepartmentService.js';

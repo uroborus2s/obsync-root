@@ -3,6 +3,7 @@ import { Controller, Get, Post } from '@stratix/core';
 import { isLeft } from '@stratix/utils/functional';
 import AttendanceService from '../services/AttendanceService.js';
 import LeaveService from '../services/LeaveService.js';
+import OsspStorageService from '../services/OsspStorageService.js';
 import type {
   CheckinDTO,
   CheckinRequest,
@@ -16,7 +17,8 @@ export default class AttendanceController {
   constructor(
     private readonly logger: Logger,
     private readonly attendanceService: AttendanceService,
-    private readonly leaveService: LeaveService
+    private readonly leaveService: LeaveService,
+    private readonly osspStorageService: OsspStorageService
   ) {}
 
   @Get('/api/icalink/v1/auth/status')
@@ -700,6 +702,118 @@ export default class AttendanceController {
           code: 'INTERNAL_SERVER_ERROR'
         });
       }
+    }
+  }
+
+  /**
+   * 上传签到图片
+   * POST /api/icalink/v1/attendance/upload-checkin-photo
+   *
+   * @param request - Fastify 请求对象
+   * @param reply - Fastify 响应对象
+   * @returns 图片OSS路径
+   *
+   * @description
+   * 业务逻辑：
+   * 1. 接收base64编码的图片数据
+   * 2. 上传到OSS存储
+   * 3. 返回图片的OSS路径
+   *
+   * HTTP 状态码：
+   * - 200: 上传成功
+   * - 400: 参数验证失败
+   * - 401: 用户未认证
+   * - 500: 服务器内部错误
+   */
+  @Post('/api/icalink/v1/attendance/upload-checkin-photo')
+  async uploadCheckinPhoto(
+    request: FastifyRequest<{
+      Body: {
+        image: string; // Base64编码的图片
+        fileName: string;
+        mimeType: string;
+      };
+    }>,
+    reply: FastifyReply
+  ): Promise<void> {
+    try {
+      const userIdentity = (request as any).userIdentity;
+
+      // 1. 用户认证检查
+      if (!userIdentity) {
+        return reply.status(401).send({
+          success: false,
+          message: '用户未认证',
+          code: ServiceErrorCode.UNAUTHORIZED
+        });
+      }
+
+      const { image, fileName, mimeType } = request.body;
+
+      // 2. 参数验证
+      if (!image || !fileName || !mimeType) {
+        return reply.status(400).send({
+          success: false,
+          message: '缺少必要参数',
+          code: ServiceErrorCode.VALIDATION_ERROR
+        });
+      }
+
+      // 3. 验证文件类型
+      if (!mimeType.startsWith('image/')) {
+        return reply.status(400).send({
+          success: false,
+          message: '只支持图片文件',
+          code: ServiceErrorCode.VALIDATION_ERROR
+        });
+      }
+
+      // 4. 解码base64图片
+      const fileContent = Buffer.from(image, 'base64');
+      const extension = fileName.split('.').pop() || 'jpg';
+
+      // 5. 上传到OSS
+      const bucketName = 'checkin-photos';
+      const uploadResult = await this.osspStorageService.uploadImage(
+        bucketName,
+        fileContent,
+        {
+          fileName: `${userIdentity.userId}_${Date.now()}.${extension}`,
+          mimeType: mimeType,
+          extension: extension,
+          generateThumbnail: false, // 签到图片不需要缩略图
+          metadata: {
+            'user-id': String(userIdentity.userId),
+            'upload-time': new Date().toISOString()
+          }
+        }
+      );
+
+      if (isLeft(uploadResult)) {
+        this.logger.error({ error: uploadResult.left }, '图片上传失败');
+        return reply.status(500).send({
+          success: false,
+          message: uploadResult.left.message || '图片上传失败',
+          code: uploadResult.left.code
+        });
+      }
+
+      // 6. 返回图片路径
+      return reply.status(200).send({
+        success: true,
+        message: '图片上传成功',
+        data: {
+          photo_url: uploadResult.right.objectPath,
+          bucket_name: bucketName
+        }
+      });
+    } catch (error: any) {
+      this.logger.error('上传签到图片失败', error);
+      return reply.status(500).send({
+        success: false,
+        message: '服务器内部错误',
+        code: 'INTERNAL_SERVER_ERROR'
+      });
     }
   }
 }

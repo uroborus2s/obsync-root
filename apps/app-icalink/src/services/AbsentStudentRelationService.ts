@@ -227,4 +227,75 @@ export default class AbsentStudentRelationService
       });
     }
   }
+
+  /**
+   * 根据学生ID和课程代码查询缺勤记录详情
+   * @param studentId 学生ID
+   * @param courseCode 课程代码
+   * @param absenceType 缺勤类型过滤（可选）：'absent', 'leave', 'truant', 'leave_and_pending'
+   * @param sortField 排序字段（默认：teaching_week）
+   * @param sortOrder 排序方向（默认：asc）
+   * @returns 缺勤记录列表
+   */
+  public async findByStudentAndCourse(
+    studentId: string,
+    courseCode: string,
+    absenceType?: 'absent' | 'leave' | 'truant' | 'leave_and_pending',
+    sortField: string = 'teaching_week',
+    sortOrder: 'asc' | 'desc' = 'asc'
+  ): Promise<Either<ServiceError, IcalinkAbsentStudentRelation[]>> {
+    try {
+      // 参数验证
+      if (!studentId || !courseCode) {
+        this.logger.warn('Invalid parameters for findByStudentAndCourse', {
+          studentId,
+          courseCode
+        });
+        return left({
+          code: String(ServiceErrorCode.VALIDATION_ERROR),
+          message: 'Student ID and course code are required'
+        });
+      }
+
+      this.logger.debug('Finding absent records by student and course', {
+        studentId,
+        courseCode,
+        absenceType,
+        sortField,
+        sortOrder
+      });
+
+      const result =
+        await this.absentStudentRelationRepository.findByStudentAndCourse(
+          studentId,
+          courseCode,
+          absenceType,
+          sortField,
+          sortOrder
+        );
+
+      this.logger.debug('Query completed', {
+        studentId,
+        courseCode,
+        absenceType,
+        count: result.length
+      });
+
+      return right(result);
+    } catch (error: any) {
+      this.logger.error('Failed to find absent records by student and course', {
+        error: error.message,
+        stack: error.stack,
+        studentId,
+        courseCode,
+        absenceType
+      });
+
+      return left({
+        code: String(ServiceErrorCode.DATABASE_ERROR),
+        message: 'Failed to query absent records',
+        details: error.message
+      });
+    }
+  }
 }

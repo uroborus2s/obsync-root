@@ -1,12 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import {
-  ChevronLeft,
-  ChevronRight,
-  RotateCcw,
-  Search as SearchIcon,
-} from 'lucide-react'
+import { ChevronLeft, ChevronRight, Search as SearchIcon } from 'lucide-react'
 import {
   AbsentStudentRelation,
   StatsQueryParams,
@@ -22,13 +17,6 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -112,72 +100,16 @@ function AbsentHistoryPage() {
           <CardDescription>输入搜索关键词或选择筛选条件</CardDescription>
         </CardHeader>
         <CardContent className='space-y-4'>
-          <div className='grid grid-cols-1 gap-4 md:grid-cols-3'>
-            <div className='space-y-2'>
-              <Label htmlFor='searchKeyword'>搜索</Label>
-              <Input
-                id='searchKeyword'
-                placeholder='学生姓名、学号、课程名称、课程代码、缺勤类型'
-                value={filters.searchKeyword}
-                onChange={(e) =>
-                  handleFilterChange('searchKeyword', e.target.value)
-                }
-              />
-            </div>
-
-            <div className='space-y-2'>
-              <Label htmlFor='teachingWeek'>教学周</Label>
-              <Select
-                onValueChange={(value) =>
-                  handleFilterChange(
-                    'teachingWeek',
-                    value === 'all' ? undefined : Number(value)
-                  )
-                }
-                value={
-                  filters.teachingWeek ? String(filters.teachingWeek) : 'all'
-                }
-              >
-                <SelectTrigger id='teachingWeek'>
-                  <SelectValue placeholder='选择教学周' />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value='all'>所有周次</SelectItem>
-                  {Array.from({ length: 20 }, (_, i) => (
-                    <SelectItem key={i + 1} value={String(i + 1)}>
-                      第 {i + 1} 周
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className='space-y-2'>
-              <Label htmlFor='pageSize'>每页显示</Label>
-              <Select
-                onValueChange={(value) =>
-                  handleFilterChange('pageSize', Number(value))
-                }
-                value={String(filters.pageSize)}
-              >
-                <SelectTrigger id='pageSize'>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value='10'>10 条</SelectItem>
-                  <SelectItem value='20'>20 条</SelectItem>
-                  <SelectItem value='50'>50 条</SelectItem>
-                  <SelectItem value='100'>100 条</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className='flex gap-4'>
-            <Button onClick={handleReset} variant='outline'>
-              <RotateCcw className='mr-2 h-4 w-4' />
-              重置
-            </Button>
+          <div className='space-y-2'>
+            <Label htmlFor='searchKeyword'>搜索</Label>
+            <Input
+              id='searchKeyword'
+              placeholder='学生姓名、学号、课程名称、课程代码、缺勤类型'
+              value={filters.searchKeyword}
+              onChange={(e) =>
+                handleFilterChange('searchKeyword', e.target.value)
+              }
+            />
           </div>
         </CardContent>
       </Card>
@@ -230,7 +162,7 @@ function AbsentHistoryPage() {
                   <TableHead>学院</TableHead>
                   <TableHead>班级</TableHead>
                   <TableHead>专业</TableHead>
-                  <TableHead>请假原因</TableHead>
+                  <TableHead>年级</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -257,36 +189,60 @@ function AbsentHistoryPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  records.map((record: AbsentStudentRelation) => (
-                    <TableRow key={record.id}>
-                      <TableCell className='font-medium'>
-                        {record.student_id}
-                      </TableCell>
-                      <TableCell>{record.student_name}</TableCell>
-                      <TableCell>{record.course_code}</TableCell>
-                      <TableCell>{record.course_name}</TableCell>
-                      <TableCell>
-                        <span
-                          className={`rounded-full px-2 py-1 text-xs ${
-                            record.absence_type === '旷课'
-                              ? 'bg-red-100 text-red-800'
-                              : 'bg-yellow-100 text-yellow-800'
-                          }`}
-                        >
-                          {record.absence_type}
-                        </span>
-                      </TableCell>
-                      <TableCell>{record.semester}</TableCell>
-                      <TableCell>{record.teaching_week}</TableCell>
-                      <TableCell>{record.weekday}</TableCell>
-                      <TableCell>{record.period}</TableCell>
-                      <TableCell>{record.time_slot}</TableCell>
-                      <TableCell>{record.school_name}</TableCell>
-                      <TableCell>{record.class_name}</TableCell>
-                      <TableCell>{record.major_name}</TableCell>
-                      <TableCell>{record.leave_reason || '-'}</TableCell>
-                    </TableRow>
-                  ))
+                  records.map((record: AbsentStudentRelation) => {
+                    const truncate = (
+                      text: string | number,
+                      maxLength = 10
+                    ) => {
+                      const str = String(text || '')
+                      return str.length > maxLength
+                        ? str.substring(0, maxLength) + '...'
+                        : str
+                    }
+
+                    return (
+                      <TableRow key={record.id}>
+                        <TableCell className='font-medium'>
+                          {record.student_id}
+                        </TableCell>
+                        <TableCell>{record.student_name}</TableCell>
+                        <TableCell>{record.course_code}</TableCell>
+                        <TableCell title={record.course_name}>
+                          {truncate(record.course_name)}
+                        </TableCell>
+                        <TableCell>
+                          <span
+                            className={`rounded-full px-2 py-1 text-xs ${
+                              record.absence_type === '旷课'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-yellow-100 text-yellow-800'
+                            }`}
+                          >
+                            {record.absence_type}
+                          </span>
+                        </TableCell>
+                        <TableCell>{record.semester}</TableCell>
+                        <TableCell>{record.teaching_week}</TableCell>
+                        <TableCell title={String(record.weekday)}>
+                          {truncate(record.weekday)}
+                        </TableCell>
+                        <TableCell title={String(record.period)}>
+                          {truncate(record.period)}
+                        </TableCell>
+                        <TableCell>{record.time_slot}</TableCell>
+                        <TableCell title={record.school_name}>
+                          {truncate(record.school_name)}
+                        </TableCell>
+                        <TableCell title={record.class_name}>
+                          {truncate(record.class_name)}
+                        </TableCell>
+                        <TableCell title={record.major_name}>
+                          {truncate(record.major_name)}
+                        </TableCell>
+                        <TableCell>{record.grade || '-'}</TableCell>
+                      </TableRow>
+                    )
+                  })
                 )}
               </TableBody>
             </Table>

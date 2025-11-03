@@ -4,6 +4,7 @@ import { addMinutes, isAfter, isBefore, isEqual, subMinutes } from 'date-fns';
 export interface BackendAttendanceData {
   id: number;
   attendance_record_id?: number; // 考勤记录ID，用于请假申请
+  leave_application_id?: number; // 请假申请ID，用于撤回请假
   course: {
     external_id: string;
     kcmc: string; // 课程名称

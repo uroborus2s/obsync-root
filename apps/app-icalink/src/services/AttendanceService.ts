@@ -291,6 +291,26 @@ export default class AttendanceService implements IAttendanceService {
         userInfo.userId
       );
 
+    // 查询请假申请ID（如果状态是请假相关）
+    let leaveApplicationId: number | undefined;
+    if (
+      attendanceRecords &&
+      (status === 'leave' || status === 'leave_pending')
+    ) {
+      const leaveApplications = (await this.leaveApplicationRepository.findMany(
+        (qb) =>
+          qb
+            .where('attendance_record_id', '=', attendanceRecords.id)
+            .where('status', 'in', ['leave', 'leave_pending'])
+            .orderBy('created_at', 'desc')
+            .limit(1)
+      )) as unknown as any[];
+
+      if (leaveApplications && leaveApplications.length > 0) {
+        leaveApplicationId = leaveApplications[0].id;
+      }
+    }
+
     // 构建 verification_windows 对象
     let verificationWindows:
       | {
@@ -335,6 +355,7 @@ export default class AttendanceService implements IAttendanceService {
     const vo: StudentCourseDataVO = {
       id: course.id,
       attendance_record_id: attendanceRecords?.id, // 添加考勤记录ID
+      leave_application_id: leaveApplicationId, // 添加请假申请ID
       course: {
         external_id: course.external_id,
         kcmc: course.course_name,
@@ -417,9 +438,30 @@ export default class AttendanceService implements IAttendanceService {
         userInfo.userId
       );
 
+    // 查询请假申请ID（如果状态是请假相关）
+    let leaveApplicationId: number | undefined;
+    if (
+      attendanceRecords &&
+      (status === 'leave' || status === 'leave_pending')
+    ) {
+      const leaveApplications = (await this.leaveApplicationRepository.findMany(
+        (qb) =>
+          qb
+            .where('attendance_record_id', '=', attendanceRecords.id)
+            .where('status', 'in', ['leave', 'leave_pending'])
+            .orderBy('created_at', 'desc')
+            .limit(1)
+      )) as unknown as any[];
+
+      if (leaveApplications && leaveApplications.length > 0) {
+        leaveApplicationId = leaveApplications[0].id;
+      }
+    }
+
     const vo: StudentCourseDataVO = {
       id: course.id,
       attendance_record_id: attendanceRecords?.id, // 添加考勤记录ID
+      leave_application_id: leaveApplicationId, // 添加请假申请ID
       course: {
         external_id: course.external_id,
         kcmc: course.course_name,
@@ -787,26 +829,36 @@ export default class AttendanceService implements IAttendanceService {
       });
     }
 
-    // 3. 记录签到时间（用户点击签到按钮的时间）
+    // 3. 验证图片签到的必填字段
+    const isPhotoCheckin = checkinData.checkin_type === 'photo';
+    if (isPhotoCheckin && !checkinData.photo_url) {
+      return left({
+        code: String(ServiceErrorCode.VALIDATION_FAILED),
+        message: '图片签到缺少图片路径参数'
+      });
+    }
+
+    // 4. 记录签到时间（用户点击签到按钮的时间）
     const checkinTime = new Date();
 
-    // 4. 判断签到类型（窗口签到 vs 自主签到）
+    // 5. 判断签到类型（窗口签到 vs 自主签到）
     const isWindowCheckin = !!(
       checkinData.window_id &&
       checkinData.window_open_time &&
       checkinData.window_close_time
     );
 
-    // 5. 生成唯一的 jobId（用于队列幂等性）
+    // 6. 生成唯一的 jobId（用于队列幂等性）
     // 包含时分秒，允许同一天多次签到（例如：多节课程）
     const jobId = `checkin_${courseExtId}_${studentInfo.userId}_${checkinTime.toISOString().replace(/[:.]/g, '-').slice(0, 19)}`;
 
-    // 6. 将签到任务加入队列（异步处理）
+    // 7. 将签到任务加入队列（异步处理）
     // 所有校验逻辑（时间窗口、幂等性）都在队列 Worker 中异步完成
     this.logger.info('Queueing check-in job', {
       courseExtId,
       studentId: studentInfo.userId,
-      jobId
+      jobId,
+      isPhotoCheckin
     });
 
     try {
@@ -872,14 +924,28 @@ export default class AttendanceService implements IAttendanceService {
     );
 
     try {
-      // 1. 时间窗口校验（异步）
+      // 1. 判断是否为图片签到
+      const isPhotoCheckin = checkinData.checkin_type === 'photo';
+
+      // 2. 时间窗口校验（异步）
+      // 图片签到跳过时间窗口校验，因为是位置校验失败后的补救措施
       // 使用传入的签到时间和时间窗口参数进行验证
       const checkinDateTime = new Date(checkinTime);
       const courseStartTime = new Date(checkinData.course_start_time);
 
       let timeWindowValid = false;
 
-      if (isWindowCheckin) {
+      if (isPhotoCheckin) {
+        // 图片签到：跳过时间窗口校验，直接通过
+        timeWindowValid = true;
+        this.logger.info(
+          {
+            studentId: studentInfo.userId,
+            checkinType: 'photo'
+          },
+          'Photo checkin - skipping time window validation'
+        );
+      } else if (isWindowCheckin) {
         // 窗口期签到：检查签到时间是否在窗口时间范围内
         const windowOpenTime = new Date(checkinData.window_open_time);
         const windowCloseTime = new Date(checkinData.window_close_time);
@@ -1013,6 +1079,7 @@ export default class AttendanceService implements IAttendanceService {
         studentMaybe && isSome(studentMaybe) ? studentMaybe.value : null;
 
       // 6. 准备签到数据
+      // isPhotoCheckin 已在前面定义
       const checkinRecordData: Partial<IcalinkAttendanceRecord> = {
         checkin_time: checkinDateTime,
         checkin_location: checkinData.location,
@@ -1020,12 +1087,33 @@ export default class AttendanceService implements IAttendanceService {
         checkin_longitude: checkinData.longitude,
         checkin_accuracy: checkinData.accuracy,
         remark: checkinData.remark,
-        status: 'present' as AttendanceStatus,
+        // 图片签到设置为待审批状态，正常签到设置为已签到状态
+        status: isPhotoCheckin
+          ? ('pending_approval' as AttendanceStatus)
+          : ('present' as AttendanceStatus),
         updated_by: studentInfo.userId
       };
 
-      // 7. 处理窗口期签到的特殊逻辑
-      if (isWindowCheckin && checkinData.window_id) {
+      // 8. 处理图片签到的特殊逻辑
+      if (isPhotoCheckin && checkinData.photo_url) {
+        // 图片签到：保存图片路径到 metadata 字段
+        checkinRecordData.metadata = {
+          photo_url: checkinData.photo_url,
+          checkin_type: 'photo',
+          reason: '位置校验失败，使用图片签到'
+        };
+        checkinRecordData.last_checkin_source = 'photo';
+        checkinRecordData.last_checkin_reason = '位置校验失败，使用图片签到';
+
+        this.logger.info(
+          {
+            studentId: studentInfo.userId,
+            photoUrl: checkinData.photo_url
+          },
+          'Photo checkin processed - pending approval'
+        );
+      } else if (isWindowCheckin && checkinData.window_id) {
+        // 9. 处理窗口期签到的特殊逻辑
         // 查询窗口信息
         const window = await this.verificationWindowRepository.findByWindowId(
           checkinData.window_id

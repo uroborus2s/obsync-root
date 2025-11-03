@@ -52,6 +52,7 @@ export interface AbsentStudentRelation {
   school_name: string
   class_name: string
   major_name: string
+  grade: string
   absence_type: string
   semester: string
   teaching_week: number

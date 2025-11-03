@@ -795,9 +795,9 @@ export class AttendanceApiService {
       if (params.end_date) queryString.append('end_date', params.end_date)
     }
 
-    // 获取足够多的数据用于统计（最多1000条）
+    // 获取足够多的数据用于统计（使用最大允许值100）
     queryString.append('page', '1')
-    queryString.append('pageSize', '1000')
+    queryString.append('pageSize', '100')
 
     const endpoint = `/api/icalink/v1/stats/student-stats${queryString.toString() ? `?${queryString.toString()}` : ''}`
 

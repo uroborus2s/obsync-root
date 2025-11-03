@@ -7,7 +7,8 @@ import type { WpsCalendarAdapter } from '../src/adapters/calendar.adapter.js';
 import type {
   GetCalendarListParams,
   GetCalendarParams,
-  UpdateCalendarParams
+  UpdateCalendarParams,
+  UpdateScheduleParams
 } from '../src/types/calendar.js';
 
 /**
@@ -90,7 +91,7 @@ export class CalendarManagementExample {
       // 验证更新结果
       if (response.code === 0) {
         console.log('日历更新成功！');
-        
+
         // 重新查询验证更新
         const updatedCalendar = await this.getCalendarDetails(calendarId);
         console.log('更新后的标题:', updatedCalendar.summary);
@@ -156,9 +157,13 @@ export class CalendarManagementExample {
         };
 
         const response = await this.calendarAdapter.getCalendarList(params);
-        
-        console.log(`第 ${pageNumber} 页结果:`, response.items?.length || 0, '个日历');
-        
+
+        console.log(
+          `第 ${pageNumber} 页结果:`,
+          response.items?.length || 0,
+          '个日历'
+        );
+
         if (response.items) {
           allCalendars.push(...response.items);
         }
@@ -171,12 +176,10 @@ export class CalendarManagementExample {
           console.warn('已达到最大页数限制，停止查询');
           break;
         }
-
       } while (pageToken);
 
       console.log('分页查询完成，总共找到', allCalendars.length, '个日历');
       return allCalendars;
-
     } catch (error) {
       console.error('分页查询失败:', error);
       throw error;
@@ -187,7 +190,9 @@ export class CalendarManagementExample {
 /**
  * 使用示例
  */
-export async function runCalendarManagementExamples(calendarAdapter: WpsCalendarAdapter) {
+export async function runCalendarManagementExamples(
+  calendarAdapter: WpsCalendarAdapter
+) {
   const example = new CalendarManagementExample(calendarAdapter);
 
   try {
@@ -197,6 +202,266 @@ export async function runCalendarManagementExamples(calendarAdapter: WpsCalendar
     await example.completeCalendarManagement();
 
     console.log('所有示例执行完成！');
+  } catch (error) {
+    console.error('示例执行失败:', error);
+  }
+}
+
+/**
+ * 日程更新示例类
+ * 演示如何使用更新日程接口
+ */
+export class ScheduleUpdateExample {
+  constructor(private scheduleAdapter: any) {} // 使用 any 避免循环依赖
+
+  /**
+   * 示例1: 更新日程基本信息
+   */
+  async updateScheduleBasicInfo(calendarId: string, eventId: string) {
+    console.log('=== 更新日程基本信息示例 ===');
+
+    try {
+      const params: UpdateScheduleParams = {
+        calendar_id: calendarId,
+        event_id: eventId,
+        summary: '更新后的日程标题',
+        description: '这是更新后的日程描述',
+        visibility: 'default'
+      };
+
+      const updatedSchedule = await this.scheduleAdapter.updateSchedule(params);
+      console.log('更新成功:', {
+        id: updatedSchedule.id,
+        summary: updatedSchedule.summary,
+        description: updatedSchedule.description
+      });
+
+      return updatedSchedule;
+    } catch (error) {
+      console.error('更新日程基本信息失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 示例2: 更新日程时间
+   */
+  async updateScheduleTime(calendarId: string, eventId: string) {
+    console.log('=== 更新日程时间示例 ===');
+
+    try {
+      const params: UpdateScheduleParams = {
+        calendar_id: calendarId,
+        event_id: eventId,
+        start_time: {
+          datetime: '2024-01-20T10:00:00+08:00'
+        },
+        end_time: {
+          datetime: '2024-01-20T11:00:00+08:00'
+        },
+        is_notification: true, // 通知参与者
+        is_reinvition: true // 重置邀请状态
+      };
+
+      const updatedSchedule = await this.scheduleAdapter.updateSchedule(params);
+      console.log('时间更新成功:', {
+        start: updatedSchedule.start_time,
+        end: updatedSchedule.end_time
+      });
+
+      return updatedSchedule;
+    } catch (error) {
+      console.error('更新日程时间失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 示例3: 更新日程地点和在线会议
+   */
+  async updateScheduleLocation(calendarId: string, eventId: string) {
+    console.log('=== 更新日程地点和在线会议示例 ===');
+
+    try {
+      const params: UpdateScheduleParams = {
+        calendar_id: calendarId,
+        event_id: eventId,
+        locations: [{ name: '会议室A' }],
+        online_meeting: {
+          provider: 'kso',
+          description: '加入金山会议'
+        }
+      };
+
+      const updatedSchedule = await this.scheduleAdapter.updateSchedule(params);
+      console.log('地点和会议更新成功');
+
+      return updatedSchedule;
+    } catch (error) {
+      console.error('更新日程地点失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 示例4: 更新重复日程（单次）
+   */
+  async updateRecurringScheduleSingle(
+    calendarId: string,
+    eventId: string,
+    whichDayTime: number
+  ) {
+    console.log('=== 更新重复日程（单次）示例 ===');
+
+    try {
+      const params: UpdateScheduleParams = {
+        calendar_id: calendarId,
+        event_id: eventId,
+        mod_type: 'one', // 只修改单次
+        which_day_time: whichDayTime, // 指定具体实例的时间戳
+        summary: '单次会议标题修改',
+        start_time: {
+          datetime: '2024-01-20T14:00:00+08:00'
+        },
+        end_time: {
+          datetime: '2024-01-20T15:00:00+08:00'
+        }
+      };
+
+      const updatedSchedule = await this.scheduleAdapter.updateSchedule(params);
+      console.log('单次重复日程更新成功');
+
+      return updatedSchedule;
+    } catch (error) {
+      console.error('更新单次重复日程失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 示例5: 更新重复日程（全部）
+   */
+  async updateRecurringScheduleAll(calendarId: string, eventId: string) {
+    console.log('=== 更新重复日程（全部）示例 ===');
+
+    try {
+      const params: UpdateScheduleParams = {
+        calendar_id: calendarId,
+        event_id: eventId,
+        mod_type: 'all', // 修改全部
+        summary: '周会 - 已更新',
+        recurrence: {
+          freq: 'WEEKLY',
+          interval: 1,
+          by_day: ['MO', 'WE'], // 改为每周一和周三
+          until_date: {
+            date: '2024-12-31'
+          }
+        }
+      };
+
+      const updatedSchedule = await this.scheduleAdapter.updateSchedule(params);
+      console.log('全部重复日程更新成功');
+
+      return updatedSchedule;
+    } catch (error) {
+      console.error('更新全部重复日程失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 示例6: 更新日程提醒
+   */
+  async updateScheduleReminders(calendarId: string, eventId: string) {
+    console.log('=== 更新日程提醒示例 ===');
+
+    try {
+      const params: UpdateScheduleParams = {
+        calendar_id: calendarId,
+        event_id: eventId,
+        reminders: [
+          { minutes: 15 }, // 提前15分钟
+          { minutes: 60 }, // 提前1小时
+          { minutes: 1440 } // 提前1天
+        ]
+      };
+
+      const updatedSchedule = await this.scheduleAdapter.updateSchedule(params);
+      console.log('提醒设置更新成功');
+
+      return updatedSchedule;
+    } catch (error) {
+      console.error('更新日程提醒失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 示例7: 清除在线会议
+   */
+  async clearOnlineMeeting(calendarId: string, eventId: string) {
+    console.log('=== 清除在线会议示例 ===');
+
+    try {
+      const params: UpdateScheduleParams = {
+        calendar_id: calendarId,
+        event_id: eventId,
+        online_meeting: null // 设置为 null 清除在线会议
+      };
+
+      const updatedSchedule = await this.scheduleAdapter.updateSchedule(params);
+      console.log('在线会议已清除');
+
+      return updatedSchedule;
+    } catch (error) {
+      console.error('清除在线会议失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 示例8: 更新参与者权限和忙闲状态
+   */
+  async updateSchedulePermissions(calendarId: string, eventId: string) {
+    console.log('=== 更新参与者权限和忙闲状态示例 ===');
+
+    try {
+      const params: UpdateScheduleParams = {
+        calendar_id: calendarId,
+        event_id: eventId,
+        attendee_ability: 'can_invite_others', // 参与者可以邀请其他人
+        free_busy_status: 'busy' // 设置为忙碌状态
+      };
+
+      const updatedSchedule = await this.scheduleAdapter.updateSchedule(params);
+      console.log('权限和状态更新成功');
+
+      return updatedSchedule;
+    } catch (error) {
+      console.error('更新权限和状态失败:', error);
+      throw error;
+    }
+  }
+}
+
+/**
+ * 日程更新使用示例
+ */
+export async function runScheduleUpdateExamples(scheduleAdapter: any) {
+  const example = new ScheduleUpdateExample(scheduleAdapter);
+
+  try {
+    const calendarId = 'primary'; // 使用主日历
+    const eventId = 'your-event-id'; // 替换为实际的日程ID
+
+    // 运行各种更新示例
+    await example.updateScheduleBasicInfo(calendarId, eventId);
+    await example.updateScheduleTime(calendarId, eventId);
+    await example.updateScheduleLocation(calendarId, eventId);
+    await example.updateScheduleReminders(calendarId, eventId);
+
+    console.log('所有日程更新示例执行完成！');
   } catch (error) {
     console.error('示例执行失败:', error);
   }

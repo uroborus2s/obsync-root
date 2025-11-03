@@ -205,6 +205,9 @@ export interface CheckinRequest {
   window_id?: string; // 窗口ID（窗口期签到时必填）
   window_open_time?: string; // 窗口开启时间（ISO 8601格式）
   window_close_time?: string; // 窗口关闭时间（ISO 8601格式）
+  // 图片签到相关字段
+  photo_url?: string; // 图片OSS路径（图片签到时必填）
+  checkin_type?: 'normal' | 'photo'; // 签到类型：normal-正常签到，photo-图片签到
 }
 
 /**
@@ -598,6 +601,7 @@ export interface GetCourseCompleteDataDTO {
 export interface StudentCourseDataVO {
   id: number;
   attendance_record_id?: number; // 考勤记录ID，用于请假申请
+  leave_application_id?: number; // 请假申请ID，用于撤回请假
   course: {
     external_id: string;
     kcmc: string; // 课程名称

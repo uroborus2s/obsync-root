@@ -349,4 +349,70 @@ export default class AbsentStudentRelationRepository extends BaseRepository<
       return 0;
     }
   }
+
+  /**
+   * 根据学生ID和课程代码查询缺勤记录详情
+   * @param studentId 学生ID
+   * @param courseCode 课程代码
+   * @param absenceType 缺勤类型过滤（可选）：'absent', 'leave', 'truant', 'leave_and_pending'
+   * @param sortField 排序字段（默认：teaching_week）
+   * @param sortOrder 排序方向（默认：asc）
+   * @returns 缺勤记录列表
+   */
+  public async findByStudentAndCourse(
+    studentId: string,
+    courseCode: string,
+    absenceType?: 'absent' | 'leave' | 'truant' | 'leave_and_pending',
+    sortField: string = 'teaching_week',
+    sortOrder: 'asc' | 'desc' = 'asc'
+  ): Promise<IcalinkAbsentStudentRelation[]> {
+    if (!studentId || !courseCode) {
+      this.logger.warn(
+        'findByStudentAndCourse called with invalid parameters',
+        { studentId, courseCode }
+      );
+      return [];
+    }
+
+    this.logger.debug(
+      { studentId, courseCode, absenceType, sortField, sortOrder },
+      'Finding absent records by student and course'
+    );
+
+    const result = (await this.findMany(
+      (qb) => {
+        let query = qb
+          .where('student_id', '=', studentId)
+          .where('course_code', '=', courseCode);
+
+        // 根据缺勤类型过滤
+        if (absenceType) {
+          if (absenceType === 'leave_and_pending') {
+            // 请假记录：包括已批准的请假和待审批的请假
+            query = query.where((eb: any) =>
+              eb.or([
+                eb('absence_type', '=', 'leave'),
+                eb('absence_type', '=', 'leave_pending')
+              ])
+            );
+          } else {
+            // 其他类型：直接匹配
+            query = query.where('absence_type', '=', absenceType);
+          }
+        }
+
+        return query;
+      },
+      {
+        orderBy: { field: sortField, direction: sortOrder }
+      }
+    )) as unknown as IcalinkAbsentStudentRelation[];
+
+    this.logger.debug(
+      { studentId, courseCode, absenceType, count: result.length },
+      'Found absent records'
+    );
+
+    return result;
+  }
 }

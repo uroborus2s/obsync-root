@@ -250,6 +250,40 @@ export interface CreateScheduleParams {
 }
 
 /**
+ * 重复规则
+ */
+export interface RecurrenceRule {
+  /** 重复频率：YEARLY | MONTHLY | WEEKLY | DAILY | LUNAR_YEARLY */
+  freq: 'YEARLY' | 'MONTHLY' | 'WEEKLY' | 'DAILY' | 'LUNAR_YEARLY';
+  /** 重复间隔，例如 2 表示每两周一次 */
+  interval: number;
+  /** 周几重复，如 ["MO", "TU"] 或 ["2MO"] */
+  by_day?: string[];
+  /** 哪几个月 */
+  by_month?: number[];
+  /** 每月第几天（1–31） */
+  by_month_day?: number[];
+  /** 重复次数 */
+  count?: number;
+  /** 排除日期对象数组 */
+  exdate?: ScheduleDateTime[];
+  /** 截止日期对象 */
+  until_date?: ScheduleDateTime;
+}
+
+/**
+ * 在线会议信息
+ */
+export interface OnlineMeeting {
+  /** 在线会议文案 */
+  description?: string;
+  /** 会议提供商：kso（金山会议） / third_party（第三方） */
+  provider: 'kso' | 'third_party';
+  /** 第三方会议链接 */
+  url?: string;
+}
+
+/**
  * 更新日程参数
  */
 export interface UpdateScheduleParams {
@@ -257,26 +291,36 @@ export interface UpdateScheduleParams {
   calendar_id: string;
   /** 日程ID */
   event_id: string;
+  /** 参与者权限，可选值：can_see_others、can_invite_others */
+  attendee_ability?: 'can_see_others' | 'can_invite_others';
   /** 日程标题 */
   summary?: string;
   /** 日程描述 */
   description?: string;
   /** 开始时间 */
-  start?: ScheduleDateTime;
+  start_time?: ScheduleDateTime;
   /** 结束时间 */
-  end?: ScheduleDateTime;
-  /** 是否全天事件 */
-  is_all_day?: boolean;
-  /** 重复规则 */
-  recurrence?: string[];
-  /** 提醒设置 */
+  end_time?: ScheduleDateTime;
+  /** 忙闲状态：busy（忙碌） / free（空闲） */
+  free_busy_status?: 'busy' | 'free';
+  /** 是否通知参与者更新，默认 true */
+  is_notification?: boolean;
+  /** 是否重置邀请（时间变化时重置参与状态），默认 true */
+  is_reinvition?: boolean;
+  /** 地址数组，最多 1 个对象 */
+  locations?: Array<{ name: string }>;
+  /** 针对重复日程的编辑类型，可选值：one（单次） / all（全部） */
+  mod_type?: 'one' | 'all';
+  /** 在线会议对象，null 表示清理 */
+  online_meeting?: OnlineMeeting | null;
+  /** 重复规则对象 */
+  recurrence?: RecurrenceRule;
+  /** 提醒数组，最多 10 个对象 */
   reminders?: ScheduleReminder[];
-  /** 日程状态 */
-  status?: 'confirmed' | 'tentative' | 'cancelled';
-  /** 透明度 */
-  transparency?: 'opaque' | 'transparent';
-  /** 可见性 */
+  /** 可见范围：default / public / private */
   visibility?: 'default' | 'public' | 'private';
+  /** 针对重复日程 mod_type=one 时必填，用于指定具体实例的时间（毫秒时间戳） */
+  which_day_time?: number;
 }
 
 /**

@@ -185,4 +185,93 @@ export default class AttendanceCourseRepository
 
     return result;
   }
+
+  /**
+   * 根据教学周和星期查找考勤课程
+   * @param semester 学期
+   * @param teachingWeek 教学周（可选）
+   * @param weekDay 星期（可选）
+   * @returns 考勤课程列表
+   */
+  public async findByWeekAndDay(
+    teachingWeek?: number,
+    weekDay?: number
+  ): Promise<IcasyncAttendanceCourse[]> {
+    this.logger.debug(
+      { teachingWeek, weekDay },
+      'Finding courses by week and day'
+    );
+
+    const result = (await this.findMany(
+      (qb) => {
+        let query = qb.where('deleted_at', 'is', null);
+
+        if (teachingWeek !== undefined && teachingWeek !== null) {
+          query = query.where('teaching_week', '=', teachingWeek);
+        }
+
+        if (weekDay !== undefined && weekDay !== null) {
+          query = query.where('week_day', '=', weekDay);
+        }
+
+        return query;
+      },
+      {
+        orderBy: { field: 'start_time', direction: 'asc' }
+      }
+    )) as unknown as IcasyncAttendanceCourse[];
+
+    this.logger.debug(
+      { teachingWeek, weekDay, count: result.length },
+      'Courses found'
+    );
+
+    return result;
+  }
+
+  /**
+   * 批量更新课程的教学周、星期和时间
+   * @param courseIds 课程ID列表
+   * @param updates 更新数据
+   * @returns 更新的记录数
+   */
+  public async batchUpdateSchedule(
+    courseIds: number[],
+    updates: {
+      teaching_week: number;
+      week_day: number;
+      start_time: Date;
+      end_time: Date;
+    }
+  ): Promise<number> {
+    if (!courseIds || courseIds.length === 0) {
+      this.logger.warn('batchUpdateSchedule called with empty courseIds');
+      return 0;
+    }
+
+    this.logger.debug(
+      { courseIds, updates },
+      'Batch updating course schedules'
+    );
+
+    const db = await this.getQueryConnection();
+    const result = await db
+      .updateTable(this.tableName)
+      .set({
+        teaching_week: updates.teaching_week,
+        week_day: updates.week_day,
+        start_time: updates.start_time,
+        end_time: updates.end_time,
+        updated_at: new Date()
+      })
+      .where('id', 'in', courseIds)
+      .where('deleted_at', 'is', null)
+      .executeTakeFirst();
+
+    const updatedCount = Number(result.numUpdatedRows || 0);
+
+    this.logger.info({ courseIds, updatedCount }, 'Batch update completed');
+
+    return updatedCount;
+  }
 }

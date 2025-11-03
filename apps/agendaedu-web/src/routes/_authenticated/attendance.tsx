@@ -1,8 +1,7 @@
-import { AttendancePage } from '@/features/attendance/pages/attendance-page'
+import { createFileRoute, Outlet } from '@tanstack/react-router'
 import { createTeacherRouteCheck } from '@/utils/route-permission'
-import { createFileRoute } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/_authenticated/attendance')({
   beforeLoad: createTeacherRouteCheck(),
-  component: AttendancePage,
+  component: () => <Outlet />,
 })

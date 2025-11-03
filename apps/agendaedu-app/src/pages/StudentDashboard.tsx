@@ -1,3 +1,5 @@
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import LocationFailedDialog from '@/components/LocationFailedDialog';
 import { Toaster, ToastProvider } from '@/components/ui/toast';
 import { useToast } from '@/hooks/use-toast';
 import { attendanceApi } from '@/lib/attendance-api';
@@ -54,6 +56,19 @@ function StudentDashboardContent() {
   const [_currentLocation, setCurrentLocation] = useState<LocationInfo | null>(
     null
   );
+
+  // === 位置校验失败对话框状态 ===
+  const [showLocationFailedDialog, setShowLocationFailedDialog] =
+    useState(false);
+  const [locationValidationDistance, setLocationValidationDistance] = useState<
+    number | undefined
+  >(undefined);
+  const [pendingLocationData, setPendingLocationData] =
+    useState<LocationInfo | null>(null);
+
+  // === 撤回请假申请状态 ===
+  const [showWithdrawConfirm, setShowWithdrawConfirm] = useState(false);
+  const [withdrawLoading, setWithdrawLoading] = useState(false);
 
   // === Ref 与 AbortController ===
   const dataFetchAbortRef = useRef<AbortController | null>(null);
@@ -183,9 +198,10 @@ function StudentDashboardContent() {
         !locationValidation.valid &&
         attendanceData.student.xh !== '0306012409428'
       ) {
-        toast.error('签到失败', {
-          description: '您当前不在上课地点附近，无法签到。'
-        });
+        // 位置校验失败，显示对话框让用户选择
+        setPendingLocationData(locationData);
+        setLocationValidationDistance(locationValidation.distance);
+        setShowLocationFailedDialog(true);
         return;
       }
 
@@ -282,6 +298,163 @@ function StudentDashboardContent() {
         setCheckinLoading(false);
       }
       clickingRef.current = false; // 释放锁
+    }
+  };
+
+  // === 处理位置校验失败对话框操作 ===
+
+  // 重试获取位置
+  const handleRetryLocation = async () => {
+    setShowLocationFailedDialog(false);
+    setPendingLocationData(null);
+    setLocationValidationDistance(undefined);
+    // 重新触发签到流程
+    await handleCheckin();
+  };
+
+  // 图片签到
+  const handlePhotoCheckin = async () => {
+    if (!attendanceData || !pendingLocationData) return;
+
+    setShowLocationFailedDialog(false);
+    setCheckinLoading(true);
+
+    try {
+      // 创建文件输入元素
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.capture = 'environment'; // 优先使用后置摄像头
+
+      input.onchange = async (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (!file) {
+          setCheckinLoading(false);
+          return;
+        }
+
+        try {
+          // TODO: 上传图片到OSS，获取图片URL
+          // 这里需要实现图片上传逻辑
+          const photoUrl = await uploadPhotoToOSS(file);
+
+          // 构建图片签到payload
+          const { verification_windows } = attendanceData;
+          const isWindowCheckin = !!(
+            verification_windows?.window_id &&
+            verification_windows?.open_time &&
+            verification_windows?.duration_minutes
+          );
+
+          const payload: any = {
+            location: pendingLocationData.address.description,
+            latitude: pendingLocationData.latitude,
+            longitude: pendingLocationData.longitude,
+            accuracy: pendingLocationData.accuracy,
+            course_start_time: attendanceData.course.course_start_time,
+            checkin_type: 'photo', // 标记为图片签到
+            photo_url: photoUrl // 图片OSS路径
+          };
+
+          // 如果是窗口期签到，添加窗口相关字段
+          if (isWindowCheckin && verification_windows) {
+            const windowOpenTime = new Date(verification_windows.open_time);
+            const windowCloseTime = addMinutes(
+              windowOpenTime,
+              verification_windows.duration_minutes
+            );
+
+            payload.window_id = verification_windows.window_id;
+            payload.window_open_time = verification_windows.open_time;
+            payload.window_close_time = windowCloseTime.toISOString();
+          }
+
+          // 发起签到请求
+          const response = await attendanceApi.studentCheckIn(
+            attendanceData.id,
+            payload
+          );
+
+          if (response.success) {
+            toast.success('图片签到已提交', {
+              description: '您的签到申请已提交，等待教师审核。'
+            });
+            // 刷新数据
+            await loadAttendanceData(true);
+          } else {
+            toast.error('图片签到失败', {
+              description: response.message || '请稍后重试'
+            });
+          }
+        } catch (error) {
+          console.error('图片签到失败:', error);
+          toast.error('图片签到失败', {
+            description: error instanceof Error ? error.message : '请稍后重试'
+          });
+        } finally {
+          setCheckinLoading(false);
+          setPendingLocationData(null);
+        }
+      };
+
+      input.click();
+    } catch (error) {
+      console.error('打开相机失败:', error);
+      toast.error('打开相机失败', {
+        description: '请检查相机权限设置'
+      });
+      setCheckinLoading(false);
+    }
+  };
+
+  // 上传图片到OSS的函数
+  const uploadPhotoToOSS = async (file: File): Promise<string> => {
+    try {
+      const response = await attendanceApi.uploadCheckinPhoto(file);
+
+      if (!response.success || !response.data?.photo_url) {
+        throw new Error(response.message || '图片上传失败');
+      }
+
+      return response.data.photo_url;
+    } catch (error) {
+      console.error('上传图片到OSS失败:', error);
+      throw error;
+    }
+  };
+
+  // 撤回请假申请
+  const handleWithdrawLeave = async () => {
+    if (!attendanceData?.leave_application_id) {
+      toast.error('撤回失败', {
+        description: '未找到请假申请信息'
+      });
+      return;
+    }
+
+    setWithdrawLoading(true);
+    try {
+      const response = await attendanceApi.studentWithdrawLeave(
+        String(attendanceData.leave_application_id)
+      );
+
+      if (response.success) {
+        toast.success('请假申请已撤回');
+        // 刷新数据
+        await loadAttendanceData(true);
+      } else {
+        toast.error('撤回失败', {
+          description: response.message || '请稍后重试'
+        });
+      }
+    } catch (error) {
+      console.error('撤回请假申请失败:', error);
+      toast.error('撤回失败', {
+        description: error instanceof Error ? error.message : '请稍后重试'
+      });
+    } finally {
+      setWithdrawLoading(false);
+      setShowWithdrawConfirm(false);
     }
   };
 
@@ -566,6 +739,27 @@ function StudentDashboardContent() {
                 {checkinLoading ? '处理中...' : displayState.checkInButtonText}
               </button>
             )}
+
+            {/* 撤回请假申请按钮 */}
+            {attendanceData &&
+              attendanceData.leave_application_id &&
+              (attendanceData.pending_status === 'leave' ||
+                attendanceData.pending_status === 'leave_pending' ||
+                attendanceData.final_status === 'leave' ||
+                attendanceData.final_status === 'leave_pending' ||
+                attendanceData.live_status === 'leave' ||
+                attendanceData.live_status === 'leave_pending') &&
+              new Date() <
+                new Date(attendanceData.course.course_start_time) && (
+                <button
+                  type='button'
+                  onClick={() => setShowWithdrawConfirm(true)}
+                  disabled={withdrawLoading}
+                  className='w-full rounded-lg bg-red-600 px-4 py-3 font-semibold text-white transition-colors hover:bg-red-700 disabled:bg-gray-300 disabled:text-gray-500'
+                >
+                  {withdrawLoading ? '处理中...' : '撤回申请'}
+                </button>
+              )}
           </div>
         </div>
 
@@ -578,6 +772,34 @@ function StudentDashboardContent() {
         </div>
       </div>
       {/* <StudentFloatingMessageButton /> */}
+
+      {/* 位置校验失败对话框 */}
+      <LocationFailedDialog
+        isOpen={showLocationFailedDialog}
+        onClose={() => {
+          setShowLocationFailedDialog(false);
+          setPendingLocationData(null);
+          setLocationValidationDistance(undefined);
+          setCheckinLoading(false);
+        }}
+        onRetry={handleRetryLocation}
+        onPhotoCheckin={handlePhotoCheckin}
+        isLoading={checkinLoading}
+        distance={locationValidationDistance}
+      />
+
+      {/* 撤回请假申请确认对话框 */}
+      <ConfirmDialog
+        isOpen={showWithdrawConfirm}
+        onClose={() => setShowWithdrawConfirm(false)}
+        onConfirm={handleWithdrawLeave}
+        title='撤回请假申请'
+        message='确定要撤回请假申请吗？撤回后您的签到状态将恢复为未签到。'
+        confirmText='确定撤回'
+        cancelText='取消'
+        isLoading={withdrawLoading}
+        variant='danger'
+      />
     </div>
   );
 }

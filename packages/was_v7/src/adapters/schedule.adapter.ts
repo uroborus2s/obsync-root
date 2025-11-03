@@ -10,7 +10,8 @@ import type {
   GetScheduleListParams,
   GetScheduleListResponse,
   GetScheduleParams,
-  ScheduleInfo
+  ScheduleInfo,
+  UpdateScheduleParams
 } from '../types/calendar.js';
 
 /**
@@ -24,6 +25,7 @@ export interface WpsScheduleAdapter {
   batchCreateSchedules(
     params: BatchCreateSchedulesParams
   ): Promise<BatchCreateSchedulesResponse>;
+  updateSchedule(params: UpdateScheduleParams): Promise<ScheduleInfo>;
   deleteSchedule(params: DeleteScheduleParams): Promise<void>;
   getScheduleList(
     params: GetScheduleListParams
@@ -85,6 +87,20 @@ export function createWpsScheduleAdapter(
         requestBody
       );
 
+      return response.data;
+    },
+
+    /**
+     * 更新日程
+     */
+    async updateSchedule(params: UpdateScheduleParams): Promise<ScheduleInfo> {
+      await httpClient.ensureAccessToken();
+      const { calendar_id, event_id, ...updateData } = params;
+
+      const response = await httpClient.post<ScheduleInfo>(
+        `/v7/calendars/${calendar_id}/events/${event_id}/update`,
+        updateData
+      );
       return response.data;
     },
 

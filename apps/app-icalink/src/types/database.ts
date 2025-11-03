@@ -103,7 +103,7 @@ export interface IcalinkAttendanceRecord {
   updated_by?: string;
   metadata?: any;
   // v7 新增字段
-  last_checkin_source?: 'regular' | 'window' | 'manual';
+  last_checkin_source?: 'regular' | 'window' | 'manual' | 'photo';
   last_checkin_reason?: string;
   manual_override_by?: string;
   manual_override_time?: Date;
@@ -453,10 +453,17 @@ export interface IcalinkAbsentStudentRelation {
   id: ColumnType<number, number | undefined, number>;
   course_stats_id: number;
   course_id: number;
+  external_id: string;
   course_code: string;
   course_name: string;
   student_id: string;
   student_name: string;
+  school_id: string | null;
+  major_id: string | null;
+  class_id: string | null;
+  grade: string | null;
+  gender: string | null;
+  people: string | null;
   school_name: string | null;
   class_name: string | null;
   major_name: string | null;
@@ -467,7 +474,6 @@ export interface IcalinkAbsentStudentRelation {
   week_day: number;
   periods: string | null;
   time_period: string;
-  leave_reason: string | null;
   created_at: ColumnType<Date, string, string>;
   updated_at: ColumnType<Date, string, string>;
 }
@@ -566,6 +572,41 @@ export interface VStudentOverallAttendanceStats {
 }
 
 /**
+ * 学生缺课率明细表实体（物化表）
+ */
+export interface IcalinkStudentAbsenceRateDetail {
+  id: ColumnType<number, number | undefined, number>;
+  student_id: string;
+  student_name: string;
+  semester: string;
+  school_name: string | null;
+  school_id: string | null;
+  class_name: string | null;
+  class_id: string | null;
+  major_name: string | null;
+  major_id: string | null;
+  grade: string | null;
+  gender: string | null;
+  people: string | null;
+  course_code: string;
+  course_name: string;
+  courser_id: number;
+  course_unit_id: string | null;
+  course_unit: string | null;
+  teaching_class_code: string | null;
+  total_sessions: number;
+  completed_sessions: number;
+  absent_count: number;
+  leave_count: number;
+  truant_count: number;
+  absence_rate: number;
+  truant_rate: number;
+  leave_rate: number;
+  created_at: ColumnType<Date, string, string>;
+  updated_at: ColumnType<Date, string, string>;
+}
+
+/**
  * 学生缺课率统计明细视图实体（每个学生每门课一条记录，汇总所有学期）
  */
 export interface VStudentAbsenceRateDetail {
@@ -589,14 +630,32 @@ export interface VStudentAbsenceRateDetail {
 export interface VStudentAbsenceRateSummary {
   student_id: string;
   student_name: string;
+  semester: string;
   school_name: string | null;
+  school_id: string | null;
   class_name: string | null;
+  class_id: string | null;
   major_name: string | null;
+  major_id: string | null;
+  grade: string | null;
+  gender: string | null;
+  people: string | null;
   total_courses: number;
   total_sessions: number;
-  total_completed_sessions: number;
+  completed_sessions: number;
   total_absent_count: number;
+  total_leave_count: number;
+  total_truant_count: number;
   overall_absence_rate: number;
+  overall_truant_rate: number;
+  overall_leave_rate: number;
+  avg_absence_rate: number;
+  avg_truant_rate: number;
+  avg_leave_rate: number;
+  max_absence_rate: number;
+  max_truant_rate: number;
+  max_leave_rate: number;
+  last_updated_at: Date | null;
 }
 
 /**
@@ -645,6 +704,27 @@ export interface IcalinkVerificationWindow {
   actual_checkin_count?: number;
   created_at?: ColumnType<Date, string, string>;
   updated_at?: ColumnType<Date, string, string>;
+}
+
+/**
+ * 联系人表实体（基于 v_contacts 视图）
+ * 统一了教师和学生的联系信息
+ */
+export interface IcalinkContact {
+  id: ColumnType<number, number | undefined, number>;
+  user_id: string;
+  user_name: string;
+  school_id: string | null;
+  school_name: string | null;
+  major_id: string | null;
+  major_name: string | null;
+  class_id: string | null;
+  class_name: string | null;
+  gender: string | null;
+  grade: string | null;
+  people: string | null;
+  position: string | null;
+  role: 'teacher' | 'student';
 }
 
 /**
@@ -732,6 +812,7 @@ export interface IcalinkDatabase {
   icalink_verification_windows: IcalinkVerificationWindow;
   icalink_course_checkin_stats: IcalinkCourseCheckinStats;
   icalink_teaching_class: IcalinkTeachingClass;
+  icalink_student_absence_rate_detail: IcalinkStudentAbsenceRateDetail;
 
   // 考勤相关视图
   v_teaching_class: VTeachingClass;
@@ -757,4 +838,5 @@ export interface IcalinkDatabase {
   out_xsxx: OutXsxx;
   out_jsxx: OutJsxx;
   out_jw_kcb_xs: OutJwKcbXs;
+  icalink_contacts: IcalinkContact;
 }

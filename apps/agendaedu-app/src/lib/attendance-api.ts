@@ -13,6 +13,7 @@ export interface StudentAttendanceSearchResponse {
   data?: {
     id: number; // 课程ID
     attendance_record_id?: number; // 考勤记录ID，用于请假申请
+    leave_application_id?: number; // 请假申请ID，用于撤回请假
     course: {
       external_id: string;
       kkh?: string;
@@ -829,6 +830,62 @@ export class AttendanceApiService {
     // 需要先通过attendance_record_id查找对应的leave application
     // 这里需要调用查询接口来获取application_id
     throw new Error('此方法已废弃，请使用新的撤回请假接口');
+  }
+
+  /**
+   * 上传签到图片
+   * POST /api/icalink/v1/attendance/upload-checkin-photo
+   *
+   * @param file - 图片文件
+   * @returns 图片OSS路径
+   */
+  async uploadCheckinPhoto(file: File): Promise<{
+    success: boolean;
+    message?: string;
+    data?: {
+      photo_url: string;
+      bucket_name: string;
+    };
+  }> {
+    // 将文件转换为base64
+    const base64 = await this.fileToBase64(file);
+
+    const response = await this.apiClient.post<{
+      success: boolean;
+      message?: string;
+      data?: {
+        photo_url: string;
+        bucket_name: string;
+      };
+    }>('/icalink/v1/attendance/upload-checkin-photo', {
+      image: base64,
+      fileName: file.name,
+      mimeType: file.type
+    });
+
+    return response as unknown as {
+      success: boolean;
+      message?: string;
+      data?: {
+        photo_url: string;
+        bucket_name: string;
+      };
+    };
+  }
+
+  /**
+   * 将文件转换为base64字符串
+   */
+  private fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = (reader.result as string).split(',')[1]; // 移除data:image/...;base64,前缀
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
   }
 }
 
