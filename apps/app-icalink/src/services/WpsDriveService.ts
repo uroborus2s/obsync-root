@@ -4,6 +4,7 @@ import type {
   CreateDriveParams,
   CreateFileParams,
   DriveInfo,
+  FileHash,
   FileInfo,
   GetChildrenResponse,
   OpenLinkParams,
@@ -489,7 +490,7 @@ export default class WpsDriveService implements IWpsDriveService {
     parentId: string,
     fileName: string,
     fileSize: number,
-    fileHash?: string
+    fileHash: string
   ): Promise<{
     success: boolean;
     data?: RequestUploadResponse;
@@ -505,14 +506,12 @@ export default class WpsDriveService implements IWpsDriveService {
       });
 
       // 构建哈希值数组（如果提供了哈希值）
-      const hashes = fileHash
-        ? [
-            {
-              sum: fileHash,
-              type: 'sha256' as const
-            }
-          ]
-        : undefined;
+      const hashes = [
+        {
+          sum: fileHash,
+          type: 'sha256'
+        }
+      ] as unknown as FileHash[];
 
       // 调用适配器请求上传
       const uploadInfo = await this.wasV7ApiDrive.requestUpload({

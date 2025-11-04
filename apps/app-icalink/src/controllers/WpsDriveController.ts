@@ -728,7 +728,7 @@ export default class WpsDriveController {
         parent_id: string;
         file_name: string;
         file_size: number;
-        file_hash?: string;
+        file_hash: string;
       };
     }>,
     reply: FastifyReply

@@ -194,10 +194,7 @@ export const wpsDriveApi = {
     file_size: number
     file_hash?: string
   }): Promise<{
-    headers: {
-      upload_id: string
-      Authorization: string
-    }
+    upload_id: string
     store_request: {
       method: string
       url: string
@@ -208,10 +205,7 @@ export const wpsDriveApi = {
     const response = await apiClient.post<{
       success: boolean
       data: {
-        headers: {
-          upload_id: string
-          Authorization: string
-        }
+        upload_id: string
         store_request: {
           method: string
           url: string
@@ -234,13 +228,11 @@ export const wpsDriveApi = {
     parent_id: string
     file: File
   }): Promise<{
-    headers: {
-      upload_id: string
-      Authorization: string
-    }
+    upload_id: string
     store_request: {
       method: string
       url: string
+      headers?: Record<string, string>
     }
   }> {
     // 计算文件SHA-256哈希值

@@ -250,7 +250,7 @@ export default function WpsDriveManagement() {
         await wpsDriveApi.uploadFileContent(
           uploadInfo.store_request.url,
           file,
-          uploadInfo.headers, // 传递认证头
+          uploadInfo.store_request.headers, // 传递认证头
           (progress) => {
             // 计算总体进度
             const fileProgress =

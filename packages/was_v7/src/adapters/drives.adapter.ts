@@ -245,13 +245,14 @@ export function createWpsDriveAdapter(
         store_request: { url, headers = {}, method },
         upload_id
       } = response.data;
+      const token = await httpClient.getAppAccessToken();
       return {
         store_request: {
           url,
           method,
           headers: {
             ...headers,
-            Authorization: `Bearer ${httpClient.getAppAccessToken()}`
+            Authorization: `Bearer ${token}`
           }
         },
         upload_id
