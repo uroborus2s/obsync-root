@@ -6,8 +6,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Logger } from '@stratix/core';
 import type { ExecutionContext } from '@stratix/tasks';
 import type { WpsCalendarAdapter } from '@stratix/was-v7';
-import type { ICalendarMappingRepository } from '../../repositories/CalendarMappingRepository.js';
-import RemoveSingleCalendarPermissionProcessor from '../RemoveSingleCalendarPermissionProcessor.js';
+import type { ICalendarMappingRepository } from '../../repositories/CalendarMapping.repository.js';
+import RemoveSingleCalendarPermissionProcessor from '../RemoveSingleCalendarPermission.executor.js';
 
 describe('RemoveSingleCalendarPermissionProcessor', () => {
   let executor: RemoveSingleCalendarPermissionProcessor;

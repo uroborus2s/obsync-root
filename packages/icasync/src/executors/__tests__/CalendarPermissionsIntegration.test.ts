@@ -8,12 +8,12 @@ import type { Logger } from '@stratix/core';
 import type { DatabaseAPI } from '@stratix/database';
 import type { ExecutionContext } from '@stratix/tasks';
 import type { WpsCalendarAdapter } from '@stratix/was-v7';
-import type { ICalendarMappingRepository } from '../../repositories/CalendarMappingRepository.js';
+import type { ICalendarMappingRepository } from '../../repositories/CalendarMapping.repository.js';
 
-import FetchCalendarPermissionsToRemoveExecutor from '../FetchCalendarPermissionsToRemoveExecutor.js';
-import RemoveSingleCalendarPermissionProcessor from '../RemoveSingleCalendarPermissionProcessor.js';
-import FetchCalendarPermissionsToAddExecutor from '../FetchCalendarPermissionsToAddExecutor.js';
-import AddSingleCalendarPermissionProcessor from '../AddSingleCalendarPermissionProcessor.js';
+import FetchCalendarPermissionsToRemoveExecutor from '../FetchCalendarPermissionsToRemove.executor.js';
+import RemoveSingleCalendarPermissionProcessor from '../RemoveSingleCalendarPermission.executor.js';
+import FetchCalendarPermissionsToAddExecutor from '../FetchCalendarPermissionsToAdd.executor.js';
+import AddSingleCalendarPermissionProcessor from '../AddSingleCalendarPermission.executor.js';
 
 describe('CalendarPermissionsIntegration', () => {
   let fetchRemoveExecutor: FetchCalendarPermissionsToRemoveExecutor;

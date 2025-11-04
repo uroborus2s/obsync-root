@@ -2,8 +2,8 @@
 import type { Logger } from '@stratix/core';
 import type { ExecutionContext } from '@stratix/tasks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { DataAggregationConfig } from '../DataAggregationProcessor.js';
-import DataAggregationProcessor from '../DataAggregationProcessor.js';
+import type { DataAggregationConfig } from '../DataAggregation.executor.js';
+import DataAggregationProcessor from '../DataAggregation.executor.js';
 
 // Mock 依赖
 const mockCourseAggregationService = {

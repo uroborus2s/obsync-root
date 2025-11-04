@@ -17,11 +17,16 @@ export interface IAttendanceService {
 
   checkin(dto: CheckinDTO): Promise<Either<ServiceError, CheckinResponse>>;
 
+  getFailedCheckinJobs(
+    page: number,
+    pageSize: number
+  ): Promise<Either<ServiceError, any>>;
+
   // getCourseAttendanceHistoryById(
   //   courseId: string,
   //   userInfo: UserInfo,
   //   params: { xnxq?: string; start_date?: string; end_date?: string }
-  // ): Promise<Either<ServiceError, any>>;
+
 
   // getPersonalCourseStatsById(
   //   courseId: string,

@@ -6,8 +6,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Logger } from '@stratix/core';
 import type { ExecutionContext } from '@stratix/tasks';
-import FetchSyncSourcesProcessor from '../FetchSyncSourcesProcessor.js';
-import type { IJuheRenwuRepository } from '../../repositories/JuheRenwuRepository.js';
+import FetchSyncSourcesProcessor from '../FetchSyncSources.executor.js';
+import type { IJuheRenwuRepository } from '../../repositories/JuheRenwu.repository.js';
 
 describe('FetchSyncSourcesProcessor - 简化版本', () => {
   let processor: FetchSyncSourcesProcessor;

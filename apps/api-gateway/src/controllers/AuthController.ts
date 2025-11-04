@@ -565,30 +565,28 @@ export default class AuthController {
     };
 
     // 根据用户类型添加特定信息
-    if (user.userType === 'student' && user.studentInfo) {
-      const student = user.studentInfo;
+    if (user.userType === 'student' && user.contactInfo) {
+      const contact = user.contactInfo;
       return {
         ...basePayload,
         studentNumber: user.userNumber, // 学号（从用户信息中获取）
         className: user.className, // 班级名称
         majorName: user.majorName, // 专业名称
-        // collegeName 已在 basePayload 中包含
-        studentType: student.lx === 1 ? 'undergraduate' : 'graduate', // 本科生/研究生
-        grade: student.sznj, // 年级
-        enrollmentYear: student.rxnf, // 入学年份
+        grade: contact.grade, // 年级
+        gender: contact.gender, // 性别
+        people: contact.people, // 民族
         permissions: ['read', 'student:profile', 'student:courses']
       };
     }
 
-    if (user.userType === 'teacher' && user.teacherInfo) {
-      const teacher = user.teacherInfo;
+    if (user.userType === 'teacher' && user.contactInfo) {
+      const contact = user.contactInfo;
       return {
         ...basePayload,
         employeeNumber: user.userNumber, // 工号（从用户信息中获取）
         departmentName: user.collegeName, // 部门名称（从用户信息中获取）
-        title: teacher.zc, // 职称
-        education: teacher.zgxl, // 最高学历
-        degree: teacher.xw, // 学位
+        position: contact.position, // 职位
+        gender: contact.gender, // 性别
         permissions: [
           'read',
           'teacher:profile',

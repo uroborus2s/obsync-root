@@ -82,6 +82,7 @@ import { Route as AuthenticatedAttendanceStudentsRouteImport } from './routes/_a
 import { Route as AuthenticatedAttendanceStudentStatsRouteImport } from './routes/_authenticated/attendance/student-stats'
 import { Route as AuthenticatedAttendanceRankingsRouteImport } from './routes/_authenticated/attendance/rankings'
 import { Route as AuthenticatedAttendanceOverviewRouteImport } from './routes/_authenticated/attendance/overview'
+import { Route as AuthenticatedAttendanceFailedLogsRouteImport } from './routes/_authenticated/attendance/failed-logs'
 import { Route as AuthenticatedAttendanceCoursesRouteImport } from './routes/_authenticated/attendance/courses'
 import { Route as AuthenticatedAttendanceCourseStatisticsRouteImport } from './routes/_authenticated/attendance/course-statistics'
 import { Route as AuthenticatedAttendanceAnalyticsRouteImport } from './routes/_authenticated/attendance/analytics'
@@ -493,6 +494,12 @@ const AuthenticatedAttendanceOverviewRoute =
     path: '/overview',
     getParentRoute: () => AuthenticatedAttendanceRoute,
   } as any)
+const AuthenticatedAttendanceFailedLogsRoute =
+  AuthenticatedAttendanceFailedLogsRouteImport.update({
+    id: '/failed-logs',
+    path: '/failed-logs',
+    getParentRoute: () => AuthenticatedAttendanceRoute,
+  } as any)
 const AuthenticatedAttendanceCoursesRoute =
   AuthenticatedAttendanceCoursesRouteImport.update({
     id: '/courses',
@@ -566,6 +573,7 @@ export interface FileRoutesByFullPath {
   '/attendance/analytics': typeof AuthenticatedAttendanceAnalyticsRoute
   '/attendance/course-statistics': typeof AuthenticatedAttendanceCourseStatisticsRoute
   '/attendance/courses': typeof AuthenticatedAttendanceCoursesRoute
+  '/attendance/failed-logs': typeof AuthenticatedAttendanceFailedLogsRoute
   '/attendance/overview': typeof AuthenticatedAttendanceOverviewRoute
   '/attendance/rankings': typeof AuthenticatedAttendanceRankingsRoute
   '/attendance/student-stats': typeof AuthenticatedAttendanceStudentStatsRoute
@@ -639,6 +647,7 @@ export interface FileRoutesByTo {
   '/attendance/analytics': typeof AuthenticatedAttendanceAnalyticsRoute
   '/attendance/course-statistics': typeof AuthenticatedAttendanceCourseStatisticsRoute
   '/attendance/courses': typeof AuthenticatedAttendanceCoursesRoute
+  '/attendance/failed-logs': typeof AuthenticatedAttendanceFailedLogsRoute
   '/attendance/overview': typeof AuthenticatedAttendanceOverviewRoute
   '/attendance/rankings': typeof AuthenticatedAttendanceRankingsRoute
   '/attendance/student-stats': typeof AuthenticatedAttendanceStudentStatsRoute
@@ -721,6 +730,7 @@ export interface FileRoutesById {
   '/_authenticated/attendance/analytics': typeof AuthenticatedAttendanceAnalyticsRoute
   '/_authenticated/attendance/course-statistics': typeof AuthenticatedAttendanceCourseStatisticsRoute
   '/_authenticated/attendance/courses': typeof AuthenticatedAttendanceCoursesRoute
+  '/_authenticated/attendance/failed-logs': typeof AuthenticatedAttendanceFailedLogsRoute
   '/_authenticated/attendance/overview': typeof AuthenticatedAttendanceOverviewRoute
   '/_authenticated/attendance/rankings': typeof AuthenticatedAttendanceRankingsRoute
   '/_authenticated/attendance/student-stats': typeof AuthenticatedAttendanceStudentStatsRoute
@@ -803,6 +813,7 @@ export interface FileRouteTypes {
     | '/attendance/analytics'
     | '/attendance/course-statistics'
     | '/attendance/courses'
+    | '/attendance/failed-logs'
     | '/attendance/overview'
     | '/attendance/rankings'
     | '/attendance/student-stats'
@@ -876,6 +887,7 @@ export interface FileRouteTypes {
     | '/attendance/analytics'
     | '/attendance/course-statistics'
     | '/attendance/courses'
+    | '/attendance/failed-logs'
     | '/attendance/overview'
     | '/attendance/rankings'
     | '/attendance/student-stats'
@@ -957,6 +969,7 @@ export interface FileRouteTypes {
     | '/_authenticated/attendance/analytics'
     | '/_authenticated/attendance/course-statistics'
     | '/_authenticated/attendance/courses'
+    | '/_authenticated/attendance/failed-logs'
     | '/_authenticated/attendance/overview'
     | '/_authenticated/attendance/rankings'
     | '/_authenticated/attendance/student-stats'
@@ -1532,6 +1545,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAttendanceOverviewRouteImport
       parentRoute: typeof AuthenticatedAttendanceRoute
     }
+    '/_authenticated/attendance/failed-logs': {
+      id: '/_authenticated/attendance/failed-logs'
+      path: '/failed-logs'
+      fullPath: '/attendance/failed-logs'
+      preLoaderRoute: typeof AuthenticatedAttendanceFailedLogsRouteImport
+      parentRoute: typeof AuthenticatedAttendanceRoute
+    }
     '/_authenticated/attendance/courses': {
       id: '/_authenticated/attendance/courses'
       path: '/courses'
@@ -1686,6 +1706,7 @@ interface AuthenticatedAttendanceRouteChildren {
   AuthenticatedAttendanceAnalyticsRoute: typeof AuthenticatedAttendanceAnalyticsRoute
   AuthenticatedAttendanceCourseStatisticsRoute: typeof AuthenticatedAttendanceCourseStatisticsRoute
   AuthenticatedAttendanceCoursesRoute: typeof AuthenticatedAttendanceCoursesRoute
+  AuthenticatedAttendanceFailedLogsRoute: typeof AuthenticatedAttendanceFailedLogsRoute
   AuthenticatedAttendanceOverviewRoute: typeof AuthenticatedAttendanceOverviewRoute
   AuthenticatedAttendanceRankingsRoute: typeof AuthenticatedAttendanceRankingsRoute
   AuthenticatedAttendanceStudentStatsRoute: typeof AuthenticatedAttendanceStudentStatsRoute
@@ -1700,6 +1721,8 @@ const AuthenticatedAttendanceRouteChildren: AuthenticatedAttendanceRouteChildren
     AuthenticatedAttendanceCourseStatisticsRoute:
       AuthenticatedAttendanceCourseStatisticsRoute,
     AuthenticatedAttendanceCoursesRoute: AuthenticatedAttendanceCoursesRoute,
+    AuthenticatedAttendanceFailedLogsRoute:
+      AuthenticatedAttendanceFailedLogsRoute,
     AuthenticatedAttendanceOverviewRoute: AuthenticatedAttendanceOverviewRoute,
     AuthenticatedAttendanceRankingsRoute: AuthenticatedAttendanceRankingsRoute,
     AuthenticatedAttendanceStudentStatsRoute:

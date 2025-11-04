@@ -5,7 +5,7 @@
 import type { Logger } from '@stratix/core';
 import type { DatabaseAPI } from '@stratix/database';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import TeacherCourseRepository from '../../repositories/TeacherCourseRepository.js';
+import TeacherCourseRepository from '../../repositories/TeacherCourse.repository.js';
 import type { TeacherCourse } from '../../types/database.js';
 
 // Mock 数据

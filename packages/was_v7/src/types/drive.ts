@@ -204,7 +204,7 @@ export type OnNameConflict = 'fail' | 'rename' | 'overwrite' | 'replace';
 /**
  * 哈希类型
  */
-export type HashType = 'sha1' | 'md5';
+export type HashType = 'sha1' | 'md5' | 'sha256' | 's2s';
 
 /**
  * 文件哈希信息
@@ -526,6 +526,8 @@ export interface StoreRequest {
   method: string;
   /** 存储上传地址 */
   url: string;
+  /** 上传请求头（可选，可能包含Authorization等认证信息） */
+  headers?: Record<string, string>;
 }
 
 /**

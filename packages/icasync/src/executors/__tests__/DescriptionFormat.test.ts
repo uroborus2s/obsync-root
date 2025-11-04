@@ -1,6 +1,6 @@
 // 描述格式优化测试
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import FetchSchedulesExecutor from '../FetchSchedulesExecutor.js';
+import FetchSchedulesExecutor from '../FetchSchedules.executor.js';
 
 // Mock 依赖
 const mockJuheRenwuRepository = {

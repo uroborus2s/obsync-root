@@ -4,20 +4,17 @@
  */
 
 import type { Logger } from '@stratix/core';
-import type { IStudentRepository } from '../repositories/StudentRepository.js';
-import type { ITeacherRepository } from '../repositories/TeacherRepository.js';
-import type { StudentInfo, TeacherInfo } from '../types/database.js';
+import ContactRepository from 'src/repositories/ContactRepository.js';
+import type { IcalinkContact } from '../types/database.js';
 import type { AuthenticatedUser } from '../types/gateway.js';
 import type { WPSUserInfo } from './WPSApiService.js';
 
 /**
- * 扩展的认证用户信息（包含数据库信息）
+ * 扩展的认证用户信息（包含联系人信息）
  */
 export interface ExtendedAuthenticatedUser extends AuthenticatedUser {
-  /** 学生信息（如果是学生） */
-  studentInfo?: StudentInfo;
-  /** 教师信息（如果是教师） */
-  teacherInfo?: TeacherInfo;
+  /** 联系人完整信息 */
+  contactInfo?: IcalinkContact;
 }
 
 /**
@@ -50,8 +47,7 @@ export interface IUserAuthService {
 
 export default class UserAuthService implements IUserAuthService {
   constructor(
-    private studentRepository: IStudentRepository,
-    private teacherRepository: ITeacherRepository,
+    private contactRepository: ContactRepository,
     private logger: Logger
   ) {
     this.logger.info('✅ UserAuthService initialized');
@@ -83,40 +79,39 @@ export default class UserAuthService implements IUserAuthService {
         };
       }
 
-      // 先尝试通过学号匹配学生
-      const studentMatch = await this.findStudentByThirdUnionId(wpsUserInfo);
-      if (studentMatch.matched) {
-        this.logger.info('User matched as student by third_union_id', {
-          studentId: studentMatch.user?.id,
-          studentName: studentMatch.user?.name,
-          thirdUnionId: wpsUserInfo.third_union_id
-        });
-        return studentMatch;
+      // 通过 third_union_id（学号或工号）查找联系人
+      const contact = await this.contactRepository.findByUserId(
+        wpsUserInfo.third_union_id
+      );
+
+      if (!contact) {
+        this.logger.warn(
+          'No local user found for WPS user with third_union_id',
+          {
+            wpsOpenid: wpsUserInfo.openid,
+            wpsNickname: wpsUserInfo.nickname,
+            thirdUnionId: wpsUserInfo.third_union_id
+          }
+        );
+
+        return {
+          matched: false,
+          matchType: 'none',
+          error: `未找到与 third_union_id: ${wpsUserInfo.third_union_id} 匹配的用户`
+        };
       }
 
-      // 再尝试通过工号匹配教师
-      const teacherMatch = await this.findTeacherByThirdUnionId(wpsUserInfo);
-      if (teacherMatch.matched) {
-        this.logger.info('User matched as teacher by third_union_id', {
-          teacherId: teacherMatch.user?.id,
-          teacherName: teacherMatch.user?.name,
-          thirdUnionId: wpsUserInfo.third_union_id
-        });
-        return teacherMatch;
-      }
+      // 根据联系人信息构建认证用户
+      const userMatch = this.buildAuthenticatedUserFromContact(contact);
 
-      // 都没有匹配到
-      this.logger.warn('No local user found for WPS user with third_union_id', {
-        wpsOpenid: wpsUserInfo.openid,
-        wpsNickname: wpsUserInfo.nickname,
+      this.logger.info('User matched by third_union_id', {
+        userId: userMatch.user?.id,
+        userName: userMatch.user?.name,
+        userType: userMatch.user?.userType,
         thirdUnionId: wpsUserInfo.third_union_id
       });
 
-      return {
-        matched: false,
-        matchType: 'none',
-        error: `未找到与 third_union_id: ${wpsUserInfo.third_union_id} 匹配的用户`
-      };
+      return userMatch;
     } catch (error) {
       this.logger.error('Failed to find local user:', error);
       return {
@@ -128,138 +123,42 @@ export default class UserAuthService implements IUserAuthService {
   }
 
   /**
-   * 通过 third_union_id 查找学生用户（精确匹配学号）
+   * 根据联系人信息构建认证用户
    */
-  private async findStudentByThirdUnionId(
-    wpsUserInfo: WPSUserInfo
-  ): Promise<UserMatchResult> {
+  private buildAuthenticatedUserFromContact(
+    contact: IcalinkContact
+  ): UserMatchResult {
     try {
-      this.logger.debug('Finding student by third_union_id', {
-        thirdUnionId: wpsUserInfo.third_union_id
-      });
-
-      // 通过学号精确匹配
-      const studentResult = await this.studentRepository.findByStudentNumber(
-        wpsUserInfo.third_union_id
-      );
-
-      if (!studentResult.success) {
-        this.logger.error(
-          'Failed to query student by student number:',
-          studentResult.error
-        );
-        throw new Error('Database query failed');
-      }
-
-      const student = studentResult.data;
-
-      if (!student) {
-        return { matched: false, matchType: 'none' };
-      }
-
-      // // 检查学生状态
-      // if (student.zt && student.zt !== '1') {
-      //   this.logger.warn('Student account is disabled', {
-      //     studentId: student.id,
-      //     studentName: student.xm,
-      //     status: student.zt
-      //   });
-      //   return {
-      //     matched: false,
-      //     matchType: 'none',
-      //     error: '学生账户已被禁用'
-      //   };
-      // }
+      // 根据 role 字段确定用户类型
+      const userType = contact.role === 'teacher' ? 'teacher' : 'student';
 
       const authenticatedUser: ExtendedAuthenticatedUser = {
-        id: student.id,
-        name: student.xm || '',
-        userType: 'student',
-        userNumber: student.xh || '', // 学号
-        email: student.email || undefined,
-        phone: student.sjh || undefined,
-        collegeName: student.xymc || undefined, // 学院名称
-        majorName: student.zymc || undefined, // 专业名称
-        className: student.bjmc || undefined, // 班级名称
-        studentInfo: student
+        id: String(contact.id),
+        name: contact.user_name,
+        userType: userType,
+        userNumber: contact.user_id, // 学号或工号
+        collegeName: contact.school_name || undefined,
+        majorName: contact.major_name || undefined,
+        className: contact.class_name || undefined,
+        contactInfo: contact
       };
 
       return {
         matched: true,
         user: authenticatedUser,
         matchType: 'exact',
-        matchedFields: ['studentNumber']
+        matchedFields: ['user_id']
       };
     } catch (error) {
-      this.logger.error('Failed to find student by third_union_id:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * 通过 third_union_id 查找教师用户（精确匹配工号）
-   */
-  private async findTeacherByThirdUnionId(
-    wpsUserInfo: WPSUserInfo
-  ): Promise<UserMatchResult> {
-    try {
-      this.logger.debug('Finding teacher by third_union_id', {
-        thirdUnionId: wpsUserInfo.third_union_id
-      });
-
-      // 通过工号精确匹配
-      const teacherResult = await this.teacherRepository.findByEmployeeNumber(
-        wpsUserInfo.third_union_id
+      this.logger.error(
+        'Failed to build authenticated user from contact:',
+        error
       );
-
-      if (!teacherResult.success) {
-        this.logger.error(
-          'Failed to query teacher by employee number:',
-          teacherResult.error
-        );
-        throw new Error('Database query failed');
-      }
-
-      const teacher = teacherResult.data;
-
-      if (!teacher) {
-        return { matched: false, matchType: 'none' };
-      }
-
-      // // 检查教师状态
-      // if (teacher.zt && teacher.zt !== '1') {
-      //   this.logger.warn('Teacher account is disabled', {
-      //     teacherId: teacher.id,
-      //     teacherName: teacher.xm,
-      //     status: teacher.zt
-      //   });
-      //   return {
-      //     matched: false,
-      //     matchType: 'none',
-      //     error: '教师账户已被禁用'
-      //   };
-      // }
-
-      const authenticatedUser: ExtendedAuthenticatedUser = {
-        id: teacher.id,
-        name: teacher.xm || '',
-        userType: 'teacher',
-        userNumber: teacher.gh || '', // 工号
-        email: teacher.email || undefined,
-        phone: teacher.sjh || undefined,
-        collegeName: teacher.ssdwmc || undefined, // 部门名称
-        teacherInfo: teacher
-      };
-
       return {
-        matched: true,
-        user: authenticatedUser,
-        matchType: 'exact',
-        matchedFields: ['employeeNumber']
+        matched: false,
+        matchType: 'none',
+        error: '构建用户信息时发生错误'
       };
-    } catch (error) {
-      this.logger.error('Failed to find teacher by third_union_id:', error);
-      throw error;
     }
   }
 
@@ -275,29 +174,8 @@ export default class UserAuthService implements IUserAuthService {
 
       // 这里可以添加额外的权限验证逻辑
       // 例如：检查用户状态、账户是否被禁用等
-      // 注意：用户状态检查已在 findStudentByThirdUnionId 和 findTeacherByThirdUnionId 中完成
-
-      // if (user.userType === 'student' && user.studentInfo) {
-      //   // 检查学生状态
-      //   if (user.studentInfo.zt && user.studentInfo.zt !== '1') {
-      //     this.logger.warn('Student account is not active', {
-      //       studentId: user.id,
-      //       status: user.studentInfo.zt
-      //     });
-      //     return false;
-      //   }
-      // }
-
-      // if (user.userType === 'teacher' && user.teacherInfo) {
-      //   // 检查教师状态
-      //   if (user.teacherInfo.zt && user.teacherInfo.zt !== '1') {
-      //     this.logger.warn('Teacher account is not active', {
-      //       teacherId: user.id,
-      //       status: user.teacherInfo.zt
-      //     });
-      //     return false;
-      //   }
-      // }
+      // 注意：ContactRepository 中的数据已经过滤了状态为 'add' 或 'update' 的用户
+      // 如需更细粒度的状态检查，可以从原始表（out_xsxx 或 out_jsxx）查询
 
       return true;
     } catch (error) {

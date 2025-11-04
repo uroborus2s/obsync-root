@@ -7,9 +7,9 @@ import type { ExecutionContext } from '@stratix/tasks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import FetchCourseDataExecutor, {
   type FetchCourseDataConfig
-} from '../../executors/FetchCourseDataExecutor.js';
-import type { IStudentCourseRepository } from '../../repositories/StudentCourseRepository.js';
-import type { ITeacherCourseRepository } from '../../repositories/TeacherCourseRepository.js';
+} from '../../executors/FetchCourseData.executor.js';
+import type { IStudentCourseRepository } from '../../repositories/StudentCourse.repository.js';
+import type { ITeacherCourseRepository } from '../../repositories/TeacherCourse.repository.js';
 import type { StudentCourse, TeacherCourse } from '../../types/database.js';
 
 // Mock 数据

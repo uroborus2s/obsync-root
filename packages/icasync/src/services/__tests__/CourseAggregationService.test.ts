@@ -1,10 +1,10 @@
 // @stratix/icasync 课程聚合服务单元测试
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ICourseRawRepository } from '../../repositories/CourseRawRepository.js';
-import type { IJuheRenwuRepository } from '../../repositories/JuheRenwuRepository.js';
+import type { ICourseRawRepository } from '../../repositories/CourseRaw.repository.js';
+import type { IJuheRenwuRepository } from '../../repositories/JuheRenwu.repository.js';
 import type { CourseRaw } from '../../types/database.js';
-import { CourseAggregationService } from '../CourseAggregationService.js';
+import { CourseAggregationService } from '../CourseAggregation.service.js';
 
 // Mock 仓储
 const mockCourseRawRepository: ICourseRawRepository = {

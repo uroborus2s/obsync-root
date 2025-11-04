@@ -8,9 +8,9 @@ import type { WpsCalendarAdapter } from '@stratix/was-v7';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import RestoreCalendarPermissionExecutor, {
   type RestorePermissionConfig
-} from '../../executors/RestoreCalendarPermissionExecutor.js';
-import type { ICalendarMappingRepository } from '../../repositories/CalendarMappingRepository.js';
-import type { IPermissionStatusRepository } from '../../repositories/PermissionStatusRepository.js';
+} from '../../executors/RestoreCalendarPermission.executor.js';
+import type { ICalendarMappingRepository } from '../../repositories/CalendarMapping.repository.js';
+import type { IPermissionStatusRepository } from '../../repositories/PermissionStatus.repository.js';
 import type { CalendarMapping } from '../../types/database.js';
 
 // Mock 数据

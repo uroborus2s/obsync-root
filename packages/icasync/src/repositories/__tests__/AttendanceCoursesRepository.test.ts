@@ -3,7 +3,7 @@ import type { Logger } from '@stratix/core';
 import type { DatabaseAPI } from '@stratix/database';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NewAttendanceCourse } from '../../types/database.js';
-import AttendanceCoursesRepository from '../AttendanceCoursesRepository.js';
+import AttendanceCoursesRepository from '../AttendanceCourses.repository.js';
 
 // Mock dependencies
 const mockDatabaseAPI = {

@@ -61,7 +61,6 @@ export default class AttendanceService implements IAttendanceService {
     private readonly courseStudentRepository: CourseStudentRepository,
     private readonly attendanceCourseRepository: AttendanceCourseRepository,
     private readonly attendanceRecordRepository: AttendanceRecordRepository,
-    // private readonly attendanceStatsRepository: AttendanceStatsRepository,
     private readonly attendanceViewRepository: AttendanceViewRepository,
     private readonly leaveApplicationRepository: LeaveApplicationRepository,
     private readonly absentStudentRelationRepository: AbsentStudentRelationRepository,
@@ -90,6 +89,47 @@ export default class AttendanceService implements IAttendanceService {
 
     this.logger.info('✅ Checkin queue worker registered successfully');
   }
+
+  /**
+   * 获取消息队列中失败的签到
+   * @param page 页码
+   * @param pageSize 每页数量
+   */
+  public async getFailedCheckinJobs(
+    page: number,
+    pageSize: number = 20
+  ): Promise<Either<ServiceError, any>> {
+    try {
+      const queue = this.queueClient.getQueue('checkin');
+      const start = (page - 1) * pageSize;
+      const end = start + pageSize - 1;
+      const failedJobs = await queue.getFailed(start, end);
+      const totalFailed = await queue.getFailedCount();
+
+      return right({
+        total: totalFailed,
+        page,
+        pageSize,
+        data: failedJobs.map((job) => ({
+          id: job.id,
+          data: job.data,
+          failedReason: job.failedReason,
+          processedOn: job.processedOn
+        }))
+      });
+    } catch (error) {
+      this.logger.error('Failed to get failed checkin jobs', error);
+      return left({
+        code: String(ServiceErrorCode.UNKNOWN_ERROR),
+        message: 'Failed to get failed checkin jobs'
+      });
+    }
+  }
+
+  /**
+   * 获取消息队列中失败的签到
+   *
+   */
 
   /**
    * 获取课程完整数据

@@ -216,6 +216,9 @@ importers:
       '@radix-ui/react-collapsible':
         specifier: ^1.1.4
         version: 1.1.11(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      '@radix-ui/react-context-menu':
+        specifier: ^2.2.16
+        version: 2.2.16(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
       '@radix-ui/react-dialog':
         specifier: ^1.1.7
         version: 1.1.14(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
@@ -443,17 +446,17 @@ importers:
         specifier: ^9.0.3
         version: 9.0.3
       '@stratix/core':
-        specifier: 1.0.0-beta.7
-        version: 1.0.0-beta.7
+        specifier: 1.0.0-beta.9
+        version: 1.0.0-beta.9
       '@stratix/database':
-        specifier: 1.0.0-beta.3
-        version: 1.0.0-beta.3(@stratix/core@1.0.0-beta.7)(better-sqlite3@12.2.0)(mysql2@3.14.3)(pg@8.16.3)(tarn@3.0.2)(tedious@18.6.1)
+        specifier: 1.0.0-beta.12
+        version: 1.0.0-beta.12(@stratix/core@1.0.0-beta.9)(better-sqlite3@12.2.0)(mysql2@3.14.3)(pg@8.16.3)(tarn@3.0.2)(tedious@18.6.1)
       '@stratix/redis':
-        specifier: 1.0.0-beta.1
-        version: 1.0.0-beta.1(@stratix/core@1.0.0-beta.7)
+        specifier: 1.0.0-beta.2
+        version: 1.0.0-beta.2(@stratix/core@1.0.0-beta.9)
       '@stratix/utils':
-        specifier: ^1.0.0-beta.1
-        version: 1.0.0-beta.1
+        specifier: ^1.0.0-beta.4
+        version: 1.0.0-beta.4
       bcryptjs:
         specifier: ^2.4.3
         version: 2.4.3
@@ -556,23 +559,23 @@ importers:
         specifier: ^9.0.3
         version: 9.0.3
       '@stratix/core':
-        specifier: 1.0.0-beta.7
-        version: 1.0.0-beta.7
+        specifier: 1.0.0-beta.9
+        version: 1.0.0-beta.9
       '@stratix/database':
         specifier: workspace:*
         version: link:../../packages/database
       '@stratix/redis':
-        specifier: 1.0.0-beta.1
-        version: 1.0.0-beta.1(@stratix/core@1.0.0-beta.7)
+        specifier: 1.0.0-beta.2
+        version: 1.0.0-beta.2(@stratix/core@1.0.0-beta.9)
       '@stratix/tasks':
-        specifier: 1.0.0-beta.4
-        version: 1.0.0-beta.4(@stratix/core@1.0.0-beta.7)(@stratix/database@packages+database)
+        specifier: 1.0.0-beta.5
+        version: 1.0.0-beta.5(@stratix/core@1.0.0-beta.9)(@stratix/database@packages+database)
       '@stratix/utils':
-        specifier: 1.0.0-beta.1
-        version: 1.0.0-beta.1
+        specifier: 1.0.0-beta.4
+        version: 1.0.0-beta.4
       '@stratix/was-v7':
-        specifier: 1.0.0-beta.7
-        version: 1.0.0-beta.7(@stratix/core@1.0.0-beta.7)(@stratix/redis@1.0.0-beta.1(@stratix/core@1.0.0-beta.7))
+        specifier: 1.0.0-beta.21
+        version: 1.0.0-beta.21(@stratix/core@1.0.0-beta.9)(@stratix/redis@1.0.0-beta.2(@stratix/core@1.0.0-beta.9))
       axios:
         specifier: ^1.11.0
         version: 1.11.0
@@ -720,23 +723,17 @@ importers:
         specifier: ^9.0.3
         version: 9.0.3
       '@stratix/core':
-        specifier: 1.0.0-beta.7
-        version: 1.0.0-beta.7
+        specifier: 1.0.0-beta.9
+        version: 1.0.0-beta.9
       '@stratix/database':
-        specifier: 1.0.0-beta.3
-        version: 1.0.0-beta.3(@stratix/core@1.0.0-beta.7)(better-sqlite3@12.2.0)(mysql2@3.14.3)(pg@8.16.3)(tarn@3.0.2)(tedious@18.6.1)
-      '@stratix/icasync':
-        specifier: 1.0.0-beta.20
-        version: 1.0.0-beta.20(@stratix/core@1.0.0-beta.7)(@stratix/database@1.0.0-beta.3(@stratix/core@1.0.0-beta.7)(better-sqlite3@12.2.0)(mysql2@3.14.3)(pg@8.16.3)(tarn@3.0.2)(tedious@18.6.1))(@stratix/tasks@1.0.0-beta.5(@stratix/core@1.0.0-beta.7)(@stratix/database@1.0.0-beta.3(@stratix/core@1.0.0-beta.7)(better-sqlite3@12.2.0)(mysql2@3.14.3)(pg@8.16.3)(tarn@3.0.2)(tedious@18.6.1)))(@stratix/was-v7@packages+was_v7)
+        specifier: 1.0.0-beta.12
+        version: 1.0.0-beta.12(@stratix/core@1.0.0-beta.9)(better-sqlite3@12.2.0)(mysql2@3.14.3)(pg@8.16.3)(tarn@3.0.2)(tedious@18.6.1)
       '@stratix/redis':
-        specifier: 1.0.0-beta.1
-        version: 1.0.0-beta.1(@stratix/core@1.0.0-beta.7)
-      '@stratix/tasks':
-        specifier: 1.0.0-beta.5
-        version: 1.0.0-beta.5(@stratix/core@1.0.0-beta.7)(@stratix/database@1.0.0-beta.3(@stratix/core@1.0.0-beta.7)(better-sqlite3@12.2.0)(mysql2@3.14.3)(pg@8.16.3)(tarn@3.0.2)(tedious@18.6.1))
+        specifier: 1.0.0-beta.2
+        version: 1.0.0-beta.2(@stratix/core@1.0.0-beta.9)
       '@stratix/utils':
-        specifier: 1.0.0-beta.1
-        version: 1.0.0-beta.1
+        specifier: 1.0.0-beta.4
+        version: 1.0.0-beta.4
       '@stratix/was-v7':
         specifier: workspace:*
         version: link:../../packages/was_v7
@@ -922,8 +919,8 @@ importers:
         specifier: workspace:*
         version: link:../core
       '@stratix/database':
-        specifier: 1.0.0-beta.4
-        version: 1.0.0-beta.4(@stratix/core@packages+core)(better-sqlite3@12.2.0)(mysql2@3.14.3)(pg@8.16.3)(tarn@3.0.2)(tedious@18.6.1)
+        specifier: workspace:*
+        version: link:../database
       '@stratix/tasks':
         specifier: workspace:*
         version: link:../tasks
@@ -1011,8 +1008,8 @@ importers:
         specifier: workspace:*
         version: link:../core
       '@stratix/database':
-        specifier: 1.0.0-beta.4
-        version: 1.0.0-beta.4(@stratix/core@packages+core)(better-sqlite3@12.2.0)(mysql2@3.14.3)(pg@8.16.3)(tarn@3.0.2)(tedious@18.6.1)
+        specifier: workspace:*
+        version: link:../database
       '@stratix/utils':
         specifier: workspace:*
         version: link:../utils
@@ -3668,6 +3665,9 @@ packages:
   '@radix-ui/primitive@1.1.2':
     resolution: {integrity: sha512-XnbHrrprsNqZKQhStrSwgRUQzoCI1glLzdw79xiZPoofhGICeZRSQ3dIxAKH1gb3OHfNf4d6f+vAv3kil2eggA==}
 
+  '@radix-ui/primitive@1.1.3':
+    resolution: {integrity: sha512-JTF99U/6XIjCBo0wqkU5sK10glYe27MRRsfwoiq5zzOEZLHU3A3KCMa5X/azekYRCJ0HlwI0crAXS/5dEHTzDg==}
+
   '@radix-ui/react-alert-dialog@1.1.14':
     resolution: {integrity: sha512-IOZfZ3nPvN6lXpJTBCunFQPRSvK8MDgSc1FB85xnIpUKOw9en0dJj8JmCAxV7BiZdtYlUpmrQjoTFkVYtdoWzQ==}
     peerDependencies:
@@ -3755,6 +3755,19 @@ packages:
       '@types/react':
         optional: true
 
+  '@radix-ui/react-context-menu@2.2.16':
+    resolution: {integrity: sha512-O8morBEW+HsVG28gYDZPTrT9UUovQUlJue5YO836tiTJhuIWBm/zQHc7j388sHWtdH/xUZurK9olD2+pcqx5ww==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+
   '@radix-ui/react-context@1.1.2':
     resolution: {integrity: sha512-jCi/QKUM2r1Ju5a3J64TH2A5SpKAgh0LpknyqdQ4m6DCV0xJ2HG1xARRwNGPQfi1SLdLWZ1OJz6F4OMBBNiGJA==}
     peerDependencies:
@@ -3799,6 +3812,19 @@ packages:
       '@types/react-dom':
         optional: true
 
+  '@radix-ui/react-dismissable-layer@1.1.11':
+    resolution: {integrity: sha512-Nqcp+t5cTB8BinFkZgXiMJniQH0PsUt2k51FUhbdfeKvc4ACcG2uQniY/8+h1Yv6Kza4Q7lD7PQV0z0oicE0Mg==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+
   '@radix-ui/react-dropdown-menu@2.1.15':
     resolution: {integrity: sha512-mIBnOjgwo9AH3FyKaSWoSu/dYj6VdhJ7frEPiGTeXCdUFHjl9h3mFh2wwhEtINOmYXWhdpf1rY2minFsmaNgVQ==}
     peerDependencies:
@@ -3814,6 +3840,15 @@ packages:
 
   '@radix-ui/react-focus-guards@1.1.2':
     resolution: {integrity: sha512-fyjAACV62oPV925xFCrH8DR5xWhg9KYtJT4s3u54jxp+L/hbpTY2kIeEFFbFe+a/HCE94zGQMZLIpVTPVZDhaA==}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+
+  '@radix-ui/react-focus-guards@1.1.3':
+    resolution: {integrity: sha512-0rFg/Rj2Q62NCm62jZw0QX7a3sz6QCQU0LpZdNrJX8byRGaGVTqbrW9jAoIAHyMQqsNpeZ81YgSizOt5WXq0Pw==}
     peerDependencies:
       '@types/react': '*'
       react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
@@ -3874,6 +3909,19 @@ packages:
       '@types/react-dom':
         optional: true
 
+  '@radix-ui/react-menu@2.1.16':
+    resolution: {integrity: sha512-72F2T+PLlphrqLcAotYPp0uJMr5SjP5SL01wfEspJbru5Zs5vQaSHb4VB3ZMJPimgHHCHG7gMOeOB9H3Hdmtxg==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+
   '@radix-ui/react-popover@1.1.14':
     resolution: {integrity: sha512-ODz16+1iIbGUfFEfKx2HTPKizg2MN39uIOV8MXeHnmdd3i/N9Wt7vU46wbHsqA0xoaQyXVcs0KIlBdOA2Y95bw==}
     peerDependencies:
@@ -3900,6 +3948,19 @@ packages:
       '@types/react-dom':
         optional: true
 
+  '@radix-ui/react-popper@1.2.8':
+    resolution: {integrity: sha512-0NJQ4LFFUuWkE7Oxf0htBKS6zLkkjBH+hM1uk7Ng705ReR8m/uelduy1DBo0PyBXPKVnBA6YBlU94MBGXrSBCw==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+
   '@radix-ui/react-portal@1.1.9':
     resolution: {integrity: sha512-bpIxvq03if6UNwXZ+HTK71JLh4APvnXntDc6XOX8UVq4XQOVl7lwok0AvIl+b8zgCw3fSaVTZMpAPPagXbKmHQ==}
     peerDependencies:
@@ -3915,6 +3976,19 @@ packages:
 
   '@radix-ui/react-presence@1.1.4':
     resolution: {integrity: sha512-ueDqRbdc4/bkaQT3GIpLQssRlFgWaL/U2z/S31qRwwLWoxHLgry3SIfCwhxeQNbirEUXFa+lq3RL3oBYXtcmIA==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+
+  '@radix-ui/react-presence@1.1.5':
+    resolution: {integrity: sha512-/jfEwNDdQVBCNvjkGit4h6pMOzq8bHkopq458dPt2lMjx+eBQUohZNG9A7DtO/O5ukSbxuaNGXMjHicgwy6rQQ==}
     peerDependencies:
       '@types/react': '*'
       '@types/react-dom': '*'
@@ -3954,6 +4028,19 @@ packages:
 
   '@radix-ui/react-roving-focus@1.1.10':
     resolution: {integrity: sha512-dT9aOXUen9JSsxnMPv/0VqySQf5eDQ6LCk5Sw28kamz8wSOW2bJdlX2Bg5VUIIcV+6XlHpWTIuTPCf/UNIyq8Q==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+
+  '@radix-ui/react-roving-focus@1.1.11':
+    resolution: {integrity: sha512-7A6S9jSgm/S+7MdtNDSb+IU859vQqJ/QAtcYQcfFC6W8RS4IxIZDldLR0xqCFZ6DCyrQLjLPsxtTNch5jVA4lA==}
     peerDependencies:
       '@types/react': '*'
       '@types/react-dom': '*'
@@ -4359,13 +4446,8 @@ packages:
   '@standard-schema/utils@0.3.0':
     resolution: {integrity: sha512-e7Mew686owMaPJVNNLs55PUvgz371nKgwsc4vxE49zsODpJEnxgxRo2y/OKrqueavXgZNMDVj3DdHFlaSAeU8g==}
 
-  '@stratix/core@1.0.0-beta.7':
-    resolution: {integrity: sha512-ejt+zMdBbofDWQBcrL8GnhyxucGlu8CTMRgcfURyopPdu2BUjKmuNmURZexI3WtCAxUSzsc9z3mdzs4nfq0pcw==, tarball: https://g-rrng9518-npm.pkg.coding.net/npm/repo/@stratix/core/-/@stratix/core-1.0.0-beta.7.tgz}
-    engines: {node: '>=22.0.0'}
-    hasBin: true
-
   '@stratix/core@1.0.0-beta.9':
-    resolution: {integrity: sha512-bSHJ1ecUyUXVE49xZ0sHVMJHhU7jkzMHJEtDYznmG6iGnuzsvvMimE6mN9Tca7vRmOCVnGV7AQtQWsknSmkN1g==, tarball: https://g-rrng9518-npm.pkg.coding.net/npm/repo/@stratix/core/-/@stratix/core-1.0.0-beta.9.tgz}
+    resolution: {integrity: sha512-bSHJ1ecUyUXVE49xZ0sHVMJHhU7jkzMHJEtDYznmG6iGnuzsvvMimE6mN9Tca7vRmOCVnGV7AQtQWsknSmkN1g==, tarball: https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/@stratix/core/-/@stratix/core-1.0.0-beta.9.tgz}
     engines: {node: '>=22.0.0'}
     hasBin: true
 
@@ -4380,41 +4462,11 @@ packages:
       tarn: ^3.0.2
       tedious: ^18.6.1
 
-  '@stratix/database@1.0.0-beta.3':
-    resolution: {integrity: sha512-vC9Ua9hFJkYb/3vVIw/n0GcfoNuaEEnMlhhtf6+zz8fzXmIArU/X1eYDigdI6LET3DT5nzhzKX8iUFopxYPNfA==, tarball: https://g-rrng9518-npm.pkg.coding.net/npm/repo/@stratix/database/-/@stratix/database-1.0.0-beta.3.tgz}
-    engines: {node: '>=22.0.0'}
-    peerDependencies:
-      '@stratix/core': 1.0.0-beta.7
-      better-sqlite3: ^12.2.0
-      mysql2: ^3.14.2
-      pg: ^8.16.3
-      tarn: ^3.0.2
-      tedious: ^18.6.1
-
-  '@stratix/database@1.0.0-beta.4':
-    resolution: {integrity: sha512-v5bJksgbWjW3WlDELMHQvLUHHLy3w99L6hnjk1SIFOXfBozLsmySg1lPBiywyrSnMqYKOEowuXKFmfGHj9gFvg==, tarball: https://g-rrng9518-npm.pkg.coding.net/npm/repo/@stratix/database/-/@stratix/database-1.0.0-beta.4.tgz}
-    engines: {node: '>=22.0.0'}
-    peerDependencies:
-      '@stratix/core': 1.0.0-beta.7
-      better-sqlite3: ^12.2.0
-      mysql2: ^3.14.2
-      pg: ^8.16.3
-      tarn: ^3.0.2
-      tedious: ^18.6.1
-
-  '@stratix/icasync@1.0.0-beta.20':
-    resolution: {integrity: sha512-2xl1tXkHrnFN98Z3BVEAD5hgLkRRcmczjxtpn/5ol5LQT3Bn1UNnSror5zK1f0wyjVnfsA8VeIbRxHaHIgph1g==, tarball: https://g-rrng9518-npm.pkg.coding.net/npm/repo/@stratix/icasync/-/@stratix/icasync-1.0.0-beta.20.tgz}
-    peerDependencies:
-      '@stratix/core': 1.0.0-beta.7
-      '@stratix/database': 1.0.0-beta.4
-      '@stratix/tasks': 1.0.0-beta.5
-      '@stratix/was-v7': 1.0.0-beta.8
-
   '@stratix/ossp@0.0.1-beta.1':
-    resolution: {integrity: sha512-7is/TE4UCHsUC0WhzETlKhj1ykSzhRFU7VZdExu2jb+GpVHtYW57H5Kpj1MLeD5FqsD9TtMYiLk7OH8cbBiOaw==, tarball: https://g-rrng9518-npm.pkg.coding.net/npm/repo/@stratix/ossp/-/@stratix/ossp-0.0.1-beta.1.tgz}
+    resolution: {integrity: sha512-eU2rmZTMZ6CNDxAaxxjKR2Mtqx7aWk0goSpUwZFj7KXaSEceqv2vXBViUwO5pehUZzq0jSNshF9zi8Vg6wGHvg==, tarball: https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/@stratix/ossp/-/@stratix/ossp-0.0.1-beta.1.tgz}
     engines: {node: '>=22.0.0'}
     peerDependencies:
-      '@stratix/core': 1.0.0-beta.7
+      '@stratix/core': 1.0.0-beta.9
 
   '@stratix/queue@1.0.0-beta.2':
     resolution: {integrity: sha512-5eNpCYmkX5LY07esoZvxBOUEN9nbNna99w/OrI5EvN+jqShV4HKN1dChjHX9Un4RP6m/fyIQE+wrivB521dxog==, tarball: https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/@stratix/queue/-/@stratix/queue-1.0.0-beta.2.tgz}
@@ -4423,52 +4475,27 @@ packages:
       '@stratix/core': 1.0.0-beta.9
       '@stratix/redis': 1.0.0-beta.2
 
-  '@stratix/redis@1.0.0-beta.1':
-    resolution: {integrity: sha512-G6vwQENRk4aS0jvHPruvrJc4PkOHKKi7EFmsq3BDBg3F3rXjOp6M/YhmtGt8iteLlQXsiGhJryph+N7t+l03cQ==, tarball: https://g-rrng9518-npm.pkg.coding.net/npm/repo/@stratix/redis/-/@stratix/redis-1.0.0-beta.1.tgz}
-    engines: {node: '>=22.0.0'}
-    peerDependencies:
-      '@stratix/core': 1.0.0-beta.7
-
   '@stratix/redis@1.0.0-beta.2':
     resolution: {integrity: sha512-iokJnCqlFZGPNkNbSnrOygt6xUmvQ4BYaymgqUdBXTLwva54+r0OU7vdMDNNJ8AlbjvrCx0x8Py7JsXA49KLAw==, tarball: https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/@stratix/redis/-/@stratix/redis-1.0.0-beta.2.tgz}
     engines: {node: '>=22.0.0'}
     peerDependencies:
       '@stratix/core': 1.0.0-beta.9
 
-  '@stratix/tasks@1.0.0-beta.4':
-    resolution: {integrity: sha512-sNAGxOSmyQWay2j7ioDfLMIRFOg421rfeN0I3xfF+XXPpRBjYEnZkSDH4c4r3WUTNGHtEPQDc8skUkv0heda4g==, tarball: https://g-rrng9518-npm.pkg.coding.net/npm/repo/@stratix/tasks/-/@stratix/tasks-1.0.0-beta.4.tgz}
-    engines: {node: '>=22.0.0'}
-    peerDependencies:
-      '@stratix/core': 1.0.0-beta.7
-      '@stratix/database': 1.0.0-beta.4
-
   '@stratix/tasks@1.0.0-beta.5':
-    resolution: {integrity: sha512-WNOYQUxuNggHZo0ydMtcBgCt3FYFGRNRNYBeVffnkM/FCdcHPU68rQC6Q5DNC0s9n6ciCSqzwVOSf54fBCOy1w==, tarball: https://g-rrng9518-npm.pkg.coding.net/npm/repo/@stratix/tasks/-/@stratix/tasks-1.0.0-beta.5.tgz}
+    resolution: {integrity: sha512-mcxYvuvLbiBpq2YbpPJ+TaVX780q/D/+FWn8ONxC/dWMJDwsHD8OjqSMKBj7qLc+p2j8nOR4KMofuhUBfBQk7w==, tarball: https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/@stratix/tasks/-/@stratix/tasks-1.0.0-beta.5.tgz}
     engines: {node: '>=22.0.0'}
     peerDependencies:
-      '@stratix/core': 1.0.0-beta.7
+      '@stratix/core': 1.0.0-beta.9
       '@stratix/database': 1.0.0-beta.4
-
-  '@stratix/utils@1.0.0-beta.0':
-    resolution: {integrity: sha512-ziAn2bC/6AodNuHRDrUmgAhvn34sFV23+e58mD9ZmX2NKV7gyKXewgwtpeGsAhU9AB5Qumx1saR0o9VxWYiZtA==, tarball: https://g-rrng9518-npm.pkg.coding.net/npm/repo/@stratix/utils/-/@stratix/utils-1.0.0-beta.0.tgz}
-
-  '@stratix/utils@1.0.0-beta.1':
-    resolution: {integrity: sha512-H2jZOW8lS60rmE0XBJOiK0vgXX3Ynq5J8RZAIn5cJ0mFDpp7hZEMJEnU1YsGfAzdFJ7xgNlzczrG8CXLo6sN2A==, tarball: https://g-rrng9518-npm.pkg.coding.net/npm/repo/@stratix/utils/-/@stratix/utils-1.0.0-beta.1.tgz}
 
   '@stratix/utils@1.0.0-beta.4':
-    resolution: {integrity: sha512-Jcw7re8fqjaWDW4HBJ4tG2mJCsmv3mwGEc+WJoi/pX7rNUo9ELrB59u20e0sHZig4bROl8NGeFhtTXQ8eds+8w==, tarball: https://g-rrng9518-npm.pkg.coding.net/npm/repo/@stratix/utils/-/@stratix/utils-1.0.0-beta.4.tgz}
+    resolution: {integrity: sha512-AXKYevtKfHwxNgCSdO19ezVIIVwuFYnLy5tE2WnRtl3stVsmb9zAX57tAXkmv/GblHcUjhfp9My4Mpt2xDcTWg==, tarball: https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/@stratix/utils/-/@stratix/utils-1.0.0-beta.4.tgz}
 
   '@stratix/was-v7@1.0.0-beta.21':
     resolution: {integrity: sha512-vXIHXBu0GNtpaQKyZA1m8jUFmCYfXZMC/oGICZXwKvL9N7qZsRvxe74FAPZJEQ/pWx1p4Rn1fcon/MzqShPgrA==, tarball: https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/@stratix/was-v7/-/@stratix/was-v7-1.0.0-beta.21.tgz}
     peerDependencies:
       '@stratix/core': 1.0.0-beta.9
       '@stratix/redis': 1.0.0-beta.2
-
-  '@stratix/was-v7@1.0.0-beta.7':
-    resolution: {integrity: sha512-ZJ47TLK4jRWjBNxqsmBwrsH49cFPg7aqdZVNbZDuGWwTSJORb/9jN52dIPNyoc3cq8QTNwzNvd/p2gnnKg+jbQ==, tarball: https://g-rrng9518-npm.pkg.coding.net/npm/repo/@stratix/was-v7/-/@stratix/was-v7-1.0.0-beta.7.tgz}
-    peerDependencies:
-      '@stratix/core': 1.0.0-beta.7
-      '@stratix/redis': 1.0.0-beta.1
 
   '@svgr/babel-plugin-add-jsx-attribute@8.0.0':
     resolution: {integrity: sha512-b9MIk7yhdS1pMCZM8VeNfUlSKVRhsHZNMl5O9SfaX0l0t5wjdgu4IDzGB8bpnGBBOjGST3rRFVsaaEtI4W6f7g==}
@@ -16186,6 +16213,8 @@ snapshots:
 
   '@radix-ui/primitive@1.1.2': {}
 
+  '@radix-ui/primitive@1.1.3': {}
+
   '@radix-ui/react-alert-dialog@1.1.14(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)':
     dependencies:
       '@radix-ui/primitive': 1.1.2
@@ -16272,6 +16301,20 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.1.9
 
+  '@radix-ui/react-context-menu@2.2.16(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)':
+    dependencies:
+      '@radix-ui/primitive': 1.1.3
+      '@radix-ui/react-context': 1.1.2(@types/react@19.1.9)(react@19.1.1)
+      '@radix-ui/react-menu': 2.1.16(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      '@radix-ui/react-primitive': 2.1.3(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      '@radix-ui/react-use-callback-ref': 1.1.1(@types/react@19.1.9)(react@19.1.1)
+      '@radix-ui/react-use-controllable-state': 1.2.2(@types/react@19.1.9)(react@19.1.1)
+      react: 19.1.1
+      react-dom: 19.1.1(react@19.1.1)
+    optionalDependencies:
+      '@types/react': 19.1.9
+      '@types/react-dom': 19.1.7(@types/react@19.1.9)
+
   '@radix-ui/react-context@1.1.2(@types/react@19.1.9)(react@19.1.1)':
     dependencies:
       react: 19.1.1
@@ -16319,6 +16362,19 @@ snapshots:
       '@types/react': 19.1.9
       '@types/react-dom': 19.1.7(@types/react@19.1.9)
 
+  '@radix-ui/react-dismissable-layer@1.1.11(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)':
+    dependencies:
+      '@radix-ui/primitive': 1.1.3
+      '@radix-ui/react-compose-refs': 1.1.2(@types/react@19.1.9)(react@19.1.1)
+      '@radix-ui/react-primitive': 2.1.3(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      '@radix-ui/react-use-callback-ref': 1.1.1(@types/react@19.1.9)(react@19.1.1)
+      '@radix-ui/react-use-escape-keydown': 1.1.1(@types/react@19.1.9)(react@19.1.1)
+      react: 19.1.1
+      react-dom: 19.1.1(react@19.1.1)
+    optionalDependencies:
+      '@types/react': 19.1.9
+      '@types/react-dom': 19.1.7(@types/react@19.1.9)
+
   '@radix-ui/react-dropdown-menu@2.1.15(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)':
     dependencies:
       '@radix-ui/primitive': 1.1.2
@@ -16335,6 +16391,12 @@ snapshots:
       '@types/react-dom': 19.1.7(@types/react@19.1.9)
 
   '@radix-ui/react-focus-guards@1.1.2(@types/react@19.1.9)(react@19.1.1)':
+    dependencies:
+      react: 19.1.1
+    optionalDependencies:
+      '@types/react': 19.1.9
+
+  '@radix-ui/react-focus-guards@1.1.3(@types/react@19.1.9)(react@19.1.1)':
     dependencies:
       react: 19.1.1
     optionalDependencies:
@@ -16397,6 +16459,32 @@ snapshots:
       '@types/react': 19.1.9
       '@types/react-dom': 19.1.7(@types/react@19.1.9)
 
+  '@radix-ui/react-menu@2.1.16(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)':
+    dependencies:
+      '@radix-ui/primitive': 1.1.3
+      '@radix-ui/react-collection': 1.1.7(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      '@radix-ui/react-compose-refs': 1.1.2(@types/react@19.1.9)(react@19.1.1)
+      '@radix-ui/react-context': 1.1.2(@types/react@19.1.9)(react@19.1.1)
+      '@radix-ui/react-direction': 1.1.1(@types/react@19.1.9)(react@19.1.1)
+      '@radix-ui/react-dismissable-layer': 1.1.11(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      '@radix-ui/react-focus-guards': 1.1.3(@types/react@19.1.9)(react@19.1.1)
+      '@radix-ui/react-focus-scope': 1.1.7(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      '@radix-ui/react-id': 1.1.1(@types/react@19.1.9)(react@19.1.1)
+      '@radix-ui/react-popper': 1.2.8(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      '@radix-ui/react-portal': 1.1.9(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      '@radix-ui/react-presence': 1.1.5(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      '@radix-ui/react-primitive': 2.1.3(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      '@radix-ui/react-roving-focus': 1.1.11(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      '@radix-ui/react-slot': 1.2.3(@types/react@19.1.9)(react@19.1.1)
+      '@radix-ui/react-use-callback-ref': 1.1.1(@types/react@19.1.9)(react@19.1.1)
+      aria-hidden: 1.2.6
+      react: 19.1.1
+      react-dom: 19.1.1(react@19.1.1)
+      react-remove-scroll: 2.7.1(@types/react@19.1.9)(react@19.1.1)
+    optionalDependencies:
+      '@types/react': 19.1.9
+      '@types/react-dom': 19.1.7(@types/react@19.1.9)
+
   '@radix-ui/react-popover@1.1.14(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)':
     dependencies:
       '@radix-ui/primitive': 1.1.2
@@ -16438,6 +16526,24 @@ snapshots:
       '@types/react': 19.1.9
       '@types/react-dom': 19.1.7(@types/react@19.1.9)
 
+  '@radix-ui/react-popper@1.2.8(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)':
+    dependencies:
+      '@floating-ui/react-dom': 2.1.5(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      '@radix-ui/react-arrow': 1.1.7(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      '@radix-ui/react-compose-refs': 1.1.2(@types/react@19.1.9)(react@19.1.1)
+      '@radix-ui/react-context': 1.1.2(@types/react@19.1.9)(react@19.1.1)
+      '@radix-ui/react-primitive': 2.1.3(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      '@radix-ui/react-use-callback-ref': 1.1.1(@types/react@19.1.9)(react@19.1.1)
+      '@radix-ui/react-use-layout-effect': 1.1.1(@types/react@19.1.9)(react@19.1.1)
+      '@radix-ui/react-use-rect': 1.1.1(@types/react@19.1.9)(react@19.1.1)
+      '@radix-ui/react-use-size': 1.1.1(@types/react@19.1.9)(react@19.1.1)
+      '@radix-ui/rect': 1.1.1
+      react: 19.1.1
+      react-dom: 19.1.1(react@19.1.1)
+    optionalDependencies:
+      '@types/react': 19.1.9
+      '@types/react-dom': 19.1.7(@types/react@19.1.9)
+
   '@radix-ui/react-portal@1.1.9(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)':
     dependencies:
       '@radix-ui/react-primitive': 2.1.3(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
@@ -16449,6 +16555,16 @@ snapshots:
       '@types/react-dom': 19.1.7(@types/react@19.1.9)
 
   '@radix-ui/react-presence@1.1.4(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)':
+    dependencies:
+      '@radix-ui/react-compose-refs': 1.1.2(@types/react@19.1.9)(react@19.1.1)
+      '@radix-ui/react-use-layout-effect': 1.1.1(@types/react@19.1.9)(react@19.1.1)
+      react: 19.1.1
+      react-dom: 19.1.1(react@19.1.1)
+    optionalDependencies:
+      '@types/react': 19.1.9
+      '@types/react-dom': 19.1.7(@types/react@19.1.9)
+
+  '@radix-ui/react-presence@1.1.5(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)':
     dependencies:
       '@radix-ui/react-compose-refs': 1.1.2(@types/react@19.1.9)(react@19.1.1)
       '@radix-ui/react-use-layout-effect': 1.1.1(@types/react@19.1.9)(react@19.1.1)
@@ -16488,6 +16604,23 @@ snapshots:
   '@radix-ui/react-roving-focus@1.1.10(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)':
     dependencies:
       '@radix-ui/primitive': 1.1.2
+      '@radix-ui/react-collection': 1.1.7(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      '@radix-ui/react-compose-refs': 1.1.2(@types/react@19.1.9)(react@19.1.1)
+      '@radix-ui/react-context': 1.1.2(@types/react@19.1.9)(react@19.1.1)
+      '@radix-ui/react-direction': 1.1.1(@types/react@19.1.9)(react@19.1.1)
+      '@radix-ui/react-id': 1.1.1(@types/react@19.1.9)(react@19.1.1)
+      '@radix-ui/react-primitive': 2.1.3(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      '@radix-ui/react-use-callback-ref': 1.1.1(@types/react@19.1.9)(react@19.1.1)
+      '@radix-ui/react-use-controllable-state': 1.2.2(@types/react@19.1.9)(react@19.1.1)
+      react: 19.1.1
+      react-dom: 19.1.1(react@19.1.1)
+    optionalDependencies:
+      '@types/react': 19.1.9
+      '@types/react-dom': 19.1.7(@types/react@19.1.9)
+
+  '@radix-ui/react-roving-focus@1.1.11(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)':
+    dependencies:
+      '@radix-ui/primitive': 1.1.3
       '@radix-ui/react-collection': 1.1.7(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
       '@radix-ui/react-compose-refs': 1.1.2(@types/react@19.1.9)(react@19.1.1)
       '@radix-ui/react-context': 1.1.2(@types/react@19.1.9)(react@19.1.1)
@@ -16897,23 +17030,6 @@ snapshots:
 
   '@standard-schema/utils@0.3.0': {}
 
-  '@stratix/core@1.0.0-beta.7':
-    dependencies:
-      '@stratix/utils': 1.0.0-beta.0
-      ajv: 8.17.1
-      ajv-formats: 3.0.1(ajv@8.17.1)
-      awilix: 12.0.5
-      awilix-manager: 6.1.0(awilix@12.0.5)
-      dotenv: 16.6.1
-      dotenv-expand: 12.0.2
-      fastify: 5.4.0
-      fastify-plugin: 5.0.1
-      js-yaml: 4.1.0
-      minimist: 1.2.8
-      pino: 9.7.0
-      pino-roll: 1.3.0
-      reflect-metadata: 0.2.2
-
   '@stratix/core@1.0.0-beta.9':
     dependencies:
       '@stratix/utils': 1.0.0-beta.4
@@ -16943,43 +17059,10 @@ snapshots:
       tarn: 3.0.2
       tedious: 18.6.1
 
-  '@stratix/database@1.0.0-beta.3(@stratix/core@1.0.0-beta.7)(better-sqlite3@12.2.0)(mysql2@3.14.3)(pg@8.16.3)(tarn@3.0.2)(tedious@18.6.1)':
-    dependencies:
-      '@stratix/core': 1.0.0-beta.7
-      '@stratix/utils': 1.0.0-beta.0
-      better-sqlite3: 12.2.0
-      kysely: 0.28.5
-      mysql2: 3.14.3
-      pg: 8.16.3
-      reflect-metadata: 0.2.2
-      tarn: 3.0.2
-      tedious: 18.6.1
-
-  '@stratix/database@1.0.0-beta.4(@stratix/core@packages+core)(better-sqlite3@12.2.0)(mysql2@3.14.3)(pg@8.16.3)(tarn@3.0.2)(tedious@18.6.1)':
-    dependencies:
-      '@stratix/core': link:packages/core
-      '@stratix/utils': 1.0.0-beta.1
-      better-sqlite3: 12.2.0
-      kysely: 0.28.5
-      mysql2: 3.14.3
-      pg: 8.16.3
-      reflect-metadata: 0.2.2
-      tarn: 3.0.2
-      tedious: 18.6.1
-
-  '@stratix/icasync@1.0.0-beta.20(@stratix/core@1.0.0-beta.7)(@stratix/database@1.0.0-beta.3(@stratix/core@1.0.0-beta.7)(better-sqlite3@12.2.0)(mysql2@3.14.3)(pg@8.16.3)(tarn@3.0.2)(tedious@18.6.1))(@stratix/tasks@1.0.0-beta.5(@stratix/core@1.0.0-beta.7)(@stratix/database@1.0.0-beta.3(@stratix/core@1.0.0-beta.7)(better-sqlite3@12.2.0)(mysql2@3.14.3)(pg@8.16.3)(tarn@3.0.2)(tedious@18.6.1)))(@stratix/was-v7@packages+was_v7)':
-    dependencies:
-      '@stratix/core': 1.0.0-beta.7
-      '@stratix/database': 1.0.0-beta.3(@stratix/core@1.0.0-beta.7)(better-sqlite3@12.2.0)(mysql2@3.14.3)(pg@8.16.3)(tarn@3.0.2)(tedious@18.6.1)
-      '@stratix/tasks': 1.0.0-beta.5(@stratix/core@1.0.0-beta.7)(@stratix/database@1.0.0-beta.3(@stratix/core@1.0.0-beta.7)(better-sqlite3@12.2.0)(mysql2@3.14.3)(pg@8.16.3)(tarn@3.0.2)(tedious@18.6.1))
-      '@stratix/utils': 1.0.0-beta.1
-      '@stratix/was-v7': link:packages/was_v7
-      date-fns: 4.1.0
-
   '@stratix/ossp@0.0.1-beta.1(@stratix/core@1.0.0-beta.9)':
     dependencies:
       '@stratix/core': 1.0.0-beta.9
-      '@stratix/utils': 1.0.0-beta.1
+      '@stratix/utils': 1.0.0-beta.4
       minio: 8.0.6
 
   '@stratix/queue@1.0.0-beta.2(@stratix/core@1.0.0-beta.9)(@stratix/redis@1.0.0-beta.2(@stratix/core@1.0.0-beta.9))':
@@ -16991,14 +17074,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@stratix/redis@1.0.0-beta.1(@stratix/core@1.0.0-beta.7)':
-    dependencies:
-      '@stratix/core': 1.0.0-beta.7
-      '@stratix/utils': 1.0.0-beta.1
-      ioredis: 5.7.0
-    transitivePeerDependencies:
-      - supports-color
-
   '@stratix/redis@1.0.0-beta.2(@stratix/core@1.0.0-beta.9)':
     dependencies:
       '@stratix/core': 1.0.0-beta.9
@@ -17007,27 +17082,14 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@stratix/tasks@1.0.0-beta.4(@stratix/core@1.0.0-beta.7)(@stratix/database@packages+database)':
+  '@stratix/tasks@1.0.0-beta.5(@stratix/core@1.0.0-beta.9)(@stratix/database@packages+database)':
     dependencies:
-      '@stratix/core': 1.0.0-beta.7
+      '@stratix/core': 1.0.0-beta.9
       '@stratix/database': link:packages/database
-      '@stratix/utils': 1.0.0-beta.1
+      '@stratix/utils': 1.0.0-beta.4
       ajv: 8.17.1
       cron-parser: 5.3.0
       jsonpath-plus: 10.3.0
-
-  '@stratix/tasks@1.0.0-beta.5(@stratix/core@1.0.0-beta.7)(@stratix/database@1.0.0-beta.3(@stratix/core@1.0.0-beta.7)(better-sqlite3@12.2.0)(mysql2@3.14.3)(pg@8.16.3)(tarn@3.0.2)(tedious@18.6.1))':
-    dependencies:
-      '@stratix/core': 1.0.0-beta.7
-      '@stratix/database': 1.0.0-beta.3(@stratix/core@1.0.0-beta.7)(better-sqlite3@12.2.0)(mysql2@3.14.3)(pg@8.16.3)(tarn@3.0.2)(tedious@18.6.1)
-      '@stratix/utils': 1.0.0-beta.1
-      ajv: 8.17.1
-      cron-parser: 5.3.0
-      jsonpath-plus: 10.3.0
-
-  '@stratix/utils@1.0.0-beta.0': {}
-
-  '@stratix/utils@1.0.0-beta.1': {}
 
   '@stratix/utils@1.0.0-beta.4': {}
 
@@ -17036,16 +17098,6 @@ snapshots:
       '@stratix/core': 1.0.0-beta.9
       '@stratix/redis': 1.0.0-beta.2(@stratix/core@1.0.0-beta.9)
       '@stratix/utils': 1.0.0-beta.4
-      axios: 1.11.0
-      zod: 3.25.76
-    transitivePeerDependencies:
-      - debug
-
-  '@stratix/was-v7@1.0.0-beta.7(@stratix/core@1.0.0-beta.7)(@stratix/redis@1.0.0-beta.1(@stratix/core@1.0.0-beta.7))':
-    dependencies:
-      '@stratix/core': 1.0.0-beta.7
-      '@stratix/redis': 1.0.0-beta.1(@stratix/core@1.0.0-beta.7)
-      '@stratix/utils': 1.0.0-beta.1
       axios: 1.11.0
       zod: 3.25.76
     transitivePeerDependencies:

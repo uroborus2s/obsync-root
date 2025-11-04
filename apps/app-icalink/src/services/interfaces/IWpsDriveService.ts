@@ -1,7 +1,9 @@
 import type {
+  CompleteUploadResponse,
   DriveInfo,
   FileInfo,
-  GetChildrenResponse
+  GetChildrenResponse,
+  RequestUploadResponse
 } from '@stratix/was-v7';
 
 /**
@@ -84,5 +86,48 @@ export interface IWpsDriveService {
     data?: FileInfo;
     error?: string;
   }>;
-}
 
+  /**
+   * 请求文件上传信息（上传第1步）
+   *
+   * @param driveId - 驱动盘ID
+   * @param parentId - 父目录ID
+   * @param fileName - 文件名
+   * @param fileSize - 文件大小（字节）
+   * @param fileHash - 文件SHA1哈希值（可选）
+   * @returns 包含上传地址和上传ID的服务结果
+   */
+  requestUpload(
+    driveId: string,
+    parentId: string,
+    fileName: string,
+    fileSize: number,
+    fileHash?: string
+  ): Promise<{
+    success: boolean;
+    data?: RequestUploadResponse;
+    error?: string;
+  }>;
+
+  /**
+   * 完成文件上传（上传第3步）
+   *
+   * @param driveId - 驱动盘ID
+   * @param uploadId - 上传ID（第1步返回）
+   * @param fileName - 文件名
+   * @param fileSize - 文件大小（字节）
+   * @param parentId - 父目录ID
+   * @returns 包含文件信息的服务结果
+   */
+  completeUpload(
+    driveId: string,
+    uploadId: string,
+    fileName: string,
+    fileSize: number,
+    parentId: string
+  ): Promise<{
+    success: boolean;
+    data?: CompleteUploadResponse;
+    error?: string;
+  }>;
+}

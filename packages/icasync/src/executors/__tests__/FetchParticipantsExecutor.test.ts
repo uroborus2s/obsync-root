@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { ExecutionContext } from '@stratix/tasks';
-import FetchParticipantsExecutor from '../FetchParticipantsExecutor.js';
+import FetchParticipantsExecutor from '../FetchParticipants.executor.js';
 import type { 
   FetchParticipantsConfig, 
   FetchParticipantsResult 
-} from '../FetchParticipantsExecutor.js';
+} from '../FetchParticipants.executor.js';
 
 // Mock 依赖
 const mockStudentCourseRepository = {

@@ -1,6 +1,7 @@
 // @stratix/icasync 基础仓储
 import type { RepositoryConnectionOptions } from '@stratix/database';
 import { BaseRepository, type DatabaseResult } from '@stratix/database';
+import { eitherMap as map } from '@stratix/utils/functional';
 import type { IcasyncDatabase } from '../../types/database.js';
 
 // Option 类型定义（从 @stratix/database 复制）
@@ -51,13 +52,7 @@ export abstract class BaseIcasyncRepository<
    */
   async findByIdNullable(id: IdType): Promise<DatabaseResult<T | null>> {
     const result = await super.findById(id as any);
-    if (result.success) {
-      return {
-        success: true,
-        data: fromOption(result.data)
-      };
-    }
-    return result as DatabaseResult<T | null>;
+    return map(result, (option) => fromOption(option));
   }
 
   /**
@@ -68,13 +63,7 @@ export abstract class BaseIcasyncRepository<
     data: UpdateT
   ): Promise<DatabaseResult<T | null>> {
     const result = await super.update(id as any, data);
-    if (result.success) {
-      return {
-        success: true,
-        data: fromOption(result.data)
-      };
-    }
-    return result as DatabaseResult<T | null>;
+    return map(result, (option) => fromOption(option));
   }
 
   /**
@@ -85,13 +74,7 @@ export abstract class BaseIcasyncRepository<
     options?: any
   ): Promise<DatabaseResult<T | null>> {
     const result = await super.findOne(filter);
-    if (result.success) {
-      return {
-        success: true,
-        data: fromOption(result.data)
-      };
-    }
-    return result as DatabaseResult<T | null>;
+    return map(result, (option) => fromOption(option));
   }
 
   /**

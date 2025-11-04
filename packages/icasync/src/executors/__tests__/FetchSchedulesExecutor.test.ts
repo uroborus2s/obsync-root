@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   FetchSchedulesConfig,
   FetchSchedulesResult
-} from '../FetchSchedulesExecutor.js';
-import FetchSchedulesExecutor from '../FetchSchedulesExecutor.js';
+} from '../FetchSchedules.executor.js';
+import FetchSchedulesExecutor from '../FetchSchedules.executor.js';
 
 // Mock 依赖
 const mockJuheRenwuRepository = {

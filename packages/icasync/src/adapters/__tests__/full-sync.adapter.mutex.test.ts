@@ -4,7 +4,7 @@
 
 import type { AwilixContainer } from '@stratix/core';
 import type WorkflowMutexService from '@stratix/tasks/src/services/WorkflowMutexService.js';
-import FullSyncAdapter from '../full-sync.adapter.js';
+import FullSyncAdapter from '../FullSync.adapter.js';
 import { SyncStatus } from '../../types/sync.js';
 
 describe('FullSyncAdapter Mutex Tests', () => {

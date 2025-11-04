@@ -5,7 +5,7 @@
 import type { Logger } from '@stratix/core';
 import type { DatabaseAPI } from '@stratix/database';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import PermissionStatusRepository from '../PermissionStatusRepository.js';
+import PermissionStatusRepository from '../PermissionStatus.repository.js';
 
 describe('PermissionStatusRepository', () => {
   let repository: PermissionStatusRepository;

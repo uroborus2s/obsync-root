@@ -6,13 +6,13 @@ import type {
   IWasV7CalendarAdapter,
   IWasV7ScheduleAdapter
 } from '../adapters/index.js';
-import type { ICalendarMappingRepository } from '../repositories/CalendarMappingRepository.js';
+import type { ICalendarMappingRepository } from '../repositories/CalendarMapping.repository.js';
 import type { ICalendarParticipantsRepository } from '../repositories/CalendarParticipantsRepository.js';
-import type { IJuheRenwuRepository } from '../repositories/JuheRenwuRepository.js';
-import type { IStudentCourseRepository } from '../repositories/StudentCourseRepository.js';
-import type { IStudentRepository } from '../repositories/StudentRepository.js';
-import type { ITeacherRepository } from '../repositories/TeacherRepository.js';
-import { CalendarSyncService } from '../services/CalendarSyncService.js';
+import type { IJuheRenwuRepository } from '../repositories/JuheRenwu.repository.js';
+import type { IStudentCourseRepository } from '../repositories/StudentCourse.repository.js';
+import type { IStudentRepository } from '../repositories/Student.repository.js';
+import type { ITeacherRepository } from '../repositories/Teacher.repository.js';
+import { CalendarSyncService } from '../services/CalendarSync.service.js';
 
 describe('CalendarSyncService', () => {
   let calendarSyncService: CalendarSyncService;

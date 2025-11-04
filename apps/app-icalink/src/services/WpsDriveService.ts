@@ -1,10 +1,13 @@
 import type { Logger } from '@stratix/core';
 import type {
+  CompleteUploadResponse,
   CreateDriveParams,
   CreateFileParams,
   DriveInfo,
   FileInfo,
   GetChildrenResponse,
+  OpenLinkParams,
+  RequestUploadResponse,
   WpsDriveAdapter
 } from '@stratix/was-v7';
 import type { IWpsDriveService } from './interfaces/IWpsDriveService.js';
@@ -387,6 +390,230 @@ export default class WpsDriveService implements IWpsDriveService {
       return {
         success: false,
         error: error.message || 'Failed to create file'
+      };
+    }
+  }
+
+  /**
+   * 删除文件或文件夹
+   *
+   * @param fileId - 文件ID
+   * @returns 删除结果
+   */
+  public async deleteFile(fileId: string): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    try {
+      this.logger.debug('Deleting file', { fileId });
+
+      // 调用适配器删除文件
+      await this.wasV7ApiDrive.deleteFile({ file_id: fileId });
+
+      this.logger.info('Successfully deleted file', { fileId });
+
+      return {
+        success: true
+      };
+    } catch (error: any) {
+      this.logger.error('Failed to delete file', {
+        fileId,
+        error: error.message,
+        stack: error.stack
+      });
+
+      return {
+        success: false,
+        error: error.message || 'Failed to delete file'
+      };
+    }
+  }
+
+  /**
+   * 开启文件分享
+   *
+   * @param params - 分享参数
+   * @returns 分享结果
+   */
+  public async openLinkOfFile(params: OpenLinkParams): Promise<{
+    success: boolean;
+    data?: { code: number };
+    error?: string;
+  }> {
+    try {
+      this.logger.debug('Opening file link', {
+        driveId: params.drive_id,
+        fileId: params.file_id,
+        scope: params.scope
+      });
+
+      // 调用适配器开启文件分享
+      const result = await this.wasV7ApiDrive.openLinkOfFile(params);
+
+      this.logger.info('Successfully opened file link', {
+        driveId: params.drive_id,
+        fileId: params.file_id,
+        code: result.code
+      });
+
+      return {
+        success: true,
+        data: result
+      };
+    } catch (error: any) {
+      this.logger.error('Failed to open file link', {
+        params,
+        error: error.message,
+        stack: error.stack
+      });
+
+      return {
+        success: false,
+        error: error.message || 'Failed to open file link'
+      };
+    }
+  }
+
+  /**
+   * 请求文件上传信息（上传第1步）
+   *
+   * @param driveId - 驱动盘ID
+   * @param parentId - 父目录ID
+   * @param fileName - 文件名
+   * @param fileSize - 文件大小（字节）
+   * @param fileHash - 文件SHA1哈希值（可选）
+   * @returns 包含上传地址和上传ID的服务结果
+   */
+  public async requestUpload(
+    driveId: string,
+    parentId: string,
+    fileName: string,
+    fileSize: number,
+    fileHash?: string
+  ): Promise<{
+    success: boolean;
+    data?: RequestUploadResponse;
+    error?: string;
+  }> {
+    try {
+      this.logger.debug('Requesting upload', {
+        driveId,
+        parentId,
+        fileName,
+        fileSize,
+        fileHash
+      });
+
+      // 构建哈希值数组（如果提供了哈希值）
+      const hashes = fileHash
+        ? [
+            {
+              sum: fileHash,
+              type: 'sha256' as const
+            }
+          ]
+        : undefined;
+
+      // 调用适配器请求上传
+      const uploadInfo = await this.wasV7ApiDrive.requestUpload({
+        drive_id: driveId,
+        parent_id: parentId,
+        name: fileName,
+        size: fileSize,
+        hashes,
+        on_name_conflict: 'rename' // 同名文件自动重命名
+      });
+
+      this.logger.info('Successfully requested upload', {
+        uploadId: uploadInfo.upload_id,
+        uploadUrl: uploadInfo.store_request.url,
+        hasHash: !!fileHash
+      });
+
+      return {
+        success: true,
+        data: uploadInfo
+      };
+    } catch (error: any) {
+      this.logger.error('Failed to request upload', {
+        driveId,
+        parentId,
+        fileName,
+        fileSize,
+        fileHash,
+        error: error.message,
+        stack: error.stack
+      });
+
+      return {
+        success: false,
+        error: error.message || 'Failed to request upload'
+      };
+    }
+  }
+
+  /**
+   * 完成文件上传（上传第3步）
+   *
+   * @param driveId - 驱动盘ID
+   * @param uploadId - 上传ID（第1步返回）
+   * @param fileName - 文件名
+   * @param fileSize - 文件大小（字节）
+   * @param parentId - 父目录ID
+   * @returns 包含文件信息的服务结果
+   */
+  public async completeUpload(
+    driveId: string,
+    uploadId: string,
+    fileName: string,
+    fileSize: number,
+    parentId: string
+  ): Promise<{
+    success: boolean;
+    data?: CompleteUploadResponse;
+    error?: string;
+  }> {
+    try {
+      this.logger.debug('Completing upload', {
+        driveId,
+        uploadId,
+        fileName,
+        fileSize,
+        parentId
+      });
+
+      // 调用适配器完成上传
+      const fileInfo = await this.wasV7ApiDrive.completeUpload({
+        drive_id: driveId,
+        upload_id: uploadId,
+        name: fileName,
+        size: fileSize,
+        parent_id: parentId
+      });
+
+      this.logger.info('Successfully completed upload', {
+        fileId: fileInfo.file_id,
+        fileName: fileInfo.name
+      });
+
+      return {
+        success: true,
+        data: fileInfo
+      };
+    } catch (error: any) {
+      this.logger.error('Failed to complete upload', {
+        driveId,
+        uploadId,
+        fileName,
+        fileSize,
+        parentId,
+        error: error.message,
+        stack: error.stack
+      });
+
+      return {
+        success: false,
+        error: error.message || 'Failed to complete upload'
       };
     }
   }

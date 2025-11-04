@@ -9,7 +9,7 @@ import type { DatabaseAPI } from '@stratix/database';
 import { FULL_SYNC_WORKFLOW, INCREMENTAL_SYNC_WORKFLOW } from '../tasks/workflows/workflow-definitions.js';
 
 // 导入执行器
-import DataAggregationProcessor from '../executors/DataAggregationProcessor.js';
+import DataAggregationProcessor from '../executors/DataAggregation.executor.js';
 import CalendarCreationProcessor from '../executors/CalendarCreationProcessor.js';
 import ParticipantManagementProcessor from '../executors/ParticipantManagementProcessor.js';
 import ScheduleCreationProcessor from '../executors/ScheduleCreationProcessor.js';

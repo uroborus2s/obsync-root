@@ -1,8 +1,8 @@
 // FetchSchedulesExecutor 数据完整性验证测试
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Logger } from '@stratix/core';
-import FetchSchedulesExecutor from '../FetchSchedulesExecutor.js';
-import type { FetchSchedulesConfig } from '../FetchSchedulesExecutor.js';
+import FetchSchedulesExecutor from '../FetchSchedules.executor.js';
+import type { FetchSchedulesConfig } from '../FetchSchedules.executor.js';
 import type { ExecutionContext } from '@stratix/tasks';
 
 // Mock 依赖

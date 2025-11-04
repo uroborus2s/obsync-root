@@ -3,9 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   CreateSchedulesConfig,
   CreateSchedulesResult
-} from '../AddScheduleExecutor.js';
-import AddScheduleExecutor from '../AddScheduleExecutor.js';
-import type { WpsScheduleData } from '../FetchSchedulesExecutor.js';
+} from '../AddSchedule.executor.js';
+import AddScheduleExecutor from '../AddSchedule.executor.js';
+import type { WpsScheduleData } from '../FetchSchedules.executor.js';
 
 // Mock 依赖
 const mockWasV7ApiSchedule = {

@@ -6,8 +6,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   CreateOrUpdateCalendarConfig,
   CreateOrUpdateCalendarResult
-} from '../CreateOrUpdateCalendarExecutor.js';
-import CreateOrUpdateCalendarExecutor from '../CreateOrUpdateCalendarExecutor.js';
+} from '../CreateOrUpdateCalendar.executor.js';
+import CreateOrUpdateCalendarExecutor from '../CreateOrUpdateCalendar.executor.js';
 
 // Mock 依赖
 const mockWasV7ApiCalendar = {

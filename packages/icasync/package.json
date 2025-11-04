@@ -35,7 +35,7 @@
     "vitest": "^1.0.0"
   },
   "peerDependencies": {
-    "@stratix/database": "1.0.0-beta.4",
+    "@stratix/database": "workspace:*",
     "@stratix/core": "workspace:*",
     "@stratix/tasks": "workspace:*",
     "@stratix/was-v7": "workspace:*"

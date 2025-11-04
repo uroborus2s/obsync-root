@@ -1,7 +1,7 @@
 // @stratix/icasync 手动测试脚本
 // 用于验证新功能的基本工作流程
 
-import { CalendarSyncService } from '../services/CalendarSyncService.js';
+import { CalendarSyncService } from '../services/CalendarSync.service.js';
 
 // 模拟依赖
 const mockLogger = {

@@ -247,6 +247,50 @@ export default class AttendanceController {
     }
   }
 
+  /**
+   * 获取失败的签到队列任务
+   * GET /api/icalink/v1/attendance/failed-checkin-jobs
+   * 
+   * @param request - Fastify 请求对象
+   * @param reply - Fastify 响应对象
+   * @returns 失败的签到队列任务列表
+   */
+  @Get('/api/icalink/v1/attendance/failed-checkin-jobs')
+  async getFailedCheckinJobs(
+    request: FastifyRequest<{
+      Querystring: { page?: string; pageSize?: string };
+    }>,
+    reply: FastifyReply
+  ): Promise<void> {
+    const page = parseInt(request.query.page || '1', 10);
+    const pageSize = parseInt(request.query.pageSize || '20', 10);
+
+    this.logger.info({ page, pageSize }, 'Fetching failed checkin jobs');
+
+    const result = await this.attendanceService.getFailedCheckinJobs(
+      page,
+      pageSize
+    );
+
+    if (isLeft(result)) {
+      this.logger.error(
+        { error: result.left },
+        'Failed to fetch failed checkin jobs'
+      );
+      return reply.status(500).send({
+        success: false,
+        code: result.left.code,
+        message: result.left.message
+      });
+    }
+
+    return reply.status(200).send({
+      success: true,
+      message: '获取失败的签到队列任务成功',
+      data: result.right
+    });
+  }
+
   // Disabled - AttendanceStatsRepository removed
   // @Get('/api/icalink/v1/attendance/course/:course_id/history')
   // async getCourseAttendanceHistory(

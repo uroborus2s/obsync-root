@@ -41,7 +41,7 @@ describe('Icasync Plugin Integration', () => {
     it('应该能够创建CalendarSyncService实例', async () => {
       // 这个测试需要模拟所有依赖
       const { CalendarSyncService } = await import(
-        '../services/CalendarSyncService.js'
+        '../services/CalendarSync.service.js'
       );
 
       // 创建模拟依赖
@@ -139,7 +139,7 @@ describe('Icasync Plugin Integration', () => {
   describe('错误处理集成', () => {
     it('应该能够处理服务层错误', async () => {
       const { CalendarSyncService } = await import(
-        '../services/CalendarSyncService.js'
+        '../services/CalendarSync.service.js'
       );
 
       // 创建一个会抛出错误的模拟服务

@@ -75,4 +75,4 @@ const stratixIcasyncPlugin = withRegisterAutoDI(icasync, {
 // 导出插件
 export default stratixIcasyncPlugin;
 
-export type { default as FullSyncAdapter } from './adapters/full-sync.adapter.js';
+export type { default as FullSyncAdapter } from './adapters/FullSync.adapter.js';

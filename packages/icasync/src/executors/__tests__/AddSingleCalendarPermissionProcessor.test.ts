@@ -4,7 +4,7 @@
 
 import type { ExecutionContext } from '@stratix/tasks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import AddSingleCalendarPermissionProcessor from '../AddSingleCalendarPermissionProcessor.js';
+import AddSingleCalendarPermissionProcessor from '../AddSingleCalendarPermission.executor.js';
 
 describe('AddSingleCalendarPermissionProcessor', () => {
   let executor: AddSingleCalendarPermissionProcessor;

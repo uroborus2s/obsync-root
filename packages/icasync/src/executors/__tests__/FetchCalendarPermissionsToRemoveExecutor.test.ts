@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Logger } from '@stratix/core';
 import type { DatabaseAPI } from '@stratix/database';
 import type { ExecutionContext } from '@stratix/tasks';
-import FetchCalendarPermissionsToRemoveExecutor from '../FetchCalendarPermissionsToRemoveExecutor.js';
+import FetchCalendarPermissionsToRemoveExecutor from '../FetchCalendarPermissionsToRemove.executor.js';
 
 describe('FetchCalendarPermissionsToRemoveExecutor', () => {
   let executor: FetchCalendarPermissionsToRemoveExecutor;

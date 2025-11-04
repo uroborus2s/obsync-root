@@ -6,7 +6,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { Logger } from '@stratix/core';
-import FullSyncAdapter from '../full-sync.adapter.js';
+import FullSyncAdapter from '../FullSync.adapter.js';
 import { SyncStatus } from '../../types/sync.js';
 
 // Mock数据

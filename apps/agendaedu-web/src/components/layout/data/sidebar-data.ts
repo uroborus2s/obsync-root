@@ -146,6 +146,15 @@ export const sidebarData: SidebarData = {
                 mode: 'or',
               },
             },
+            {
+              title: '签到失败日志',
+              url: '/attendance/failed-logs' as const,
+              icon: Activity,
+              permission: {
+                requiredRoles: ['teacher', 'admin', 'super_admin'],
+                mode: 'or',
+              },
+            },
           ],
         },
         {

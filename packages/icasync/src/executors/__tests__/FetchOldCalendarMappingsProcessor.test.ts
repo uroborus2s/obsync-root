@@ -1,7 +1,7 @@
 // @stratix/icasync FetchOldCalendarMappingsProcessor 测试
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CalendarMapping } from '../../types/database.js';
-import FetchOldCalendarMappingsProcessor from '../FetchOldCalendarMappingsProcessor.js';
+import FetchOldCalendarMappingsProcessor from '../FetchOldCalendarMappings.executor.js';
 
 describe('FetchOldCalendarMappingsProcessor', () => {
   let processor: FetchOldCalendarMappingsProcessor;

@@ -1176,6 +1176,47 @@ export class AttendanceApiService {
       }
     }
   }
+
+  /**
+   * 获取失败的签到队列任务
+   * @param page 页码
+   * @param pageSize 每页数量
+   */
+  async getFailedCheckinJobs(
+    page: number = 1,
+    pageSize: number = 20
+  ): Promise<
+    ApiResponse<{
+      total: number
+      page: number
+      pageSize: number
+      data: Array<{
+        id: string
+        data: any
+        failedReason: string
+        processedOn: number
+      }>
+    }>
+  > {
+    const queryString = new URLSearchParams()
+    queryString.append('page', page.toString())
+    queryString.append('pageSize', pageSize.toString())
+
+    const endpoint = `/api/icalink/v1/attendance/failed-checkin-jobs?${queryString.toString()}`
+    return this.makeRequest<
+      ApiResponse<{
+        total: number
+        page: number
+        pageSize: number
+        data: Array<{
+          id: string
+          data: any
+          failedReason: string
+          processedOn: number
+        }>
+      }>
+    >(endpoint)
+  }
 }
 
 // 导出单例实例

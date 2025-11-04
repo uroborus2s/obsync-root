@@ -2,9 +2,9 @@
 // 测试课程聚合服务的核心功能
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { CourseAggregationService } from '../services/CourseAggregationService.js';
-import type { ICourseRawRepository } from '../repositories/CourseRawRepository.js';
-import type { IJuheRenwuRepository } from '../repositories/JuheRenwuRepository.js';
+import { CourseAggregationService } from '../services/CourseAggregation.service.js';
+import type { ICourseRawRepository } from '../repositories/CourseRaw.repository.js';
+import type { IJuheRenwuRepository } from '../repositories/JuheRenwu.repository.js';
 
 describe('CourseAggregationService', () => {
   let courseAggregationService: CourseAggregationService;
