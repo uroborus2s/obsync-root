@@ -1304,4 +1304,139 @@ export default class StatsController {
       });
     }
   }
+
+  /**
+   * 根据课程代码查询学生缺勤统计列表
+   * GET /api/icalink/v1/stats/course-absence-stats/:courseCode
+   *
+   * @param request - Fastify请求对象
+   * @param reply - Fastify响应对象
+   * @returns 学生缺勤统计列表
+   *
+   * 路径参数:
+   * - courseCode: 课程代码
+   *
+   * 查询参数:
+   * - sortField: 排序字段（默认：absence_rate）
+   * - sortOrder: 排序方向（默认：desc）
+   *
+   * 响应格式:
+   * {
+   *   success: boolean,
+   *   data: Array<{
+   *     student_id: string,
+   *     student_name: string,
+   *     absence_rate: number,
+   *     truant_rate: number,
+   *     leave_rate: number,
+   *     ...
+   *   }>,
+   *   error?: string
+   * }
+   */
+  @Get('/api/icalink/v1/stats/course-absence-stats/:courseCode', {
+    schema: {
+      params: {
+        type: 'object',
+        required: ['courseCode'],
+        properties: {
+          courseCode: { type: 'string' }
+        }
+      },
+      querystring: {
+        type: 'object',
+        properties: {
+          sortField: { type: 'string', default: 'absence_rate' },
+          sortOrder: { type: 'string', enum: ['asc', 'desc'], default: 'desc' }
+        }
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            data: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'number' },
+                  student_id: { type: 'string' },
+                  student_name: { type: 'string' },
+                  course_code: { type: 'string' },
+                  course_name: { type: 'string' },
+                  absence_rate: { type: 'number' },
+                  truant_rate: { type: 'number' },
+                  leave_rate: { type: 'number' },
+                  total_classes: { type: 'number' },
+                  absent_count: { type: 'number' },
+                  truant_count: { type: 'number' },
+                  leave_count: { type: 'number' },
+                  total_sessions: { type: 'number' },
+                  completed_sessions: { type: 'number' }
+                }
+              }
+            }
+          }
+        },
+        400: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            error: { type: 'string' }
+          }
+        },
+        500: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            error: { type: 'string' }
+          }
+        }
+      }
+    }
+  })
+  async getCourseAbsenceStats(
+    request: FastifyRequest<{
+      Params: { courseCode: string };
+      Querystring: { sortField?: string; sortOrder?: 'asc' | 'desc' };
+    }>,
+    reply: FastifyReply
+  ) {
+    try {
+      const { courseCode } = request.params;
+      const { sortField = 'absence_rate', sortOrder = 'desc' } = request.query;
+
+      this.logger.debug('Getting course absence stats', {
+        courseCode,
+        sortField,
+        sortOrder
+      });
+
+      const data = await this.studentAbsenceRateDetailService.findByCourseCode(
+        courseCode,
+        sortField,
+        sortOrder
+      );
+
+      this.logger.debug('Course absence stats retrieved', {
+        courseCode,
+        count: data.length
+      });
+
+      return reply.status(200).send({
+        success: true,
+        data
+      });
+    } catch (error: any) {
+      this.logger.error('Error in getCourseAbsenceStats', {
+        error: error.message,
+        stack: error.stack
+      });
+      return reply.status(500).send({
+        success: false,
+        error: 'Internal server error'
+      });
+    }
+  }
 }

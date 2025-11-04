@@ -39,6 +39,15 @@ export interface IStudentAbsenceRateDetailService {
     pageSize: number;
     totalPages: number;
   }>;
+
+  /**
+   * 根据课程代码查询所有学生的缺勤详情
+   */
+  findByCourseCode(
+    courseCode: string,
+    sortField?: string,
+    sortOrder?: 'asc' | 'desc'
+  ): Promise<IcalinkStudentAbsenceRateDetail[]>;
 }
 
 /**
@@ -103,9 +112,7 @@ export default class StudentAbsenceRateDetailService
     courseCode: string
   ): Promise<IcalinkStudentAbsenceRateDetail | null> {
     if (!studentId || !courseCode) {
-      this.logger.warn(
-        'findByStudentAndCourse called with invalid parameters'
-      );
+      this.logger.warn('findByStudentAndCourse called with invalid parameters');
       return null;
     }
 
@@ -204,5 +211,41 @@ export default class StudentAbsenceRateDetailService
       throw error;
     }
   }
-}
 
+  /**
+   * 根据课程代码查询所有学生的缺勤详情
+   * @param courseCode 课程代码
+   * @param sortField 排序字段（默认：absence_rate）
+   * @param sortOrder 排序方向（默认：desc）
+   * @returns 学生课程缺勤详情列表
+   */
+  public async findByCourseCode(
+    courseCode: string,
+    sortField: string = 'absence_rate',
+    sortOrder: 'asc' | 'desc' = 'desc'
+  ): Promise<IcalinkStudentAbsenceRateDetail[]> {
+    if (!courseCode) {
+      this.logger.warn('findByCourseCode called with empty courseCode');
+      return [];
+    }
+
+    this.logger.debug(
+      { courseCode, sortField, sortOrder },
+      'Finding student absence rate details by course code'
+    );
+
+    try {
+      return await this.studentAbsenceRateDetailRepository.findByCourseCode(
+        courseCode,
+        sortField,
+        sortOrder
+      );
+    } catch (error) {
+      this.logger.error(
+        'Failed to find student absence rate details by course code',
+        error
+      );
+      throw error;
+    }
+  }
+}

@@ -119,6 +119,30 @@ export interface GetDriveParams {
 }
 
 /**
+ * 获取盘元信息参数
+ */
+export interface GetDriveMetaParams {
+  /** 驱动盘ID */
+  drive_id: string;
+  /** 是否获取盘的扩展属性 */
+  with_ext_attrs?: boolean;
+}
+
+/**
+ * 获取文件元信息参数
+ */
+export interface GetFileMetaParams {
+  /** 文件ID */
+  file_id: string;
+  /** 是否返回文件操作权限信息 */
+  with_permission?: boolean;
+  /** 是否返回文件扩展属性 */
+  with_ext_attrs?: boolean;
+  /** 是否返回文件所属驱动盘信息 */
+  with_drive?: boolean;
+}
+
+/**
  * 更新驱动盘参数
  */
 export interface UpdateDriveParams {
@@ -315,4 +339,231 @@ export interface OpenLinkParams {
   scope: scopeType;
   /** 链接选项 */
   opts?: optsParams;
+}
+
+/**
+ * 排序方式
+ */
+export type OrderType = 'asc' | 'desc';
+
+/**
+ * 排序字段
+ */
+export type OrderByField = 'ctime' | 'mtime' | 'dtime' | 'fname' | 'fsize';
+
+/**
+ * ID类型
+ */
+export type IdType = 'internal' | 'external';
+
+/**
+ * 获取子文件列表参数
+ */
+export interface GetChildrenParams {
+  /** 驱动盘ID */
+  drive_id: string;
+  /** 父目录ID（根目录传 0） */
+  parent_id: string;
+  /** 是否返回文件的操作权限 */
+  with_permission?: boolean;
+  /** 是否返回文件扩展属性 */
+  with_ext_attrs?: boolean;
+  /** 按扩展名过滤，多个扩展名以英文逗号分隔（全小写，无空格） */
+  filter_exts?: string;
+  /** 按文件类型筛选 */
+  filter_type?: FileType;
+  /** 排序方式 */
+  order?: OrderType;
+  /** 排序字段 */
+  order_by?: OrderByField;
+  /** 分页大小（最大500） */
+  page_size: number;
+  /** 分页Token */
+  page_token?: string;
+  /** 请求身份类型 */
+  id_type?: IdType;
+}
+
+/**
+ * 获取子文件列表响应
+ */
+export interface GetChildrenResponse {
+  /** 文件列表 */
+  items: FileInfo[];
+  /** 下一页分页Token */
+  next_page_token?: string;
+}
+
+/**
+ * 批量获取模式
+ */
+export type BatchGetMode = 'fastfail' | 'detailed';
+
+/**
+ * 批量获取文件信息参数
+ */
+export interface BatchGetFilesParams {
+  /** 文件ID列表 */
+  file_ids: string[];
+  /** 是否返回文件操作权限 */
+  with_permission?: boolean;
+  /** 是否返回文件扩展属性 */
+  with_ext_attrs?: boolean;
+  /** 是否返回文件所属drive信息 */
+  with_drive?: boolean;
+  /** 批量获取结果返回模式 */
+  mode?: BatchGetMode;
+}
+
+/**
+ * 批量获取失败项
+ */
+export interface BatchGetFailure {
+  /** 错误码 */
+  err_code: number;
+  /** 错误信息 */
+  err_msg: string;
+  /** 对象ID */
+  object_id: string;
+}
+
+/**
+ * 批量获取文件信息响应
+ */
+export interface BatchGetFilesResponse {
+  /** 文件信息列表 */
+  items: FileInfo[];
+  /** 失败列表（当mode=detailed时返回） */
+  failures?: BatchGetFailure[];
+}
+
+/**
+ * 删除文件参数
+ */
+export interface DeleteFileParams {
+  /** 文件ID */
+  file_id: string;
+}
+
+/**
+ * 重命名文件参数
+ */
+export interface RenameFileParams {
+  /** 文件ID */
+  file_id: string;
+  /** 新的文件名 */
+  name: string;
+}
+
+/**
+ * 重命名文件响应
+ */
+export interface RenameFileResponse {
+  /** 文件ID */
+  id: string;
+  /** 修改后的名称 */
+  name: string;
+}
+
+/**
+ * 检查文件名参数
+ */
+export interface CheckFileNameParams {
+  /** 驱动盘ID */
+  drive_id: string;
+  /** 父目录ID */
+  parent_id: string;
+  /** 需要检查的文件名 */
+  name: string;
+}
+
+/**
+ * 检查文件名响应
+ */
+export interface CheckFileNameResponse {
+  /** 是否已存在同名文件 */
+  is_exist: boolean;
+}
+
+/**
+ * 上传场景
+ */
+export type UploadScene = 'normal_upload' | 'roaming_upload';
+
+/**
+ * 请求文件上传信息参数
+ */
+export interface RequestUploadParams {
+  /** 驱动盘ID */
+  drive_id: string;
+  /** 父文件夹ID */
+  parent_id: string;
+  /** 指定更新的文件ID（续传场景） */
+  file_id?: string;
+  /** 文件哈希信息 */
+  hashes?: FileHash[];
+  /** 是否使用内网上传 */
+  internal?: boolean;
+  /** 文件名（需带后缀） */
+  name?: string;
+  /** 同名文件处理方式 */
+  on_name_conflict?: OnNameConflict;
+  /** 以路径名形式指定上传位置 */
+  parent_path?: string[];
+  /** 文件大小（单位：字节） */
+  size: number;
+  /** 上传网关地址控制参数 */
+  storage_base_domain?: string;
+  /** 上传场景 */
+  upload_scene?: UploadScene;
+}
+
+/**
+ * 存储请求信息
+ */
+export interface StoreRequest {
+  /** 上传方法 */
+  method: string;
+  /** 存储上传地址 */
+  url: string;
+}
+
+/**
+ * 请求文件上传信息响应
+ */
+export interface RequestUploadResponse {
+  /** 存储请求信息 */
+  store_request: StoreRequest;
+  /** 上传标识 */
+  upload_id: string;
+}
+
+/**
+ * 提交文件上传完成参数
+ */
+export interface CompleteUploadParams {
+  /** 驱动盘ID */
+  drive_id: string;
+  /** 上传标识（第1步返回） */
+  upload_id: string;
+  /** 文件大小（字节） */
+  size: number;
+  /** 文件名 */
+  name: string;
+  /** 父目录ID */
+  parent_id: string;
+}
+
+/**
+ * 提交文件上传完成响应
+ */
+export interface CompleteUploadResponse {
+  /** 文件ID */
+  file_id: string;
+  /** 文件名 */
+  name: string;
+  /** 文件大小 */
+  size: number;
+  /** 状态 */
+  status: string;
 }

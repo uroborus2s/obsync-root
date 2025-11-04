@@ -193,4 +193,41 @@ export default class StudentAbsenceRateDetailRepository extends BaseRepository<
 
     return data;
   }
+
+  /**
+   * 根据课程代码查询所有学生的缺勤详情
+   * @param courseCode 课程代码
+   * @param sortField 排序字段（默认：absence_rate）
+   * @param sortOrder 排序方向（默认：desc）
+   * @returns 学生课程缺勤详情列表
+   */
+  public async findByCourseCode(
+    courseCode: string,
+    sortField: string = 'absence_rate',
+    sortOrder: 'asc' | 'desc' = 'desc'
+  ): Promise<IcalinkStudentAbsenceRateDetail[]> {
+    if (!courseCode) {
+      this.logger.warn('findByCourseCode called with invalid courseCode');
+      return [];
+    }
+
+    this.logger.debug(
+      { courseCode, sortField, sortOrder },
+      'Finding student absence rate details by course code'
+    );
+
+    const data = (await this.findMany(
+      (qb) => qb.where('course_code', '=', courseCode),
+      {
+        orderBy: { field: sortField as any, direction: sortOrder }
+      }
+    )) as IcalinkStudentAbsenceRateDetail[];
+
+    this.logger.debug(
+      { courseCode, count: data.length },
+      'Found student absence rate details'
+    );
+
+    return data;
+  }
 }

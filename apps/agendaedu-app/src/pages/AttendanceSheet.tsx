@@ -87,6 +87,39 @@ interface TeacherAttendanceData {
   attendance_window?: AttendanceWindow;
 }
 
+// 学生缺勤统计数据
+interface StudentAbsenceStats {
+  id: number;
+  student_id: string;
+  student_name: string;
+  course_code: string;
+  course_name: string;
+  absence_rate: number;
+  truant_rate: number;
+  leave_rate: number;
+  total_classes: number;
+  absent_count: number;
+  truant_count: number;
+  leave_count: number;
+  total_sessions: number; // 总课时
+  completed_sessions: number; // 已上课时
+}
+
+// 学生缺勤记录详情
+interface StudentAbsenceRecord {
+  id: number;
+  student_id: string;
+  student_name: string;
+  course_code: string;
+  course_name: string;
+  teaching_week: number;
+  week_day: number;
+  periods: string;
+  absence_type: 'absent' | 'leave' | 'truant' | 'leave_pending';
+  stat_date: string;
+  semester: string;
+}
+
 // 扩展的 API 响应类型，支持实际 API 返回的格式
 interface ExtendedApiResponse<T> {
   success?: boolean;
@@ -127,6 +160,24 @@ function AttendanceSheetContent() {
   } | null>(null);
   const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
+
+  // 缺勤统计状态
+  const [absenceStats, setAbsenceStats] = useState<StudentAbsenceStats[]>([]);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
+  const [expandedStudentId, setExpandedStudentId] = useState<string | null>(
+    null
+  );
+  const [studentAbsenceRecords, setStudentAbsenceRecords] = useState<
+    Record<string, StudentAbsenceRecord[]>
+  >({});
+  const [isLoadingRecords, setIsLoadingRecords] = useState<
+    Record<string, boolean>
+  >({});
+
+  // Tab 切换状态
+  const [activeTab, setActiveTab] = useState<'attendance' | 'absence'>(
+    'attendance'
+  );
 
   const id = searchParams.get('id');
 
@@ -175,6 +226,28 @@ function AttendanceSheetContent() {
     return `${dateStr} ${jc_s}节`;
   };
 
+  // 格式化缺勤类型
+  const formatAbsenceType = (type: string) => {
+    const typeMap: Record<string, string> = {
+      absent: '缺勤',
+      leave: '请假',
+      truant: '旷课',
+      leave_pending: '待审批'
+    };
+    return typeMap[type] || type;
+  };
+
+  // 格式化星期
+  const formatWeekDay = (weekDay: number) => {
+    const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+    return weekdays[weekDay] || `周${weekDay}`;
+  };
+
+  // 格式化百分比
+  const formatPercentage = (rate: number) => {
+    return `${(rate * 100).toFixed(1)}%`;
+  };
+
   const loadTeacherAttendanceData = async () => {
     if (!id) return;
 
@@ -221,6 +294,89 @@ function AttendanceSheetContent() {
     }
   };
 
+  // 加载缺勤统计数据
+  const loadAbsenceStats = async (courseCode: string) => {
+    setIsLoadingStats(true);
+    try {
+      const response = await icaLinkApiClient.get<StudentAbsenceStats[]>(
+        `/icalink/v1/stats/course-absence-stats/${encodeURIComponent(courseCode)}`
+      );
+
+      const responseData = response as unknown as ExtendedApiResponse<
+        StudentAbsenceStats[]
+      >;
+      if (
+        (responseData.success && responseData.data) ||
+        (response.success && response.data)
+      ) {
+        const data = responseData.data || response.data;
+        if (data) {
+          setAbsenceStats(data);
+        }
+      }
+    } catch (error) {
+      console.error('获取缺勤统计失败:', error);
+      toast.error('获取缺勤统计失败', {
+        description: error instanceof Error ? error.message : '未知错误',
+        duration: 4000
+      });
+    } finally {
+      setIsLoadingStats(false);
+    }
+  };
+
+  // 加载学生缺勤记录详情
+  const loadStudentAbsenceRecords = async (
+    studentId: string,
+    courseCode: string
+  ) => {
+    setIsLoadingRecords((prev) => ({ ...prev, [studentId]: true }));
+    try {
+      const response = await icaLinkApiClient.get<StudentAbsenceRecord[]>(
+        `/icalink/v1/stats/student-absent-records?studentId=${encodeURIComponent(studentId)}&courseCode=${encodeURIComponent(courseCode)}&sortField=teaching_week&sortOrder=asc`
+      );
+
+      const responseData = response as unknown as ExtendedApiResponse<
+        StudentAbsenceRecord[]
+      >;
+      if (
+        (responseData.success && responseData.data) ||
+        (response.success && response.data)
+      ) {
+        const data = responseData.data || response.data;
+        if (data) {
+          setStudentAbsenceRecords((prev) => ({ ...prev, [studentId]: data }));
+        }
+      }
+    } catch (error) {
+      console.error('获取缺勤记录详情失败:', error);
+      toast.error('获取缺勤记录详情失败', {
+        description: error instanceof Error ? error.message : '未知错误',
+        duration: 4000
+      });
+    } finally {
+      setIsLoadingRecords((prev) => ({ ...prev, [studentId]: false }));
+    }
+  };
+
+  // 切换学生详情展开/收起
+  const toggleStudentDetails = async (
+    studentId: string,
+    courseCode: string
+  ) => {
+    if (expandedStudentId === studentId) {
+      // 收起
+      setExpandedStudentId(null);
+    } else {
+      // 展开
+      setExpandedStudentId(studentId);
+      // 如果还没有加载过该学生的记录，则加载
+      if (!studentAbsenceRecords[studentId]) {
+        await loadStudentAbsenceRecords(studentId, courseCode);
+      }
+    }
+  };
+
   // 计算是否可以创建验签窗口
   const calculateCanCreateWindow = () => {
     if (!teacherData || teacherData.status !== 'in_progress') {
@@ -263,6 +419,14 @@ function AttendanceSheetContent() {
     loadTeacherAttendanceData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // 当课程数据加载完成后，加载缺勤统计
+  useEffect(() => {
+    if (teacherData?.course?.course_code) {
+      loadAbsenceStats(teacherData.course.course_code);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teacherData?.course?.course_code]);
 
   // 定时器：每秒检查验签按钮状态（仅在进行中的课程）
   useEffect(() => {
@@ -837,152 +1001,373 @@ function AttendanceSheetContent() {
 
               {/* 签到统计 - 匹配图片样式 */}
               <div className='mb-6 rounded-lg bg-white p-4 shadow-sm'>
-                <div className='grid grid-cols-5 gap-3 text-center'>
-                  <div className='rounded-lg bg-blue-50 p-4'>
-                    <div className='text-xl font-bold text-blue-600'>
-                      {stats.total_count}
+                <div className='space-y-3'>
+                  {/* 第一排：基本统计 */}
+                  <div className='grid grid-cols-5 gap-3 text-center'>
+                    <div className='rounded-lg bg-blue-50 p-4'>
+                      <div className='text-xl font-bold text-blue-600'>
+                        {stats.total_count}
+                      </div>
+                      <div className='mt-1 text-sm text-gray-600'>总数</div>
                     </div>
-                    <div className='mt-1 text-sm text-gray-600'>总数</div>
+                    <div className='rounded-lg bg-green-50 p-4'>
+                      <div className='text-xl font-bold text-green-600'>
+                        {stats.checkin_count}
+                      </div>
+                      <div className='mt-1 text-sm text-gray-600'>已签</div>
+                    </div>
+                    <div className='rounded-lg bg-blue-50 p-4'>
+                      <div className='text-xl font-bold text-blue-600'>
+                        {stats.leave_count}
+                      </div>
+                      <div className='mt-1 text-sm text-gray-600'>请假</div>
+                    </div>
+                    <div className='rounded-lg bg-orange-50 p-4'>
+                      <div className='text-xl font-bold text-orange-600'>
+                        {stats.truant_count}
+                      </div>
+                      <div className='mt-1 text-sm text-gray-600'>旷课</div>
+                    </div>
+                    <div className='rounded-lg bg-red-50 p-4'>
+                      <div className='text-xl font-bold text-red-600'>
+                        {stats.absent_count}
+                      </div>
+                      <div className='mt-1 text-sm text-gray-600'>缺勤</div>
+                    </div>
                   </div>
-                  <div className='rounded-lg bg-green-50 p-4'>
-                    <div className='text-xl font-bold text-green-600'>
-                      {stats.checkin_count}
+
+                  {/* 第二排：课时统计 */}
+                  <div className='grid grid-cols-2 gap-3 text-center'>
+                    <div className='rounded-lg bg-purple-50 p-4'>
+                      <div className='text-xl font-bold text-purple-600'>
+                        {absenceStats.length > 0
+                          ? absenceStats[0].total_sessions || 0
+                          : 0}
+                      </div>
+                      <div className='mt-1 text-sm text-gray-600'>总课时</div>
                     </div>
-                    <div className='mt-1 text-sm text-gray-600'>已签</div>
-                  </div>
-                  <div className='rounded-lg bg-blue-50 p-4'>
-                    <div className='text-xl font-bold text-blue-600'>
-                      {stats.leave_count}
+                    <div className='rounded-lg bg-indigo-50 p-4'>
+                      <div className='text-xl font-bold text-indigo-600'>
+                        {absenceStats.length > 0
+                          ? absenceStats[0].completed_sessions || 0
+                          : 0}
+                      </div>
+                      <div className='mt-1 text-sm text-gray-600'>已上课时</div>
                     </div>
-                    <div className='mt-1 text-sm text-gray-600'>请假</div>
-                  </div>
-                  <div className='rounded-lg bg-orange-50 p-4'>
-                    <div className='text-xl font-bold text-orange-600'>
-                      {stats.truant_count}
-                    </div>
-                    <div className='mt-1 text-sm text-gray-600'>旷课</div>
-                  </div>
-                  <div className='rounded-lg bg-red-50 p-4'>
-                    <div className='text-xl font-bold text-red-600'>
-                      {stats.absent_count}
-                    </div>
-                    <div className='mt-1 text-sm text-gray-600'>缺勤</div>
                   </div>
                 </div>
               </div>
 
-              {/* 学生签到情况 - 匹配图片样式 */}
+              {/* Tab 导航和内容区域 */}
               {students && students.length > 0 && (
-                <div className='mb-6 rounded-lg bg-white p-4 shadow-sm'>
-                  <h3 className='mb-4 font-semibold text-gray-800'>
-                    学生签到情况
-                  </h3>
-                  <div className='max-h-96 space-y-2 overflow-y-auto'>
-                    {students.map((student, index) => (
-                      <div
-                        key={index}
-                        className='flex items-center justify-between rounded-lg border border-gray-200 p-3 hover:bg-gray-50'
-                      >
-                        <div className='flex items-center space-x-3'>
-                          <div className='flex h-8 w-8 items-center justify-center rounded-full bg-gray-100'>
-                            <User className='h-4 w-4 text-gray-600' />
-                          </div>
-                          <div>
-                            <div className='font-medium text-gray-900'>
-                              {student.student_name || '未知'}
-                            </div>
-                            <div className='text-xs text-gray-500'>
-                              {student.student_id}
-                            </div>
-                          </div>
-                        </div>
+                <div className='mb-6 rounded-lg bg-white shadow-sm'>
+                  {/* Tab 导航栏 */}
+                  <div className='flex border-b border-gray-200'>
+                    <button
+                      type='button'
+                      onClick={() => setActiveTab('attendance')}
+                      className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                        activeTab === 'attendance'
+                          ? 'border-b-2 border-blue-500 text-blue-600'
+                          : 'text-gray-600 hover:text-gray-800'
+                      }`}
+                    >
+                      签到情况
+                    </button>
+                    <button
+                      type='button'
+                      onClick={() => setActiveTab('absence')}
+                      className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                        activeTab === 'absence'
+                          ? 'border-b-2 border-blue-500 text-blue-600'
+                          : 'text-gray-600 hover:text-gray-800'
+                      }`}
+                    >
+                      缺勤统计
+                    </button>
+                  </div>
 
-                        <div className='flex items-center space-x-2'>
-                          {/* 时间信息 */}
-                          {student.absence_type === 'present' &&
-                            student.checkin_time && (
-                              <span className='text-xs text-gray-500'>
-                                {new Date(
-                                  student.checkin_time
-                                ).toLocaleTimeString('zh-CN', {
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </span>
-                            )}
+                  {/* Tab 内容区域 */}
+                  <div className='p-4'>
+                    {/* 签到情况 Tab */}
+                    {activeTab === 'attendance' && (
+                      <div className='max-h-96 space-y-2 overflow-y-auto'>
+                        {students.map((student, index) => (
+                          <div
+                            key={index}
+                            className='flex items-center justify-between rounded-lg border border-gray-200 p-3 hover:bg-gray-50'
+                          >
+                            <div className='flex items-center space-x-3'>
+                              <div className='flex h-8 w-8 items-center justify-center rounded-full bg-gray-100'>
+                                <User className='h-4 w-4 text-gray-600' />
+                              </div>
+                              <div>
+                                <div className='font-medium text-gray-900'>
+                                  {student.student_name || '未知'}
+                                </div>
+                                <div className='text-xs text-gray-500'>
+                                  {student.student_id}
+                                </div>
+                              </div>
+                            </div>
 
-                          {/* 状态标签 - 根据课程状态和学生状态显示不同内容 */}
-                          {student.absence_type === 'leave_pending' &&
-                          (teacherData.status === 'in_progress' ||
-                            teacherData.status === 'not_started') ? (
-                            // 请假待审批：显示状态标签 + 审批按钮
                             <div className='flex items-center space-x-2'>
-                              {/* 先显示状态标签 */}
-                              <span
-                                className={`flex items-center space-x-1 rounded-full px-2 py-1 text-xs ${getStatusColor(
-                                  student.absence_type
-                                )}`}
-                              >
-                                {getStatusIcon(student.absence_type)}
-                                <span>
-                                  {getStatusText(student.absence_type)}
+                              {/* 时间信息 */}
+                              {student.absence_type === 'present' &&
+                                student.checkin_time && (
+                                  <span className='text-xs text-gray-500'>
+                                    {new Date(
+                                      student.checkin_time
+                                    ).toLocaleTimeString('zh-CN', {
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })}
+                                  </span>
+                                )}
+
+                              {/* 状态标签 - 根据课程状态和学生状态显示不同内容 */}
+                              {student.absence_type === 'leave_pending' &&
+                              (teacherData.status === 'in_progress' ||
+                                teacherData.status === 'not_started') ? (
+                                // 请假待审批：显示状态标签 + 审批按钮
+                                <div className='flex items-center space-x-2'>
+                                  {/* 先显示状态标签 */}
+                                  <span
+                                    className={`flex items-center space-x-1 rounded-full px-2 py-1 text-xs ${getStatusColor(
+                                      student.absence_type
+                                    )}`}
+                                  >
+                                    {getStatusIcon(student.absence_type)}
+                                    <span>
+                                      {getStatusText(student.absence_type)}
+                                    </span>
+                                  </span>
+                                  {/* 再显示审批按钮 - 微信风格绿底白字 */}
+                                  <button
+                                    type='button'
+                                    onClick={() =>
+                                      handleOpenApprovalDialog(student)
+                                    }
+                                    className='rounded-md bg-[#07C160] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#06AD56] active:bg-[#059048]'
+                                  >
+                                    审批
+                                  </button>
+                                </div>
+                              ) : (student.absence_type === 'absent' ||
+                                  student.absence_type === 'truant') &&
+                                teacherData.status === 'in_progress' &&
+                                new Date() >
+                                  new Date(
+                                    new Date(course.start_time).getTime() +
+                                      10 * 60 * 1000
+                                  ) ? (
+                                // 课程开始10分钟后，缺勤/旷课学生显示状态标签 + 补签按钮
+                                <div className='flex items-center space-x-2'>
+                                  {/* 先显示状态标签 */}
+                                  <span
+                                    className={`flex items-center space-x-1 rounded-full px-2 py-1 text-xs ${getStatusColor(
+                                      student.absence_type
+                                    )}`}
+                                  >
+                                    {getStatusIcon(student.absence_type)}
+                                    <span>
+                                      {getStatusText(student.absence_type)}
+                                    </span>
+                                  </span>
+                                  {/* 再显示补签按钮 - 微信风格绿底白字 */}
+                                  <button
+                                    type='button'
+                                    onClick={() =>
+                                      handleOpenMakeupDialog(student)
+                                    }
+                                    className='rounded-md bg-[#07C160] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#06AD56] active:bg-[#059048]'
+                                  >
+                                    补签
+                                  </button>
+                                </div>
+                              ) : (
+                                // 其他情况显示普通状态标签
+                                <span
+                                  className={`flex items-center space-x-1 rounded-full px-2 py-1 text-xs ${getStatusColor(
+                                    student.absence_type
+                                  )}`}
+                                >
+                                  {getStatusIcon(student.absence_type)}
+                                  <span>
+                                    {getStatusText(student.absence_type)}
+                                  </span>
                                 </span>
-                              </span>
-                              {/* 再显示审批按钮 - 微信风格绿底白字 */}
-                              <button
-                                type='button'
-                                onClick={() =>
-                                  handleOpenApprovalDialog(student)
-                                }
-                                className='rounded-md bg-[#07C160] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#06AD56] active:bg-[#059048]'
-                              >
-                                审批
-                              </button>
+                              )}
                             </div>
-                          ) : (student.absence_type === 'absent' ||
-                              student.absence_type === 'truant') &&
-                            teacherData.status === 'in_progress' &&
-                            new Date() >
-                              new Date(
-                                new Date(course.start_time).getTime() +
-                                  10 * 60 * 1000
-                              ) ? (
-                            // 课程开始10分钟后，缺勤/旷课学生显示状态标签 + 补签按钮
-                            <div className='flex items-center space-x-2'>
-                              {/* 先显示状态标签 */}
-                              <span
-                                className={`flex items-center space-x-1 rounded-full px-2 py-1 text-xs ${getStatusColor(
-                                  student.absence_type
-                                )}`}
-                              >
-                                {getStatusIcon(student.absence_type)}
-                                <span>
-                                  {getStatusText(student.absence_type)}
-                                </span>
-                              </span>
-                              {/* 再显示补签按钮 - 微信风格绿底白字 */}
-                              <button
-                                type='button'
-                                onClick={() => handleOpenMakeupDialog(student)}
-                                className='rounded-md bg-[#07C160] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#06AD56] active:bg-[#059048]'
-                              >
-                                补签
-                              </button>
-                            </div>
-                          ) : (
-                            // 其他情况显示普通状态标签
-                            <span
-                              className={`flex items-center space-x-1 rounded-full px-2 py-1 text-xs ${getStatusColor(
-                                student.absence_type
-                              )}`}
-                            >
-                              {getStatusIcon(student.absence_type)}
-                              <span>{getStatusText(student.absence_type)}</span>
-                            </span>
-                          )}
-                        </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
+
+                    {/* 缺勤统计 Tab */}
+                    {activeTab === 'absence' && (
+                      <div>
+                        {isLoadingStats ? (
+                          <div className='flex items-center justify-center py-8'>
+                            <div className='text-sm text-gray-500'>
+                              加载中...
+                            </div>
+                          </div>
+                        ) : (
+                          <div className='space-y-2'>
+                            {absenceStats.map((stat) => (
+                              <div key={stat.student_id} className='space-y-2'>
+                                {/* 统计摘要行 */}
+                                <div
+                                  className='cursor-pointer rounded-lg border border-gray-200 p-3 transition-colors hover:bg-gray-50'
+                                  onClick={() =>
+                                    toggleStudentDetails(
+                                      stat.student_id,
+                                      stat.course_code
+                                    )
+                                  }
+                                >
+                                  <div className='flex items-center justify-between'>
+                                    <div className='flex items-center space-x-3'>
+                                      <div className='flex h-8 w-8 items-center justify-center rounded-full bg-gray-100'>
+                                        <User className='h-4 w-4 text-gray-600' />
+                                      </div>
+                                      <div>
+                                        <div className='font-medium text-gray-900'>
+                                          {stat.student_name}
+                                        </div>
+                                        <div className='text-xs text-gray-500'>
+                                          {stat.student_id}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className='flex items-center space-x-4'>
+                                      <div className='text-right'>
+                                        <div className='flex space-x-3 text-xs'>
+                                          <span className='text-red-600'>
+                                            缺勤:{' '}
+                                            {formatPercentage(
+                                              stat.absence_rate
+                                            )}
+                                          </span>
+                                          <span className='text-orange-600'>
+                                            旷课:{' '}
+                                            {formatPercentage(stat.truant_rate)}
+                                          </span>
+                                          <span className='text-blue-600'>
+                                            请假:{' '}
+                                            {formatPercentage(stat.leave_rate)}
+                                          </span>
+                                        </div>
+                                        <div className='mt-1 text-xs text-gray-500'>
+                                          总课时: {stat.total_classes}
+                                        </div>
+                                      </div>
+                                      <div className='text-gray-400'>
+                                        {expandedStudentId ===
+                                        stat.student_id ? (
+                                          <svg
+                                            className='h-5 w-5'
+                                            fill='none'
+                                            stroke='currentColor'
+                                            viewBox='0 0 24 24'
+                                          >
+                                            <path
+                                              strokeLinecap='round'
+                                              strokeLinejoin='round'
+                                              strokeWidth={2}
+                                              d='M5 15l7-7 7 7'
+                                            />
+                                          </svg>
+                                        ) : (
+                                          <svg
+                                            className='h-5 w-5'
+                                            fill='none'
+                                            stroke='currentColor'
+                                            viewBox='0 0 24 24'
+                                          >
+                                            <path
+                                              strokeLinecap='round'
+                                              strokeLinejoin='round'
+                                              strokeWidth={2}
+                                              d='M19 9l-7 7-7-7'
+                                            />
+                                          </svg>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* 详情展开区域 - 移除左侧缩进,与父容器等宽 */}
+                                {expandedStudentId === stat.student_id && (
+                                  <div className='rounded-lg border border-gray-200 bg-gray-50 p-3'>
+                                    {isLoadingRecords[stat.student_id] ? (
+                                      <div className='flex items-center justify-center py-4'>
+                                        <div className='text-sm text-gray-500'>
+                                          加载详情中...
+                                        </div>
+                                      </div>
+                                    ) : studentAbsenceRecords[
+                                        stat.student_id
+                                      ] &&
+                                      studentAbsenceRecords[stat.student_id]
+                                        .length > 0 ? (
+                                      <div className='space-y-2'>
+                                        <div className='mb-2 text-sm font-medium text-gray-700'>
+                                          缺勤记录详情
+                                        </div>
+                                        {studentAbsenceRecords[
+                                          stat.student_id
+                                        ].map((record) => (
+                                          <div
+                                            key={record.id}
+                                            className='flex items-center justify-between rounded border border-gray-200 bg-white p-2 text-xs'
+                                          >
+                                            <div className='flex items-center space-x-3'>
+                                              <span className='font-medium text-gray-700'>
+                                                第{record.teaching_week}周
+                                              </span>
+                                              <span className='text-gray-600'>
+                                                {formatWeekDay(record.week_day)}
+                                              </span>
+                                              <span className='text-gray-600'>
+                                                {record.periods}节
+                                              </span>
+                                            </div>
+                                            <div>
+                                              <span
+                                                className={`rounded-full px-2 py-0.5 font-medium ${
+                                                  record.absence_type ===
+                                                  'truant'
+                                                    ? 'bg-orange-100 text-orange-700'
+                                                    : record.absence_type ===
+                                                        'leave'
+                                                      ? 'bg-blue-100 text-blue-700'
+                                                      : 'bg-red-100 text-red-700'
+                                                }`}
+                                              >
+                                                {formatAbsenceType(
+                                                  record.absence_type
+                                                )}
+                                              </span>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <div className='py-4 text-center text-sm text-gray-500'>
+                                        暂无缺勤记录
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
