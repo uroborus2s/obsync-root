@@ -8,3 +8,4 @@ export * from './interfaces/index.js';
 export { default as AttendanceService } from './AttendanceService.js';
 export { default as LeaveService } from './LeaveService.js';
 export { default as OsspStorageService } from './OsspStorageService.js';
+export { default as WpsDriveService } from './WpsDriveService.js';

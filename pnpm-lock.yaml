@@ -656,8 +656,8 @@ importers:
         specifier: 1.0.0-beta.4
         version: 1.0.0-beta.4
       '@stratix/was-v7':
-        specifier: 1.0.0-beta.13
-        version: 1.0.0-beta.13(@stratix/core@1.0.0-beta.9)(@stratix/redis@1.0.0-beta.2(@stratix/core@1.0.0-beta.9))
+        specifier: 1.0.0-beta.21
+        version: 1.0.0-beta.21(@stratix/core@1.0.0-beta.9)(@stratix/redis@1.0.0-beta.2(@stratix/core@1.0.0-beta.9))
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
@@ -4458,8 +4458,8 @@ packages:
   '@stratix/utils@1.0.0-beta.4':
     resolution: {integrity: sha512-Jcw7re8fqjaWDW4HBJ4tG2mJCsmv3mwGEc+WJoi/pX7rNUo9ELrB59u20e0sHZig4bROl8NGeFhtTXQ8eds+8w==, tarball: https://g-rrng9518-npm.pkg.coding.net/npm/repo/@stratix/utils/-/@stratix/utils-1.0.0-beta.4.tgz}
 
-  '@stratix/was-v7@1.0.0-beta.13':
-    resolution: {integrity: sha512-FS0pfMPn1KaINjcuDzL9EY04P3gFlaNacNojP3xZYaQcwMZDXuesdqLF7yDD+IzAc4f5SLylpAil+aGe7ExM1Q==, tarball: https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/@stratix/was-v7/-/@stratix/was-v7-1.0.0-beta.13.tgz}
+  '@stratix/was-v7@1.0.0-beta.21':
+    resolution: {integrity: sha512-vXIHXBu0GNtpaQKyZA1m8jUFmCYfXZMC/oGICZXwKvL9N7qZsRvxe74FAPZJEQ/pWx1p4Rn1fcon/MzqShPgrA==, tarball: https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/@stratix/was-v7/-/@stratix/was-v7-1.0.0-beta.21.tgz}
     peerDependencies:
       '@stratix/core': 1.0.0-beta.9
       '@stratix/redis': 1.0.0-beta.2
@@ -17031,7 +17031,7 @@ snapshots:
 
   '@stratix/utils@1.0.0-beta.4': {}
 
-  '@stratix/was-v7@1.0.0-beta.13(@stratix/core@1.0.0-beta.9)(@stratix/redis@1.0.0-beta.2(@stratix/core@1.0.0-beta.9))':
+  '@stratix/was-v7@1.0.0-beta.21(@stratix/core@1.0.0-beta.9)(@stratix/redis@1.0.0-beta.2(@stratix/core@1.0.0-beta.9))':
     dependencies:
       '@stratix/core': 1.0.0-beta.9
       '@stratix/redis': 1.0.0-beta.2(@stratix/core@1.0.0-beta.9)

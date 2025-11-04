@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as ClerkRouteRouteImport } from './routes/clerk/route'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedWpsDriveRouteImport } from './routes/_authenticated/wps-drive'
 import { Route as AuthenticatedUserDebugRouteImport } from './routes/_authenticated/user-debug'
 import { Route as AuthenticatedTeachersRouteImport } from './routes/_authenticated/teachers'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
@@ -101,6 +102,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedWpsDriveRoute = AuthenticatedWpsDriveRouteImport.update({
+  id: '/wps-drive',
+  path: '/wps-drive',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedUserDebugRoute = AuthenticatedUserDebugRouteImport.update({
@@ -555,6 +561,7 @@ export interface FileRoutesByFullPath {
   '/tasks': typeof AuthenticatedTasksRouteWithChildren
   '/teachers': typeof AuthenticatedTeachersRoute
   '/user-debug': typeof AuthenticatedUserDebugRoute
+  '/wps-drive': typeof AuthenticatedWpsDriveRoute
   '/': typeof AuthenticatedIndexRoute
   '/attendance/analytics': typeof AuthenticatedAttendanceAnalyticsRoute
   '/attendance/course-statistics': typeof AuthenticatedAttendanceCourseStatisticsRoute
@@ -627,6 +634,7 @@ export interface FileRoutesByTo {
   '/students': typeof AuthenticatedStudentsRoute
   '/teachers': typeof AuthenticatedTeachersRoute
   '/user-debug': typeof AuthenticatedUserDebugRoute
+  '/wps-drive': typeof AuthenticatedWpsDriveRoute
   '/': typeof AuthenticatedIndexRoute
   '/attendance/analytics': typeof AuthenticatedAttendanceAnalyticsRoute
   '/attendance/course-statistics': typeof AuthenticatedAttendanceCourseStatisticsRoute
@@ -708,6 +716,7 @@ export interface FileRoutesById {
   '/_authenticated/tasks': typeof AuthenticatedTasksRouteWithChildren
   '/_authenticated/teachers': typeof AuthenticatedTeachersRoute
   '/_authenticated/user-debug': typeof AuthenticatedUserDebugRoute
+  '/_authenticated/wps-drive': typeof AuthenticatedWpsDriveRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/attendance/analytics': typeof AuthenticatedAttendanceAnalyticsRoute
   '/_authenticated/attendance/course-statistics': typeof AuthenticatedAttendanceCourseStatisticsRoute
@@ -789,6 +798,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/teachers'
     | '/user-debug'
+    | '/wps-drive'
     | '/'
     | '/attendance/analytics'
     | '/attendance/course-statistics'
@@ -861,6 +871,7 @@ export interface FileRouteTypes {
     | '/students'
     | '/teachers'
     | '/user-debug'
+    | '/wps-drive'
     | '/'
     | '/attendance/analytics'
     | '/attendance/course-statistics'
@@ -941,6 +952,7 @@ export interface FileRouteTypes {
     | '/_authenticated/tasks'
     | '/_authenticated/teachers'
     | '/_authenticated/user-debug'
+    | '/_authenticated/wps-drive'
     | '/_authenticated/'
     | '/_authenticated/attendance/analytics'
     | '/_authenticated/attendance/course-statistics'
@@ -1028,6 +1040,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/wps-drive': {
+      id: '/_authenticated/wps-drive'
+      path: '/wps-drive'
+      fullPath: '/wps-drive'
+      preLoaderRoute: typeof AuthenticatedWpsDriveRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/user-debug': {
@@ -1765,6 +1784,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRouteWithChildren
   AuthenticatedTeachersRoute: typeof AuthenticatedTeachersRoute
   AuthenticatedUserDebugRoute: typeof AuthenticatedUserDebugRoute
+  AuthenticatedWpsDriveRoute: typeof AuthenticatedWpsDriveRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedCourseCalendarStudentRoute: typeof AuthenticatedCourseCalendarStudentRoute
   AuthenticatedRbacMenusRoute: typeof AuthenticatedRbacMenusRoute
@@ -1797,6 +1817,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedTasksRoute: AuthenticatedTasksRouteWithChildren,
   AuthenticatedTeachersRoute: AuthenticatedTeachersRoute,
   AuthenticatedUserDebugRoute: AuthenticatedUserDebugRoute,
+  AuthenticatedWpsDriveRoute: AuthenticatedWpsDriveRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedCourseCalendarStudentRoute:
     AuthenticatedCourseCalendarStudentRoute,

@@ -7,6 +7,7 @@ import {
   Clock,
   Command,
   FileText,
+  HardDrive,
   Network,
   RefreshCw,
   Settings,
@@ -35,8 +36,9 @@ export const sidebarData: SidebarData = {
         {
           title: '工作流管理',
           icon: Workflow,
+          // TODO: 后续统一处理权限 - 临时允许teacher角色访问
           permission: {
-            requiredRoles: ['admin', 'super_admin'],
+            requiredRoles: ['teacher', 'admin', 'super_admin'],
             mode: 'or',
           },
           items: [
@@ -44,8 +46,9 @@ export const sidebarData: SidebarData = {
               title: '工作流定义',
               url: '/workflows/definitions' as const,
               icon: FileText,
+              // TODO: 后续统一处理权限 - 临时允许teacher角色访问
               permission: {
-                requiredRoles: ['admin', 'super_admin'],
+                requiredRoles: ['teacher', 'admin', 'super_admin'],
                 mode: 'or',
               },
             },
@@ -53,8 +56,9 @@ export const sidebarData: SidebarData = {
               title: '工作流实例',
               url: '/workflows/instances' as const,
               icon: Activity,
+              // TODO: 后续统一处理权限 - 临时允许teacher角色访问
               permission: {
-                requiredRoles: ['admin', 'super_admin'],
+                requiredRoles: ['teacher', 'admin', 'super_admin'],
                 mode: 'or',
               },
             },
@@ -62,8 +66,9 @@ export const sidebarData: SidebarData = {
               title: '课表重建',
               url: '/workflows/course-restore' as const,
               icon: RefreshCw,
+              // TODO: 后续统一处理权限 - 临时允许teacher角色访问
               permission: {
-                requiredRoles: ['admin', 'super_admin'],
+                requiredRoles: ['teacher', 'admin', 'super_admin'],
                 mode: 'or',
               },
             },
@@ -71,8 +76,9 @@ export const sidebarData: SidebarData = {
               title: '定时任务',
               url: '/workflows/schedules' as const,
               icon: Clock,
+              // TODO: 后续统一处理权限 - 临时允许teacher角色访问
               permission: {
-                requiredRoles: ['admin', 'super_admin'],
+                requiredRoles: ['teacher', 'admin', 'super_admin'],
                 mode: 'or',
               },
             },
@@ -159,6 +165,27 @@ export const sidebarData: SidebarData = {
             requiredRoles: ['teacher', 'admin', 'super_admin'],
             mode: 'or',
           },
+        },
+        {
+          title: 'WPS云盘管理',
+          icon: HardDrive,
+          // TODO: 后续统一处理权限 - 临时允许teacher角色访问
+          permission: {
+            requiredRoles: ['teacher', 'admin', 'super_admin'],
+            mode: 'or',
+          },
+          items: [
+            {
+              title: '驱动盘管理',
+              url: '/wps-drive' as const,
+              icon: HardDrive,
+              // TODO: 后续统一处理权限 - 临时允许teacher角色访问
+              permission: {
+                requiredRoles: ['teacher', 'admin', 'super_admin'],
+                mode: 'or',
+              },
+            },
+          ],
         },
       ],
     },

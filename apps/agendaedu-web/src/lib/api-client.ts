@@ -112,15 +112,6 @@ export class ApiClient {
   private handleForbidden(error: AxiosError): void {
     const responseData = error.response?.data as any
 
-    console.warn('🚫 API客户端: 检测到403权限不足错误', {
-      url: error.config?.url,
-      method: error.config?.method,
-      status: error.response?.status,
-      message: responseData?.message || error.message,
-      userRoles: responseData?.userRoles || [],
-      timestamp: new Date().toISOString(),
-    })
-
     // 存储详细的错误信息，供403错误页面使用
     const errorInfo = {
       type: 'FORBIDDEN',

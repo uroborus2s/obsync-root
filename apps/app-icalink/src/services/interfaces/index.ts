@@ -15,3 +15,6 @@ export * from './ICourseCalendarService.js';
 
 // 部门服务接口
 export * from './IDepartmentService.js';
+
+// WPS云盘服务接口
+export * from './IWpsDriveService.js';

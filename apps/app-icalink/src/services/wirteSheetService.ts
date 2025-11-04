@@ -99,43 +99,6 @@ export default class WriteSheetService {
     });
   }
 
-  /**
-   * 服务就绪时执行
-   * 从数据库读取缺勤记录并写入 WPS 多维表
-   */
-  onReady() {
-    const process = async () => {
-      this.logger.info('WriteSheetService ready, starting incremental sync');
-
-      try {
-        // this.createTables();
-        // this.wasV7ApiDbsheet.deleteSheet(this.WPS_FILE_ID, 1);
-        // const file = await this.wasV7ApiDbsheet.createSheet(this.WPS_FILE_ID, {
-        //   name: '教学班记录表',
-        //   fields: COURSE_CHECKIN_STATS_FIELDS.map((f) => ({
-        //     name: f.name,
-        //     type: f.type,
-        //     data: f.data
-        //   })),
-        //   views: [
-        //     {
-        //       name: '详细列表',
-        //       type: 'grid'
-        //     }
-        //   ]
-        // });
-        await this.clearSheet(1);
-        await this.triggerSync();
-      } catch (error) {
-        this.logger.error(
-          'Failed to sync absent student relations to WPS',
-          error
-        );
-      }
-    };
-    // process();
-  }
-
   async clearSheet(sheetId: number) {
     const files = await this.wasV7ApiDbsheet.getSchemas(this.WPS_FILE_ID);
     console.log(files);

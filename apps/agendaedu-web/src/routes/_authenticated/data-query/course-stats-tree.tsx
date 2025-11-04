@@ -32,6 +32,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Separator } from '@/components/ui/separator'
 import {
   Table,
   TableBody,
@@ -46,6 +47,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { Header } from '@/components/layout/header'
+import { Main } from '@/components/layout/main'
+import { Search } from '@/components/search'
+import { ThemeSwitch } from '@/components/theme-switch'
+import { UserNav } from '@/components/user-nav'
 
 export const Route = createFileRoute(
   '/_authenticated/data-query/course-stats-tree'
@@ -532,119 +538,130 @@ function CourseStatsTreePage() {
 
   return (
     <TooltipProvider>
-      <div className='container mx-auto space-y-6 p-6'>
-        <div className='flex items-center justify-between'>
-          <div>
-            <h1 className='text-3xl font-bold'>课程签到统计（树形结构）</h1>
+      <>
+        <Header>
+          <Search />
+          <div className='ml-auto flex items-center space-x-4'>
+            <ThemeSwitch />
+            <UserNav />
+          </div>
+        </Header>
+
+        <Main fixed>
+          <div className='space-y-0.5'>
+            <h1 className='text-2xl font-bold tracking-tight md:text-3xl'>
+              课程签到统计（树形结构）
+            </h1>
             <p className='text-muted-foreground'>
               按单位→班级→课程的层级查看签到统计数据
             </p>
           </div>
-        </div>
+          <Separator className='my-4 lg:my-6' />
 
-        <div className='grid grid-cols-12 gap-6'>
-          {/* 左侧树形导航 */}
-          <Card className='col-span-3'>
-            <CardHeader>
-              <CardTitle className='text-lg'>组织结构</CardTitle>
-              <CardDescription>点击节点查看对应统计数据</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className='h-[600px]'>
-                {treeNodes.map((node) => renderTreeNode(node))}
-              </ScrollArea>
-            </CardContent>
-          </Card>
-
-          {/* 右侧数据表格 */}
-          <div className='col-span-9 space-y-4'>
-            {/* 筛选条件 */}
-            <Card>
+          <div className='grid grid-cols-12 gap-6'>
+            {/* 左侧树形导航 */}
+            <Card className='col-span-3'>
               <CardHeader>
-                <CardTitle>查询条件</CardTitle>
-                <CardDescription>
-                  当前查看: {selectedNode.label} (
-                  {selectedNode.type === 'root'
-                    ? '单位级别'
-                    : selectedNode.type === 'unit'
-                      ? '班级级别'
-                      : '课程级别'}
-                  )
-                </CardDescription>
-              </CardHeader>
-              <CardContent className='space-y-4'>
-                <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
-                  <div className='space-y-2'>
-                    <Label htmlFor='searchKeyword'>搜索</Label>
-                    <Input
-                      id='searchKeyword'
-                      placeholder='输入关键词搜索'
-                      value={filters.searchKeyword}
-                      onChange={(e) =>
-                        handleFilterChange('searchKeyword', e.target.value)
-                      }
-                    />
-                  </div>
-                </div>
-
-                <div className='flex gap-4'>
-                  <Button onClick={handleReset} variant='outline'>
-                    <RotateCcw className='mr-2 h-4 w-4' />
-                    重置
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* 查询结果 */}
-            <Card>
-              <CardHeader>
-                <div className='flex items-center justify-between'>
-                  <div>
-                    <CardTitle>查询结果</CardTitle>
-                    <CardDescription>找到 {total} 条记录</CardDescription>
-                  </div>
-                </div>
+                <CardTitle className='text-lg'>组织结构</CardTitle>
+                <CardDescription>点击节点查看对应统计数据</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className='overflow-x-auto'>
-                  {selectedNode.type === 'root' && renderUnitTable()}
-                  {selectedNode.type === 'unit' && renderClassTable()}
-                  {selectedNode.type === 'class' && renderSummaryTable()}
-                </div>
-
-                {/* 分页 */}
-                <div className='mt-4 flex items-center justify-between'>
-                  <div className='text-muted-foreground text-sm'>
-                    第 {filters.page} 页，共 {totalPages} 页 | 总计 {total}{' '}
-                    条记录
-                  </div>
-                  <div className='flex items-center space-x-2'>
-                    <Button
-                      variant='outline'
-                      size='sm'
-                      onClick={() => handlePageChange(filters.page! - 1)}
-                      disabled={filters.page === 1 || isLoading}
-                    >
-                      <ChevronLeft className='h-4 w-4' />
-                      上一页
-                    </Button>
-                    <Button
-                      variant='outline'
-                      size='sm'
-                      onClick={() => handlePageChange(filters.page! + 1)}
-                      disabled={filters.page === totalPages || isLoading}
-                    >
-                      下一页
-                      <ChevronRight className='h-4 w-4' />
-                    </Button>
-                  </div>
-                </div>
+                <ScrollArea className='h-[600px]'>
+                  {treeNodes.map((node) => renderTreeNode(node))}
+                </ScrollArea>
               </CardContent>
             </Card>
+
+            {/* 右侧数据表格 */}
+            <div className='col-span-9 space-y-4'>
+              {/* 筛选条件 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>查询条件</CardTitle>
+                  <CardDescription>
+                    当前查看: {selectedNode.label} (
+                    {selectedNode.type === 'root'
+                      ? '单位级别'
+                      : selectedNode.type === 'unit'
+                        ? '班级级别'
+                        : '课程级别'}
+                    )
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className='space-y-4'>
+                  <div className='grid grid-cols-1 gap-4 md:grid-cols-2'>
+                    <div className='space-y-2'>
+                      <Label htmlFor='searchKeyword'>搜索</Label>
+                      <Input
+                        id='searchKeyword'
+                        placeholder='输入关键词搜索'
+                        value={filters.searchKeyword}
+                        onChange={(e) =>
+                          handleFilterChange('searchKeyword', e.target.value)
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className='flex gap-4'>
+                    <Button onClick={handleReset} variant='outline'>
+                      <RotateCcw className='mr-2 h-4 w-4' />
+                      重置
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 查询结果 */}
+              <Card>
+                <CardHeader>
+                  <div className='flex items-center justify-between'>
+                    <div>
+                      <CardTitle>查询结果</CardTitle>
+                      <CardDescription>找到 {total} 条记录</CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className='overflow-x-auto'>
+                    {selectedNode.type === 'root' && renderUnitTable()}
+                    {selectedNode.type === 'unit' && renderClassTable()}
+                    {selectedNode.type === 'class' && renderSummaryTable()}
+                  </div>
+
+                  {/* 分页 */}
+                  <div className='mt-4 flex items-center justify-between'>
+                    <div className='text-muted-foreground text-sm'>
+                      第 {filters.page} 页，共 {totalPages} 页 | 总计 {total}{' '}
+                      条记录
+                    </div>
+                    <div className='flex items-center space-x-2'>
+                      <Button
+                        variant='outline'
+                        size='sm'
+                        onClick={() => handlePageChange(filters.page! - 1)}
+                        disabled={filters.page === 1 || isLoading}
+                      >
+                        <ChevronLeft className='h-4 w-4' />
+                        上一页
+                      </Button>
+                      <Button
+                        variant='outline'
+                        size='sm'
+                        onClick={() => handlePageChange(filters.page! + 1)}
+                        disabled={filters.page === totalPages || isLoading}
+                      >
+                        下一页
+                        <ChevronRight className='h-4 w-4' />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
-        </div>
-      </div>
+        </Main>
+      </>
     </TooltipProvider>
   )
 }

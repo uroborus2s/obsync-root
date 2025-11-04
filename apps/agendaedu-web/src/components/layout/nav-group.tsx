@@ -38,8 +38,22 @@ export function NavGroup({ title, items }: NavGroup) {
   // 根据用户权限过滤菜单项
   const filteredItems = filterMenuItems(items, user)
 
+  // 调试日志
+  console.log(`🔍 NavGroup [${title}]:`, {
+    originalItemsCount: items.length,
+    filteredItemsCount: filteredItems.length,
+    userRoles: user?.roles,
+    userPermissions: user?.permissions,
+    items: items.map((item) => ({
+      title: item.title,
+      permission: 'permission' in item ? item.permission : undefined,
+    })),
+    filteredItems: filteredItems.map((item) => item.title),
+  })
+
   // 如果过滤后没有菜单项，不渲染整个组
   if (filteredItems.length === 0) {
+    console.warn(`⚠️ NavGroup [${title}]: 所有菜单项被过滤，不渲染此组`)
     return null
   }
 
