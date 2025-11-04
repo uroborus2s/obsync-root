@@ -26,7 +26,7 @@
     "@stratix/ossp": "0.0.1-beta.1",
     "@stratix/redis": "1.0.0-beta.2",
     "@stratix/queue": "1.0.0-beta.2",
-    "@stratix/was-v7": "1.0.0-beta.21",
+    "@stratix/was-v7": "1.0.0-beta.22",
     "date-fns": "^4.1.0",
     "jsonwebtoken": "^9.0.2",
     "mysql2": "^3.14.1",

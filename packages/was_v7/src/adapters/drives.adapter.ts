@@ -241,7 +241,21 @@ export function createWpsDriveAdapter(
         `/v7/drives/${drive_id}/files/${parent_id}/request_upload`,
         bodyParams
       );
-      return response.data;
+      const {
+        store_request: { url, headers = {}, method },
+        upload_id
+      } = response.data;
+      return {
+        store_request: {
+          url,
+          method,
+          headers: {
+            ...headers,
+            Authorization: `Bearer ${httpClient.getAppAccessToken()}`
+          }
+        },
+        upload_id
+      };
     },
 
     /**
