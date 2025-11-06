@@ -18,6 +18,7 @@ iCalink（Intelligent Campus Attendance Link）是一个现代化的校园考勤
 ## 技术架构
 
 ### 框架选择
+
 - **核心框架**：Stratix Framework (基于 Fastify 5 + Awilix 12)
 - **数据库**：MySQL 8.0+
 - **语言**：TypeScript 5.0+
@@ -98,6 +99,7 @@ apps/app-icalink/
 ### 1. 考勤管理模块
 
 #### 学生签到 (API_02)
+
 - **端点**：`POST /api/attendance/checkin/{course_id}`
 - **功能**：学生课程签到，支持位置验证和迟到判定
 - **特性**：
@@ -107,6 +109,7 @@ apps/app-icalink/
   - 签到状态实时更新
 
 #### 考勤历史查询 (API_08)
+
 - **端点**：`GET /api/attendance/history`
 - **功能**：查询历史考勤记录，支持多维度筛选
 - **特性**：
@@ -116,6 +119,7 @@ apps/app-icalink/
   - 数据导出
 
 #### 当前考勤查询 (API_09)
+
 - **端点**：`GET /api/attendance/current/{course_id}`
 - **功能**：教师查看当前课程学生考勤状态
 - **特性**：
@@ -125,6 +129,7 @@ apps/app-icalink/
   - 批量操作
 
 #### 考勤统计分析 (API_10)
+
 - **端点**：`GET /api/attendance/statistics`
 - **功能**：考勤数据统计分析和趋势展示
 - **特性**：
@@ -136,6 +141,7 @@ apps/app-icalink/
 ### 2. 请假管理模块
 
 #### 请假信息查询 (API_01)
+
 - **端点**：`GET /api/leave/applications`
 - **功能**：查询请假申请信息，支持多角色访问
 - **特性**：
@@ -145,6 +151,7 @@ apps/app-icalink/
   - 详情展示
 
 #### 请假申请提交 (API_03)
+
 - **端点**：`POST /api/leave/applications`
 - **功能**：学生提交请假申请，支持附件上传
 - **特性**：
@@ -154,6 +161,7 @@ apps/app-icalink/
   - 状态跟踪
 
 #### 请假申请撤回 (API_04)
+
 - **端点**：`PUT /api/leave/applications/{application_id}/withdraw`
 - **功能**：学生撤回已提交的请假申请
 - **特性**：
@@ -163,6 +171,7 @@ apps/app-icalink/
   - 通知机制
 
 #### 请假申请审批 (API_05)
+
 - **端点**：`PUT /api/leave/applications/{application_id}/approve`
 - **功能**：教师审批学生请假申请
 - **特性**：
@@ -172,6 +181,7 @@ apps/app-icalink/
   - 自动通知
 
 #### 请假附件管理 (API_06, API_07)
+
 - **端点**：
   - `GET /api/leave/applications/{application_id}/attachments`
   - `GET /api/leave/applications/{application_id}/attachments/{attachment_id}`
@@ -187,6 +197,7 @@ apps/app-icalink/
 ### 核心数据表
 
 #### 1. 签到记录表 (icalink_attendance_records)
+
 ```sql
 CREATE TABLE icalink_attendance_records (
   id INT PRIMARY KEY AUTO_INCREMENT,
@@ -206,6 +217,7 @@ CREATE TABLE icalink_attendance_records (
 ```
 
 #### 2. 请假申请表 (icalink_leave_applications)
+
 ```sql
 CREATE TABLE icalink_leave_applications (
   id INT PRIMARY KEY AUTO_INCREMENT,
@@ -228,6 +240,7 @@ CREATE TABLE icalink_leave_applications (
 ```
 
 #### 3. 请假附件表 (icalink_leave_attachments)
+
 ```sql
 CREATE TABLE icalink_leave_attachments (
   id INT PRIMARY KEY AUTO_INCREMENT,
@@ -341,18 +354,18 @@ pnpm run dev
 
 ### 主要API端点
 
-| 端点 | 方法 | 功能 | 文档 |
-|------|------|------|------|
-| `/api/leave/applications` | GET | 查询请假信息 | API_01 |
-| `/api/attendance/checkin/{course_id}` | POST | 学生签到 | API_02 |
-| `/api/leave/applications` | POST | 请假申请 | API_03 |
-| `/api/leave/applications/{id}/withdraw` | PUT | 撤回请假 | API_04 |
-| `/api/leave/applications/{id}/approve` | PUT | 审批请假 | API_05 |
-| `/api/leave/applications/{id}/attachments` | GET | 查看附件 | API_06 |
-| `/api/leave/applications/{id}/attachments/{aid}` | GET | 下载附件 | API_07 |
-| `/api/attendance/history` | GET | 考勤历史 | API_08 |
-| `/api/attendance/current/{course_id}` | GET | 当前考勤 | API_09 |
-| `/api/attendance/statistics` | GET | 考勤统计 | API_10 |
+| 端点                                             | 方法 | 功能         | 文档   |
+| ------------------------------------------------ | ---- | ------------ | ------ |
+| `/api/leave/applications`                        | GET  | 查询请假信息 | API_01 |
+| `/api/attendance/checkin/{course_id}`            | POST | 学生签到     | API_02 |
+| `/api/leave/applications`                        | POST | 请假申请     | API_03 |
+| `/api/leave/applications/{id}/withdraw`          | PUT  | 撤回请假     | API_04 |
+| `/api/leave/applications/{id}/approve`           | PUT  | 审批请假     | API_05 |
+| `/api/leave/applications/{id}/attachments`       | GET  | 查看附件     | API_06 |
+| `/api/leave/applications/{id}/attachments/{aid}` | GET  | 下载附件     | API_07 |
+| `/api/attendance/history`                        | GET  | 考勤历史     | API_08 |
+| `/api/attendance/current/{course_id}`            | GET  | 当前考勤     | API_09 |
+| `/api/attendance/statistics`                     | GET  | 考勤统计     | API_10 |
 
 ## 贡献指南
 
@@ -365,13 +378,5 @@ pnpm run dev
 ## 许可证
 
 本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
-
-## 联系方式
-
-- 项目维护者：WPS Team
-- 邮箱：support@wps.cn
-- 项目地址：[GitHub Repository](https://github.com/wps/icalink)
-
----
 
 © 2024 WPS Team. All rights reserved.
