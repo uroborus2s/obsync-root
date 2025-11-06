@@ -76,8 +76,6 @@ function StudentDashboardContent() {
   const isMountedRef = useRef(true);
   const id = searchParams.get('id');
 
-  const clickingRef = useRef(false);
-
   // === 认证重定向 ===
   const handleAuthRedirect = () => {
     const currentUrl = window.location.href;
@@ -108,7 +106,6 @@ function StudentDashboardContent() {
         );
         const response = await withAbort(Promise.resolve(p as any), signal);
 
-        console.log(response);
         if (response.success && response.data) {
           if (!isMountedRef.current) return;
           setAttendanceData(response.data);
@@ -120,7 +117,6 @@ function StudentDashboardContent() {
           console.log('Data fetch aborted');
           return;
         }
-        console.error('获取签到记录失败:', err);
         const errorMessage = err instanceof Error ? err.message : String(err);
         if (errorMessage.includes('401')) {
           // handleAuthRedirect();
@@ -138,33 +134,33 @@ function StudentDashboardContent() {
 
   // === 签到处理函数 ===
   const handleCheckin = async () => {
-    // 同步锁，防止首击-禁用之间的竞态 & 连点
-    if (clickingRef.current) return;
-
-    if (!id || !attendanceData) return;
-
-    clickingRef.current = true; // 立即上锁
-
-    // 仍保留基于状态的 UI 禁用（双保险）
+    // 防止重复点击：如果已经在处理签到，直接返回
     if (checkinLoading) {
-      clickingRef.current = false;
       return;
     }
 
+    if (!id || !attendanceData) {
+      return;
+    }
+
+    // 检查页面可见性
     if (document.visibilityState !== 'visible') {
       toast.error('签到失败', {
         description: '页面不是当前活动窗口，已阻止签到操作。'
       });
-      clickingRef.current = false;
       return;
     }
 
+    // 如果已有进行中的请求，直接返回（不中止）
     if (checkinAbortRef.current) {
-      checkinAbortRef.current.abort();
+      return;
     }
+
+    // 创建新的 AbortController
     checkinAbortRef.current = new AbortController();
     const { signal } = checkinAbortRef.current;
 
+    // 设置加载状态（这会自动禁用按钮）
     setCheckinLoading(true);
 
     try {
@@ -175,34 +171,28 @@ function StudentDashboardContent() {
           LocationHelper.getCurrentLocation() as unknown as Promise<LocationInfo>;
         locationData = await withAbort(p, signal);
       } catch (error: any) {
-        if (error?.name === 'AbortError') return;
-        toast.error('获取位置失败', {
-          description: '请检查浏览器或系统位置权限设置。'
-        });
-        throw error; // 中断签到流程
+        if (error?.name === 'AbortError') {
+          throw new Error('签到已取消');
+        }
+        throw new Error('获取位置失败，请检查浏览器或系统位置权限设置。');
       }
 
       // 2. 验证位置范围
       const roomInfo = attendanceData.course.room_s;
       if (!roomInfo) {
-        toast.error('签到失败', {
-          description: '课程教室信息缺失，无法进行位置验证。'
-        });
-        return;
+        throw new Error('课程教室信息缺失，无法进行位置验证。');
       }
       const locationValidation = validateLocationForCheckIn(
         { lat: locationData.latitude, lng: locationData.longitude },
         roomInfo
       );
-      if (
-        !locationValidation.valid &&
-        attendanceData.student.xh !== '0306012409428'
-      ) {
+      if (!locationValidation.valid) {
         // 位置校验失败，显示对话框让用户选择
         setPendingLocationData(locationData);
         setLocationValidationDistance(locationValidation.distance);
         setShowLocationFailedDialog(true);
-        return;
+        // 抛出错误以触发 finally 块清理状态
+        throw new Error('LOCATION_VALIDATION_FAILED');
       }
 
       // 3. 判断签到来源并构建Payload
@@ -284,6 +274,13 @@ function StudentDashboardContent() {
         throw new Error(response.message || '签到失败，请重试');
       }
     } catch (error: any) {
+      // 特殊处理：位置校验失败不显示错误提示（已显示对话框）
+      if (error?.message === 'LOCATION_VALIDATION_FAILED') {
+        // 不显示 toast，对话框已经显示
+        return;
+      }
+
+      // 处理其他错误
       if (error?.name !== 'AbortError') {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
@@ -294,28 +291,127 @@ function StudentDashboardContent() {
         }
       }
     } finally {
+      // 确保总是清理状态
       if (!signal.aborted) {
         setCheckinLoading(false);
       }
-      clickingRef.current = false; // 释放锁
+      checkinAbortRef.current = null; // 清理 AbortController 引用
     }
   };
 
   // === 处理位置校验失败对话框操作 ===
 
-  // 重试获取位置
+  // 重试获取位置（关闭对话框后重新触发完整签到流程）
   const handleRetryLocation = async () => {
+    // 关闭对话框
     setShowLocationFailedDialog(false);
     setPendingLocationData(null);
     setLocationValidationDistance(undefined);
+    // 重置状态，允许重新签到
+    setCheckinLoading(false);
+    checkinAbortRef.current = null;
     // 重新触发签到流程
     await handleCheckin();
   };
 
+  // 刷新位置（对话框内刷新，不关闭对话框）
+  const handleRefreshLocation = async () => {
+    if (!attendanceData) {
+      toast.error('刷新位置失败', { description: '课程信息缺失' });
+      return;
+    }
+
+    try {
+      // 1. 重新获取地理位置
+      const locationData =
+        (await LocationHelper.getCurrentLocation()) as unknown as LocationInfo;
+
+      // 2. 验证位置范围
+      const roomInfo = attendanceData.course.room_s;
+      if (!roomInfo) {
+        throw new Error('课程教室信息缺失，无法进行位置验证。');
+      }
+
+      const locationValidation = validateLocationForCheckIn(
+        { lat: locationData.latitude, lng: locationData.longitude },
+        roomInfo
+      );
+
+      if (locationValidation.valid) {
+        // 位置校验成功，自动签到
+        toast.info('位置校验成功', { description: '正在自动签到...' });
+
+        // 关闭对话框
+        setShowLocationFailedDialog(false);
+        setPendingLocationData(null);
+        setLocationValidationDistance(undefined);
+
+        // 构建签到 payload
+        const { verification_windows } = attendanceData;
+        const isWindowCheckin = !!(
+          verification_windows?.window_id &&
+          verification_windows?.open_time &&
+          verification_windows?.duration_minutes
+        );
+
+        const payload: any = {
+          location: locationData.address.description,
+          latitude: locationData.latitude,
+          longitude: locationData.longitude,
+          accuracy: locationData.accuracy,
+          course_start_time: attendanceData.course.course_start_time
+        };
+
+        // 如果是窗口期签到，添加窗口相关字段
+        if (isWindowCheckin && verification_windows) {
+          const windowOpenTime = new Date(verification_windows.open_time);
+          const windowCloseTime = addMinutes(
+            windowOpenTime,
+            verification_windows.duration_minutes
+          );
+
+          payload.window_id = verification_windows.window_id;
+          payload.window_open_time = verification_windows.open_time;
+          payload.window_close_time = windowCloseTime.toISOString();
+        }
+
+        // 发起签到请求
+        const response = await attendanceApi.studentCheckIn(
+          attendanceData.id,
+          payload
+        );
+
+        if (response.success) {
+          toast.success('签到成功!', { description: '签到状态已更新。' });
+          // 刷新数据
+          await loadAttendanceData(true);
+        } else {
+          throw new Error(response.message || '签到失败，请重试');
+        }
+      } else {
+        // 位置仍然校验失败，更新距离显示
+        setPendingLocationData(locationData);
+        setLocationValidationDistance(locationValidation.distance);
+        const distance = locationValidation.distance || 0;
+        toast.warning('位置仍未在范围内', {
+          description: `距离约 ${Math.round(distance)} 米，请继续刷新或使用图片签到`
+        });
+      }
+    } catch (error) {
+      console.error('刷新位置失败:', error);
+      toast.error('刷新位置失败', {
+        description: error instanceof Error ? error.message : '请稍后重试'
+      });
+    }
+  };
+
   // 图片签到
   const handlePhotoCheckin = async () => {
-    if (!attendanceData || !pendingLocationData) return;
+    if (!attendanceData || !pendingLocationData) {
+      return;
+    }
 
+    // 关闭对话框
     setShowLocationFailedDialog(false);
     setCheckinLoading(true);
 
@@ -330,15 +426,38 @@ function StudentDashboardContent() {
         const file = (e.target as HTMLInputElement).files?.[0];
         if (!file) {
           setCheckinLoading(false);
+          setPendingLocationData(null);
           return;
         }
 
         try {
-          // TODO: 上传图片到OSS，获取图片URL
-          // 这里需要实现图片上传逻辑
+          // 1. 验证文件大小（最大 10MB）
+          const maxFileSize = 10 * 1024 * 1024;
+          if (file.size > maxFileSize) {
+            throw new Error('图片大小不能超过 10MB');
+          }
+
+          // 2. 验证文件类型
+          const allowedTypes = [
+            'image/jpeg',
+            'image/jpg',
+            'image/png',
+            'image/gif',
+            'image/webp'
+          ];
+          if (!allowedTypes.includes(file.type.toLowerCase())) {
+            throw new Error('仅支持 JPEG、PNG、GIF、WebP 格式的图片');
+          }
+
+          // 3. 显示上传进度提示
+          toast.info('正在上传图片...', {
+            description: '请稍候，不要关闭页面'
+          });
+
+          // 4. 上传图片到 OSS
           const photoUrl = await uploadPhotoToOSS(file);
 
-          // 构建图片签到payload
+          // 5. 构建图片签到 payload
           const { verification_windows } = attendanceData;
           const isWindowCheckin = !!(
             verification_windows?.window_id &&
@@ -352,8 +471,8 @@ function StudentDashboardContent() {
             longitude: pendingLocationData.longitude,
             accuracy: pendingLocationData.accuracy,
             course_start_time: attendanceData.course.course_start_time,
-            checkin_type: 'photo', // 标记为图片签到
-            photo_url: photoUrl // 图片OSS路径
+            photo_url: photoUrl, // 图片 OSS 路径
+            location_offset_distance: locationValidationDistance // 位置偏移距离
           };
 
           // 如果是窗口期签到，添加窗口相关字段
@@ -369,34 +488,34 @@ function StudentDashboardContent() {
             payload.window_close_time = windowCloseTime.toISOString();
           }
 
-          // 发起签到请求
+          // 6. 发起签到请求
           const response = await attendanceApi.studentCheckIn(
             attendanceData.id,
             payload
           );
 
           if (response.success) {
-            toast.success('图片签到已提交', {
+            toast.success('照片签到已提交', {
               description: '您的签到申请已提交，等待教师审核。'
             });
             // 刷新数据
             await loadAttendanceData(true);
           } else {
-            toast.error('图片签到失败', {
-              description: response.message || '请稍后重试'
-            });
+            throw new Error(response.message || '签到失败，请重试');
           }
         } catch (error) {
-          console.error('图片签到失败:', error);
-          toast.error('图片签到失败', {
+          console.error('照片签到失败:', error);
+          toast.error('照片签到失败', {
             description: error instanceof Error ? error.message : '请稍后重试'
           });
         } finally {
           setCheckinLoading(false);
           setPendingLocationData(null);
+          setLocationValidationDistance(undefined);
         }
       };
 
+      // 触发文件选择
       input.click();
     } catch (error) {
       console.error('打开相机失败:', error);
@@ -404,6 +523,7 @@ function StudentDashboardContent() {
         description: '请检查相机权限设置'
       });
       setCheckinLoading(false);
+      setPendingLocationData(null);
     }
   };
 
@@ -425,9 +545,9 @@ function StudentDashboardContent() {
 
   // 撤回请假申请
   const handleWithdrawLeave = async () => {
-    if (!attendanceData?.leave_application_id) {
+    if (!attendanceData?.attendance_record_id) {
       toast.error('撤回失败', {
-        description: '未找到请假申请信息'
+        description: '未找到考勤记录信息'
       });
       return;
     }
@@ -435,7 +555,7 @@ function StudentDashboardContent() {
     setWithdrawLoading(true);
     try {
       const response = await attendanceApi.studentWithdrawLeave(
-        String(attendanceData.leave_application_id)
+        attendanceData.attendance_record_id
       );
 
       if (response.success) {
@@ -670,14 +790,7 @@ function StudentDashboardContent() {
               <>
                 <button
                   type='button'
-                  onClick={(e) => {
-                    const btn = e.currentTarget as HTMLButtonElement;
-                    btn.disabled = true; // ← 点击瞬间立刻禁用（视觉马上变灰）
-                    handleCheckin().finally(() => {
-                      // 如果 displayState 已切到不可签到，UI 会保持灰；否则允许再次点击
-                      // btn.disabled = false;
-                    });
-                  }}
+                  onClick={handleCheckin}
                   disabled={checkinLoading}
                   className={`w-full rounded-lg px-4 py-3 font-semibold transition-colors ${
                     checkinLoading
@@ -721,14 +834,7 @@ function StudentDashboardContent() {
             {displayState.uiCategory === 'checkinOnly' && (
               <button
                 type='button'
-                onClick={(e) => {
-                  const btn = e.currentTarget as HTMLButtonElement;
-                  btn.disabled = true; // ← 点击瞬间立刻禁用（视觉马上变灰）
-                  handleCheckin().finally(() => {
-                    // 如果 displayState 已切到不可签到，UI 会保持灰；否则允许再次点击
-                    btn.disabled = false;
-                  });
-                }}
+                onClick={handleCheckin}
                 disabled={checkinLoading}
                 className={`w-full rounded-lg px-4 py-3 font-semibold transition-colors ${
                   checkinLoading
@@ -742,7 +848,7 @@ function StudentDashboardContent() {
 
             {/* 撤回请假申请按钮 */}
             {attendanceData &&
-              attendanceData.leave_application_id &&
+              attendanceData.attendance_record_id &&
               (attendanceData.pending_status === 'leave' ||
                 attendanceData.pending_status === 'leave_pending' ||
                 attendanceData.final_status === 'leave' ||
@@ -780,12 +886,40 @@ function StudentDashboardContent() {
           setShowLocationFailedDialog(false);
           setPendingLocationData(null);
           setLocationValidationDistance(undefined);
-          setCheckinLoading(false);
+          setCheckinLoading(false); // 重置加载状态，允许用户重新签到
+          checkinAbortRef.current = null; // 清理 AbortController 引用
+          // 显示窗口已结束提示
+          if (attendanceData?.verification_windows) {
+            const windowOpenTime = new Date(
+              attendanceData.verification_windows.open_time
+            );
+            const windowCloseTime = addMinutes(
+              windowOpenTime,
+              attendanceData.verification_windows.duration_minutes
+            );
+            const now = new Date();
+            if (now > windowCloseTime) {
+              toast.info('签到时间窗口已结束', {
+                description: '请联系教师处理签到问题'
+              });
+              // 刷新数据
+              loadAttendanceData(true);
+            }
+          }
         }}
         onRetry={handleRetryLocation}
         onPhotoCheckin={handlePhotoCheckin}
+        onRefreshLocation={handleRefreshLocation}
         isLoading={checkinLoading}
         distance={locationValidationDistance}
+        windowEndTime={
+          attendanceData?.verification_windows
+            ? addMinutes(
+                new Date(attendanceData.verification_windows.open_time),
+                attendanceData.verification_windows.duration_minutes
+              ).toISOString()
+            : undefined
+        }
       />
 
       {/* 撤回请假申请确认对话框 */}

@@ -80,13 +80,13 @@ CREATE PROCEDURE RefreshAbsentRelationsHistory (IN p_teaching_week INT, IN p_wee
 	SUM(
 		CASE
 				
-				WHEN t.final_status = 'present' THEN
+				WHEN t.final_status in ('present') THEN
 				1 ELSE 0 
 			END) AS present_count,
 	SUM(
 		CASE
 				
-				WHEN t.final_status = 'absent' THEN
+				WHEN t.final_status in ('absent','pending_approval') THEN
 				1 ELSE 0 
 			END) AS absent_count,
 	SUM(
@@ -190,7 +190,7 @@ CREATE PROCEDURE RefreshAbsentRelationsHistory (IN p_teaching_week INT, IN p_wee
 		INNER JOIN icasync.icalink_course_checkin_stats AS s ON s.course_id = t.attendance_course_id 
 		AND s.stat_date = v_stat_date 
 	WHERE
-		t.final_status IN ('absent', 'truant', 'leave', 'leave_pending');
+		t.final_status IN ('absent', 'truant', 'leave', 'leave_pending','pending_approval');
 -- 提交事务
 -- =====================================================
 	COMMIT;

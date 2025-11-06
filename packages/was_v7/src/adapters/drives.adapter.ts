@@ -1,4 +1,5 @@
 import type { AwilixContainer } from '@stratix/core';
+import axios from 'axios';
 import type { HttpClientService } from '../services/httpClientService.js';
 import type {
   BatchGetFilesParams,
@@ -45,6 +46,12 @@ export interface WpsDriveAdapter {
 
   // 文件上传
   requestUpload(params: RequestUploadParams): Promise<RequestUploadResponse>;
+  uploadFileToStorage(
+    uploadUrl: string,
+    fileBuffer: Buffer,
+    contentType: string,
+    headers?: Record<string, string>
+  ): Promise<void>;
   completeUpload(params: CompleteUploadParams): Promise<CompleteUploadResponse>;
 
   // 分享文件链接
@@ -241,22 +248,42 @@ export function createWpsDriveAdapter(
         `/v7/drives/${drive_id}/files/${parent_id}/request_upload`,
         bodyParams
       );
-      const {
-        store_request: { url, headers = {}, method },
-        upload_id
-      } = response.data;
-      const token = await httpClient.getAppAccessToken();
-      return {
-        store_request: {
-          url,
-          method,
+      return response.data;
+    },
+
+    /**
+     * 上传文件到WPS存储服务器（文件上传第2步）
+     * 直接使用HTTP PUT请求上传文件内容到WPS存储URL
+     *
+     * @param uploadUrl - WPS存储服务器的上传URL
+     * @param fileBuffer - 文件的二进制内容
+     * @param contentType - 文件的MIME类型
+     * @param headers - 额外的请求头（如Authorization）
+     */
+    async uploadFileToStorage(
+      uploadUrl: string,
+      fileBuffer: Buffer,
+      contentType: string,
+      headers?: Record<string, string>
+    ): Promise<void> {
+      try {
+        const token = await httpClient.getAppAccessToken();
+        // 使用axios直接发送PUT请求到WPS存储服务器
+        // 不使用httpClient,因为存储服务器不需要WPS API的签名
+        await axios.put(uploadUrl, fileBuffer, {
           headers: {
+            'Content-Type': contentType,
             ...headers,
             Authorization: `Bearer ${token}`
-          }
-        },
-        upload_id
-      };
+          },
+          maxBodyLength: Infinity,
+          maxContentLength: Infinity
+        });
+      } catch (error: any) {
+        throw new Error(
+          `Failed to upload file to storage: ${error.message || 'Unknown error'}`
+        );
+      }
     },
 
     /**
@@ -267,10 +294,10 @@ export function createWpsDriveAdapter(
       params: CompleteUploadParams
     ): Promise<CompleteUploadResponse> {
       await httpClient.ensureAccessToken();
-      const { drive_id, ...bodyParams } = params;
+      const { drive_id, parent_id, ...bodyParams } = params;
 
       const response = await httpClient.post<CompleteUploadResponse>(
-        `/v7/drives/${drive_id}/files/complete_upload`,
+        `/v7/drives/${drive_id}/files/${parent_id}/commit_upload`,
         bodyParams
       );
       return response.data;

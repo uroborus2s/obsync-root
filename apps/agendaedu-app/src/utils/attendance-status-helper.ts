@@ -3,8 +3,7 @@ import { addMinutes, isAfter, isBefore, isEqual, subMinutes } from 'date-fns';
 // 定义从后端获取的完整数据结构
 export interface BackendAttendanceData {
   id: number;
-  attendance_record_id?: number; // 考勤记录ID，用于请假申请
-  leave_application_id?: number; // 请假申请ID，用于撤回请假
+  attendance_record_id?: number; // 考勤记录ID，用于请假申请和撤回请假
   course: {
     external_id: string;
     kcmc: string; // 课程名称
@@ -16,6 +15,7 @@ export interface BackendAttendanceData {
     jxz: number; // 教学周
     lq: string; // 楼区
     rq?: string;
+    need_checkin: number; // 0: 无需签到, 1: 需要签到
   };
   student: {
     xh: string; // 学号
@@ -29,6 +29,7 @@ export interface BackendAttendanceData {
     | 'absent'
     | 'leave'
     | 'leave_pending'
+    | 'pending_approval'
     | 'late';
   pending_status?: 'leave' | 'leave_pending' | 'unstarted';
   live_status?:
@@ -37,6 +38,7 @@ export interface BackendAttendanceData {
     | 'absent'
     | 'leave'
     | 'leave_pending'
+    | 'pending_approval'
     | 'late';
   verification_windows?: {
     id: number;
@@ -123,6 +125,22 @@ export function determineDisplayState(
   } = data;
   const courseStartTime = new Date(course.course_start_time);
 
+  // 【最高优先级】检查是否需要签到
+  if (course.need_checkin === 0) {
+    return {
+      ...initialDisplayState,
+      statusText: '无需签到',
+      statusIcon: '✓',
+      statusColor: 'text-gray-600',
+      subText: '本课程无需签到。',
+      showCheckInButton: false,
+      showLeaveButton: false,
+      statusType: 'final',
+      uiCategory: 'textOnly',
+      updateStatusField: null
+    };
+  }
+
   // 1. 最高优先级：final_status
   if (final_status) {
     switch (final_status) {
@@ -185,6 +203,19 @@ export function determineDisplayState(
           statusIcon: '⏳',
           statusColor: 'text-yellow-600',
           subText: '您的请假申请正在等待审批。',
+          showCheckInButton: false,
+          showLeaveButton: false,
+          statusType: 'final',
+          uiCategory: 'textOnly',
+          updateStatusField: null
+        };
+      case 'pending_approval':
+        return {
+          ...initialDisplayState,
+          statusText: '签到审批中',
+          statusIcon: '⏳',
+          statusColor: 'text-blue-600',
+          subText: '您的签到正在等待教师确认，请及时提醒老师确认。',
           showCheckInButton: false,
           showLeaveButton: false,
           statusType: 'final',
@@ -265,6 +296,20 @@ export function determineDisplayState(
         statusIcon: '⏳',
         statusColor: 'text-yellow-600',
         subText: '您的请假申请正在等待审批。',
+        showCheckInButton: false,
+        showLeaveButton: false,
+        statusType: 'live',
+        uiCategory: 'textOnly',
+        updateStatusField: null
+      };
+    }
+    if (live_status === 'pending_approval') {
+      return {
+        ...initialDisplayState,
+        statusText: '签到审批中',
+        statusIcon: '⏳',
+        statusColor: 'text-blue-600',
+        subText: '您的照片签到正在等待教师审批。',
         showCheckInButton: false,
         showLeaveButton: false,
         statusType: 'live',

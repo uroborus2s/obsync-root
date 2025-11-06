@@ -616,4 +616,184 @@ export default class WpsDriveService implements IWpsDriveService {
       };
     }
   }
+
+  /**
+   * 一体化文件上传（整合三步流程）
+   *
+   * 该方法在后端完成完整的上传流程:
+   * 1. 请求上传许可
+   * 2. 上传文件到WPS存储服务器
+   * 3. 完成上传确认
+   *
+   * @param driveId - 驱动盘ID
+   * @param parentId - 父目录ID
+   * @param fileName - 文件名
+   * @param fileBuffer - 文件的二进制内容
+   * @param fileSize - 文件大小（字节）
+   * @param contentType - 文件的MIME类型
+   * @param fileHash - 文件SHA-256哈希值
+   * @param parentPath - 父文件夹路径（可选，如 '/folder1/folder2'）
+   * @returns 包含上传结果的服务结果
+   */
+  public async uploadFile(
+    driveId: string,
+    parentId: string,
+    fileName: string,
+    fileBuffer: Buffer,
+    fileSize: number,
+    contentType: string,
+    fileHash: string,
+    parentPath?: string
+  ): Promise<{
+    success: boolean;
+    data?: CompleteUploadResponse & {
+      shareUrl?: string;
+      shareEnabled?: boolean;
+    };
+    error?: string;
+  }> {
+    try {
+      this.logger.info('Starting integrated file upload', {
+        driveId,
+        parentId,
+        fileName,
+        fileSize,
+        contentType,
+        hasHash: !!fileHash,
+        parentPath
+      });
+
+      // 步骤1: 请求上传许可
+      this.logger.debug('Step 1: Requesting upload permission');
+      const hashes = [
+        {
+          sum: fileHash,
+          type: 'sha256'
+        }
+      ] as unknown as FileHash[];
+
+      // 将路径字符串转换为数组格式（如果提供）
+      let parent_path_array: string[] | undefined;
+      if (parentPath) {
+        // 移除开头的 '/' 并分割路径
+        parent_path_array = parentPath
+          .replace(/^\/+/, '') // 移除开头的斜杠
+          .split('/')
+          .filter((segment) => segment.length > 0); // 过滤空字符串
+
+        this.logger.debug('Converted parent_path', {
+          original: parentPath,
+          array: parent_path_array
+        });
+      }
+
+      const uploadInfo = await this.wasV7ApiDrive.requestUpload({
+        drive_id: driveId,
+        parent_id: parentId,
+        name: fileName,
+        size: fileSize,
+        hashes,
+        on_name_conflict: 'rename',
+        ...(parent_path_array && { parent_path: parent_path_array })
+      });
+
+      this.logger.debug('Upload permission granted', {
+        uploadId: uploadInfo.upload_id,
+        uploadUrl: uploadInfo.store_request.url
+      });
+
+      // 步骤2: 上传文件到WPS存储服务器
+      this.logger.debug('Step 2: Uploading file to storage server');
+      await this.wasV7ApiDrive.uploadFileToStorage(
+        uploadInfo.store_request.url,
+        fileBuffer,
+        contentType,
+        uploadInfo.store_request.headers
+      );
+
+      this.logger.debug('File uploaded to storage server successfully');
+
+      // 步骤3: 完成上传确认
+      this.logger.debug('Step 3: Completing upload');
+      const fileInfo = await this.wasV7ApiDrive.completeUpload({
+        drive_id: driveId,
+        upload_id: uploadInfo.upload_id,
+        name: fileName,
+        size: fileSize,
+        parent_id: parentId
+      });
+
+      this.logger.info('Integrated file upload completed successfully', {
+        fileId: fileInfo.file_id,
+        fileName: fileInfo.name,
+        fileSize: fileInfo.size
+      });
+
+      // 步骤4: 设置文件为可共享状态并获取共享链接
+      let shareUrl: string | undefined;
+      let shareEnabled = false;
+
+      try {
+        this.logger.debug('Step 4: Enabling file sharing');
+
+        // 开启文件分享（公司范围）
+        await this.wasV7ApiDrive.openLinkOfFile({
+          drive_id: driveId,
+          file_id: fileInfo.file_id,
+          scope: 'company' // 默认使用公司范围
+        });
+
+        this.logger.debug('File sharing enabled, fetching share URL');
+
+        // 重新获取文件元数据以获取共享链接
+        const updatedFileInfo = await this.wasV7ApiDrive.getFileMeta({
+          file_id: fileInfo.file_id,
+          with_permission: false,
+          with_ext_attrs: false,
+          with_drive: false
+        });
+
+        shareUrl = updatedFileInfo.link_url;
+        shareEnabled = true;
+
+        this.logger.info('File sharing configured successfully', {
+          fileId: fileInfo.file_id,
+          shareUrl,
+          shared: updatedFileInfo.shared
+        });
+      } catch (shareError: any) {
+        // 共享失败不影响文件上传成功状态
+        this.logger.warn(
+          'Failed to enable file sharing, but file upload succeeded',
+          {
+            fileId: fileInfo.file_id,
+            shareError: shareError.message
+          }
+        );
+      }
+
+      return {
+        success: true,
+        data: {
+          ...fileInfo,
+          shareUrl,
+          shareEnabled
+        }
+      };
+    } catch (error: any) {
+      this.logger.error('Integrated file upload failed', {
+        driveId,
+        parentId,
+        fileName,
+        fileSize,
+        error: error.message,
+        stack: error.stack
+      });
+
+      return {
+        success: false,
+        error: error.message || 'Failed to upload file'
+      };
+    }
+  }
 }

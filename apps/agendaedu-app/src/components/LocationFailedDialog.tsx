@@ -1,28 +1,79 @@
 import { AlertCircle, Camera, RefreshCw, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 interface LocationFailedDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onRetry: () => void;
   onPhotoCheckin: () => void;
+  onRefreshLocation: () => Promise<void>; // 新增：刷新位置回调
   isLoading?: boolean;
   distance?: number;
+  windowEndTime?: string; // 新增：签到窗口结束时间（ISO 格式）
 }
 
 /**
  * 位置校验失败对话框组件
  * 当学生签到时位置校验失败，显示此对话框提供两个选项：
- * 1. 重试 - 重新获取位置信息
- * 2. 图片签到 - 上传图片进行待审批签到
+ * 1. 刷新位置 - 重新获取位置信息并自动校验
+ * 2. 图片签到 - 上传图片进行待审批签到（需要勾选确认框）
  */
 export default function LocationFailedDialog({
   isOpen,
   onClose,
   onRetry,
   onPhotoCheckin,
+  onRefreshLocation,
   isLoading = false,
-  distance
+  distance,
+  windowEndTime
 }: LocationFailedDialogProps) {
+  const [isCheckboxChecked, setIsCheckboxChecked] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // 重置勾选框状态
+  useEffect(() => {
+    if (!isOpen) {
+      setIsCheckboxChecked(false);
+      setIsRefreshing(false);
+    }
+  }, [isOpen]);
+
+  // 自动关闭机制：当超过签到窗口结束时间时自动关闭
+  useEffect(() => {
+    if (!isOpen || !windowEndTime) return;
+
+    const checkWindowExpiry = () => {
+      const now = new Date();
+      const endTime = new Date(windowEndTime);
+
+      if (now > endTime) {
+        // 窗口已结束，自动关闭对话框
+        onClose();
+      }
+    };
+
+    // 立即检查一次
+    checkWindowExpiry();
+
+    // 每秒检查一次
+    const interval = setInterval(checkWindowExpiry, 1000);
+
+    return () => clearInterval(interval);
+  }, [isOpen, windowEndTime, onClose]);
+
+  // 处理刷新位置
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await onRefreshLocation();
+    } catch (error) {
+      console.error('刷新位置失败:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -58,41 +109,73 @@ export default function LocationFailedDialog({
 
         {/* 提示信息 */}
         <div className='mb-6 rounded-lg bg-red-50 p-4'>
-          <p className='text-sm text-red-800'>
-            您当前不在上课地点附近
+          <div className='flex items-center justify-between'>
+            <p className='text-sm text-red-800'>
+              您当前不在上课地点附近
+              {distance && distance > 0 && (
+                <span className='ml-1 font-medium'>
+                  （距离约 {Math.round(distance)}米）
+                </span>
+              )}
+            </p>
             {distance && distance > 0 && (
-              <span className='ml-1 font-medium'>
-                （距离约 {Math.round(distance)}米）
-              </span>
+              <button
+                type='button'
+                onClick={handleRefresh}
+                disabled={isLoading || isRefreshing}
+                className='ml-3 inline-flex items-center justify-center rounded-full bg-blue-50 p-2 text-blue-600 transition-all hover:scale-110 hover:bg-blue-100 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50'
+                title='点击刷新位置'
+              >
+                <RefreshCw
+                  className={`h-6 w-6 ${isRefreshing ? 'animate-spin' : ''}`}
+                />
+              </button>
             )}
-          </p>
+          </div>
           <p className='mt-2 text-sm text-red-700'>
-            请选择以下操作：
+            请点击右侧的刷新图标重新获取位置，或选择以下操作：
           </p>
         </div>
 
         {/* 操作按钮 */}
         <div className='space-y-3'>
-          {/* 重试按钮 */}
-          <button
-            type='button'
-            onClick={onRetry}
-            disabled={isLoading}
-            className='flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50'
-          >
-            <RefreshCw className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
-            <span className='font-medium'>重新获取位置</span>
-          </button>
+          {/* 图片签到确认提示 */}
+          <div className='rounded-lg border border-yellow-300 bg-yellow-50 p-3'>
+            <div className='mb-2 flex items-start gap-2'>
+              <span className='text-yellow-600'>⚠️</span>
+              <p className='text-xs text-yellow-800'>
+                <strong>温馨提示：</strong>
+                图片签到需要教师审批才能完成签到，提醒老师确认。
+              </p>
+            </div>
+            <label className='flex cursor-pointer items-start gap-2'>
+              <input
+                type='checkbox'
+                checked={isCheckboxChecked}
+                onChange={(e) => setIsCheckboxChecked(e.target.checked)}
+                disabled={isLoading || isRefreshing}
+                className='mt-0.5 h-4 w-4 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50'
+              />
+              <span className='text-xs text-gray-700'>
+                我已知晓并同意使用图片签到
+              </span>
+            </label>
+          </div>
 
           {/* 图片签到按钮 */}
           <button
             type='button'
             onClick={onPhotoCheckin}
-            disabled={isLoading}
-            className='flex w-full items-center justify-center gap-2 rounded-lg border-2 border-blue-600 bg-white px-4 py-3 text-blue-600 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50'
+            disabled={isLoading || isRefreshing || !isCheckboxChecked}
+            className='flex w-full items-center justify-center gap-2 rounded-lg border-2 px-4 py-3 font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50'
+            style={{
+              borderColor: isCheckboxChecked ? '#2563eb' : '#d1d5db',
+              backgroundColor: isCheckboxChecked ? '#ffffff' : '#f3f4f6',
+              color: isCheckboxChecked ? '#2563eb' : '#9ca3af'
+            }}
           >
             <Camera className='h-5 w-5' />
-            <span className='font-medium'>使用图片签到</span>
+            <span>使用图片签到</span>
           </button>
         </div>
 
@@ -107,4 +190,3 @@ export default function LocationFailedDialog({
     </div>
   );
 }
-

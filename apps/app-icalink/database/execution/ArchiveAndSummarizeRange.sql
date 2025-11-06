@@ -175,7 +175,7 @@ ArchiveAndSummarizeRange: BEGIN
     JOIN icasync.icalink_course_checkin_stats AS stats
         ON details.attendance_course_id = stats.course_id AND stats.stat_date = CURDATE() -- Join on CURDATE()
     WHERE
-        details.final_status IN ('absent', 'truant', 'leave', 'leave_pending'); -- No date filtering needed, view handles it
+        details.final_status IN ('absent', 'truant', 'leave', 'leave_pending','pending_approval'); -- No date filtering needed, view handles it
 
     -- 步骤 3: 归档原始记录 (使用 v_attendance_today_details.attendance_record_id)
     INSERT IGNORE INTO icasync.icalink_attendance_records_history

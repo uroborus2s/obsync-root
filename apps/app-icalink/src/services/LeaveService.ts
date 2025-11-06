@@ -294,13 +294,17 @@ export default class LeaveService {
     }
   }
 
-  public async withdrawLeaveApplication(
+  /**
+   * 撤回请假申请（旧版本，通过 application_id）
+   * @deprecated 使用 withdrawLeaveApplicationByRecordId 代替
+   */
+  public async withdrawLeaveApplicationLegacy(
     applicationId: number,
     studentInfo: UserInfo
   ): Promise<Either<ServiceError, WithdrawResponse>> {
     this.logger.info(
       { applicationId, studentId: studentInfo.userId },
-      'Withdrawing leave application'
+      'Withdrawing leave application (legacy)'
     );
     try {
       const appMaybe = (await this.leaveApplicationRepository.findOne((qb) =>
@@ -373,6 +377,110 @@ export default class LeaveService {
       });
     } catch (error) {
       this.logger.error(error, 'Failed to withdraw leave application');
+      return left({
+        code: String(ServiceErrorCode.INTERNAL_ERROR),
+        message: error instanceof Error ? error.message : '撤回请假申请失败'
+      });
+    }
+  }
+
+  /**
+   * 撤回请假申请（新版本，通过 attendance_record_id）
+   *
+   * @param attendanceRecordId - 考勤记录ID
+   * @param studentInfo - 学生信息
+   * @returns 撤回结果
+   *
+   * @remarks
+   * - 直接通过考勤记录ID删除记录，无需查询请假申请表
+   * - 验证记录归属：只能撤回自己的考勤记录
+   * - 验证记录状态：只能撤回 leave 或 leave_pending 状态的记录
+   * - 删除考勤记录后，相关的请假申请记录会通过数据库级联删除
+   */
+  public async withdrawLeaveApplicationByRecordId(
+    attendanceRecordId: number,
+    studentInfo: UserInfo
+  ): Promise<Either<ServiceError, WithdrawResponse>> {
+    this.logger.info(
+      { attendanceRecordId, studentId: studentInfo.userId },
+      'Withdrawing leave application by record ID'
+    );
+
+    try {
+      // 1. 查找考勤记录
+      const recordMaybe =
+        await this.attendanceRecordRepository.findById(attendanceRecordId);
+
+      if (isNone(recordMaybe)) {
+        return left({
+          code: String(ServiceErrorCode.RESOURCE_NOT_FOUND),
+          message: '考勤记录不存在'
+        });
+      }
+
+      const record = recordMaybe.value;
+
+      // 2. 验证记录归属
+      if (record.student_id !== studentInfo.userId) {
+        return left({
+          code: String(ServiceErrorCode.PERMISSION_DENIED),
+          message: '无权撤回此考勤记录'
+        });
+      }
+
+      // 3. 验证记录状态
+      if (record.status !== 'leave' && record.status !== 'leave_pending') {
+        return left({
+          code: String(ServiceErrorCode.INVALID_OPERATION),
+          message: '只能撤回请假状态的考勤记录'
+        });
+      }
+
+      const previousStatus = record.status;
+
+      // 4. 删除考勤记录
+      const deleteResult =
+        await this.attendanceRecordRepository.delete(attendanceRecordId);
+
+      if (isLeft(deleteResult)) {
+        this.logger.error(
+          {
+            recordId: attendanceRecordId,
+            error: deleteResult.left
+          },
+          'Failed to delete attendance record'
+        );
+        return left({
+          code: String(ServiceErrorCode.INTERNAL_ERROR),
+          message: '删除考勤记录失败',
+          details: deleteResult.left
+        });
+      }
+
+      this.logger.info(
+        {
+          recordId: attendanceRecordId,
+          studentId: studentInfo.userId,
+          previousStatus
+        },
+        'Attendance record deleted successfully'
+      );
+
+      // 5. 返回成功响应
+      return right({
+        attendance_record_id: attendanceRecordId,
+        student_id: record.student_id,
+        student_name: studentInfo.name,
+        course_name: '', // 考勤记录中没有课程名称，可以从课程表查询
+        previous_status: previousStatus,
+        new_status: 'unstarted', // 撤回后状态变为未开始
+        withdraw_time: getCurrentDateTime().toISOString()
+      });
+    } catch (error) {
+      this.logger.error(
+        error,
+        'Failed to withdraw leave application by record ID'
+      );
       return left({
         code: String(ServiceErrorCode.INTERNAL_ERROR),
         message: error instanceof Error ? error.message : '撤回请假申请失败'

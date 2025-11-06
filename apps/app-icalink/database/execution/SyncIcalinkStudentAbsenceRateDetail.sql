@@ -126,7 +126,7 @@ BEGIN
             asr.`student_id`,
             asr.`course_code`,
             -- 修改：缺勤次数 = 旷课 + 请假
-            SUM(CASE WHEN asr.`absence_type` = 'absent' THEN 1 ELSE 0 END) AS `absent_count`,
+            SUM(CASE WHEN asr.`absence_type` in ('absent','pending_approval') THEN 1 ELSE 0 END) AS `absent_count`,
             -- 修改：请假次数包括 'leave' 和 'leave_pending'
             SUM(CASE WHEN asr.`absence_type` IN ('leave', 'leave_pending') THEN 1 ELSE 0 END) AS `leave_count`,
             SUM(CASE WHEN asr.`absence_type` = 'truant' THEN 1 ELSE 0 END) AS `truant_count` -- 旷课次数

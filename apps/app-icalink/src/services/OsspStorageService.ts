@@ -54,6 +54,32 @@ export interface ImageDownloadResult {
 }
 
 /**
+ * 预签名上传URL选项
+ */
+export interface PresignedUploadUrlOptions {
+  /** 文件名 */
+  fileName: string;
+  /** MIME 类型 */
+  mimeType: string;
+  /** 业务类型（用于组织文件路径：checkin/leave/other） */
+  businessType: 'checkin' | 'leave' | 'other';
+}
+
+/**
+ * 预签名上传URL结果
+ */
+export interface PresignedUploadUrlResult {
+  /** 预签名上传URL */
+  uploadUrl: string;
+  /** 对象路径（上传成功后的文件路径） */
+  objectPath: string;
+  /** URL过期时间（秒） */
+  expiresIn: number;
+  /** 存储桶名称 */
+  bucketName: string;
+}
+
+/**
  * OSSP 存储服务接口
  */
 export interface IOsspStorageService {
@@ -75,12 +101,21 @@ export interface IOsspStorageService {
   ): Promise<Either<ServiceError, ImageDownloadResult>>;
 
   /**
-   * 获取预签名 URL（有效期 1 小时）
+   * 获取预签名下载 URL（有效期 1 小时）
    */
   getPresignedUrl(
     bucketName: string,
     objectPath: string
   ): Promise<Either<ServiceError, string>>;
+
+  /**
+   * 生成预签名上传 URL（有效期 15 分钟）
+   * 用于前端直接上传文件到 OSS
+   */
+  generatePresignedUploadUrl(
+    bucketName: string,
+    options: PresignedUploadUrlOptions
+  ): Promise<Either<ServiceError, PresignedUploadUrlResult>>;
 }
 
 /**
@@ -374,6 +409,74 @@ export default class OsspStorageService implements IOsspStorageService {
     } catch (error) {
       this.logger.error({ error }, 'Failed to generate thumbnail');
       throw error;
+    }
+  }
+
+  /**
+   * 生成预签名上传 URL
+   *
+   * 用于前端直接上传文件到 OSS，避免文件经过后端服务器
+   * - 有效期：15 分钟
+   * - 自动按业务类型和时间戳组织文件路径
+   * - 路径格式：{businessType}/{timestamp}/{fileName}
+   */
+  async generatePresignedUploadUrl(
+    bucketName: string,
+    options: PresignedUploadUrlOptions
+  ): Promise<Either<ServiceError, PresignedUploadUrlResult>> {
+    try {
+      this.logger.info(
+        {
+          bucketName,
+          fileName: options.fileName,
+          businessType: options.businessType
+        },
+        'Generating presigned upload URL'
+      );
+
+      // 1. 确保存储桶存在
+      const bucketExists = await this.osspClient.bucketExists(bucketName);
+      if (!bucketExists) {
+        this.logger.info(
+          { bucketName },
+          'Creating bucket for presigned upload'
+        );
+        await this.osspClient.makeBucket(bucketName);
+      }
+
+      // 2. 生成对象路径（按业务类型和时间戳组织）
+      const timestamp = Date.now();
+      const businessPath = options.businessType;
+      const objectPath = `${businessPath}/${timestamp}/${options.fileName}`;
+
+      // 3. 生成预签名上传 URL（有效期 15 分钟）
+      const expiresIn = 15 * 60; // 15 分钟
+      const uploadUrl = await this.osspClient.presignedPutObject(
+        bucketName,
+        objectPath,
+        expiresIn
+      );
+
+      this.logger.info(
+        { objectPath, expiresIn },
+        'Presigned upload URL generated successfully'
+      );
+
+      return right({
+        uploadUrl,
+        objectPath,
+        expiresIn,
+        bucketName
+      });
+    } catch (error) {
+      this.logger.error(
+        { error, bucketName, fileName: options.fileName },
+        'Failed to generate presigned upload URL'
+      );
+      return left({
+        code: String(ServiceErrorCode.STORAGE_ERROR),
+        message: '生成预签名上传URL失败'
+      });
     }
   }
 }

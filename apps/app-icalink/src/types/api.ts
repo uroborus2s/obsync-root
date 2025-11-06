@@ -205,9 +205,9 @@ export interface CheckinRequest {
   window_id?: string; // 窗口ID（窗口期签到时必填）
   window_open_time?: string; // 窗口开启时间（ISO 8601格式）
   window_close_time?: string; // 窗口关闭时间（ISO 8601格式）
-  // 图片签到相关字段
-  photo_url?: string; // 图片OSS路径（图片签到时必填）
-  checkin_type?: 'normal' | 'photo'; // 签到类型：normal-正常签到，photo-图片签到
+  // 照片签到相关字段（位置校验失败时使用）
+  photo_url?: string; // 图片OSS路径（照片签到时必填，存储在metadata中）
+  location_offset_distance?: number; // 位置偏移距离（米），记录实际距离签到点的距离
 }
 
 /**
@@ -600,8 +600,7 @@ export interface GetCourseCompleteDataDTO {
  */
 export interface StudentCourseDataVO {
   id: number;
-  attendance_record_id?: number; // 考勤记录ID，用于请假申请
-  leave_application_id?: number; // 请假申请ID，用于撤回请假
+  attendance_record_id?: number; // 考勤记录ID，用于请假申请和撤回请假
   course: {
     external_id: string;
     kcmc: string; // 课程名称
@@ -613,6 +612,7 @@ export interface StudentCourseDataVO {
     jxz: number; // 教学周
     lq: string; // 楼区
     rq?: string;
+    need_checkin: number; // 0: 无需签到, 1: 需要签到
   };
   student: {
     xh: string; // 学号
@@ -720,6 +720,24 @@ export interface TeacherCourseCompleteDataVO {
 }
 
 /**
+ * 更新课程签到设置 DTO
+ */
+export interface UpdateCourseCheckinSettingDTO {
+  courseId: number;
+  needCheckin: 0 | 1;
+  userInfo: UserInfo;
+}
+
+/**
+ * 更新课程签到设置响应
+ */
+export interface UpdateCourseCheckinSettingResponse {
+  course_id: number;
+  need_checkin: 0 | 1;
+  updated_at: string;
+}
+
+/**
  * 学生统计信息
  */
 export interface StudentStatistics {
@@ -781,4 +799,62 @@ export interface TeacherManualCheckinResponse {
   success: boolean;
   message: string;
   record_id?: number;
+}
+
+// ============================================
+// OSS 相关接口
+// ============================================
+
+/**
+ * OSS 预签名上传请求
+ */
+export interface OssPresignedUploadRequest {
+  /** 文件名 */
+  fileName: string;
+  /** MIME 类型 */
+  mimeType: string;
+  /** 文件大小（字节） */
+  fileSize: number;
+  /** 业务类型 */
+  businessType: 'checkin' | 'leave' | 'other';
+}
+
+/**
+ * OSS 预签名上传响应
+ */
+export interface OssPresignedUploadResponse {
+  /** 预签名上传 URL */
+  uploadUrl: string;
+  /** 对象路径（上传成功后的文件路径） */
+  objectPath: string;
+  /** URL 过期时间（秒） */
+  expiresIn: number;
+  /** 存储桶名称 */
+  bucketName: string;
+}
+
+// ============================================
+// 照片签到审批相关接口
+// ============================================
+
+/**
+ * 审批照片签到请求
+ */
+export interface ApprovePhotoCheckinRequest {
+  /** 签到记录ID */
+  recordId: number;
+  /** 审批结果：approved-通过，rejected-拒绝 */
+  action: 'approved' | 'rejected';
+  /** 审批备注（拒绝时必填） */
+  remark?: string;
+}
+
+/**
+ * 审批照片签到响应
+ */
+export interface ApprovePhotoCheckinResponse {
+  success: boolean;
+  message: string;
+  /** 更新后的签到记录ID */
+  recordId?: number;
 }

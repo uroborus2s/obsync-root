@@ -1,5 +1,6 @@
 import type { FastifyReply, FastifyRequest, Logger } from '@stratix/core';
 import { Controller, Delete, Get, Post } from '@stratix/core';
+import crypto from 'crypto';
 import type WpsDriveService from '../services/WpsDriveService.js';
 
 /**
@@ -869,6 +870,211 @@ export default class WpsDriveController {
       });
     } catch (error) {
       this.logger.error({ error }, 'Failed to complete upload');
+      return reply.status(500).send({
+        success: false,
+        message: '服务器内部错误'
+      });
+    }
+  }
+
+  /**
+   * 一体化文件上传（后端代理上传）
+   * POST /api/icalink/v1/wps-drive/drives/:drive_id/files/upload
+   *
+   * @description
+   * 接收前端上传的文件,在后端完成完整的三步上传流程:
+   * 1. 计算文件SHA-256哈希值
+   * 2. 请求上传许可
+   * 3. 上传文件到WPS存储服务器
+   * 4. 完成上传确认
+   *
+   * 该方法解决了前端直接上传到WPS存储服务器的CORS跨域问题
+   *
+   * @param drive_id - 驱动盘ID
+   * @body file - 文件（multipart/form-data）
+   * @body parent_id - 父目录ID
+   *
+   * @returns 文件信息
+   *
+   * HTTP 状态码：
+   * - 200: 上传成功
+   * - 400: 参数错误
+   * - 500: 服务器内部错误
+   */
+  @Post('/api/icalink/v1/wps-drive/drives/:drive_id/files/upload')
+  async uploadFile(
+    request: FastifyRequest<{
+      Params: {
+        drive_id: string;
+      };
+    }>,
+    reply: FastifyReply
+  ): Promise<void> {
+    try {
+      const { drive_id } = request.params;
+
+      // 参数验证
+      if (!drive_id) {
+        return reply.status(400).send({
+          success: false,
+          message: '缺少必需参数：drive_id'
+        });
+      }
+
+      // 使用 request.parts() 来获取所有部分（文件和字段）
+      // 这是处理 multipart/form-data 的正确方式
+      this.logger.info('Starting to parse multipart request');
+
+      const parts = request.parts();
+
+      let fileData: any = null;
+      let parent_id: string | null = null;
+      let parent_path: string | null = null;
+      let partCount = 0;
+
+      // 遍历所有部分
+      try {
+        for await (const part of parts) {
+          partCount++;
+
+          console.log(`\n========== Processing part ${partCount} ==========`);
+          console.log('Part type:', part.type);
+          console.log('Part fieldname:', part.fieldname);
+
+          if (part.type === 'file') {
+            // 这是文件部分
+            fileData = part;
+            console.log('File details:');
+            console.log('  - filename:', part.filename);
+            console.log('  - mimetype:', part.mimetype);
+            console.log('  - encoding:', part.encoding);
+
+            this.logger.info(`Received file part: ${part.filename}`);
+
+            // ✅ 找到文件后，如果已经有 parent_id，就跳出循环
+            if (parent_id) {
+              console.log('✅ Both file and parent_id found, breaking loop');
+              break;
+            }
+          } else {
+            // 这是字段部分 (part.type === 'field')
+            console.log('Field details:');
+            console.log('  - fieldname:', part.fieldname);
+            console.log('  - value:', part.value);
+            console.log('  - valueType:', typeof part.value);
+
+            this.logger.info(
+              `Received field: ${part.fieldname} = ${part.value}`
+            );
+
+            if (part.fieldname === 'parent_id') {
+              parent_id = part.value as string;
+              console.log('✅ Found parent_id:', parent_id);
+
+              // ✅ 找到 parent_id 后，如果已经有文件，就跳出循环
+              if (fileData) {
+                console.log('✅ Both parent_id and file found, breaking loop');
+                break;
+              }
+            } else if (part.fieldname === 'parent_path') {
+              parent_path = part.value as string;
+              console.log('✅ Found parent_path:', parent_path);
+            }
+          }
+        }
+      } catch (error) {
+        this.logger.error('Error parsing multipart parts', { error });
+        throw error;
+      }
+
+      this.logger.info('Finished parsing multipart request', {
+        partCount,
+        hasFile: !!fileData,
+        hasParentId: !!parent_id,
+        hasParentPath: !!parent_path,
+        parent_id,
+        parent_path
+      });
+
+      // 验证文件
+      if (!fileData) {
+        return reply.status(400).send({
+          success: false,
+          message: '未找到上传的文件'
+        });
+      }
+
+      // 验证parent_id
+      if (!parent_id) {
+        return reply.status(400).send({
+          success: false,
+          message: '缺少必需参数：parent_id'
+        });
+      }
+
+      // 读取文件内容到Buffer
+      const fileBuffer = await fileData.toBuffer();
+      const fileName = fileData.filename;
+      const fileSize = fileBuffer.length;
+      const contentType = fileData.mimetype || 'application/octet-stream';
+
+      this.logger.info('Received file upload request', {
+        drive_id,
+        parent_id,
+        fileName,
+        fileSize,
+        contentType
+      });
+
+      // 计算文件SHA-256哈希值
+      const hash = crypto.createHash('sha256');
+      hash.update(fileBuffer);
+      const fileHash = hash.digest('hex');
+
+      this.logger.debug('File hash calculated', {
+        fileName,
+        fileHash
+      });
+
+      // 调用Service层的一体化上传方法
+      const result = await this.wpsDriveService.uploadFile(
+        drive_id,
+        parent_id,
+        fileName,
+        fileBuffer,
+        fileSize,
+        contentType,
+        fileHash,
+        parent_path || undefined // 传递 parent_path（可选）
+      );
+
+      if (!result.success) {
+        this.logger.error('Upload failed', {
+          drive_id,
+          parent_id,
+          fileName,
+          error: result.error
+        });
+        return reply.status(500).send({
+          success: false,
+          message: result.error || '文件上传失败'
+        });
+      }
+
+      this.logger.info('File uploaded successfully', {
+        drive_id,
+        parent_id,
+        fileName,
+        fileId: result.data?.file_id
+      });
+
+      return reply.status(200).send({
+        success: true,
+        data: result.data,
+        message: '文件上传成功'
+      });
+    } catch (error) {
+      this.logger.error({ error }, 'Failed to upload file');
       return reply.status(500).send({
         success: false,
         message: '服务器内部错误'

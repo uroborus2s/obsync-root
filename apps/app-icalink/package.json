@@ -19,14 +19,15 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@fastify/multipart": "^9.3.0",
     "@fastify/under-pressure": "^9.0.3",
     "@stratix/core": "1.0.0-beta.9",
     "@stratix/database": "1.0.0-beta.12",
-    "@stratix/utils": "1.0.0-beta.4",
     "@stratix/ossp": "0.0.1-beta.1",
-    "@stratix/redis": "1.0.0-beta.2",
     "@stratix/queue": "1.0.0-beta.2",
-    "@stratix/was-v7": "1.0.0-beta.23",
+    "@stratix/redis": "1.0.0-beta.2",
+    "@stratix/utils": "1.0.0-beta.4",
+    "@stratix/was-v7": "workspace:*",
     "date-fns": "^4.1.0",
     "jsonwebtoken": "^9.0.2",
     "mysql2": "^3.14.1",

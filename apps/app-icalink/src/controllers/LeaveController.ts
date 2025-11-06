@@ -151,34 +151,13 @@ export default class LeaveController {
   }
 
   /**
-   * 撤回请假申请
+   * 撤回请假申请（旧版本，保留兼容性）
    * POST /api/icalink/v1/leave-applications/:application_id/withdraw
    *
-   * @param request - Fastify 请求对象
-   * @param reply - Fastify 响应对象
-   * @returns 撤回响应
-   *
-   * @description
-   * 业务逻辑：
-   * 1. 验证申请 ID 是否为有效数字
-   * 2. 验证用户身份（必须已登录）
-   * 3. 查找请假申请记录
-   * 4. 验证申请归属（只能撤回自己的申请）
-   * 5. 验证申请状态（只能撤回待审批的申请）
-   * 6. 删除请假申请记录
-   * 7. 返回撤回成功响应
-   *
-   * HTTP 状态码：
-   * - 200: 撤回成功
-   * - 400: 参数验证失败（申请 ID 无效）
-   * - 401: 用户未认证
-   * - 403: 权限不足（不是申请人）
-   * - 404: 申请不存在
-   * - 422: 业务验证失败（申请状态不允许撤回）
-   * - 500: 服务器内部错误
+   * @deprecated 使用新的撤回接口 POST /api/icalink/v1/leave-applications/withdraw
    */
   @Post('/api/icalink/v1/leave-applications/:application_id/withdraw')
-  async withdrawLeaveApplication(
+  async withdrawLeaveApplicationLegacy(
     request: FastifyRequest<{
       Params: { application_id: string };
     }>,
@@ -206,7 +185,7 @@ export default class LeaveController {
       }
 
       // 3. 调用服务层处理撤回
-      const result = await this.leaveService.withdrawLeaveApplication(
+      const result = await this.leaveService.withdrawLeaveApplicationLegacy(
         applicationId,
         {
           userId: userIdentity.userId,
@@ -224,6 +203,121 @@ export default class LeaveController {
         switch (code) {
           case String(ServiceErrorCode.UNAUTHORIZED):
           case String(ServiceErrorCode.FORBIDDEN):
+            statusCode = 403;
+            break;
+          case String(ServiceErrorCode.RESOURCE_NOT_FOUND):
+            statusCode = 404;
+            break;
+          case String(ServiceErrorCode.INVALID_OPERATION):
+          case String(ServiceErrorCode.VALIDATION_ERROR):
+            statusCode = 422;
+            break;
+          case String(ServiceErrorCode.INVALID_PARAMETER):
+            statusCode = 400;
+            break;
+          case String(ServiceErrorCode.DATABASE_ERROR):
+          case String(ServiceErrorCode.UNKNOWN_ERROR):
+            statusCode = 500;
+            break;
+          default:
+            statusCode = 500;
+        }
+
+        return reply.status(statusCode).send({ success: false, message, code });
+      }
+
+      // 5. 返回成功响应
+      return reply.status(200).send({
+        success: true,
+        message: '请假申请撤回成功',
+        data: result.right
+      });
+    } catch (error: any) {
+      if (!reply.sent) {
+        return reply.status(500).send({
+          success: false,
+          message: '服务器内部错误',
+          code: 'INTERNAL_SERVER_ERROR'
+        });
+      }
+    }
+  }
+
+  /**
+   * 撤回请假申请（新版本）
+   * POST /api/icalink/v1/leave-applications/withdraw
+   *
+   * @param request - Fastify 请求对象
+   * @param reply - Fastify 响应对象
+   * @returns 撤回响应
+   *
+   * @description
+   * 业务逻辑：
+   * 1. 验证考勤记录 ID 是否为有效数字
+   * 2. 验证用户身份（必须已登录）
+   * 3. 查找考勤记录
+   * 4. 验证记录归属（只能撤回自己的记录）
+   * 5. 验证记录状态（只能撤回 leave 或 leave_pending 状态的记录）
+   * 6. 删除考勤记录
+   * 7. 返回撤回成功响应
+   *
+   * HTTP 状态码：
+   * - 200: 撤回成功
+   * - 400: 参数验证失败（考勤记录 ID 无效）
+   * - 401: 用户未认证
+   * - 403: 权限不足（不是记录所有者）
+   * - 404: 记录不存在
+   * - 422: 业务验证失败（记录状态不允许撤回）
+   * - 500: 服务器内部错误
+   */
+  @Post('/api/icalink/v1/leave-applications/withdraw')
+  async withdrawLeaveApplication(
+    request: FastifyRequest<{
+      Body: { attendance_record_id: number };
+    }>,
+    reply: FastifyReply
+  ): Promise<void> {
+    try {
+      // 1. 参数验证
+      const { attendance_record_id } = request.body;
+      if (!attendance_record_id || attendance_record_id <= 0) {
+        return reply.status(400).send({
+          success: false,
+          message: '无效的考勤记录ID',
+          code: String(ServiceErrorCode.INVALID_PARAMETER)
+        });
+      }
+
+      // 2. 用户认证检查
+      const userIdentity = (request as any).userIdentity;
+      if (!userIdentity) {
+        return reply.status(401).send({
+          success: false,
+          message: '用户未认证',
+          code: String(ServiceErrorCode.UNAUTHORIZED)
+        });
+      }
+
+      // 3. 调用服务层处理撤回
+      const result = await this.leaveService.withdrawLeaveApplicationByRecordId(
+        attendance_record_id,
+        {
+          userId: userIdentity.userId,
+          userType: userIdentity.type || 'student',
+          name: userIdentity.username
+        }
+      );
+
+      // 4. 错误处理
+      if (isLeft(result)) {
+        const { code, message } = result.left as any;
+        let statusCode = 500; // Default to internal server error
+
+        // 根据错误类型设置正确的 HTTP 状态码
+        switch (code) {
+          case String(ServiceErrorCode.UNAUTHORIZED):
+          case String(ServiceErrorCode.FORBIDDEN):
+          case String(ServiceErrorCode.PERMISSION_DENIED):
             statusCode = 403;
             break;
           case String(ServiceErrorCode.RESOURCE_NOT_FOUND):

@@ -4,11 +4,47 @@
 
 在WPS云盘管理页面中新增文件上传功能,允许用户将本地文件上传到WPS云盘的驱动盘或文件夹中。
 
-## 一、上传流程
+## 一、上传架构
+
+### 当前架构: 后端代理上传（v1.4.0+）
+
+为了解决前端直接上传到WPS存储服务器的CORS跨域问题,采用**后端代理上传**架构:
+
+```
+前端 → 后端 → WPS存储服务器
+```
+
+**上传流程**:
+
+1. **前端**: 用户选择文件,通过FormData发送到后端
+2. **后端**:
+   - 接收文件并计算SHA-256哈希值
+   - 调用WPS API请求上传许可
+   - 直接上传文件到WPS存储服务器（绕过CORS）
+   - 调用WPS API完成上传确认
+3. **前端**: 接收上传结果并刷新文件列表
+
+**优势**:
+
+- ✅ 解决CORS跨域问题
+- ✅ 统一的错误处理
+- ✅ 更好的安全性（Token不暴露给前端）
+- ✅ 简化前端代码
+
+**接口**:
+
+- `POST /api/icalink/v1/wps-drive/drives/:drive_id/files/upload`
+- 请求格式: `multipart/form-data`
+- 参数: `file`（文件）, `parent_id`（父目录ID）
+
+### 旧架构: 前端直传（v1.0.0-v1.3.0，已废弃）
+
+<details>
+<summary>点击查看旧架构说明</summary>
 
 WPS云盘的文件上传采用三步流程:
 
-### 步骤1: 请求上传许可
+#### 步骤1: 请求上传许可
 
 - **计算文件哈希值**: 使用Web Crypto API计算文件的SHA-256哈希值
 - 调用后端接口 `POST /api/icalink/v1/wps-drive/drives/:drive_id/files/request-upload`
@@ -30,7 +66,7 @@ WPS云盘的文件上传采用三步流程:
 }
 ```
 
-### 步骤2: 上传文件内容
+#### 步骤2: 上传文件内容
 
 - 使用HTTP PUT方法将文件内容上传到步骤1返回的地址
 - 直接上传到WPS云盘的存储服务器
@@ -48,54 +84,118 @@ Authorization: Bearer xxx  // 如果WPS API返回了token
 <文件二进制内容>
 ```
 
-### 步骤3: 完成上传确认
+#### 步骤3: 完成上传确认
 
 - 调用后端接口 `POST /api/icalink/v1/wps-drive/drives/:drive_id/files/complete-upload`
 - 通知WPS云盘上传已完成
 - 获取文件的元数据信息
 
+**问题**: 前端直接上传到WPS存储服务器会遇到CORS跨域错误,因此已废弃此架构。
+
+</details>
+
 ## 二、技术实现
 
 ### 后端开发（app-icalink）
 
-#### 1. Service层
+#### 1. Adapter层
+
+**文件**: `packages/was_v7/src/adapters/drives.adapter.ts`
+
+**新增方法**:
+
+- `uploadFileToStorage(uploadUrl, fileBuffer, contentType, headers?)`: 上传文件到WPS存储服务器
+  - 使用axios直接PUT文件到存储URL
+  - 支持自定义Content-Type
+  - 支持传递认证headers
+  - 不使用WPS API签名（存储服务器不需要）
+
+**已有方法**:
+
+- `requestUpload(params)`: 调用WPS API请求上传许可
+- `completeUpload(params)`: 调用WPS API完成上传确认
+
+#### 2. Service层
 
 **文件**: `apps/app-icalink/src/services/WpsDriveService.ts`
 
-新增方法:
+**核心方法**:
+
+```typescript
+async uploadFile(
+  driveId: string,
+  parentId: string,
+  fileName: string,
+  fileBuffer: Buffer,
+  fileSize: number,
+  contentType: string,
+  fileHash: string
+): Promise<ServiceResult<CompleteUploadResponse>>
+```
+
+**实现流程**:
+
+1. 调用`requestUpload`获取上传URL和认证信息
+2. 调用`uploadFileToStorage`上传文件到WPS存储服务器
+3. 调用`completeUpload`完成上传确认
+4. 返回文件信息
+
+**特点**:
+
+- 一体化上传流程,简化调用
+- 完整的错误处理和日志记录
+- 返回标准的ServiceResult格式
+
+**旧方法（已废弃）**:
 
 - `requestUpload(driveId, parentId, fileName, fileSize)`: 请求上传信息
 - `completeUpload(driveId, uploadId, fileName, fileSize, parentId)`: 完成上传
 
-**特点**:
-
-- 调用WPS V7 API适配器
-- 统一的错误处理和日志记录
-- 返回标准的ServiceResult格式
-
-#### 2. Controller层
+#### 3. Controller层
 
 **文件**: `apps/app-icalink/src/controllers/WpsDriveController.ts`
 
-新增接口:
+**核心接口**:
+
+```typescript
+@Post('/api/icalink/v1/wps-drive/drives/:drive_id/files/upload')
+async uploadFile(request, reply)
+```
+
+**功能**:
+
+- 接收multipart/form-data格式的文件上传
+- 解析文件和parent_id参数
+- 计算文件SHA-256哈希值
+- 调用Service层的uploadFile方法
+- 返回上传结果
+
+**参数**:
+
+- `drive_id` (路径参数): 驱动盘ID
+- `file` (表单字段): 上传的文件
+- `parent_id` (表单字段): 父目录ID
+
+**配置**:
+
+在`stratix.config.ts`中注册@fastify/multipart插件:
+
+```typescript
+hooks: {
+  afterFastifyCreated: async (fastify) => {
+    await fastify.register(multipart, {
+      limits: {
+        fileSize: 50 * 1024 * 1024 // 50MB
+      }
+    });
+  };
+}
+```
+
+**旧接口（已废弃）**:
 
 - `POST /api/icalink/v1/wps-drive/drives/:drive_id/files/request-upload`: 请求上传
 - `POST /api/icalink/v1/wps-drive/drives/:drive_id/files/complete-upload`: 完成上传
-
-**参数验证**:
-
-- 必需参数检查
-- 文件大小验证
-- 参数类型验证
-
-#### 3. Adapter层
-
-**文件**: `packages/was_v7/src/adapters/drives.adapter.ts`
-
-已存在的方法:
-
-- `requestUpload(params)`: 调用WPS API请求上传
-- `completeUpload(params)`: 调用WPS API完成上传
 
 ### 前端开发（agendaedu-web）
 
@@ -103,26 +203,39 @@ Authorization: Bearer xxx  // 如果WPS API返回了token
 
 **文件**: `apps/agendaedu-web/src/features/wps-drive/api.ts`
 
-新增方法:
+**核心方法**:
+
+```typescript
+async uploadFile(
+  params: {
+    drive_id: string
+    parent_id: string
+    file: File
+  },
+  onProgress?: (progress: number) => void
+): Promise<FileInfo>
+```
+
+**实现**:
+
+- 创建FormData包含文件和parent_id
+- 使用axios发送multipart/form-data请求到后端
+- 支持上传进度回调
+- 返回文件信息
+
+**旧方法（已废弃）**:
 
 - `calculateFileSHA256(file)`: 计算文件SHA-256哈希值
-- `requestUpload(params)`: 请求上传信息（支持传递哈希值）
-- `requestUploadWithHash(params)`: 自动计算哈希值并请求上传（推荐使用）
+- `requestUpload(params)`: 请求上传信息
+- `requestUploadWithHash(params)`: 自动计算哈希值并请求上传
 - `uploadFileContent(uploadUrl, file, onProgress)`: 上传文件内容
 - `completeUpload(params)`: 完成上传
-
-**特点**:
-
-- 使用Web Crypto API计算SHA-256哈希值
-- 使用XMLHttpRequest实现文件上传
-- 支持上传进度回调
-- 完整的错误处理
 
 #### 2. UI组件
 
 **文件**: `apps/agendaedu-web/src/features/wps-drive/index.tsx`
 
-新增功能:
+**功能**:
 
 - 上传按钮: 在右侧详情区域的CardHeader中
 - 上传对话框: 使用Dialog组件
@@ -143,10 +256,33 @@ const [isUploading, setIsUploading] = useState(false);
 ```typescript
 const handleUploadFiles = async () => {
   // 1. 确定上传目标位置
+  let targetDriveId: string;
+  let targetParentId: string;
+
   // 2. 遍历所有选中的文件
-  // 3. 对每个文件执行三步上传流程
-  // 4. 更新进度
+  for (let i = 0; i < selectedFiles.length; i++) {
+    const file = selectedFiles[i];
+
+    // 3. 调用一体化上传方法
+    await wpsDriveApi.uploadFile(
+      {
+        drive_id: targetDriveId,
+        parent_id: targetParentId,
+        file
+      },
+      (progress) => {
+        // 4. 更新进度
+        const fileProgress =
+          ((i + progress / 100) / selectedFiles.length) * 100;
+        setUploadProgress(Math.round(fileProgress));
+      }
+    );
+  }
+
   // 5. 刷新文件列表
+  queryClient.invalidateQueries({
+    queryKey: ['wps-children', targetDriveId, targetParentId]
+  });
 };
 ```
 
@@ -406,6 +542,36 @@ const fileHash = await calculateFileSHA256(file);
 - Token仅用于单次上传请求,不长期存储
 - Token通过HTTPS安全传输
 - 完全兼容WPS云盘API的认证机制
+
+### v1.4.0 (2025-11-04) - 架构重构
+
+**重大变更**:
+
+- 🔄 **架构变更**: 从前端直传改为后端代理上传
+- ✅ **解决CORS问题**: 后端服务器到WPS存储服务器的请求不受浏览器CORS限制
+- ✅ **简化前端代码**: 前端只需一次API调用即可完成上传
+- ✅ **提升安全性**: Token和认证信息不暴露给前端
+
+**新增功能**:
+
+- 后端Adapter层: `uploadFileToStorage()` 方法
+- 后端Service层: `uploadFile()` 一体化上传方法
+- 后端Controller层: `POST /upload` multipart文件上传接口
+- 前端API客户端: `uploadFile()` FormData上传方法
+- Fastify multipart插件集成
+
+**技术细节**:
+
+- 使用@fastify/multipart处理文件上传
+- 后端使用crypto模块计算SHA-256哈希值
+- 使用axios直接PUT文件到WPS存储服务器
+- 支持最大50MB文件上传
+
+**废弃**:
+
+- ❌ 前端三步上传流程（requestUpload → uploadFileContent → completeUpload）
+- ❌ 前端SHA-256哈希值计算
+- ❌ 前端XMLHttpRequest直接上传到WPS存储服务器
 
 ### v1.2.1 (2025-11-04)
 

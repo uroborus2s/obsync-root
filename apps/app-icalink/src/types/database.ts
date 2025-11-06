@@ -101,6 +101,16 @@ export interface IcalinkAttendanceRecord {
   updated_at: ColumnType<Date, string, string>;
   created_by?: string;
   updated_by?: string;
+  /**
+   * 扩展元数据（JSON字段）
+   *
+   * 照片签到时的 metadata 结构：
+   * {
+   *   photo_url: string;                // 照片OSS路径
+   *   location_offset_distance: number; // 位置偏移距离（米）
+   *   reason: string;                   // 签到原因说明
+   * }
+   */
   metadata?: any;
   // v7 新增字段
   last_checkin_source?: 'regular' | 'window' | 'manual' | 'photo';
@@ -245,7 +255,7 @@ export interface IcasyncAttendanceCourse {
   attendance_end_offset?: number;
   late_threshold?: number;
   auto_absent_after?: number;
-  need_checkin: boolean;
+  need_checkin: number;
   created_at: ColumnType<Date, string, string>;
   updated_at: ColumnType<Date, string, string>;
   created_by?: string;
@@ -350,6 +360,45 @@ export interface VAttendanceRealtimeDetails {
   is_late: boolean;
   late_minutes: number | null;
   leave_reason: string | null;
+}
+
+/**
+ * 当天考勤详情视图实体
+ * 对应视图: v_attendance_today_details
+ */
+export interface VAttendanceTodayDetails {
+  attendance_course_id: number;
+  attendance_record_id: number | null;
+  external_id: string;
+  course_code: string;
+  course_name: string;
+  created_at: Date;
+  student_id: string;
+  student_name: string;
+  class_name: string | null;
+  grade: string | null;
+  gender: string | null;
+  people: string | null;
+  class_id: string | null;
+  school_id: string | null;
+  major_id: string | null;
+  major_name: string | null;
+  school_name: string | null;
+  course_unit_id: string | null;
+  course_unit: string | null;
+  teaching_class_code: string | null;
+  teaching_week: number | null;
+  week_day: number | null;
+  periods: string | null;
+  time_period: string | null;
+  start_time: Date;
+  end_time: Date;
+  teacher_names: string | null;
+  teacher_codes: string | null;
+  semester: string;
+  class_location: string | null;
+  need_checkin: number;
+  final_status: string;
 }
 
 export interface VAttendanceHistoryDetails {
@@ -467,7 +516,12 @@ export interface IcalinkAbsentStudentRelation {
   school_name: string | null;
   class_name: string | null;
   major_name: string | null;
-  absence_type: 'absent' | 'truant' | 'leave' | 'leave_pending';
+  absence_type:
+    | 'absent'
+    | 'truant'
+    | 'leave'
+    | 'leave_pending'
+    | 'pending_approval';
   stat_date: Date;
   semester: string;
   teaching_week: number;
@@ -817,6 +871,7 @@ export interface IcalinkDatabase {
   // 考勤相关视图
   v_teaching_class: VTeachingClass;
   v_attendance_realtime_details: VAttendanceRealtimeDetails;
+  v_attendance_today_details: VAttendanceTodayDetails;
   v_attendance_history_details: VAttendanceHistoryDetails;
   v_student_semester_attendance_stats: VStudentSemesterAttendanceStats;
   v_student_overall_attendance_stats: VStudentOverallAttendanceStats;

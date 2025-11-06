@@ -1,3 +1,4 @@
+import multipart from '@fastify/multipart';
 import underPressure from '@fastify/under-pressure';
 import type { StratixConfig } from '@stratix/core';
 import stratixDatabasePlugin from '@stratix/database';
@@ -39,14 +40,6 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
           'onRequest',
           onRequestPermissionHook([], { skipPaths: ['/health'] })
         );
-
-        // Queue worker disabled - CheckinJobHandler removed
-        // const container = fastify.diContainer;
-        // const queueAdapter = container.resolve('queueAdapter');
-        // const checkinJobHandler = container.resolve(CheckinJobHandler);
-        // queueAdapter.process('checkin', (job: any) =>
-        //   checkinJobHandler.process(job)
-        // );
       }
     },
     applicationAutoDI: {
@@ -54,6 +47,15 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
     },
     // 插件配置
     plugins: [
+      {
+        name: 'multipart',
+        plugin: multipart,
+        options: {
+          limits: {
+            fileSize: 50 * 1024 * 1024 // 50MB文件大小限制
+          }
+        }
+      },
       {
         name: '@stratix/database',
         plugin: stratixDatabasePlugin as any,

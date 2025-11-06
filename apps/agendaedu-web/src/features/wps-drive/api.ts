@@ -1,5 +1,10 @@
 import { apiClient } from '@/lib/api-client'
-import type { DriveInfo, FileInfo, GetChildrenResponse } from './types'
+import type {
+  DriveInfo,
+  FileInfo,
+  GetChildrenResponse,
+  UploadFileParams,
+} from './types'
 
 /**
  * 计算文件的SHA-256哈希值
@@ -345,6 +350,77 @@ export const wpsDriveApi = {
       `/api/icalink/v1/wps-drive/drives/${drive_id}/files/complete-upload`,
       body
     )
+    return response.data
+  },
+
+  /**
+   * 一体化文件上传（后端代理上传）
+   * 将文件上传到后端,由后端完成完整的三步上传流程
+   *
+   * 该方法解决了前端直接上传到WPS存储服务器的CORS跨域问题
+   *
+   * @param params - 上传参数
+   * @param params.drive_id - 驱动盘ID
+   * @param params.parent_id - 父目录ID（必需）
+   * @param params.file - 要上传的文件
+   * @param params.parent_path - 父文件夹路径（可选，如 '/folder1/folder2'）
+   * @param onProgress - 上传进度回调（可选）
+   * @returns 上传结果,包含文件信息
+   */
+  async uploadFile(
+    params: UploadFileParams,
+    onProgress?: (progress: number) => void
+  ): Promise<FileInfo> {
+    const { drive_id, parent_id, file, parent_path } = params
+
+    // 创建FormData
+    // ⚠️ 重要：字段必须在文件之前！
+    // 因为 @fastify/multipart 按顺序解析，文件流会消费整个请求体
+    const formData = new FormData()
+    formData.append('parent_id', parent_id) // ✅ 字段在前（必需）
+    if (parent_path) {
+      formData.append('parent_path', parent_path) // ✅ 可选路径字段
+    }
+    formData.append('file', file) // ✅ 文件在后
+
+    console.log('开始上传文件:', file.name, '到驱动盘:', drive_id)
+    console.log('父目录ID:', parent_id)
+    if (parent_path) {
+      console.log('父目录路径:', parent_path)
+    }
+    console.log('FormData 内容:')
+    console.log('  - parent_id:', parent_id)
+    if (parent_path) {
+      console.log('  - parent_path:', parent_path)
+    }
+    console.log('  - file:', file.name, file.size, 'bytes')
+
+    // 发送上传请求
+    // 注意：必须删除默认的 application/json Content-Type，让 axios 自动设置 multipart/form-data
+    const response = await apiClient.post<{
+      success: boolean
+      data: FileInfo
+      message?: string
+    }>(`/api/icalink/v1/wps-drive/drives/${drive_id}/files/upload`, formData, {
+      headers: {
+        'Content-Type': undefined, // ✅ 删除默认的 application/json，让 axios 自动设置
+      },
+      onUploadProgress: onProgress
+        ? (progressEvent) => {
+            if (progressEvent.total) {
+              const progress = Math.round(
+                (progressEvent.loaded / progressEvent.total) * 100
+              )
+              onProgress(progress)
+            }
+          }
+        : undefined,
+    })
+
+    if (!response.success) {
+      throw new Error(response.message || '文件上传失败')
+    }
+
     return response.data
   },
 }

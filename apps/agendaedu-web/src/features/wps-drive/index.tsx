@@ -115,6 +115,7 @@ export default function WpsDriveManagement() {
   const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
+  const [uploadParentPath, setUploadParentPath] = useState('')
 
   // 获取驱动盘列表
   const {
@@ -238,19 +239,14 @@ export default function WpsDriveManagement() {
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i]
 
-        // 步骤1: 请求上传（自动计算文件哈希值）
-        const uploadInfo = await wpsDriveApi.requestUploadWithHash({
-          drive_id: targetDriveId,
-          parent_id: targetParentId,
-          file,
-        })
-
-        // 步骤2: 上传文件内容
-        // 传递WPS API返回的headers（可能包含Authorization token）
-        await wpsDriveApi.uploadFileContent(
-          uploadInfo.store_request.url,
-          file,
-          uploadInfo.store_request.headers, // 传递认证头
+        // 使用一体化上传方法（后端代理上传）
+        await wpsDriveApi.uploadFile(
+          {
+            drive_id: targetDriveId,
+            parent_id: targetParentId,
+            file,
+            ...(uploadParentPath && { parent_path: uploadParentPath }),
+          },
           (progress) => {
             // 计算总体进度
             const fileProgress =
@@ -258,15 +254,6 @@ export default function WpsDriveManagement() {
             setUploadProgress(Math.round(fileProgress))
           }
         )
-
-        // 步骤3: 完成上传
-        await wpsDriveApi.completeUpload({
-          drive_id: targetDriveId,
-          upload_id: uploadInfo.upload_id,
-          file_name: file.name,
-          file_size: file.size,
-          parent_id: targetParentId,
-        })
       }
 
       toast.success(`成功上传 ${selectedFiles.length} 个文件`)
@@ -280,6 +267,7 @@ export default function WpsDriveManagement() {
       setUploadDialogOpen(false)
       setSelectedFiles(null)
       setUploadProgress(0)
+      setUploadParentPath('')
     } catch (error: any) {
       toast.error(`上传失败: ${error.message}`)
     } finally {
@@ -458,7 +446,7 @@ export default function WpsDriveManagement() {
                         </DialogHeader>
                         <div className='space-y-4 py-4'>
                           <div className='space-y-2'>
-                            <Label htmlFor='file-upload'>选择文件</Label>
+                            <Label htmlFor='file-upload'>选择文件 *</Label>
                             <Input
                               id='file-upload'
                               type='file'
@@ -471,6 +459,25 @@ export default function WpsDriveManagement() {
                                 已选择 {selectedFiles.length} 个文件
                               </p>
                             )}
+                          </div>
+                          <div className='space-y-2'>
+                            <Label htmlFor='upload-parent-path'>
+                              父文件夹路径（可选）
+                            </Label>
+                            <Input
+                              id='upload-parent-path'
+                              type='text'
+                              placeholder='例如：/2024/photos 或 folder1/folder2'
+                              value={uploadParentPath}
+                              onChange={(e) =>
+                                setUploadParentPath(e.target.value)
+                              }
+                              disabled={isUploading}
+                            />
+                            <p className='text-muted-foreground text-xs'>
+                              留空表示上传到当前选中的位置。使用 /
+                              分隔路径层级，如果路径不存在会自动创建。
+                            </p>
                           </div>
                           {isUploading && (
                             <div className='space-y-2'>

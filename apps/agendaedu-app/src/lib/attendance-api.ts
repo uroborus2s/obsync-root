@@ -12,8 +12,7 @@ export interface StudentAttendanceSearchResponse {
   message?: string;
   data?: {
     id: number; // 课程ID
-    attendance_record_id?: number; // 考勤记录ID，用于请假申请
-    leave_application_id?: number; // 请假申请ID，用于撤回请假
+    attendance_record_id?: number; // 考勤记录ID，用于请假申请和撤回请假
     course: {
       external_id: string;
       kkh?: string;
@@ -810,9 +809,23 @@ export class AttendanceApiService {
   }
 
   /**
-   * 学生撤回请假申请
+   * 学生撤回请假申请（新版本，使用 attendance_record_id）
    */
   async studentWithdrawLeave(
+    attendanceRecordId: number
+  ): Promise<StudentWithdrawLeaveResponse> {
+    const response = await this.apiClient.post<StudentWithdrawLeaveResponse>(
+      `/icalink/v1/leave-applications/withdraw`,
+      { attendance_record_id: attendanceRecordId }
+    );
+    return response as unknown as StudentWithdrawLeaveResponse;
+  }
+
+  /**
+   * 学生撤回请假申请（旧版本，使用 application_id）
+   * @deprecated 使用 studentWithdrawLeave(attendanceRecordId: number) 代替
+   */
+  async studentWithdrawLeaveLegacy(
     applicationId: string
   ): Promise<StudentWithdrawLeaveResponse> {
     const response = await this.apiClient.post<StudentWithdrawLeaveResponse>(
@@ -823,21 +836,75 @@ export class AttendanceApiService {
   }
 
   /**
-   * 学生撤回请假申请（旧版本兼容）
-   * @deprecated 使用 studentWithdrawLeave(applicationId: string) 代替
+   * 获取 OSS 预签名上传 URL
+   * POST /api/icalink/v1/oss/presigned-upload-url
+   *
+   * @param file - 图片文件
+   * @returns 预签名上传 URL 和对象路径
    */
-  async studentWithdrawLeaveByAttendanceId(): Promise<StudentWithdrawLeaveResponse> {
-    // 需要先通过attendance_record_id查找对应的leave application
-    // 这里需要调用查询接口来获取application_id
-    throw new Error('此方法已废弃，请使用新的撤回请假接口');
+  async getPresignedUploadUrl(file: File): Promise<{
+    success: boolean;
+    message?: string;
+    data?: {
+      uploadUrl: string;
+      objectPath: string;
+      expiresIn: number;
+      bucketName: string;
+    };
+  }> {
+    const response = await this.apiClient.post<{
+      success: boolean;
+      message?: string;
+      data?: {
+        uploadUrl: string;
+        objectPath: string;
+        expiresIn: number;
+        bucketName: string;
+      };
+    }>('/icalink/v1/oss/presigned-upload-url', {
+      fileName: file.name,
+      mimeType: file.type,
+      fileSize: file.size,
+      businessType: 'checkin'
+    });
+
+    return response as unknown as {
+      success: boolean;
+      message?: string;
+      data?: {
+        uploadUrl: string;
+        objectPath: string;
+        expiresIn: number;
+        bucketName: string;
+      };
+    };
   }
 
   /**
-   * 上传签到图片
-   * POST /api/icalink/v1/attendance/upload-checkin-photo
+   * 上传文件到 OSS（使用预签名 URL）
+   *
+   * @param uploadUrl - 预签名上传 URL
+   * @param file - 图片文件
+   */
+  async uploadToOSS(uploadUrl: string, file: File): Promise<void> {
+    const response = await fetch(uploadUrl, {
+      method: 'PUT',
+      body: file,
+      headers: {
+        'Content-Type': file.type
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`上传失败: ${response.statusText}`);
+    }
+  }
+
+  /**
+   * 上传签到图片（完整流程）
    *
    * @param file - 图片文件
-   * @returns 图片OSS路径
+   * @returns 图片 OSS 路径
    */
   async uploadCheckinPhoto(file: File): Promise<{
     success: boolean;
@@ -847,30 +914,38 @@ export class AttendanceApiService {
       bucket_name: string;
     };
   }> {
-    // 将文件转换为base64
-    const base64 = await this.fileToBase64(file);
+    try {
+      // 1. 获取预签名上传 URL
+      const presignedResult = await this.getPresignedUploadUrl(file);
 
-    const response = await this.apiClient.post<{
-      success: boolean;
-      message?: string;
-      data?: {
-        photo_url: string;
-        bucket_name: string;
-      };
-    }>('/icalink/v1/attendance/upload-checkin-photo', {
-      image: base64,
-      fileName: file.name,
-      mimeType: file.type
-    });
+      if (!presignedResult.success || !presignedResult.data) {
+        return {
+          success: false,
+          message: presignedResult.message || '获取上传地址失败'
+        };
+      }
 
-    return response as unknown as {
-      success: boolean;
-      message?: string;
-      data?: {
-        photo_url: string;
-        bucket_name: string;
+      const { uploadUrl, objectPath, bucketName } = presignedResult.data;
+
+      // 2. 上传文件到 OSS
+      await this.uploadToOSS(uploadUrl, file);
+
+      // 3. 返回对象路径
+      return {
+        success: true,
+        message: '上传成功',
+        data: {
+          photo_url: objectPath,
+          bucket_name: bucketName
+        }
       };
-    };
+    } catch (error) {
+      console.error('上传签到图片失败:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : '上传失败'
+      };
+    }
   }
 
   /**

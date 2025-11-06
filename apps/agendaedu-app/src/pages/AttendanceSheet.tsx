@@ -1,3 +1,4 @@
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import LeaveApprovalDialog from '@/components/LeaveApprovalDialog';
 import ManualCheckinDialog from '@/components/ManualCheckinDialog';
 import { Toaster, ToastProvider } from '@/components/ui/toast';
@@ -37,6 +38,7 @@ interface CourseData {
   attendance_end_offset?: number;
   late_threshold?: number;
   auto_absent_after?: number;
+  need_checkin: number; // 0: 无需签到, 1: 需要签到
   created_at: string;
   updated_at: string;
   created_by?: string;
@@ -178,6 +180,19 @@ function AttendanceSheetContent() {
   const [activeTab, setActiveTab] = useState<'attendance' | 'absence'>(
     'attendance'
   );
+
+  // 切换签到设置状态
+  const [isUpdatingCheckinSetting, setIsUpdatingCheckinSetting] =
+    useState(false);
+
+  // 切换签到设置确认对话框状态
+  const [isCheckinSettingDialogOpen, setIsCheckinSettingDialogOpen] =
+    useState(false);
+  const [pendingCheckinSetting, setPendingCheckinSetting] = useState<{
+    newValue: 0 | 1;
+    title: string;
+    message: string;
+  } | null>(null);
 
   const id = searchParams.get('id');
 
@@ -427,6 +442,13 @@ function AttendanceSheetContent() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teacherData?.course?.course_code]);
+
+  // 当 need_checkin = 0 时，自动切换到"缺勤统计"Tab
+  useEffect(() => {
+    if (teacherData?.course?.need_checkin === 0 && activeTab === 'attendance') {
+      setActiveTab('absence');
+    }
+  }, [teacherData?.course?.need_checkin, activeTab]);
 
   // 定时器：每秒检查验签按钮状态（仅在进行中的课程）
   useEffect(() => {
@@ -752,6 +774,91 @@ function AttendanceSheetContent() {
     }
   };
 
+  // 打开切换签到设置确认对话框
+  const handleToggleCheckinSetting = () => {
+    if (!teacherData?.course) return;
+
+    const course = teacherData.course;
+    const newNeedCheckin = course.need_checkin === 1 ? 0 : 1;
+    const title = newNeedCheckin === 0 ? '关闭签到' : '启用签到';
+    const message =
+      newNeedCheckin === 0
+        ? '确定要将本节课设置为无需签到吗？设置后学生无需签到，本次课统计时算满勤。'
+        : '确定要启用本节课的签到功能吗？启用后学生需要进行签到，系统默认每节课都需签到。';
+
+    setPendingCheckinSetting({
+      newValue: newNeedCheckin,
+      title,
+      message
+    });
+    setIsCheckinSettingDialogOpen(true);
+  };
+
+  // 确认切换签到设置
+  const handleConfirmToggleCheckinSetting = async () => {
+    if (!teacherData?.course || !pendingCheckinSetting) return;
+
+    const course = teacherData.course;
+    const { newValue: newNeedCheckin } = pendingCheckinSetting;
+
+    // 关闭对话框
+    setIsCheckinSettingDialogOpen(false);
+    setIsUpdatingCheckinSetting(true);
+
+    try {
+      const response = await icaLinkApiClient.patch(
+        `/icalink/v1/courses/${course.id}/checkin-setting`,
+        {
+          need_checkin: newNeedCheckin
+        }
+      );
+
+      if (response.success) {
+        toast.success(newNeedCheckin === 0 ? '已关闭签到' : '已启用签到', {
+          description: '设置已更新',
+          duration: 3000
+        });
+        // 刷新数据
+        await loadTeacherAttendanceData();
+      } else {
+        // 根据错误消息显示友好提示
+        let errorDescription = response.message || '请重试';
+        if (
+          response.message?.includes('not started') ||
+          response.message?.includes('未开始')
+        ) {
+          errorDescription = '只能在课程开始前修改签到设置';
+        }
+
+        toast.error('设置失败', {
+          description: errorDescription,
+          duration: 4000
+        });
+        throw new Error(response.message || '设置失败');
+      }
+    } catch (error) {
+      console.error('设置失败:', error);
+      let errorDescription = '请重试';
+      if (error instanceof Error) {
+        if (
+          error.message?.includes('not started') ||
+          error.message?.includes('未开始')
+        ) {
+          errorDescription = '只能在课程开始前修改签到设置';
+        } else {
+          errorDescription = error.message;
+        }
+      }
+
+      toast.error('设置失败', {
+        description: errorDescription,
+        duration: 4000
+      });
+    } finally {
+      setIsUpdatingCheckinSetting(false);
+    }
+  };
+
   const getStatusIcon = (status: StudentAttendanceDetail['absence_type']) => {
     switch (status) {
       case 'unstarted':
@@ -898,21 +1005,48 @@ function AttendanceSheetContent() {
                       {getCourseStatusText(teacherData.status)}
                     </span>
                   </div>
-                  {/* 验签按钮 - 仅在进行中的课程显示 */}
-                  {teacherData.status === 'in_progress' && (
-                    <button
-                      type='button'
-                      onClick={handleOpenVerificationDialog}
-                      disabled={!canCreateWindow || isCreatingWindow}
-                      className={`rounded px-4 py-2 text-sm font-medium transition-colors ${
-                        canCreateWindow && !isCreatingWindow
-                          ? 'bg-blue-600 text-white hover:bg-blue-700'
-                          : 'cursor-not-allowed bg-gray-300 text-gray-500'
-                      }`}
-                    >
-                      {isCreatingWindow ? '创建中...' : '验签'}
-                    </button>
-                  )}
+                  {/* 操作按钮组 */}
+                  <div className='flex items-center space-x-2'>
+                    {/* 切换签到设置按钮 - 仅在未开始的课程显示 */}
+                    {teacherData.status === 'not_started' && (
+                      <button
+                        type='button'
+                        onClick={handleToggleCheckinSetting}
+                        disabled={isUpdatingCheckinSetting}
+                        className={`rounded px-4 py-2 text-sm font-medium transition-colors ${
+                          course.need_checkin === 0
+                            ? 'bg-green-600 text-white hover:bg-green-700'
+                            : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                        } ${
+                          isUpdatingCheckinSetting
+                            ? 'cursor-not-allowed opacity-50'
+                            : ''
+                        }`}
+                      >
+                        {isUpdatingCheckinSetting
+                          ? '设置中...'
+                          : course.need_checkin === 0
+                            ? '启用签到'
+                            : '关闭签到'}
+                      </button>
+                    )}
+                    {/* 验签按钮 - 仅在进行中的课程且需要签到时显示 */}
+                    {teacherData.status === 'in_progress' &&
+                      course.need_checkin === 1 && (
+                        <button
+                          type='button'
+                          onClick={handleOpenVerificationDialog}
+                          disabled={!canCreateWindow || isCreatingWindow}
+                          className={`rounded px-4 py-2 text-sm font-medium transition-colors ${
+                            canCreateWindow && !isCreatingWindow
+                              ? 'bg-blue-600 text-white hover:bg-blue-700'
+                              : 'cursor-not-allowed bg-gray-300 text-gray-500'
+                          }`}
+                        >
+                          {isCreatingWindow ? '创建中...' : '验签'}
+                        </button>
+                      )}
+                  </div>
                 </div>
                 <div className='mb-3 text-lg font-medium text-blue-600'>
                   {formatCourseTime(
@@ -1063,17 +1197,21 @@ function AttendanceSheetContent() {
                 <div className='mb-6 rounded-lg bg-white shadow-sm'>
                   {/* Tab 导航栏 */}
                   <div className='flex border-b border-gray-200'>
-                    <button
-                      type='button'
-                      onClick={() => setActiveTab('attendance')}
-                      className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                        activeTab === 'attendance'
-                          ? 'border-b-2 border-blue-500 text-blue-600'
-                          : 'text-gray-600 hover:text-gray-800'
-                      }`}
-                    >
-                      签到情况
-                    </button>
+                    {/* 签到情况 Tab - 仅在 need_checkin = 1 时显示 */}
+                    {course.need_checkin === 1 && (
+                      <button
+                        type='button'
+                        onClick={() => setActiveTab('attendance')}
+                        className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                          activeTab === 'attendance'
+                            ? 'border-b-2 border-blue-500 text-blue-600'
+                            : 'text-gray-600 hover:text-gray-800'
+                        }`}
+                      >
+                        签到情况
+                      </button>
+                    )}
+                    {/* 缺勤统计 Tab - 始终显示 */}
                     <button
                       type='button'
                       onClick={() => setActiveTab('absence')}
@@ -1206,7 +1344,7 @@ function AttendanceSheetContent() {
 
                     {/* 缺勤统计 Tab */}
                     {activeTab === 'absence' && (
-                      <div>
+                      <div className='max-h-96 overflow-y-auto'>
                         {isLoadingStats ? (
                           <div className='flex items-center justify-center py-8'>
                             <div className='text-sm text-gray-500'>
@@ -1258,9 +1396,6 @@ function AttendanceSheetContent() {
                                             请假:{' '}
                                             {formatPercentage(stat.leave_rate)}
                                           </span>
-                                        </div>
-                                        <div className='mt-1 text-xs text-gray-500'>
-                                          总课时: {stat.total_classes}
                                         </div>
                                       </div>
                                       <div className='text-gray-400'>
@@ -1407,6 +1542,19 @@ function AttendanceSheetContent() {
             isSubmitting={isApproving}
           />
         )}
+
+        {/* 切换签到设置确认对话框 */}
+        <ConfirmDialog
+          isOpen={isCheckinSettingDialogOpen}
+          onClose={() => setIsCheckinSettingDialogOpen(false)}
+          onConfirm={handleConfirmToggleCheckinSetting}
+          title={pendingCheckinSetting?.title || ''}
+          message={pendingCheckinSetting?.message || ''}
+          confirmText='确定'
+          cancelText='取消'
+          isLoading={isUpdatingCheckinSetting}
+          variant='warning'
+        />
       </div>
     );
   }

@@ -13,10 +13,11 @@ import {
 import AbsentStudentRelationRepository from '../repositories/AbsentStudentRelationRepository.js';
 import AttendanceCourseRepository from '../repositories/AttendanceCourseRepository.js';
 import AttendanceRecordRepository from '../repositories/AttendanceRecordRepository.js';
+import AttendanceTodayViewRepository from '../repositories/AttendanceTodayViewRepository.js';
 import AttendanceViewRepository from '../repositories/AttendanceViewRepository.js';
+import ContactRepository from '../repositories/ContactRepository.js';
 import CourseStudentRepository from '../repositories/CourseStudentRepository.js';
 import LeaveApplicationRepository from '../repositories/LeaveApplicationRepository.js';
-import StudentRepository from '../repositories/StudentRepository.js';
 import VerificationWindowRepository from '../repositories/VerificationWindowRepository.js';
 
 import { isAfter, isBefore, isEqual, startOfDay } from 'date-fns';
@@ -30,13 +31,14 @@ import type {
   StudentCourseDataVO,
   TeacherCourseCompleteDataVO,
   TeacherInfo,
+  UpdateCourseCheckinSettingDTO,
+  UpdateCourseCheckinSettingResponse,
   UserInfo
 } from '../types/api.js';
 import type {
   AttendanceStatus,
   IcalinkAttendanceRecord,
-  IcasyncAttendanceCourse,
-  OutXsxx
+  IcasyncAttendanceCourse
 } from '../types/database.js';
 import { ServiceErrorCode } from '../types/service.js';
 import { formatDateTimeWithTimezone } from '../utils/datetime.js';
@@ -57,11 +59,12 @@ export default class AttendanceService implements IAttendanceService {
   constructor(
     private readonly logger: Logger,
     private readonly queueClient: IQueueAdapter,
-    private readonly studentRepository: StudentRepository,
+    private readonly contactRepository: ContactRepository,
     private readonly courseStudentRepository: CourseStudentRepository,
     private readonly attendanceCourseRepository: AttendanceCourseRepository,
     private readonly attendanceRecordRepository: AttendanceRecordRepository,
     private readonly attendanceViewRepository: AttendanceViewRepository,
+    private readonly attendanceTodayViewRepository: AttendanceTodayViewRepository,
     private readonly leaveApplicationRepository: LeaveApplicationRepository,
     private readonly absentStudentRelationRepository: AbsentStudentRelationRepository,
     private readonly verificationWindowRepository: VerificationWindowRepository
@@ -209,7 +212,7 @@ export default class AttendanceService implements IAttendanceService {
 
   /**
    * 构建历史课程的学生视图
-   * 数据源：icalink_absent_student_relations 表
+   * 数据源：icalink_absent_student_relations 表（已包含学生完整信息）
    */
   private async buildHistoricalStudentView(
     course: IcasyncAttendanceCourse,
@@ -220,31 +223,52 @@ export default class AttendanceService implements IAttendanceService {
       'Building historical student view'
     );
 
-    // 查询学生信息
-    const studentMaybe = (await this.studentRepository.findOne((qb) =>
-      qb.where('xh', '=', userInfo.userId).where('zt', 'in', ['add', 'update'])
-    )) as unknown as Maybe<OutXsxx>;
-
-    if (isNone(studentMaybe)) {
-      return left({
-        code: String(ServiceErrorCode.RESOURCE_NOT_FOUND),
-        message: 'Student not found'
-      });
-    }
-
-    const student = studentMaybe.value;
-
-    // 查询历史缺勤记录
+    // 查询历史缺勤记录（icalink_absent_student_relations 表已包含学生信息）
     const absentRecord =
       await this.absentStudentRelationRepository.findByCourseAndStudent(
         course.id,
         userInfo.userId
       );
 
-    // 如果没有缺勤记录，说明是正常出勤
-    const status: AttendanceStatus = absentRecord
-      ? (absentRecord.absence_type as AttendanceStatus)
-      : ('present' as AttendanceStatus);
+    // 确定签到状态和学生信息
+    let status: AttendanceStatus;
+    let studentInfo: {
+      xh: string;
+      xm: string;
+      bjmc: string;
+      zymc: string;
+    };
+
+    if (absentRecord) {
+      // 有缺勤记录：使用记录中的状态和学生信息
+      status = absentRecord.absence_type as AttendanceStatus;
+      studentInfo = {
+        xh: absentRecord.student_id,
+        xm: absentRecord.student_name || '',
+        bjmc: absentRecord.class_name || '',
+        zymc: absentRecord.major_name || ''
+      };
+    } else {
+      // 没有缺勤记录：说明是正常出勤，需要从 icalink_contacts 表获取学生信息
+      const contact = await this.contactRepository.findByUserId(
+        userInfo.userId
+      );
+
+      if (!contact) {
+        return left({
+          code: String(ServiceErrorCode.RESOURCE_NOT_FOUND),
+          message: 'Student contact not found'
+        });
+      }
+
+      status = 'present' as AttendanceStatus;
+      studentInfo = {
+        xh: contact.user_id,
+        xm: contact.user_name || '',
+        bjmc: contact.class_name || '',
+        zymc: contact.major_name || ''
+      };
+    }
 
     const vo: StudentCourseDataVO = {
       id: course.id,
@@ -262,14 +286,10 @@ export default class AttendanceService implements IAttendanceService {
         lq: '', // 楼区信息暂时为空
         rq: formatDateTimeWithTimezone(new Date(course.start_time)).split(
           'T'
-        )[0]
+        )[0],
+        need_checkin: course.need_checkin // 0: 无需签到, 1: 需要签到
       },
-      student: {
-        xh: student.id,
-        xm: student.xm || '',
-        bjmc: student.bjmc || '',
-        zymc: student.zymc || ''
-      },
+      student: studentInfo,
       final_status: status
     };
 
@@ -278,7 +298,7 @@ export default class AttendanceService implements IAttendanceService {
 
   /**
    * 构建当前课程的学生视图
-   * 数据源：v_attendance_realtime_details 视图 + icalink_verification_windows 表
+   * 数据源：v_attendance_today_details 视图（单一数据源）
    */
   private async buildCurrentStudentView(
     course: any,
@@ -286,70 +306,39 @@ export default class AttendanceService implements IAttendanceService {
   ): Promise<Either<ServiceError, StudentCourseDataVO>> {
     this.logger.debug(
       { courseId: course.id, studentId: userInfo.userId },
-      'Building current student view'
+      'Building current student view from v_attendance_today_details'
     );
 
-    // 查询学生信息
-    const studentMaybe = (await this.studentRepository.findOne((qb) =>
-      qb.where('xh', '=', userInfo.userId).where('zt', 'in', ['add', 'update'])
-    )) as unknown as Maybe<OutXsxx>;
-
-    if (isNone(studentMaybe)) {
-      return left({
-        code: String(ServiceErrorCode.RESOURCE_NOT_FOUND),
-        message: 'Student not found'
-      });
-    }
-
-    const student = studentMaybe.value;
-
-    // 查询实时考勤状态
-    const realtimeDetail =
-      await this.attendanceViewRepository.findByExternalIdAndStudent(
+    // 从 v_attendance_today_details 视图查询学生考勤详情
+    // 该视图已包含学生基本信息和实时考勤状态
+    const todayDetailMaybe =
+      await this.attendanceTodayViewRepository.findByExternalIdAndStudent(
         course.external_id,
         userInfo.userId
       );
-    if (isNone(realtimeDetail)) {
+
+    if (isNone(todayDetailMaybe)) {
       return left({
         code: String(ServiceErrorCode.RESOURCE_NOT_FOUND),
-        message: 'Realtime detail not found'
+        message: 'Student attendance detail not found in today view'
       });
     }
 
-    const status: AttendanceStatus = realtimeDetail
-      ? (realtimeDetail.value.final_status as AttendanceStatus)
-      : ('absent' as AttendanceStatus);
+    const todayDetail = todayDetailMaybe.value;
+
+    const status: AttendanceStatus =
+      todayDetail.final_status as AttendanceStatus;
 
     // 查询最新签到窗口
     const latestWindow =
       await this.verificationWindowRepository.findLatestByCourse(course.id);
 
-    // 查询当天的签到记录
+    // 查询当天的签到记录（用于获取详细的签到信息）
     const attendanceRecords =
       await this.attendanceRecordRepository.findByCourseAndStudent(
         course.id,
         userInfo.userId
       );
-
-    // 查询请假申请ID（如果状态是请假相关）
-    let leaveApplicationId: number | undefined;
-    if (
-      attendanceRecords &&
-      (status === 'leave' || status === 'leave_pending')
-    ) {
-      const leaveApplications = (await this.leaveApplicationRepository.findMany(
-        (qb) =>
-          qb
-            .where('attendance_record_id', '=', attendanceRecords.id)
-            .where('status', 'in', ['leave', 'leave_pending'])
-            .orderBy('created_at', 'desc')
-            .limit(1)
-      )) as unknown as any[];
-
-      if (leaveApplications && leaveApplications.length > 0) {
-        leaveApplicationId = leaveApplications[0].id;
-      }
-    }
 
     // 构建 verification_windows 对象
     let verificationWindows:
@@ -394,8 +383,7 @@ export default class AttendanceService implements IAttendanceService {
 
     const vo: StudentCourseDataVO = {
       id: course.id,
-      attendance_record_id: attendanceRecords?.id, // 添加考勤记录ID
-      leave_application_id: leaveApplicationId, // 添加请假申请ID
+      attendance_record_id: todayDetail.attendance_record_id || undefined, // 从视图获取考勤记录ID
       course: {
         external_id: course.external_id,
         kcmc: course.course_name,
@@ -410,13 +398,14 @@ export default class AttendanceService implements IAttendanceService {
         lq: course.class_location || '', // 楼区信息暂时为空
         rq: formatDateTimeWithTimezone(new Date(course.start_time)).split(
           'T'
-        )[0]
+        )[0],
+        need_checkin: course.need_checkin // 0: 无需签到, 1: 需要签到
       },
       student: {
-        xh: student.id,
-        xm: student.xm || '',
-        bjmc: student.bjmc || '',
-        zymc: student.zymc || ''
+        xh: todayDetail.student_id,
+        xm: todayDetail.student_name || '',
+        bjmc: todayDetail.class_name || '',
+        zymc: todayDetail.major_name || ''
       },
       live_status: status,
       verification_windows: verificationWindows
@@ -438,19 +427,15 @@ export default class AttendanceService implements IAttendanceService {
       'Building future student view'
     );
 
-    // 查询学生信息
-    const studentMaybe = (await this.studentRepository.findOne((qb) =>
-      qb.where('xh', '=', userInfo.userId).where('zt', 'in', ['add', 'update'])
-    )) as unknown as Maybe<OutXsxx>;
+    // 查询学生信息（从 icalink_contacts 表）
+    const contact = await this.contactRepository.findByUserId(userInfo.userId);
 
-    if (isNone(studentMaybe)) {
+    if (!contact) {
       return left({
         code: String(ServiceErrorCode.RESOURCE_NOT_FOUND),
-        message: 'Student not found'
+        message: 'Student contact not found'
       });
     }
-
-    const student = studentMaybe.value;
 
     // 查询实时考勤状态
     const realtimeDetail =
@@ -471,37 +456,16 @@ export default class AttendanceService implements IAttendanceService {
       }
     }
 
-    // 查询考勤记录（用于请假）
+    // 查询考勤记录（用于请假和撤回请假）
     const attendanceRecords =
       await this.attendanceRecordRepository.findByCourseAndStudent(
         course.id,
         userInfo.userId
       );
 
-    // 查询请假申请ID（如果状态是请假相关）
-    let leaveApplicationId: number | undefined;
-    if (
-      attendanceRecords &&
-      (status === 'leave' || status === 'leave_pending')
-    ) {
-      const leaveApplications = (await this.leaveApplicationRepository.findMany(
-        (qb) =>
-          qb
-            .where('attendance_record_id', '=', attendanceRecords.id)
-            .where('status', 'in', ['leave', 'leave_pending'])
-            .orderBy('created_at', 'desc')
-            .limit(1)
-      )) as unknown as any[];
-
-      if (leaveApplications && leaveApplications.length > 0) {
-        leaveApplicationId = leaveApplications[0].id;
-      }
-    }
-
     const vo: StudentCourseDataVO = {
       id: course.id,
-      attendance_record_id: attendanceRecords?.id, // 添加考勤记录ID
-      leave_application_id: leaveApplicationId, // 添加请假申请ID
+      attendance_record_id: attendanceRecords?.id, // 考勤记录ID，用于请假申请和撤回请假
       course: {
         external_id: course.external_id,
         kcmc: course.course_name,
@@ -516,13 +480,14 @@ export default class AttendanceService implements IAttendanceService {
         lq: '', // 楼区信息暂时为空
         rq: formatDateTimeWithTimezone(new Date(course.start_time)).split(
           'T'
-        )[0]
+        )[0],
+        need_checkin: course.need_checkin // 0: 无需签到, 1: 需要签到
       },
       student: {
-        xh: student.id,
-        xm: student.xm || '',
-        bjmc: student.bjmc || '',
-        zymc: student.zymc || ''
+        xh: contact.user_id,
+        xm: contact.user_name || '',
+        bjmc: contact.class_name || '',
+        zymc: contact.major_name || ''
       },
       pending_status: status
     };
@@ -869,14 +834,8 @@ export default class AttendanceService implements IAttendanceService {
       });
     }
 
-    // 3. 验证图片签到的必填字段
-    const isPhotoCheckin = checkinData.checkin_type === 'photo';
-    if (isPhotoCheckin && !checkinData.photo_url) {
-      return left({
-        code: String(ServiceErrorCode.VALIDATION_FAILED),
-        message: '图片签到缺少图片路径参数'
-      });
-    }
+    // 3. 判断是否为照片签到（通过 photo_url 字段判断）
+    const isPhotoCheckin = !!checkinData.photo_url;
 
     // 4. 记录签到时间（用户点击签到按钮的时间）
     const checkinTime = new Date();
@@ -964,11 +923,11 @@ export default class AttendanceService implements IAttendanceService {
     );
 
     try {
-      // 1. 判断是否为图片签到
-      const isPhotoCheckin = checkinData.checkin_type === 'photo';
+      // 1. 判断是否为照片签到（通过photo_url字段判断）
+      const isPhotoCheckin = !!checkinData.photo_url;
 
       // 2. 时间窗口校验（异步）
-      // 图片签到跳过时间窗口校验，因为是位置校验失败后的补救措施
+      // 照片签到跳过时间窗口校验，因为是位置校验失败后的补救措施
       // 使用传入的签到时间和时间窗口参数进行验证
       const checkinDateTime = new Date(checkinTime);
       const courseStartTime = new Date(checkinData.course_start_time);
@@ -976,12 +935,12 @@ export default class AttendanceService implements IAttendanceService {
       let timeWindowValid = false;
 
       if (isPhotoCheckin) {
-        // 图片签到：跳过时间窗口校验，直接通过
+        // 照片签到：跳过时间窗口校验，直接通过
         timeWindowValid = true;
         this.logger.info(
           {
             studentId: studentInfo.userId,
-            checkinType: 'photo'
+            photoUrl: checkinData.photo_url
           },
           'Photo checkin - skipping time window validation'
         );
@@ -1110,13 +1069,19 @@ export default class AttendanceService implements IAttendanceService {
         throw new Error('Student not enrolled in course');
       }
 
-      // 5. 查询学生信息（获取班级、专业等信息）
-      const studentMaybe = await this.studentRepository.findOne((qb) =>
-        qb.where('xh', '=', studentInfo.userId)
+      // 5. 查询学生信息（从 icalink_contacts 表获取班级、专业等信息）
+      const contact = await this.contactRepository.findByUserId(
+        studentInfo.userId
       );
 
-      const studentData =
-        studentMaybe && isSome(studentMaybe) ? studentMaybe.value : null;
+      const studentData = contact
+        ? {
+            id: contact.user_id,
+            xm: contact.user_name,
+            bjmc: contact.class_name,
+            zymc: contact.major_name
+          }
+        : null;
 
       // 6. 准备签到数据
       // isPhotoCheckin 已在前面定义
@@ -1127,28 +1092,30 @@ export default class AttendanceService implements IAttendanceService {
         checkin_longitude: checkinData.longitude,
         checkin_accuracy: checkinData.accuracy,
         remark: checkinData.remark,
-        // 图片签到设置为待审批状态，正常签到设置为已签到状态
+        // 照片签到设置为待审批状态，正常签到设置为已签到状态
         status: isPhotoCheckin
           ? ('pending_approval' as AttendanceStatus)
           : ('present' as AttendanceStatus),
         updated_by: studentInfo.userId
       };
 
-      // 8. 处理图片签到的特殊逻辑
+      // 7. 处理照片签到的特殊逻辑
       if (isPhotoCheckin && checkinData.photo_url) {
-        // 图片签到：保存图片路径到 metadata 字段
+        // 照片签到：将照片URL和位置偏移距离保存到 metadata 字段
         checkinRecordData.metadata = {
           photo_url: checkinData.photo_url,
-          checkin_type: 'photo',
-          reason: '位置校验失败，使用图片签到'
+          location_offset_distance:
+            checkinData.location_offset_distance || null,
+          reason: '位置校验失败，使用照片签到'
         };
         checkinRecordData.last_checkin_source = 'photo';
-        checkinRecordData.last_checkin_reason = '位置校验失败，使用图片签到';
+        checkinRecordData.last_checkin_reason = '位置校验失败，使用照片签到';
 
         this.logger.info(
           {
             studentId: studentInfo.userId,
-            photoUrl: checkinData.photo_url
+            photoUrl: checkinData.photo_url,
+            locationOffsetDistance: checkinData.location_offset_distance
           },
           'Photo checkin processed - pending approval'
         );
@@ -1516,12 +1483,16 @@ export default class AttendanceService implements IAttendanceService {
       });
     }
 
-    // 4. 查询学生信息
-    const studentMaybe = (await this.studentRepository.findOne((qb) =>
-      qb.where('xh', '=', studentId)
-    )) as unknown as Maybe<OutXsxx>;
+    // 4. 查询学生信息（从 icalink_contacts 表）
+    const contact = await this.contactRepository.findByUserId(studentId);
 
-    const studentData = isSome(studentMaybe) ? studentMaybe.value : null;
+    const studentData = contact
+      ? {
+          xm: contact.user_name,
+          bjmc: contact.class_name,
+          zymc: contact.major_name
+        }
+      : null;
 
     // 5. 每次补卡都创建新记录（不检查已有记录）
     const now = new Date();
@@ -1570,5 +1541,223 @@ export default class AttendanceService implements IAttendanceService {
       record_id: recordId,
       message: '补卡成功'
     });
+  }
+
+  /**
+   * 审批照片签到
+   *
+   * 教师审批学生的照片签到记录：
+   * - approved: 将状态从 pending_approval 改为 present 或 late
+   * - rejected: 将状态从 pending_approval 改为 absent
+   *
+   * @param recordId - 签到记录ID
+   * @param action - 审批动作：approved/rejected
+   * @param teacherId - 教师ID
+   * @param remark - 审批备注
+   */
+  async approvePhotoCheckin(
+    recordId: number,
+    action: 'approved' | 'rejected',
+    teacherId: string,
+    remark?: string
+  ): Promise<Either<ServiceError, { record_id: number; message: string }>> {
+    try {
+      this.logger.info(
+        { recordId, action, teacherId },
+        'Approving photo checkin'
+      );
+
+      // 1. 查询签到记录
+      const recordMaybe =
+        await this.attendanceRecordRepository.findById(recordId);
+
+      if (isNone(recordMaybe)) {
+        return left({
+          code: String(ServiceErrorCode.RESOURCE_NOT_FOUND),
+          message: '签到记录不存在'
+        });
+      }
+
+      const record = recordMaybe.value;
+
+      // 2. 验证记录状态（只能审批 pending_approval 状态的记录）
+      if (record.status !== 'pending_approval') {
+        return left({
+          code: String(ServiceErrorCode.VALIDATION_FAILED),
+          message: `签到记录状态不是待审批状态，当前状态：${record.status}`
+        });
+      }
+
+      // 3. 验证是否为照片签到（检查 metadata 中是否有 photo_url）
+      const metadata = record.metadata as any;
+      if (!metadata || !metadata.photo_url) {
+        return left({
+          code: String(ServiceErrorCode.VALIDATION_FAILED),
+          message: '该签到记录不是照片签到'
+        });
+      }
+
+      // 4. 准备更新数据
+      let newStatus: AttendanceStatus;
+      let approvalRemark: string;
+
+      if (action === 'approved') {
+        // 审批通过：设置为 present（暂不判断迟到，统一设为 present）
+        newStatus = 'present' as AttendanceStatus;
+        approvalRemark = remark || '照片签到审批通过';
+      } else {
+        // 审批拒绝：设置为 absent
+        newStatus = 'absent' as AttendanceStatus;
+        approvalRemark = remark || '照片签到审批拒绝';
+      }
+
+      // 5. 更新签到记录
+      const updateData: Partial<IcalinkAttendanceRecord> = {
+        status: newStatus,
+        remark: approvalRemark,
+        updated_by: teacherId,
+        manual_override_by: teacherId,
+        manual_override_time: new Date(),
+        manual_override_reason: approvalRemark
+      };
+
+      const updateResult = await this.attendanceRecordRepository.update(
+        recordId,
+        updateData
+      );
+
+      if (isLeft(updateResult)) {
+        this.logger.error(
+          { recordId, error: updateResult.left },
+          'Failed to update attendance record'
+        );
+        return left({
+          code: String(ServiceErrorCode.DATABASE_ERROR),
+          message: '更新签到记录失败'
+        });
+      }
+
+      this.logger.info(
+        { recordId, action, newStatus, teacherId },
+        'Photo checkin approved successfully'
+      );
+
+      return right({
+        record_id: recordId,
+        message: action === 'approved' ? '审批通过' : '审批拒绝'
+      });
+    } catch (error) {
+      this.logger.error(
+        { error, recordId, action },
+        'Failed to approve photo checkin'
+      );
+      return left({
+        code: String(ServiceErrorCode.UNKNOWN_ERROR),
+        message: '审批照片签到失败'
+      });
+    }
+  }
+
+  /**
+   * 更新课程签到设置
+   * @param dto - 更新课程签到设置 DTO
+   * @returns 更新结果
+   */
+  public async updateCourseCheckinSetting(
+    dto: UpdateCourseCheckinSettingDTO
+  ): Promise<Either<ServiceError, UpdateCourseCheckinSettingResponse>> {
+    const { courseId, needCheckin, userInfo } = dto;
+
+    try {
+      this.logger.debug(
+        { courseId, needCheckin, userId: userInfo.userId },
+        'Updating course checkin setting'
+      );
+
+      // 1. 查询课程信息
+      const courseMaybe = await this.attendanceCourseRepository.findOne((qb) =>
+        qb.where('id', '=', courseId)
+      );
+
+      if (isNone(courseMaybe)) {
+        return left({
+          code: String(ServiceErrorCode.RESOURCE_NOT_FOUND),
+          message: 'Course not found'
+        });
+      }
+
+      const course = courseMaybe.value;
+
+      // 2. 权限验证：检查用户是否是该课程的授课教师
+      if (userInfo.userType !== 'teacher') {
+        return left({
+          code: String(ServiceErrorCode.PERMISSION_DENIED),
+          message: 'Only teachers can update course checkin settings'
+        });
+      }
+
+      // 检查教师工号是否在课程的教师列表中
+      const teacherCodes = course.teacher_codes?.split(',') || [];
+      if (!teacherCodes.includes(userInfo.userId)) {
+        return left({
+          code: String(ServiceErrorCode.PERMISSION_DENIED),
+          message: 'You are not authorized to update this course'
+        });
+      }
+
+      // 3. 课程状态验证：只允许未开始的课程修改签到设置
+      const now = new Date();
+      const courseStartTime = new Date(course.start_time);
+
+      if (isBefore(now, courseStartTime) === false) {
+        return left({
+          code: String(ServiceErrorCode.BUSINESS_RULE_VIOLATION),
+          message:
+            'Only courses that have not started can update checkin settings'
+        });
+      }
+
+      // 4. 更新课程的 need_checkin 字段
+      const updateData: Partial<IcasyncAttendanceCourse> = {
+        need_checkin: needCheckin,
+        updated_by: userInfo.userId
+      };
+
+      const updateResult = await this.attendanceCourseRepository.update(
+        courseId,
+        updateData
+      );
+
+      if (isLeft(updateResult)) {
+        this.logger.error(
+          { courseId, error: updateResult.left },
+          'Failed to update course checkin setting'
+        );
+        return left({
+          code: String(ServiceErrorCode.DATABASE_ERROR),
+          message: 'Failed to update course checkin setting'
+        });
+      }
+
+      this.logger.info(
+        { courseId, needCheckin, userId: userInfo.userId },
+        'Course checkin setting updated successfully'
+      );
+
+      return right({
+        course_id: courseId,
+        need_checkin: needCheckin,
+        updated_at: new Date().toISOString()
+      });
+    } catch (error) {
+      this.logger.error(
+        { error, courseId, needCheckin },
+        'Failed to update course checkin setting'
+      );
+      return left({
+        code: String(ServiceErrorCode.UNKNOWN_ERROR),
+        message: 'Failed to update course checkin setting'
+      });
+    }
   }
 }

@@ -244,3 +244,8 @@ yarn-error.log*
 
 # 数据库
 *.db
+
+# 配置数据
+prod.env.json
+dev.env.json
+*.env.json

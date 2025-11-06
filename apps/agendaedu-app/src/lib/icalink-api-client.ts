@@ -254,6 +254,21 @@ export class IcaLinkApiClient {
   }
 
   /**
+   * PATCH请求
+   */
+  async patch<T = any>(
+    endpoint: string,
+    data?: any,
+    options?: RequestOptions
+  ): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      ...options,
+      method: 'PATCH',
+      body: data ? JSON.stringify(data) : undefined
+    });
+  }
+
+  /**
    * DELETE请求
    */
   async delete<T = any>(

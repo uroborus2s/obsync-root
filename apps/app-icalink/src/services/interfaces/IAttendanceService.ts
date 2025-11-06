@@ -5,7 +5,9 @@ import type {
   CheckinResponse,
   GetCourseCompleteDataDTO,
   StudentCourseDataVO,
-  TeacherCourseCompleteDataVO
+  TeacherCourseCompleteDataVO,
+  UpdateCourseCheckinSettingDTO,
+  UpdateCourseCheckinSettingResponse
 } from '../../types/api.js';
 
 export interface IAttendanceService {
@@ -22,11 +24,14 @@ export interface IAttendanceService {
     pageSize: number
   ): Promise<Either<ServiceError, any>>;
 
+  updateCourseCheckinSetting(
+    dto: UpdateCourseCheckinSettingDTO
+  ): Promise<Either<ServiceError, UpdateCourseCheckinSettingResponse>>;
+
   // getCourseAttendanceHistoryById(
   //   courseId: string,
   //   userInfo: UserInfo,
   //   params: { xnxq?: string; start_date?: string; end_date?: string }
-
 
   // getPersonalCourseStatsById(
   //   courseId: string,

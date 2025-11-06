@@ -36,7 +36,7 @@ SELECT
     WHEN arh.status IN ('leave', 'leave_pending') THEN arh.status
     WHEN lw.window_id IS NOT NULL THEN
       CASE
-        WHEN arh.window_id = lw.window_id THEN 'present'
+        WHEN arh.window_id = lw.window_id THEN arh.status
         WHEN arh.status IN ('present') AND (arh.window_id <> lw.window_id OR arh.window_id IS NULL) THEN 'truant'
         ELSE 'absent'
       END
@@ -70,4 +70,5 @@ LEFT JOIN (
   WHERE v.status IN ('open', 'expired')
 ) AS lw
   ON lw.course_id = sessions.id
-WHERE sessions.deleted_at IS NULL;
+WHERE sessions.deleted_at IS NULL
+      and sessions.need_checkin =1;

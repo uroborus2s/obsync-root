@@ -37,7 +37,7 @@ SELECT
     WHEN arh.status IN ('leave', 'leave_pending') THEN arh.status
     WHEN lw.window_id IS NOT NULL THEN
       CASE
-        WHEN arh.window_id = lw.window_id THEN 'present'
+        WHEN arh.window_id = lw.window_id THEN arh.status
         WHEN arh.status IN ('present') AND (arh.window_id <> lw.window_id OR arh.window_id IS NULL) THEN 'truant'
         ELSE 'absent'
       END
@@ -87,5 +87,6 @@ LEFT JOIN (
 -- Filter sessions to match today's calculated teaching week and weekday
 WHERE sessions.deleted_at IS NULL
   AND sessions.teaching_week = current_schedule.current_teaching_week
+  AND sessions.need_checkin = 1
   AND sessions.week_day = current_schedule.current_weekday
   AND current_schedule.current_teaching_week <= 18;

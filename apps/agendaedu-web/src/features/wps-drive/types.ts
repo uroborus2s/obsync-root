@@ -160,6 +160,10 @@ export interface FileInfo {
   type: FileType
   /** 文件版本号 */
   version: number
+  /** 共享链接URL（仅在上传后返回） */
+  shareUrl?: string
+  /** 是否成功开启共享（仅在上传后返回） */
+  shareEnabled?: boolean
 }
 
 /**
@@ -170,4 +174,18 @@ export interface GetChildrenResponse {
   items: FileInfo[]
   /** 下一页分页Token */
   next_page_token?: string
+}
+
+/**
+ * 文件上传参数
+ */
+export interface UploadFileParams {
+  /** 驱动盘ID */
+  drive_id: string
+  /** 父文件夹ID（必需） */
+  parent_id: string
+  /** 要上传的文件 */
+  file: File
+  /** 父文件夹路径（可选，如 '/folder1/folder2'） */
+  parent_path?: string
 }

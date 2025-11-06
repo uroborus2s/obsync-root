@@ -1,5 +1,5 @@
 import type { FastifyReply, FastifyRequest, Logger } from '@stratix/core';
-import { Controller, Get, Post } from '@stratix/core';
+import { Controller, Get, Patch, Post } from '@stratix/core';
 import { isLeft } from '@stratix/utils/functional';
 import AttendanceService from '../services/AttendanceService.js';
 import LeaveService from '../services/LeaveService.js';
@@ -250,7 +250,7 @@ export default class AttendanceController {
   /**
    * 获取失败的签到队列任务
    * GET /api/icalink/v1/attendance/failed-checkin-jobs
-   * 
+   *
    * @param request - Fastify 请求对象
    * @param reply - Fastify 响应对象
    * @returns 失败的签到队列任务列表
@@ -857,6 +857,198 @@ export default class AttendanceController {
         success: false,
         message: '服务器内部错误',
         code: 'INTERNAL_SERVER_ERROR'
+      });
+    }
+  }
+
+  /**
+   * 审批照片签到
+   * POST /api/icalink/v1/attendance/records/:recordId/approve-photo
+   *
+   * 教师审批学生的照片签到记录
+   *
+   * 请求体：
+   * {
+   *   action: 'approved' | 'rejected';  // 审批动作
+   *   remark?: string;                  // 审批备注（拒绝时建议填写）
+   * }
+   *
+   * 响应：
+   * {
+   *   success: boolean;
+   *   message: string;
+   *   data?: { recordId: number }
+   * }
+   */
+  @Post('/api/icalink/v1/attendance/records/:recordId/approve-photo')
+  async approvePhotoCheckin(
+    request: FastifyRequest<{
+      Params: { recordId: string };
+      Body: { action: 'approved' | 'rejected'; remark?: string };
+    }>,
+    reply: FastifyReply
+  ): Promise<void> {
+    try {
+      const { recordId } = request.params;
+      const { action, remark } = request.body;
+
+      // 1. 验证参数
+      if (!recordId || !action) {
+        return reply.status(400).send({
+          success: false,
+          message: '缺少必填参数：recordId, action'
+        });
+      }
+
+      if (!['approved', 'rejected'].includes(action)) {
+        return reply.status(400).send({
+          success: false,
+          message: '无效的审批动作，仅支持：approved, rejected'
+        });
+      }
+
+      // 2. 获取教师身份信息
+      const teacherIdentity = getTeacherIdentityFromRequest(request);
+      if (!teacherIdentity) {
+        return reply.status(403).send({
+          success: false,
+          message: '仅教师可以审批照片签到'
+        });
+      }
+
+      // 3. 调用服务层审批
+      const result = await this.attendanceService.approvePhotoCheckin(
+        parseInt(recordId, 10),
+        action,
+        teacherIdentity.userId,
+        remark
+      );
+
+      // 4. 处理结果
+      if (isLeft(result)) {
+        const error = result.left;
+
+        if (error.code === String(ServiceErrorCode.RESOURCE_NOT_FOUND)) {
+          return reply.status(404).send({
+            success: false,
+            message: error.message
+          });
+        } else if (error.code === String(ServiceErrorCode.VALIDATION_FAILED)) {
+          return reply.status(400).send({
+            success: false,
+            message: error.message
+          });
+        } else {
+          return reply.status(500).send({
+            success: false,
+            message: error.message || '审批失败'
+          });
+        }
+      }
+
+      // 5. 返回成功响应
+      return reply.status(200).send({
+        success: true,
+        message: result.right.message,
+        data: {
+          recordId: result.right.record_id
+        }
+      });
+    } catch (error: any) {
+      this.logger.error('审批照片签到失败', error);
+      return reply.status(500).send({
+        success: false,
+        message: '服务器内部错误'
+      });
+    }
+  }
+
+  /**
+   * 更新课程签到设置
+   * PATCH /api/icalink/v1/courses/:courseId/checkin-setting
+   *
+   * @param request - Fastify 请求对象
+   * @param reply - Fastify 响应对象
+   * @returns 更新结果
+   *
+   * @description
+   * 业务逻辑：
+   * 1. 验证用户是否是该课程的授课教师
+   * 2. 更新课程的 need_checkin 字段
+   * 3. 返回更新结果
+   *
+   * HTTP 状态码：
+   * - 200: 成功
+   * - 400: 参数验证失败
+   * - 403: 权限不足
+   * - 404: 课程不存在
+   * - 500: 服务器内部错误
+   */
+  @Patch('/api/icalink/v1/courses/:courseId/checkin-setting')
+  async updateCourseCheckinSetting(
+    request: FastifyRequest<{
+      Params: { courseId: string };
+      Body: { need_checkin: 0 | 1 };
+    }>,
+    reply: FastifyReply
+  ): Promise<void> {
+    const { courseId } = request.params;
+    const { need_checkin } = request.body;
+    const userIdentity = (request as any).userIdentity;
+
+    try {
+      // 参数验证
+      if (need_checkin !== 0 && need_checkin !== 1) {
+        return reply.status(400).send({
+          success: false,
+          message: 'need_checkin must be 0 or 1'
+        });
+      }
+
+      // 调用服务层
+      const result = await this.attendanceService.updateCourseCheckinSetting({
+        courseId: parseInt(courseId, 10),
+        needCheckin: need_checkin,
+        userInfo: userIdentity
+      });
+
+      if (isLeft(result)) {
+        const error = result.left;
+        if (error.code === String(ServiceErrorCode.RESOURCE_NOT_FOUND)) {
+          return reply.status(404).send({
+            success: false,
+            message: error.message
+          });
+        } else if (error.code === String(ServiceErrorCode.PERMISSION_DENIED)) {
+          return reply.status(403).send({
+            success: false,
+            message: error.message
+          });
+        } else if (
+          error.code === String(ServiceErrorCode.BUSINESS_RULE_VIOLATION)
+        ) {
+          return reply.status(400).send({
+            success: false,
+            message: error.message
+          });
+        } else {
+          return reply.status(500).send({
+            success: false,
+            message: error.message
+          });
+        }
+      }
+
+      return reply.status(200).send({
+        success: true,
+        message: 'Course checkin setting updated successfully',
+        data: result.right
+      });
+    } catch (error: any) {
+      this.logger.error('更新课程签到设置失败', error);
+      return reply.status(500).send({
+        success: false,
+        message: '服务器内部错误'
       });
     }
   }

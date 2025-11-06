@@ -130,4 +130,35 @@ export interface IWpsDriveService {
     data?: CompleteUploadResponse;
     error?: string;
   }>;
+
+  /**
+   * 一体化文件上传（整合三步流程）
+   *
+   * 该方法在后端完成完整的上传流程:
+   * 1. 请求上传许可
+   * 2. 上传文件到WPS存储服务器
+   * 3. 完成上传确认
+   *
+   * @param driveId - 驱动盘ID
+   * @param parentId - 父目录ID
+   * @param fileName - 文件名
+   * @param fileBuffer - 文件的二进制内容
+   * @param fileSize - 文件大小（字节）
+   * @param contentType - 文件的MIME类型
+   * @param fileHash - 文件SHA-256哈希值（可选）
+   * @returns 包含上传结果的服务结果
+   */
+  uploadFile(
+    driveId: string,
+    parentId: string,
+    fileName: string,
+    fileBuffer: Buffer,
+    fileSize: number,
+    contentType: string,
+    fileHash: string
+  ): Promise<{
+    success: boolean;
+    data?: CompleteUploadResponse;
+    error?: string;
+  }>;
 }
