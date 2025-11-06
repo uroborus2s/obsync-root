@@ -622,7 +622,35 @@ export default class AttendanceService implements IAttendanceService {
 
   /**
    * 构建当前课程的教师视图
-   * 数据源：v_attendance_realtime_details 视图 + icalink_verification_windows 表
+   *
+   * @description
+   * 数据源：
+   * 1. icalink_teaching_class 表：教学班成员
+   * 2. v_attendance_today_details 视图：当天考勤状态
+   * 3. icalink_attendance_records 表：考勤详细信息（包括 metadata）
+   * 4. icalink_verification_windows 表：签到窗口信息
+   *
+   * 查询逻辑：
+   * - 从 icalink_teaching_class 表获取教学班的所有学生成员
+   * - LEFT JOIN v_attendance_today_details 视图获取每个学生的考勤状态
+   * - LEFT JOIN icalink_attendance_records 表获取详细信息（包括照片签到的 metadata）
+   * - 确保即使学生未签到也能显示在列表中
+   *
+   * 排序规则（按优先级从高到低）：
+   * 1. pending_approval - 照片签到待审批（最优先）
+   * 2. leave_pending - 请假待审批
+   * 3. truant - 旷课
+   * 4. absent - 缺勤
+   * 5. leave - 请假
+   * 6. present - 已签到
+   * 7. 其他状态
+   *
+   * 返回字段包括：
+   * - student_id, student_name, class_name, major_name - 学生基本信息
+   * - absence_type - 考勤状态
+   * - checkin_time, checkin_location, checkin_latitude, checkin_longitude, checkin_accuracy - 签到信息
+   * - attendance_record_id - 考勤记录ID（用于审批）
+   * - metadata - 元数据（包含 photo_url、location_offset_distance、reason）
    */
   private async buildCurrentTeacherView(
     course: IcasyncAttendanceCourse
@@ -630,8 +658,11 @@ export default class AttendanceService implements IAttendanceService {
     this.logger.debug({ courseId: course.id }, 'Building current teacher view');
 
     // 1. 通过 Repository 查询教学班学生及其实时考勤状态
-    // 这个方法会关联 out_jw_kcb_xs、out_xsxx 和 v_attendance_realtime_details
-    // 并按考勤状态排序（缺勤、请假、旷课的放在前面）
+    // Repository 层实现：
+    // - 从 icalink_teaching_class 表获取教学班成员（基于 course_code 和 semester）
+    // - LEFT JOIN v_attendance_today_details 视图获取考勤状态（基于 student_id 和 external_id）
+    // - LEFT JOIN icalink_attendance_records 表获取详细信息（包括 metadata）
+    // - 按考勤状态优先级排序（pending_approval 最优先）
     const result =
       await this.courseStudentRepository.findStudentsWithRealtimeStatus(
         course.course_code,
@@ -682,7 +713,6 @@ export default class AttendanceService implements IAttendanceService {
 
   /**
    * 构建未来课程的教师视图
-   * 数据源：v_attendance_realtime_details 视图
    *
    * @description
    * 未来课程的教师视图需要显示：
@@ -690,9 +720,20 @@ export default class AttendanceService implements IAttendanceService {
    * 2. 学生的请假状态（如果有提前请假）
    * 3. 统计信息（总人数、请假人数等）
    *
-   * 数据来源：
-   * - 教学班学生：通过 CourseStudentRepository 查询
-   * - 请假状态：通过 v_attendance_realtime_details 视图获取（视图会自动关联 icalink_attendance_records 表）
+   * 数据源：
+   * 1. icalink_teaching_class 表：教学班成员
+   * 2. v_attendance_today_details 视图：当天考勤状态（包括提前请假）
+   * 3. icalink_attendance_records 表：考勤详细信息
+   *
+   * 查询逻辑：
+   * - 从 icalink_teaching_class 表获取教学班的所有学生成员
+   * - LEFT JOIN v_attendance_today_details 视图获取学生的请假状态
+   * - 对于未来课程，v_attendance_today_details 视图会显示学生的请假状态（如果有提前请假）
+   *
+   * 可能的学生状态：
+   * - 'absent': 默认状态（还未签到，也未请假）
+   * - 'leave': 已批准的请假
+   * - 'leave_pending': 待审批的请假
    */
   private async buildFutureTeacherView(
     course: IcasyncAttendanceCourse
@@ -700,8 +741,11 @@ export default class AttendanceService implements IAttendanceService {
     this.logger.debug({ courseId: course.id }, 'Building future teacher view');
 
     // 1. 通过 Repository 查询教学班学生及其实时考勤状态
-    // 这个方法会关联 out_jw_kcb_xs、out_xsxx 和 v_attendance_realtime_details
-    // 对于未来课程，v_attendance_realtime_details 视图会显示学生的请假状态（如果有提前请假）
+    // Repository 层实现：
+    // - 从 icalink_teaching_class 表获取教学班成员（基于 course_code 和 semester）
+    // - LEFT JOIN v_attendance_today_details 视图获取考勤状态（基于 student_id 和 external_id）
+    // - LEFT JOIN icalink_attendance_records 表获取详细信息
+    // - 对于未来课程，v_attendance_today_details 视图会显示学生的请假状态（如果有提前请假）
     const result =
       await this.courseStudentRepository.findStudentsWithRealtimeStatus(
         course.course_code,

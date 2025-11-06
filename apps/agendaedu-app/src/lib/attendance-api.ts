@@ -981,20 +981,6 @@ export class AttendanceApiService {
     }
   }
 
-  /**
-   * 将文件转换为base64字符串
-   */
-  private fileToBase64(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const base64 = (reader.result as string).split(',')[1]; // 移除data:image/...;base64,前缀
-        resolve(base64);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
 }
 
 // 创建默认实例

@@ -199,7 +199,7 @@ function StudentDashboardContent() {
       );
       if (
         !locationValidation.valid
-        // attendanceData.student.xh !== '0306012409428'
+        // && attendanceData.student.xh !== '0306012409428'
       ) {
         // 位置校验失败，显示对话框让用户选择
         setPendingLocationData(locationData);
@@ -314,19 +314,6 @@ function StudentDashboardContent() {
   };
 
   // === 处理位置校验失败对话框操作 ===
-
-  // 重试获取位置（关闭对话框后重新触发完整签到流程）
-  const handleRetryLocation = async () => {
-    // 关闭对话框
-    setShowLocationFailedDialog(false);
-    setPendingLocationData(null);
-    setLocationValidationDistance(undefined);
-    // 重置状态，允许重新签到
-    setCheckinLoading(false);
-    checkinAbortRef.current = null;
-    // 重新触发签到流程
-    await handleCheckin();
-  };
 
   // 刷新位置（对话框内刷新，不关闭对话框）
   const handleRefreshLocation = async () => {
@@ -1057,7 +1044,6 @@ function StudentDashboardContent() {
             }
           }
         }}
-        onRetry={handleRetryLocation}
         onPhotoCheckin={handlePhotoCheckin}
         onRefreshLocation={handleRefreshLocation}
         isLoading={checkinLoading}

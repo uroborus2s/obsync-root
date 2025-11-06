@@ -1,4 +1,6 @@
 // import { wpsAuthService } from '@/lib/wps-auth-service';
+import { useToast } from '@/hooks/use-toast';
+import { attendanceApi } from '@/lib/attendance-api';
 import { LocationInfo } from '@/lib/wps-collaboration-api';
 import {
   formatDistance,
@@ -6,6 +8,8 @@ import {
   validateLocationForCheckIn
 } from '@/utils/locationUtils';
 import { checkWPSSDKStatus } from '@/utils/wps-sdk-checker';
+import imageCompression from 'browser-image-compression';
+import { Upload } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface TestResult {
@@ -15,6 +19,8 @@ interface TestResult {
 }
 
 export function LocationTestPage() {
+  const { toast } = useToast();
+
   const [currentLocation, setCurrentLocation] = useState<LocationInfo | null>(
     null
   );
@@ -27,6 +33,11 @@ export function LocationTestPage() {
   const [manualLng, setManualLng] = useState<string>('');
   const [testRadius, setTestRadius] = useState<number>(500);
 
+  // 图片上传相关状态
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string>('');
+
   const buildings = getSupportedBuildings();
 
   useEffect(() => {
@@ -38,6 +49,188 @@ export function LocationTestPage() {
       ...prev,
       { ...result, details: JSON.stringify(result.details, null, 2) }
     ]);
+  };
+
+  // 压缩图片
+  const compressImage = async (file: File): Promise<File> => {
+    try {
+      toast.info('正在压缩图片...', {
+        description: '请稍候，不要关闭页面'
+      });
+
+      const options = {
+        maxSizeMB: 0.4, // 最大文件大小 400KB
+        maxWidthOrHeight: 1920, // 最大宽度或高度
+        useWebWorker: true, // 使用 Web Worker 提升性能
+        initialQuality: 0.8 // 初始质量 80%
+      };
+
+      const compressedFile = await imageCompression(file, options);
+
+      console.log('图片压缩完成:', {
+        originalSize: file.size,
+        compressedSize: compressedFile.size,
+        compressionRate: Math.round(
+          ((file.size - compressedFile.size) / file.size) * 100
+        )
+      });
+
+      addTestResult({
+        type: 'success',
+        message: '图片压缩成功',
+        details: {
+          originalSize: `${(file.size / 1024).toFixed(2)} KB`,
+          compressedSize: `${(compressedFile.size / 1024).toFixed(2)} KB`,
+          compressionRate: `${Math.round(((file.size - compressedFile.size) / file.size) * 100)}%`
+        }
+      });
+
+      return compressedFile;
+    } catch (error) {
+      console.error('图片压缩失败:', error);
+      addTestResult({
+        type: 'error',
+        message: '图片压缩失败',
+        details: {
+          error: error instanceof Error ? error.message : String(error)
+        }
+      });
+      throw new Error('图片压缩失败，请重试');
+    }
+  };
+
+  // 上传图片到 OSS
+  const handleImageUpload = async () => {
+    addTestResult({ type: 'info', message: '开始测试图片上传到 OSS...' });
+
+    try {
+      // 1. 创建文件输入元素
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+
+      input.onchange = async (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (!file) {
+          addTestResult({
+            type: 'error',
+            message: '未选择文件'
+          });
+          return;
+        }
+
+        // 2. 验证文件类型
+        const allowedTypes = [
+          'image/jpeg',
+          'image/jpg',
+          'image/png',
+          'image/gif',
+          'image/webp'
+        ];
+        if (!allowedTypes.includes(file.type)) {
+          toast.error('不支持的文件类型', {
+            description: '仅支持 JPEG、PNG、GIF、WebP 格式'
+          });
+          addTestResult({
+            type: 'error',
+            message: '不支持的文件类型',
+            details: { fileType: file.type, allowedTypes }
+          });
+          return;
+        }
+
+        // 3. 验证文件大小（10MB）
+        const maxSize = 10 * 1024 * 1024;
+        if (file.size > maxSize) {
+          toast.error('文件过大', {
+            description: `文件大小不能超过 ${maxSize / 1024 / 1024}MB`
+          });
+          addTestResult({
+            type: 'error',
+            message: '文件过大',
+            details: {
+              fileSize: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
+              maxSize: `${maxSize / 1024 / 1024} MB`
+            }
+          });
+          return;
+        }
+
+        setIsUploading(true);
+        setUploadProgress(0);
+        setUploadedImageUrl('');
+
+        try {
+          // 4. 压缩图片
+          const compressedFile = await compressImage(file);
+
+          // 5. 上传到 OSS
+          addTestResult({
+            type: 'info',
+            message: '开始上传到 OSS...'
+          });
+
+          const uploadResult = await attendanceApi.uploadCheckinPhoto(
+            compressedFile,
+            (progress) => {
+              setUploadProgress(progress);
+              console.log(`上传进度: ${progress}%`);
+            }
+          );
+
+          if (uploadResult.success && uploadResult.data) {
+            const { photo_url, bucket_name } = uploadResult.data;
+            setUploadedImageUrl(photo_url);
+
+            toast.success('上传成功！', {
+              description: '图片已成功上传到 OSS'
+            });
+
+            addTestResult({
+              type: 'success',
+              message: '图片上传成功',
+              details: {
+                photo_url,
+                bucket_name,
+                uploadProgress: '100%'
+              }
+            });
+          } else {
+            throw new Error(uploadResult.message || '上传失败');
+          }
+        } catch (error) {
+          console.error('上传图片失败:', error);
+          toast.error('上传失败', {
+            description: error instanceof Error ? error.message : '请稍后重试'
+          });
+          addTestResult({
+            type: 'error',
+            message: '图片上传失败',
+            details: {
+              error: error instanceof Error ? error.message : String(error)
+            }
+          });
+        } finally {
+          setIsUploading(false);
+          setUploadProgress(0);
+        }
+      };
+
+      // 触发文件选择
+      input.click();
+    } catch (error) {
+      console.error('打开文件选择器失败:', error);
+      toast.error('打开文件选择器失败', {
+        description: '请重试'
+      });
+      addTestResult({
+        type: 'error',
+        message: '打开文件选择器失败',
+        details: {
+          error: error instanceof Error ? error.message : String(error)
+        }
+      });
+    }
   };
 
   // const clearResults = () => {
@@ -381,6 +574,16 @@ export function LocationTestPage() {
               测试位置验证
             </button>
 
+            <button
+              onClick={handleImageUpload}
+              disabled={isUploading}
+              className='flex items-center justify-center gap-2 rounded bg-purple-600 px-4 py-2 text-white hover:bg-purple-700 disabled:opacity-50'
+              type='button'
+            >
+              <Upload className='h-4 w-4' />
+              {isUploading ? `上传中 ${uploadProgress}%` : '上传图片到 OSS'}
+            </button>
+
             {/* <button
               onClick={async () => {
                 setIsLoading(true);
@@ -546,6 +749,44 @@ export function LocationTestPage() {
             </div>
           </div>
         )} */}
+
+        {/* 上传结果显示 */}
+        {uploadedImageUrl && (
+          <div className='mb-6 rounded-lg bg-white p-6 shadow'>
+            <h2 className='mb-4 text-xl font-semibold'>上传结果</h2>
+            <div className='space-y-4'>
+              <div>
+                <p className='mb-2 text-sm font-medium text-gray-700'>
+                  图片 URL:
+                </p>
+                <div className='rounded bg-gray-50 p-3'>
+                  <code className='break-all text-sm text-gray-900'>
+                    {uploadedImageUrl}
+                  </code>
+                </div>
+              </div>
+              <div>
+                <p className='mb-2 text-sm font-medium text-gray-700'>
+                  图片预览:
+                </p>
+                <div className='rounded border border-gray-200 p-2'>
+                  <img
+                    src={uploadedImageUrl}
+                    alt='上传的图片'
+                    className='max-h-96 w-full object-contain'
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                      const errorMsg = document.createElement('p');
+                      errorMsg.className = 'text-red-500 text-sm';
+                      errorMsg.textContent = '图片加载失败';
+                      e.currentTarget.parentElement?.appendChild(errorMsg);
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 支持的建筑物列表 */}
         <div className='mb-6 rounded-lg bg-white p-6 shadow'>

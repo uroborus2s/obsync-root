@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 interface LocationFailedDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onRetry: () => void;
   onPhotoCheckin: () => void;
   onRefreshLocation: () => Promise<void>; // 新增：刷新位置回调
   isLoading?: boolean;
@@ -21,7 +20,6 @@ interface LocationFailedDialogProps {
 export default function LocationFailedDialog({
   isOpen,
   onClose,
-  onRetry,
   onPhotoCheckin,
   onRefreshLocation,
   isLoading = false,

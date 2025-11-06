@@ -84,7 +84,7 @@ export function StudentMessages() {
 
     try {
       const response = await attendanceApi.studentWithdrawLeave(
-        applicationId.toString()
+        applicationId
       );
 
       if (response.success) {

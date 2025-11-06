@@ -487,6 +487,25 @@ export class MinioAdapter implements IOSSAdapter {
     }
   }
 
+  /**
+   * 生成预签名 POST Policy
+   * 用于浏览器直接上传文件，无需暴露 accessKey 和 secretKey
+   *
+   * @param policy POST Policy 对象
+   * @returns Promise<{ postURL: string; formData: Record<string, string> }>
+   */
+  async presignedPostPolicy(policy: any): Promise<{
+    postURL: string;
+    formData: Record<string, string>;
+  }> {
+    try {
+      return await this.client.presignedPostPolicy(policy);
+    } catch (error) {
+      this.logger.error('MinIO presignedPostPolicy error:', error);
+      throw error;
+    }
+  }
+
   // ========== 健康检查和连接管理 ==========
 
   async ping(): Promise<boolean> {

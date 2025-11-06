@@ -80,6 +80,22 @@ export interface PresignedUploadUrlResult {
 }
 
 /**
+ * POST Policy 上传凭证结果
+ */
+export interface PostPolicyUploadResult {
+  /** POST 上传 URL（公网地址） */
+  postURL: string;
+  /** 表单字段（包含 policy、signature 等） */
+  formData: Record<string, string>;
+  /** 对象路径（上传成功后的文件路径） */
+  objectPath: string;
+  /** 过期时间（秒） */
+  expiresIn: number;
+  /** 存储桶名称 */
+  bucketName: string;
+}
+
+/**
  * OSSP 存储服务接口
  */
 export interface IOsspStorageService {
@@ -101,7 +117,7 @@ export interface IOsspStorageService {
   ): Promise<Either<ServiceError, ImageDownloadResult>>;
 
   /**
-   * 获取预签名下载 URL（有效期 1 小时）
+   * 获取预签名下载 URL（有效期 15 小时）
    */
   getPresignedUrl(
     bucketName: string,
@@ -116,6 +132,17 @@ export interface IOsspStorageService {
     bucketName: string,
     options: PresignedUploadUrlOptions
   ): Promise<Either<ServiceError, PresignedUploadUrlResult>>;
+
+  /**
+   * 生成 POST Policy 上传凭证（推荐方式）
+   *
+   * 使用 POST Policy 方式上传文件，无需暴露 accessKey 和 secretKey
+   * 前端使用表单 POST 方式直接上传到 OSS
+   */
+  generatePostPolicyUpload(
+    bucketName: string,
+    options: PresignedUploadUrlOptions
+  ): Promise<Either<ServiceError, PostPolicyUploadResult>>;
 
   /**
    * 检查对象是否存在于 OSS
@@ -169,9 +196,11 @@ export default class OsspStorageService implements IOsspStorageService {
       // 2. 压缩原图
       const compressedImage = await this.compressImage(fileContent);
 
+      const encodedFileName = encodeURIComponent(options.fileName);
+
       // 3. 生成对象路径
       const timestamp = Date.now();
-      const objectPath = `images/${timestamp}/${options.fileName}`;
+      const objectPath = `images/${timestamp}/${encodedFileName}`;
 
       // 4. 上传原图
       const uploadResult = await this.osspClient.putObject(
@@ -295,11 +324,14 @@ export default class OsspStorageService implements IOsspStorageService {
       this.logger.info({ bucketName, objectPath }, 'Generating presigned URL');
 
       // 生成有效期 1 小时的预签名 URL
-      const url = await this.osspClient.presignedGetObject(
+      let url = await this.osspClient.presignedGetObject(
         bucketName,
         objectPath,
-        { expiry: 3600 } // 1 小时
+        { expiry: 60 } // 1 小时
       );
+
+      // 替换内网地址为外网地址（生产环境）
+      url = this.replaceInternalUrlWithPublicUrl(url);
 
       this.logger.info(
         { bucketName, objectPath, url },
@@ -462,14 +494,18 @@ export default class OsspStorageService implements IOsspStorageService {
 
       // 3. 生成预签名上传 URL（有效期 15 分钟）
       const expiresIn = 15 * 60; // 15 分钟
-      const uploadUrl = await this.osspClient.presignedPutObject(
+      let uploadUrl = await this.osspClient.presignedPutObject(
         bucketName,
         objectPath,
         expiresIn
       );
 
+      // 4. 替换内网地址为外网地址（生产环境）
+      // 将 MinIO 内网地址替换为 Nginx 代理的外网地址
+      uploadUrl = this.replaceInternalUrlWithPublicUrl(uploadUrl);
+
       this.logger.info(
-        { objectPath, expiresIn },
+        { objectPath, expiresIn, uploadUrl },
         'Presigned upload URL generated successfully'
       );
 
@@ -489,6 +525,145 @@ export default class OsspStorageService implements IOsspStorageService {
         message: '生成预签名上传URL失败'
       });
     }
+  }
+
+  /**
+   * 生成 POST Policy 上传凭证
+   *
+   * 使用 POST Policy 方式上传文件，无需暴露 accessKey 和 secretKey
+   * - 有效期：15 分钟
+   * - 自动按业务类型和时间戳组织文件路径
+   * - 路径格式：{businessType}/{timestamp}/{fileName}
+   * - 返回公网地址，无需手动替换
+   */
+  async generatePostPolicyUpload(
+    bucketName: string,
+    options: PresignedUploadUrlOptions
+  ): Promise<Either<ServiceError, PostPolicyUploadResult>> {
+    try {
+      this.logger.info(
+        {
+          bucketName,
+          fileName: options.fileName,
+          businessType: options.businessType
+        },
+        'Generating POST Policy upload credentials'
+      );
+
+      // 1. 确保存储桶存在
+      const bucketExists = await this.osspClient.bucketExists(bucketName);
+      if (!bucketExists) {
+        this.logger.info(
+          { bucketName },
+          'Creating bucket for POST Policy upload'
+        );
+        await this.osspClient.makeBucket(bucketName);
+      }
+
+      // 2. 生成对象路径（按业务类型和时间戳组织）
+      const timestamp = Date.now();
+      const businessPath = options.businessType;
+      const encodedFileName = encodeURIComponent(options.fileName);
+      const objectPath = `${businessPath}/${timestamp}/${encodedFileName}`;
+
+      // 3. 创建 POST Policy
+      const minioClient = this.osspClient.getClient();
+      const PostPolicy =
+        minioClient.constructor.PostPolicy ||
+        (await import('minio')).PostPolicy;
+      const policy = new PostPolicy();
+
+      // 设置存储桶
+      policy.setBucket(bucketName);
+
+      // 设置对象键（文件路径）
+      policy.setKey(objectPath);
+
+      // 设置过期时间（15 分钟）
+      const expiresIn = 15 * 60; // 15 分钟
+      const expiryDate = new Date();
+      expiryDate.setSeconds(expiryDate.getSeconds() + expiresIn);
+      policy.setExpires(expiryDate);
+
+      // 设置内容类型
+      if (options.mimeType) {
+        policy.setContentType(options.mimeType);
+      }
+
+      // 设置文件大小限制（最大 10MB）
+      policy.setContentLengthRange(1, 10 * 1024 * 1024);
+
+      // 4. 生成 POST Policy（使用 MinioAdapter 的方法）
+      const policyResult = await (this.osspClient as any).presignedPostPolicy(
+        policy
+      );
+
+      // 5. 替换内网地址为外网地址
+      const publicPostURL = this.replaceInternalUrlWithPublicUrl(
+        policyResult.postURL
+      );
+
+      this.logger.info(
+        { objectPath, expiresIn, postURL: publicPostURL },
+        'POST Policy upload credentials generated successfully'
+      );
+
+      return right({
+        postURL: publicPostURL,
+        formData: policyResult.formData,
+        objectPath,
+        expiresIn,
+        bucketName
+      });
+    } catch (error) {
+      this.logger.error(
+        { error, bucketName, fileName: options.fileName },
+        'Failed to generate POST Policy upload credentials'
+      );
+      return left({
+        code: String(ServiceErrorCode.STORAGE_ERROR),
+        message: '生成POST Policy上传凭证失败'
+      });
+    }
+  }
+
+  /**
+   * 替换内网地址为外网地址
+   *
+   * 将 MinIO 内网地址替换为 Nginx 代理的外网地址
+   * - 内网地址：http://minio-1:9000/...
+   * - 外网地址：https://kwps.jlufe.edu.cn/minio/api/...
+   *
+   * @param url 原始 URL
+   * @returns 替换后的 URL
+   */
+  private replaceInternalUrlWithPublicUrl(url: string): string {
+    // 定义内网地址和外网地址的映射
+    const internalPatterns = [
+      {
+        pattern: /^http:\/\/minio-1:9000\//,
+        replacement: 'https://kwps.jlufe.edu.cn/minio/api/'
+      }
+    ];
+
+    // 尝试匹配并替换
+    for (const { pattern, replacement } of internalPatterns) {
+      if (pattern.test(url)) {
+        const replacedUrl = url.replace(pattern, replacement);
+        this.logger.debug(
+          { originalUrl: url, replacedUrl },
+          'Replaced internal URL with public URL'
+        );
+        return replacedUrl;
+      }
+    }
+
+    // 如果没有匹配到任何模式，返回原始 URL
+    this.logger.debug(
+      { url },
+      'No internal URL pattern matched, returning original URL'
+    );
+    return url;
   }
 
   /**

@@ -39,14 +39,20 @@ export default class CourseStudentRepository extends BaseRepository<
   /**
    * 查询教学班学生及其实时考勤状态（用于当前课程）
    *
-   * 使用 LEFT JOIN 关联以下表：
-   * - out_xsxx: 学生信息表（获取姓名、班级、专业）
-   * - v_attendance_today_details: 当天考勤视图（获取考勤状态）
-   * - icalink_attendance_records: 考勤记录表（获取详细信息，包括 metadata）
+   * 数据源：
+   * 1. icalink_teaching_class 表：教学班成员（主表）
+   * 2. v_attendance_today_details 视图：当天考勤状态
+   * 3. icalink_attendance_records 表：考勤详细信息（包括 metadata）
    *
-   * @param courseCode 课程代码（开课号）
-   * @param semester 学期
-   * @param externalId 课程外部ID（用于关联考勤视图）
+   * 查询逻辑：
+   * - 从 icalink_teaching_class 表获取教学班的所有学生成员（基于 course_code）
+   * - LEFT JOIN v_attendance_today_details 视图获取考勤状态（基于 student_id、external_id 和 semester）
+   * - LEFT JOIN icalink_attendance_records 表获取详细信息（包括 metadata、签到时间、位置等）
+   * - 确保即使学生未签到也能显示在列表中（使用 LEFT JOIN）
+   *
+   * @param courseCode 课程代码（用于查询 icalink_teaching_class）
+   * @param semester 学期（用于关联 v_attendance_today_details 视图）
+   * @param externalId 课程外部ID（用于关联 v_attendance_today_details 视图）
    * @returns 学生列表及其实时考勤状态和统计信息
    */
   public async findStudentsWithRealtimeStatus(
@@ -67,29 +73,38 @@ export default class CourseStudentRepository extends BaseRepository<
 
     // 使用 any 类型来处理跨数据库 JOIN 的类型问题
     // Kysely 的类型系统不支持跨数据库表引用，因此需要使用类型断言
-    let query: any = db.selectFrom('out_jw_kcb_xs as cs');
-    query = query.leftJoin('out_xsxx as s', 's.xh', 'cs.xh');
 
-    // LEFT JOIN v_attendance_today_details 视图获取考勤状态
+    // 1. 从 icalink_teaching_class 表开始（获取教学班成员）
+    let query: any = db.selectFrom(
+      'icasync.icalink_teaching_class as tc' as any
+    );
+
+    // 2. LEFT JOIN v_attendance_today_details 视图获取考勤状态
+    // 关联条件：student_id、external_id 和 semester
     query = query.leftJoin(
       'icasync.v_attendance_today_details as vatd',
       (join: any) =>
         join
-          .onRef('vatd.student_id', '=', 'cs.xh')
+          .onRef('vatd.student_id', '=', 'tc.student_id')
           .on('vatd.external_id', '=', externalId)
+          .on('vatd.semester', '=', semester)
     );
 
-    // LEFT JOIN icalink_attendance_records 表获取详细信息（包括 metadata）
+    // 3. LEFT JOIN icalink_attendance_records 表获取详细信息（包括 metadata）
     query = query.leftJoin(
       'icasync.icalink_attendance_records as ar',
       (join: any) => join.onRef('ar.id', '=', 'vatd.attendance_record_id')
     );
 
+    // 4. SELECT 字段
     query = query.select([
-      'cs.xh as student_id',
-      's.xm as student_name',
-      's.bjmc as class_name',
-      's.zymc as major_name',
+      'tc.student_id',
+      // 优先使用 icalink_teaching_class 表的字段，如果为 NULL 则使用视图字段
+      sql<string>`COALESCE(tc.student_name, vatd.student_name)`.as(
+        'student_name'
+      ),
+      sql<string>`COALESCE(tc.class_name, vatd.class_name)`.as('class_name'),
+      sql<string>`COALESCE(tc.major_name, vatd.major_name)`.as('major_name'),
       // 使用 COALESCE 将 NULL 转换为 'absent'（缺勤）
       // 当前课程中，如果没有考勤记录，默认为缺勤
       sql<string>`COALESCE(vatd.final_status, 'absent')`.as('absence_type'),
@@ -101,12 +116,11 @@ export default class CourseStudentRepository extends BaseRepository<
       'ar.checkin_accuracy',
       'ar.metadata'
     ]);
-    query = query.where('cs.kkh', '=', courseCode);
-    query = query.where('cs.xnxq', '=', semester);
-    query = query.where('s.zt', 'in', ['add', 'update']); // 只查询有效学生
-    query = query.where('cs.zt', 'in', ['add', 'update']); // 只查询有效学生
 
-    // 按考勤状态排序：pending_approval 优先，然后是其他状态
+    // 5. WHERE 条件：只查询指定课程代码的学生
+    query = query.where('tc.course_code', '=', courseCode);
+
+    // 6. 按考勤状态排序：pending_approval 优先，然后是其他状态
     // 排序规则：pending_approval(1), leave_pending(2), truant(3), absent(4), leave(5), present(6)
     query = query.orderBy(
       sql`CASE
@@ -120,19 +134,22 @@ export default class CourseStudentRepository extends BaseRepository<
       END`,
       'asc'
     );
-    query = query.orderBy('cs.xh', 'asc'); // 同一状态内按学号排序
+    query = query.orderBy('tc.student_id', 'asc'); // 同一状态内按学号排序
 
     const results = await query.execute();
 
     // 在 SQL 中计算统计信息
-    let statsQuery: any = db.selectFrom('out_jw_kcb_xs as cs');
-    statsQuery = statsQuery.leftJoin('out_xsxx as s', 's.xh', 'cs.xh');
+    // 使用相同的数据源：icalink_teaching_class + v_attendance_today_details
+    let statsQuery: any = db.selectFrom(
+      'icasync.icalink_teaching_class as tc' as any
+    );
     statsQuery = statsQuery.leftJoin(
       'icasync.v_attendance_today_details as vatd',
       (join: any) =>
         join
-          .onRef('vatd.student_id', '=', 'cs.xh')
+          .onRef('vatd.student_id', '=', 'tc.student_id')
           .on('vatd.external_id', '=', externalId)
+          .on('vatd.semester', '=', semester)
     );
     statsQuery = statsQuery.select([
       sql<number>`COUNT(*)`.as('total_count'),
@@ -149,10 +166,7 @@ export default class CourseStudentRepository extends BaseRepository<
         'leave_count'
       )
     ]);
-    statsQuery = statsQuery.where('cs.kkh', '=', courseCode);
-    statsQuery = statsQuery.where('cs.xnxq', '=', semester);
-    statsQuery = statsQuery.where('s.zt', 'in', ['add', 'update']);
-    statsQuery = statsQuery.where('cs.zt', 'in', ['add', 'update']);
+    statsQuery = statsQuery.where('tc.course_code', '=', courseCode);
 
     const statsResult = await statsQuery.execute();
     const stats = statsResult[0] || {
@@ -176,8 +190,24 @@ export default class CourseStudentRepository extends BaseRepository<
       'Fetched students with realtime attendance status and stats'
     );
 
+    // 解析 metadata 字段（从 JSON 字符串转换为对象）
+    const studentsWithParsedMetadata = results.map((student: any) => {
+      if (student.metadata && typeof student.metadata === 'string') {
+        try {
+          student.metadata = JSON.parse(student.metadata);
+        } catch (error) {
+          this.logger.warn(
+            { studentId: student.student_id, error },
+            'Failed to parse metadata JSON'
+          );
+          student.metadata = null;
+        }
+      }
+      return student;
+    });
+
     return {
-      students: results,
+      students: studentsWithParsedMetadata,
       stats: {
         total_count: Number(stats.total_count),
         checkin_count: Number(stats.checkin_count),

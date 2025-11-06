@@ -1,6 +1,6 @@
 {
   "name": "@wps/app-icalink",
-  "version": "1.0.15",
+  "version": "1.0.17",
   "private": true,
   "description": "基于Stratix框架的模块化项目模板",
   "type": "module",
@@ -27,7 +27,7 @@
     "@stratix/queue": "1.0.0-beta.2",
     "@stratix/redis": "1.0.0-beta.2",
     "@stratix/utils": "1.0.0-beta.4",
-    "@stratix/was-v7": "workspace:*",
+    "@stratix/was-v7": "1.0.0-beta.25",
     "date-fns": "^4.1.0",
     "jsonwebtoken": "^9.0.2",
     "mysql2": "^3.14.1",

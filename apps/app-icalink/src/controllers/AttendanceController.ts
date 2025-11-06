@@ -23,7 +23,7 @@ export default class AttendanceController {
 
   @Get('/api/icalink/v1/auth/status')
   async checkAuthStatus(
-    request: FastifyRequest,
+    _request: FastifyRequest,
     reply: FastifyReply
   ): Promise<void> {
     return reply.status(200).send({
@@ -890,20 +890,12 @@ export default class AttendanceController {
   ): Promise<void> {
     try {
       const { recordId } = request.params;
-      const { action, remark } = request.body;
 
       // 1. 验证参数
-      if (!recordId || !action) {
+      if (!recordId) {
         return reply.status(400).send({
           success: false,
-          message: '缺少必填参数：recordId, action'
-        });
-      }
-
-      if (!['approved', 'rejected'].includes(action)) {
-        return reply.status(400).send({
-          success: false,
-          message: '无效的审批动作，仅支持：approved, rejected'
+          message: '缺少必填参数：recordId'
         });
       }
 
@@ -917,12 +909,10 @@ export default class AttendanceController {
       }
 
       // 3. 调用服务层审批
-      const result = await this.attendanceService.approvePhotoCheckin(
-        parseInt(recordId, 10),
-        action,
-        teacherIdentity.userId,
-        remark
-      );
+      const result = await this.attendanceService.approvePhotoCheckin({
+        attendanceRecordId: parseInt(recordId, 10),
+        userInfo: teacherIdentity
+      });
 
       // 4. 处理结果
       if (isLeft(result)) {
@@ -947,13 +937,7 @@ export default class AttendanceController {
       }
 
       // 5. 返回成功响应
-      return reply.status(200).send({
-        success: true,
-        message: result.right.message,
-        data: {
-          recordId: result.right.record_id
-        }
-      });
+      return reply.status(200).send(result.right);
     } catch (error: any) {
       this.logger.error('审批照片签到失败', error);
       return reply.status(500).send({

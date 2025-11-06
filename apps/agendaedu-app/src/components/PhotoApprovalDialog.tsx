@@ -1,5 +1,5 @@
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { Camera, MapPin, Clock, AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Camera, Clock, MapPin } from 'lucide-react';
 import { useState } from 'react';
 
 interface StudentAttendanceDetail {
@@ -38,6 +38,7 @@ export default function PhotoApprovalDialog({
 }: PhotoApprovalDialogProps) {
   const [imageError, setImageError] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
+  console.log('学生信息:', student);
 
   // 格式化签到时间
   const formatCheckinTime = (time?: string | Date | null) => {
@@ -154,7 +155,9 @@ export default function PhotoApprovalDialog({
                 <span className='text-gray-500'>位置偏移距离：</span>
                 <span
                   className={`font-medium ${
-                    isOffsetExcessive(student.metadata?.location_offset_distance)
+                    isOffsetExcessive(
+                      student.metadata?.location_offset_distance
+                    )
                       ? 'text-red-600'
                       : 'text-gray-900'
                   }`}
@@ -163,10 +166,10 @@ export default function PhotoApprovalDialog({
                     ? `${student.metadata.location_offset_distance.toFixed(1)} 米`
                     : '未知'}
                 </span>
-                {isOffsetExcessive(student.metadata?.location_offset_distance) && (
-                  <span className='ml-2 text-xs text-red-500'>
-                    (超过100米)
-                  </span>
+                {isOffsetExcessive(
+                  student.metadata?.location_offset_distance
+                ) && (
+                  <span className='ml-2 text-xs text-red-500'>(超过100米)</span>
                 )}
               </div>
               {student.checkin_latitude && student.checkin_longitude && (
@@ -230,4 +233,3 @@ export default function PhotoApprovalDialog({
     </Dialog>
   );
 }
-
