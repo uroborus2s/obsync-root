@@ -110,10 +110,15 @@ export interface IcalinkAttendanceRecord {
    *   location_offset_distance: number; // 位置偏移距离（米）
    *   reason: string;                   // 签到原因说明
    * }
+   *
+   * 照片签到的识别方式：
+   * - 通过 status = 'pending_approval' 判断是待审核的签到
+   * - 通过 metadata.photo_url 存在与否判断是否为照片签到
+   * - 不依赖 last_checkin_source 字段来区分照片签到
    */
   metadata?: any;
   // v7 新增字段
-  last_checkin_source?: 'regular' | 'window' | 'manual' | 'photo';
+  last_checkin_source?: 'regular' | 'window' | 'manual';
   last_checkin_reason?: string;
   manual_override_by?: string;
   manual_override_time?: Date;

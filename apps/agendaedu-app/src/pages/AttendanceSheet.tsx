@@ -1,6 +1,7 @@
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import LeaveApprovalDialog from '@/components/LeaveApprovalDialog';
 import ManualCheckinDialog from '@/components/ManualCheckinDialog';
+import PhotoApprovalDialog from '@/components/PhotoApprovalDialog';
 import { Toaster, ToastProvider } from '@/components/ui/toast';
 import VerificationConfirmDialog from '@/components/VerificationConfirmDialog';
 import { useToast } from '@/hooks/use-toast';
@@ -68,8 +69,19 @@ interface StudentAttendanceDetail {
     | 'leave'
     | 'leave_pending'
     | 'unstarted'
-    | 'truant';
+    | 'truant'
+    | 'pending_approval'; // 照片签到待审核
   checkin_time?: string | Date | null;
+  attendance_record_id?: number | null; // 用于审批接口
+  checkin_location?: string | null;
+  checkin_latitude?: number | null;
+  checkin_longitude?: number | null;
+  checkin_accuracy?: number | null;
+  metadata?: {
+    photo_url?: string; // 照片 URL
+    location_offset_distance?: number; // 位置偏移距离（米）
+    reason?: string;
+  } | null;
 }
 
 interface AttendanceWindow {
@@ -162,6 +174,13 @@ function AttendanceSheetContent() {
   } | null>(null);
   const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
+
+  // 照片签到审核对话框状态
+  const [photoApprovalStudent, setPhotoApprovalStudent] =
+    useState<StudentAttendanceDetail | null>(null);
+  const [isPhotoApprovalDialogOpen, setIsPhotoApprovalDialogOpen] =
+    useState(false);
+  const [isApprovingPhoto, setIsApprovingPhoto] = useState(false);
 
   // 缺勤统计状态
   const [absenceStats, setAbsenceStats] = useState<StudentAbsenceStats[]>([]);
@@ -774,6 +793,67 @@ function AttendanceSheetContent() {
     }
   };
 
+  // 打开照片审核对话框
+  const handleOpenPhotoApprovalDialog = (student: StudentAttendanceDetail) => {
+    setPhotoApprovalStudent(student);
+    setIsPhotoApprovalDialogOpen(true);
+  };
+
+  // 关闭照片审核对话框
+  const handleClosePhotoApprovalDialog = () => {
+    if (!isApprovingPhoto) {
+      setIsPhotoApprovalDialogOpen(false);
+      setPhotoApprovalStudent(null);
+    }
+  };
+
+  // 批准照片签到
+  const handleApprovePhotoCheckin = async () => {
+    if (!photoApprovalStudent?.attendance_record_id) {
+      toast.error('审批失败', {
+        description: '缺少签到记录ID',
+        duration: 4000
+      });
+      return;
+    }
+
+    setIsApprovingPhoto(true);
+
+    try {
+      const response = await icaLinkApiClient.post(
+        `/icalink/v1/attendance/records/${photoApprovalStudent.attendance_record_id}/approve`,
+        {}
+      );
+
+      if (response.success) {
+        toast.success('照片签到已批准', {
+          description: '学生考勤状态已更新为已签到',
+          duration: 3000
+        });
+
+        // 关闭对话框
+        setIsPhotoApprovalDialogOpen(false);
+        setPhotoApprovalStudent(null);
+
+        // 刷新数据
+        await loadTeacherAttendanceData();
+      } else {
+        toast.error('审批失败', {
+          description: response.message || '请重试',
+          duration: 4000
+        });
+      }
+    } catch (error) {
+      console.error('审批照片签到失败:', error);
+      toast.error('审批失败', {
+        description: error instanceof Error ? error.message : '请重试',
+        duration: 4000
+      });
+    } finally {
+      setIsApprovingPhoto(false);
+    }
+  };
+
   // 打开切换签到设置确认对话框
   const handleToggleCheckinSetting = () => {
     if (!teacherData?.course) return;
@@ -871,6 +951,8 @@ function AttendanceSheetContent() {
         return <Calendar className='h-4 w-4 text-blue-500' />;
       case 'leave_pending':
         return <AlertCircle className='h-4 w-4 text-orange-500' />;
+      case 'pending_approval':
+        return <AlertCircle className='h-4 w-4 text-yellow-500' />;
       default:
         return <XCircle className='h-4 w-4 text-gray-500' />;
     }
@@ -890,6 +972,8 @@ function AttendanceSheetContent() {
         return '请假（未批）';
       case 'truant':
         return '旷课';
+      case 'pending_approval':
+        return '签到待审核';
       default:
         return '未知';
     }
@@ -935,6 +1019,8 @@ function AttendanceSheetContent() {
         return 'text-blue-600 bg-blue-50';
       case 'leave_pending':
         return 'text-orange-600 bg-orange-50';
+      case 'pending_approval':
+        return 'text-yellow-600 bg-yellow-50';
       default:
         return 'text-gray-600 bg-gray-50';
     }
@@ -1264,9 +1350,35 @@ function AttendanceSheetContent() {
                                 )}
 
                               {/* 状态标签 - 根据课程状态和学生状态显示不同内容 */}
-                              {student.absence_type === 'leave_pending' &&
-                              (teacherData.status === 'in_progress' ||
-                                teacherData.status === 'not_started') ? (
+                              {student.absence_type === 'pending_approval' &&
+                              student.metadata?.photo_url ? (
+                                // 照片签到待审核：显示状态标签 + 审核按钮
+                                <div className='flex items-center space-x-2'>
+                                  {/* 先显示状态标签 */}
+                                  <span
+                                    className={`flex items-center space-x-1 rounded-full px-2 py-1 text-xs ${getStatusColor(
+                                      student.absence_type
+                                    )}`}
+                                  >
+                                    {getStatusIcon(student.absence_type)}
+                                    <span>
+                                      {getStatusText(student.absence_type)}
+                                    </span>
+                                  </span>
+                                  {/* 再显示审核按钮 - 微信风格绿底白字 */}
+                                  <button
+                                    type='button'
+                                    onClick={() =>
+                                      handleOpenPhotoApprovalDialog(student)
+                                    }
+                                    className='rounded-md bg-[#07C160] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#06AD56] active:bg-[#059048]'
+                                  >
+                                    审核
+                                  </button>
+                                </div>
+                              ) : student.absence_type === 'leave_pending' &&
+                                (teacherData.status === 'in_progress' ||
+                                  teacherData.status === 'not_started') ? (
                                 // 请假待审批：显示状态标签 + 审批按钮
                                 <div className='flex items-center space-x-2'>
                                   {/* 先显示状态标签 */}
@@ -1540,6 +1652,17 @@ function AttendanceSheetContent() {
             onReject={handleRejectLeave}
             onFetchApplication={handleFetchLeaveApplication}
             isSubmitting={isApproving}
+          />
+        )}
+
+        {/* 照片签到审核对话框 */}
+        {photoApprovalStudent && isPhotoApprovalDialogOpen && (
+          <PhotoApprovalDialog
+            isOpen={isPhotoApprovalDialogOpen}
+            student={photoApprovalStudent}
+            onClose={handleClosePhotoApprovalDialog}
+            onApprove={handleApprovePhotoCheckin}
+            isSubmitting={isApprovingPhoto}
           />
         )}
 

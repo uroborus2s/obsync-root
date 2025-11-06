@@ -19,6 +19,7 @@ import ContactRepository from '../repositories/ContactRepository.js';
 import CourseStudentRepository from '../repositories/CourseStudentRepository.js';
 import LeaveApplicationRepository from '../repositories/LeaveApplicationRepository.js';
 import VerificationWindowRepository from '../repositories/VerificationWindowRepository.js';
+import type OsspStorageService from './OsspStorageService.js';
 
 import { isAfter, isBefore, isEqual, startOfDay } from 'date-fns';
 import type {
@@ -67,7 +68,8 @@ export default class AttendanceService implements IAttendanceService {
     private readonly attendanceTodayViewRepository: AttendanceTodayViewRepository,
     private readonly leaveApplicationRepository: LeaveApplicationRepository,
     private readonly absentStudentRelationRepository: AbsentStudentRelationRepository,
-    private readonly verificationWindowRepository: VerificationWindowRepository
+    private readonly verificationWindowRepository: VerificationWindowRepository,
+    private readonly osspStorageService: OsspStorageService
   ) {}
 
   onReady() {
@@ -926,7 +928,56 @@ export default class AttendanceService implements IAttendanceService {
       // 1. 判断是否为照片签到（通过photo_url字段判断）
       const isPhotoCheckin = !!checkinData.photo_url;
 
-      // 2. 时间窗口校验（异步）
+      // 2. 照片签到：验证图片URL有效性
+      if (isPhotoCheckin && checkinData.photo_url) {
+        this.logger.info(
+          {
+            studentId: studentInfo.userId,
+            photoUrl: checkinData.photo_url
+          },
+          'Validating photo URL for photo checkin'
+        );
+
+        // 验证图片是否存在于OSS
+        const bucketName = 'icalink-attachments';
+        const checkResult = await this.osspStorageService.checkObjectExists(
+          bucketName,
+          checkinData.photo_url
+        );
+
+        if (isLeft(checkResult)) {
+          this.logger.error(
+            {
+              studentId: studentInfo.userId,
+              photoUrl: checkinData.photo_url,
+              error: checkResult.left
+            },
+            'Failed to check photo existence'
+          );
+          throw new Error('验证图片失败，请重试');
+        }
+
+        if (!checkResult.right) {
+          this.logger.error(
+            {
+              studentId: studentInfo.userId,
+              photoUrl: checkinData.photo_url
+            },
+            'Photo does not exist in OSS'
+          );
+          throw new Error('图片不存在或已过期，请重新上传');
+        }
+
+        this.logger.info(
+          {
+            studentId: studentInfo.userId,
+            photoUrl: checkinData.photo_url
+          },
+          'Photo URL validated successfully'
+        );
+      }
+
+      // 3. 时间窗口校验（异步）
       // 照片签到跳过时间窗口校验，因为是位置校验失败后的补救措施
       // 使用传入的签到时间和时间窗口参数进行验证
       const checkinDateTime = new Date(checkinTime);
@@ -1108,7 +1159,6 @@ export default class AttendanceService implements IAttendanceService {
             checkinData.location_offset_distance || null,
           reason: '位置校验失败，使用照片签到'
         };
-        checkinRecordData.last_checkin_source = 'photo';
         checkinRecordData.last_checkin_reason = '位置校验失败，使用照片签到';
 
         this.logger.info(
@@ -1119,8 +1169,11 @@ export default class AttendanceService implements IAttendanceService {
           },
           'Photo checkin processed - pending approval'
         );
-      } else if (isWindowCheckin && checkinData.window_id) {
-        // 9. 处理窗口期签到的特殊逻辑
+      }
+
+      // 8. 设置 last_checkin_source 字段（照片签到和普通签到都需要设置）
+      if (isWindowCheckin && checkinData.window_id) {
+        // 窗口期签到（包括窗口期的照片签到）
         // 查询窗口信息
         const window = await this.verificationWindowRepository.findByWindowId(
           checkinData.window_id
@@ -1140,9 +1193,12 @@ export default class AttendanceService implements IAttendanceService {
           this.logger.info(
             {
               windowId: checkinData.window_id,
-              verificationRound: window.verification_round
+              verificationRound: window.verification_round,
+              isPhotoCheckin
             },
-            'Window checkin processed'
+            isPhotoCheckin
+              ? 'Window photo checkin processed'
+              : 'Window checkin processed'
           );
         } else {
           this.logger.warn(
@@ -1152,11 +1208,11 @@ export default class AttendanceService implements IAttendanceService {
           checkinRecordData.last_checkin_source = 'regular';
         }
       } else {
-        // 正常签到
+        // 正常签到（包括普通的照片签到）
         checkinRecordData.last_checkin_source = 'regular';
       }
 
-      // 8. 写入签到数据到数据库
+      // 9. 写入签到数据到数据库
       // 业务规则：签到只新增记录，不会更新已有记录
       // 幂等性通过 BullMQ 的 jobId 机制保证，相同 jobId 的任务只会被处理一次
       const newRecord = {
@@ -1547,20 +1603,21 @@ export default class AttendanceService implements IAttendanceService {
    * 审批照片签到
    *
    * 教师审批学生的照片签到记录：
-   * - approved: 将状态从 pending_approval 改为 present 或 late
-   * - rejected: 将状态从 pending_approval 改为 absent
+   * - 将状态从 pending_approval 改为 present
    *
-   * @param recordId - 签到记录ID
-   * @param action - 审批动作：approved/rejected
-   * @param teacherId - 教师ID
-   * @param remark - 审批备注
+   * @param dto - 审批照片签到 DTO
+   * @returns 审批结果
    */
   async approvePhotoCheckin(
-    recordId: number,
-    action: 'approved' | 'rejected',
-    teacherId: string,
-    remark?: string
-  ): Promise<Either<ServiceError, { record_id: number; message: string }>> {
+    dto: import('../types/api.js').ApprovePhotoCheckinDTO
+  ): Promise<
+    Either<ServiceError, import('../types/api.js').ApprovePhotoCheckinResponse>
+  > {
+    const { attendanceRecordId, userInfo } = dto;
+    const recordId = attendanceRecordId;
+    const teacherId = userInfo.userId;
+    const action = 'approved'; // 默认为审批通过
+    const remark = undefined;
     try {
       this.logger.info(
         { recordId, action, teacherId },
@@ -1643,8 +1700,13 @@ export default class AttendanceService implements IAttendanceService {
       );
 
       return right({
-        record_id: recordId,
-        message: action === 'approved' ? '审批通过' : '审批拒绝'
+        success: true,
+        message: '照片签到审批通过',
+        data: {
+          attendance_record_id: recordId,
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        }
       });
     } catch (error) {
       this.logger.error(

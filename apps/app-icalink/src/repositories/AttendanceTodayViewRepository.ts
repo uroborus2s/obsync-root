@@ -1,6 +1,6 @@
 import type { Logger } from '@stratix/core';
 import { BaseRepository } from '@stratix/database';
-import { fromNullable, Maybe } from '@stratix/utils/functional';
+import { Maybe, maybeNone } from '@stratix/utils/functional';
 import type {
   IcalinkDatabase,
   VAttendanceTodayDetails
@@ -83,7 +83,7 @@ export default class AttendanceTodayViewRepository extends BaseRepository<
         { externalId, studentId },
         'findByExternalIdAndStudent called with invalid parameters'
       );
-      return fromNullable(null);
+      return maybeNone;
     }
 
     this.logger.debug(
@@ -172,7 +172,10 @@ export default class AttendanceTodayViewRepository extends BaseRepository<
   ): Promise<VAttendanceTodayDetails[]> {
     // 参数验证
     if (!courseId || courseId <= 0) {
-      this.logger.warn({ courseId }, 'findByCourseId called with invalid courseId');
+      this.logger.warn(
+        { courseId },
+        'findByCourseId called with invalid courseId'
+      );
       return [];
     }
 
@@ -197,4 +200,3 @@ export default class AttendanceTodayViewRepository extends BaseRepository<
     }
   }
 }
-

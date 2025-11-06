@@ -881,32 +881,65 @@ export class AttendanceApiService {
   }
 
   /**
-   * 上传文件到 OSS（使用预签名 URL）
+   * 上传文件到 OSS（使用预签名 URL，支持进度回调）
    *
    * @param uploadUrl - 预签名上传 URL
    * @param file - 图片文件
+   * @param onProgress - 上传进度回调函数
    */
-  async uploadToOSS(uploadUrl: string, file: File): Promise<void> {
-    const response = await fetch(uploadUrl, {
-      method: 'PUT',
-      body: file,
-      headers: {
-        'Content-Type': file.type
-      }
-    });
+  async uploadToOSS(
+    uploadUrl: string,
+    file: File,
+    onProgress?: (progress: number) => void
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
 
-    if (!response.ok) {
-      throw new Error(`上传失败: ${response.statusText}`);
-    }
+      // 监听上传进度
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable && onProgress) {
+          const progress = Math.round((e.loaded / e.total) * 100);
+          onProgress(progress);
+        }
+      });
+
+      // 监听上传完成
+      xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve();
+        } else {
+          reject(new Error(`上传失败: ${xhr.statusText}`));
+        }
+      });
+
+      // 监听上传错误
+      xhr.addEventListener('error', () => {
+        reject(new Error('上传失败，请检查网络连接'));
+      });
+
+      // 监听上传中止
+      xhr.addEventListener('abort', () => {
+        reject(new Error('上传已取消'));
+      });
+
+      // 发起上传请求
+      xhr.open('PUT', uploadUrl);
+      xhr.setRequestHeader('Content-Type', file.type);
+      xhr.send(file);
+    });
   }
 
   /**
-   * 上传签到图片（完整流程）
+   * 上传签到图片（完整流程，支持进度回调）
    *
    * @param file - 图片文件
+   * @param onProgress - 上传进度回调函数
    * @returns 图片 OSS 路径
    */
-  async uploadCheckinPhoto(file: File): Promise<{
+  async uploadCheckinPhoto(
+    file: File,
+    onProgress?: (progress: number) => void
+  ): Promise<{
     success: boolean;
     message?: string;
     data?: {
@@ -927,8 +960,8 @@ export class AttendanceApiService {
 
       const { uploadUrl, objectPath, bucketName } = presignedResult.data;
 
-      // 2. 上传文件到 OSS
-      await this.uploadToOSS(uploadUrl, file);
+      // 2. 上传文件到 OSS（带进度回调）
+      await this.uploadToOSS(uploadUrl, file, onProgress);
 
       // 3. 返回对象路径
       return {

@@ -336,7 +336,8 @@ export interface WithdrawPathParams {
  * 撤回请假申请响应
  */
 export interface WithdrawResponse {
-  application_id: number;
+  application_id?: number; // 旧版本接口返回，新版本不返回
+  attendance_record_id?: number; // 新版本接口返回
   student_id: string;
   student_name: string;
   course_name: string;
@@ -659,6 +660,16 @@ export interface StudentAttendanceDetail {
   major_name: string | null;
   absence_type: AttendanceStatus;
   checkin_time?: string | Date | null;
+  attendance_record_id?: number | null;
+  checkin_location?: string | null;
+  checkin_latitude?: number | null;
+  checkin_longitude?: number | null;
+  checkin_accuracy?: number | null;
+  metadata?: {
+    photo_url?: string;
+    location_offset_distance?: number;
+    reason?: string;
+  } | null;
 }
 
 /**
@@ -735,6 +746,29 @@ export interface UpdateCourseCheckinSettingResponse {
   course_id: number;
   need_checkin: 0 | 1;
   updated_at: string;
+}
+
+// ==================== API_12: 照片签到审批接口 ====================
+
+/**
+ * 审批照片签到 DTO
+ */
+export interface ApprovePhotoCheckinDTO {
+  attendanceRecordId: number;
+  userInfo: UserInfo;
+}
+
+/**
+ * 审批照片签到响应
+ */
+export interface ApprovePhotoCheckinResponse {
+  success: boolean;
+  message: string;
+  data: {
+    attendance_record_id: number;
+    status: AttendanceStatus;
+    updated_at: string;
+  };
 }
 
 /**

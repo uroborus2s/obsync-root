@@ -1,4 +1,5 @@
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { ImagePreviewDialog } from '@/components/ImagePreviewDialog';
 import LocationFailedDialog from '@/components/LocationFailedDialog';
 import { Toaster, ToastProvider } from '@/components/ui/toast';
 import { useToast } from '@/hooks/use-toast';
@@ -14,6 +15,7 @@ import {
 import { LocationHelper } from '@/utils/location-helper';
 import { validateLocationForCheckIn } from '@/utils/locationUtils';
 import { checkWPSSDKStatus } from '@/utils/wps-sdk-checker';
+import imageCompression from 'browser-image-compression';
 import { addMinutes } from 'date-fns';
 import { BookOpen, Calendar, Clock, MapPin, User } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -69,6 +71,15 @@ function StudentDashboardContent() {
   // === 撤回请假申请状态 ===
   const [showWithdrawConfirm, setShowWithdrawConfirm] = useState(false);
   const [withdrawLoading, setWithdrawLoading] = useState(false);
+
+  // === 图片预览状态 ===
+  const [showImagePreview, setShowImagePreview] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string>('');
+  const [originalFileSize, setOriginalFileSize] = useState<number>(0);
+  const [compressedFileSize, setCompressedFileSize] = useState<number>(0);
+  const [compressedFile, setCompressedFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [isUploading, setIsUploading] = useState(false);
 
   // === Ref 与 AbortController ===
   const dataFetchAbortRef = useRef<AbortController | null>(null);
@@ -186,7 +197,10 @@ function StudentDashboardContent() {
         { lat: locationData.latitude, lng: locationData.longitude },
         roomInfo
       );
-      if (!locationValidation.valid) {
+      if (
+        !locationValidation.valid
+        // attendanceData.student.xh !== '0306012409428'
+      ) {
         // 位置校验失败，显示对话框让用户选择
         setPendingLocationData(locationData);
         setLocationValidationDistance(locationValidation.distance);
@@ -405,6 +419,37 @@ function StudentDashboardContent() {
     }
   };
 
+  // 压缩图片
+  const compressImage = async (file: File): Promise<File> => {
+    try {
+      toast.info('正在压缩图片...', {
+        description: '请稍候，不要关闭页面'
+      });
+
+      const options = {
+        maxSizeMB: 0.4, // 最大文件大小 400KB
+        maxWidthOrHeight: 1920, // 最大宽度或高度
+        useWebWorker: true, // 使用 Web Worker 提升性能
+        initialQuality: 0.8 // 初始质量 80%
+      };
+
+      const compressedFile = await imageCompression(file, options);
+
+      console.log('图片压缩完成:', {
+        originalSize: file.size,
+        compressedSize: compressedFile.size,
+        compressionRate: Math.round(
+          ((file.size - compressedFile.size) / file.size) * 100
+        )
+      });
+
+      return compressedFile;
+    } catch (error) {
+      console.error('图片压缩失败:', error);
+      throw new Error('图片压缩失败，请重试');
+    }
+  };
+
   // 图片签到
   const handlePhotoCheckin = async () => {
     if (!attendanceData || !pendingLocationData) {
@@ -449,69 +494,28 @@ function StudentDashboardContent() {
             throw new Error('仅支持 JPEG、PNG、GIF、WebP 格式的图片');
           }
 
-          // 3. 显示上传进度提示
-          toast.info('正在上传图片...', {
-            description: '请稍候，不要关闭页面'
-          });
+          // 3. 压缩图片
+          const compressed = await compressImage(file);
 
-          // 4. 上传图片到 OSS
-          const photoUrl = await uploadPhotoToOSS(file);
+          // 4. 生成预览URL
+          const previewUrl = URL.createObjectURL(compressed);
 
-          // 5. 构建图片签到 payload
-          const { verification_windows } = attendanceData;
-          const isWindowCheckin = !!(
-            verification_windows?.window_id &&
-            verification_windows?.open_time &&
-            verification_windows?.duration_minutes
-          );
+          // 5. 保存压缩后的文件和大小信息
+          setOriginalFileSize(file.size);
+          setCompressedFileSize(compressed.size);
+          setCompressedFile(compressed);
+          setPreviewImageUrl(previewUrl);
 
-          const payload: any = {
-            location: pendingLocationData.address.description,
-            latitude: pendingLocationData.latitude,
-            longitude: pendingLocationData.longitude,
-            accuracy: pendingLocationData.accuracy,
-            course_start_time: attendanceData.course.course_start_time,
-            photo_url: photoUrl, // 图片 OSS 路径
-            location_offset_distance: locationValidationDistance // 位置偏移距离
-          };
-
-          // 如果是窗口期签到，添加窗口相关字段
-          if (isWindowCheckin && verification_windows) {
-            const windowOpenTime = new Date(verification_windows.open_time);
-            const windowCloseTime = addMinutes(
-              windowOpenTime,
-              verification_windows.duration_minutes
-            );
-
-            payload.window_id = verification_windows.window_id;
-            payload.window_open_time = verification_windows.open_time;
-            payload.window_close_time = windowCloseTime.toISOString();
-          }
-
-          // 6. 发起签到请求
-          const response = await attendanceApi.studentCheckIn(
-            attendanceData.id,
-            payload
-          );
-
-          if (response.success) {
-            toast.success('照片签到已提交', {
-              description: '您的签到申请已提交，等待教师审核。'
-            });
-            // 刷新数据
-            await loadAttendanceData(true);
-          } else {
-            throw new Error(response.message || '签到失败，请重试');
-          }
+          // 6. 显示预览对话框
+          setShowImagePreview(true);
+          setCheckinLoading(false);
         } catch (error) {
-          console.error('照片签到失败:', error);
-          toast.error('照片签到失败', {
+          console.error('处理图片失败:', error);
+          toast.error('处理图片失败', {
             description: error instanceof Error ? error.message : '请稍后重试'
           });
-        } finally {
           setCheckinLoading(false);
           setPendingLocationData(null);
-          setLocationValidationDistance(undefined);
         }
       };
 
@@ -527,20 +531,154 @@ function StudentDashboardContent() {
     }
   };
 
-  // 上传图片到OSS的函数
-  const uploadPhotoToOSS = async (file: File): Promise<string> => {
-    try {
-      const response = await attendanceApi.uploadCheckinPhoto(file);
+  // 处理预览确认 - 上传图片并签到
+  const handlePreviewConfirm = async () => {
+    if (!compressedFile || !attendanceData || !pendingLocationData) {
+      return;
+    }
 
-      if (!response.success || !response.data?.photo_url) {
-        throw new Error(response.message || '图片上传失败');
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    try {
+      // 1. 获取预签名上传 URL
+      const presignedResult =
+        await attendanceApi.getPresignedUploadUrl(compressedFile);
+
+      if (!presignedResult.success || !presignedResult.data) {
+        throw new Error(presignedResult.message || '获取上传地址失败，请重试');
       }
 
-      return response.data.photo_url;
+      const { uploadUrl, objectPath } = presignedResult.data;
+
+      // 2. 使用预签名 URL 直接上传到 OSS（带进度回调）
+      await attendanceApi.uploadToOSS(uploadUrl, compressedFile, (progress) => {
+        setUploadProgress(progress);
+      });
+
+      // 3. 构建图片签到 payload
+      const { verification_windows } = attendanceData;
+      const isWindowCheckin = !!(
+        verification_windows?.window_id &&
+        verification_windows?.open_time &&
+        verification_windows?.duration_minutes
+      );
+
+      const payload: any = {
+        location: pendingLocationData.address.description,
+        latitude: pendingLocationData.latitude,
+        longitude: pendingLocationData.longitude,
+        accuracy: pendingLocationData.accuracy,
+        course_start_time: attendanceData.course.course_start_time,
+        photo_url: objectPath, // 图片 OSS 路径
+        location_offset_distance: locationValidationDistance, // 位置偏移距离
+        last_checkin_source: isWindowCheckin ? 'window' : 'regular' // 保持与普通签到一致
+      };
+
+      // 如果是窗口期签到，添加窗口相关字段
+      if (isWindowCheckin && verification_windows) {
+        const windowOpenTime = new Date(verification_windows.open_time);
+        const windowCloseTime = addMinutes(
+          windowOpenTime,
+          verification_windows.duration_minutes
+        );
+
+        payload.window_id = verification_windows.window_id;
+        payload.window_open_time = verification_windows.open_time;
+        payload.window_close_time = windowCloseTime.toISOString();
+      }
+
+      // 4. 发起签到请求
+      const response = await attendanceApi.studentCheckIn(
+        attendanceData.id,
+        payload
+      );
+
+      if (response.success) {
+        toast.success('照片签到已提交', {
+          description: '您的签到申请已提交，等待教师审核。'
+        });
+
+        // ✅ 直接更新本地状态，无需重新请求接口
+        let nextData: BackendAttendanceData | null = null;
+        setAttendanceData((prevData) => {
+          if (!prevData) return null;
+
+          const updatedData = { ...prevData };
+
+          // 如果是窗口签到，更新窗口信息和考勤记录
+          if (isWindowCheckin && verification_windows) {
+            const now = new Date().toISOString();
+            updatedData.verification_windows = {
+              ...verification_windows,
+              attendance_record: {
+                id: prevData.attendance_record_id || 0,
+                checkin_time: now,
+                status: 'pending_approval',
+                last_checkin_source: 'window',
+                last_checkin_reason: '位置校验失败，使用照片签到',
+                window_id: verification_windows.window_id
+              }
+            };
+          }
+
+          // 更新状态字段（根据 updateStatusField 更新对应的状态）
+          if (displayState?.updateStatusField) {
+            // 使用类型断言来避免类型错误
+            (updatedData as any)[displayState.updateStatusField] =
+              'pending_approval';
+          }
+
+          // 添加 metadata 字段
+          updatedData.metadata = {
+            photo_url: objectPath,
+            location_offset_distance: locationValidationDistance,
+            reason: '位置校验失败，使用照片签到'
+          };
+
+          nextData = updatedData;
+          return updatedData;
+        });
+
+        // 立即重新计算显示状态
+        if (nextData) {
+          setDisplayState(determineDisplayState(nextData, new Date()));
+        }
+
+        // 关闭预览对话框
+        handlePreviewCancel();
+      } else {
+        throw new Error(response.message || '签到失败，请重试');
+      }
     } catch (error) {
-      console.error('上传图片到OSS失败:', error);
-      throw error;
+      console.error('照片签到失败:', error);
+      toast.error('照片签到失败', {
+        description: error instanceof Error ? error.message : '请稍后重试'
+      });
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
     }
+  };
+
+  // 处理预览取消 - 清理状态并允许重新拍照
+  const handlePreviewCancel = () => {
+    // 释放 Blob URL
+    if (previewImageUrl) {
+      URL.revokeObjectURL(previewImageUrl);
+    }
+
+    // 重置所有预览相关状态
+    setShowImagePreview(false);
+    setPreviewImageUrl('');
+    setOriginalFileSize(0);
+    setCompressedFileSize(0);
+    setCompressedFile(null);
+    setUploadProgress(0);
+    setIsUploading(false);
+    setCheckinLoading(false);
+    setPendingLocationData(null);
+    setLocationValidationDistance(undefined);
   };
 
   // 撤回请假申请
@@ -878,6 +1016,18 @@ function StudentDashboardContent() {
         </div>
       </div>
       {/* <StudentFloatingMessageButton /> */}
+
+      {/* 图片预览对话框 */}
+      <ImagePreviewDialog
+        isOpen={showImagePreview}
+        imageUrl={previewImageUrl}
+        originalSize={originalFileSize}
+        compressedSize={compressedFileSize}
+        onConfirm={handlePreviewConfirm}
+        onClose={handlePreviewCancel}
+        isUploading={isUploading}
+        uploadProgress={uploadProgress}
+      />
 
       {/* 位置校验失败对话框 */}
       <LocationFailedDialog

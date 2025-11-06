@@ -1,10 +1,10 @@
 import type {
   CompleteUploadResponse,
   DriveInfo,
-  FileInfo,
   GetChildrenResponse,
   RequestUploadResponse
 } from '@stratix/was-v7';
+import type { FileInfo } from '@stratix/was-v7/src/types/drive.js';
 
 /**
  * WPS云盘服务接口

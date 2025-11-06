@@ -1,6 +1,8 @@
 import type { ServiceError } from '@stratix/core';
 import type { Either } from '@stratix/utils/functional';
 import type {
+  ApprovePhotoCheckinDTO,
+  ApprovePhotoCheckinResponse,
   CheckinDTO,
   CheckinResponse,
   GetCourseCompleteDataDTO,
@@ -27,6 +29,10 @@ export interface IAttendanceService {
   updateCourseCheckinSetting(
     dto: UpdateCourseCheckinSettingDTO
   ): Promise<Either<ServiceError, UpdateCourseCheckinSettingResponse>>;
+
+  approvePhotoCheckin(
+    dto: ApprovePhotoCheckinDTO
+  ): Promise<Either<ServiceError, ApprovePhotoCheckinResponse>>;
 
   // getCourseAttendanceHistoryById(
   //   courseId: string,

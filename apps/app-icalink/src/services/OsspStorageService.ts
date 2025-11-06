@@ -116,6 +116,17 @@ export interface IOsspStorageService {
     bucketName: string,
     options: PresignedUploadUrlOptions
   ): Promise<Either<ServiceError, PresignedUploadUrlResult>>;
+
+  /**
+   * 检查对象是否存在于 OSS
+   * @param bucketName 存储桶名称
+   * @param objectPath 对象路径
+   * @returns 对象是否存在
+   */
+  checkObjectExists(
+    bucketName: string,
+    objectPath: string
+  ): Promise<Either<ServiceError, boolean>>;
 }
 
 /**
@@ -476,6 +487,51 @@ export default class OsspStorageService implements IOsspStorageService {
       return left({
         code: String(ServiceErrorCode.STORAGE_ERROR),
         message: '生成预签名上传URL失败'
+      });
+    }
+  }
+
+  /**
+   * 检查对象是否存在于 OSS
+   * @param bucketName 存储桶名称
+   * @param objectPath 对象路径
+   * @returns 对象是否存在
+   */
+  async checkObjectExists(
+    bucketName: string,
+    objectPath: string
+  ): Promise<Either<ServiceError, boolean>> {
+    try {
+      this.logger.debug(
+        { bucketName, objectPath },
+        'Checking if object exists in OSS'
+      );
+
+      // 使用 statObject 检查对象是否存在
+      await this.osspClient.statObject(bucketName, objectPath);
+
+      this.logger.debug({ bucketName, objectPath }, 'Object exists in OSS');
+
+      return right(true);
+    } catch (error: any) {
+      // 如果对象不存在，MinIO 会抛出错误
+      // 检查错误码，如果是 NotFound，返回 false
+      if (error.code === 'NotFound' || error.code === 'NoSuchKey') {
+        this.logger.debug(
+          { bucketName, objectPath },
+          'Object does not exist in OSS'
+        );
+        return right(false);
+      }
+
+      // 其他错误（如权限问题、网络问题）返回错误
+      this.logger.error(
+        { error, bucketName, objectPath },
+        'Failed to check object existence'
+      );
+      return left({
+        code: String(ServiceErrorCode.STORAGE_ERROR),
+        message: '检查对象是否存在失败'
       });
     }
   }

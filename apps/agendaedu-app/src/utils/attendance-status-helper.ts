@@ -56,6 +56,11 @@ export interface BackendAttendanceData {
       window_id: string;
     };
   };
+  metadata?: {
+    photo_url?: string;
+    location_offset_distance?: number;
+    reason?: string;
+  };
 }
 
 // 定义UI渲染所需的状态对象结构
@@ -306,10 +311,10 @@ export function determineDisplayState(
     if (live_status === 'pending_approval') {
       return {
         ...initialDisplayState,
-        statusText: '签到审批中',
+        statusText: '签到审核中',
         statusIcon: '⏳',
         statusColor: 'text-blue-600',
-        subText: '您的照片签到正在等待教师审批。',
+        subText: '您的签到申请已提交，请提醒教师审批',
         showCheckInButton: false,
         showLeaveButton: false,
         statusType: 'live',

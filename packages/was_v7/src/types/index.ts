@@ -75,21 +75,6 @@ export interface CompanyInfo {
   description?: string;
 }
 
-// 文件信息类型
-export interface FileInfo {
-  file_id: string;
-  name: string;
-  type: 'file' | 'folder';
-  size?: number;
-  parent_id?: string;
-  created_time: string;
-  modified_time: string;
-  creator_id: string;
-  modifier_id?: string;
-  url?: string;
-  download_url?: string;
-}
-
 // Token 缓存相关类型
 export interface TokenCacheError extends Error {
   code:
@@ -126,3 +111,5 @@ export * from './calendar.js';
 
 // 导出 DBSheet 相关类型
 export * from './dbsheet.js';
+
+export * from './drive.js';

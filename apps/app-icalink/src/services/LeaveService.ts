@@ -25,10 +25,10 @@ import type {
 } from '../types/api.js';
 import {
   AttendanceStatus,
+  LeaveStatus,
   type IcalinkAttendanceRecord,
   type IcalinkLeaveApplication,
-  type IcasyncAttendanceCourse,
-  type LeaveStatus
+  type IcasyncAttendanceCourse
 } from '../types/database.js';
 import { ServiceErrorCode } from '../types/service.js';
 import { formatDateTime, getCurrentDateTime } from '../utils/datetime.js';
@@ -438,6 +438,12 @@ export default class LeaveService {
 
       const previousStatus = record.status;
 
+      // 将 AttendanceStatus 转换为 LeaveStatus
+      const previousLeaveStatus: LeaveStatus =
+        previousStatus === AttendanceStatus.LEAVE
+          ? LeaveStatus.LEAVE
+          : LeaveStatus.LEAVE_PENDING;
+
       // 4. 删除考勤记录
       const deleteResult =
         await this.attendanceRecordRepository.delete(attendanceRecordId);
@@ -472,8 +478,8 @@ export default class LeaveService {
         student_id: record.student_id,
         student_name: studentInfo.name,
         course_name: '', // 考勤记录中没有课程名称，可以从课程表查询
-        previous_status: previousStatus,
-        new_status: 'unstarted', // 撤回后状态变为未开始
+        previous_status: previousLeaveStatus,
+        new_status: LeaveStatus.CANCELLED, // 撤回后状态变为已取消
         withdraw_time: getCurrentDateTime().toISOString()
       });
     } catch (error) {
