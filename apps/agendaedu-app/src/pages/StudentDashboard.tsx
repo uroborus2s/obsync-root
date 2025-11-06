@@ -80,6 +80,8 @@ function StudentDashboardContent() {
   const [compressedFile, setCompressedFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false); // 压缩状态
+  const [compressionProgress, setCompressionProgress] = useState<number>(0); // 压缩进度
 
   // === Ref 与 AbortController ===
   const dataFetchAbortRef = useRef<AbortController | null>(null);
@@ -409,6 +411,10 @@ function StudentDashboardContent() {
   // 压缩图片
   const compressImage = async (file: File): Promise<File> => {
     try {
+      // 设置压缩状态
+      setIsCompressing(true);
+      setCompressionProgress(0);
+
       toast.info('正在压缩图片...', {
         description: '请稍候，不要关闭页面'
       });
@@ -417,7 +423,12 @@ function StudentDashboardContent() {
         maxSizeMB: 0.4, // 最大文件大小 400KB
         maxWidthOrHeight: 1920, // 最大宽度或高度
         useWebWorker: true, // 使用 Web Worker 提升性能
-        initialQuality: 0.8 // 初始质量 80%
+        initialQuality: 0.8, // 初始质量 80%
+        onProgress: (progress: number) => {
+          // browser-image-compression 的进度是 0-100
+          setCompressionProgress(progress);
+          console.log('压缩进度:', progress);
+        }
       };
 
       const compressedFile = await imageCompression(file, options);
@@ -430,10 +441,16 @@ function StudentDashboardContent() {
         )
       });
 
+      // 压缩完成，设置进度为100%
+      setCompressionProgress(100);
+
       return compressedFile;
     } catch (error) {
       console.error('图片压缩失败:', error);
       throw new Error('图片压缩失败，请重试');
+    } finally {
+      // 重置压缩状态
+      setIsCompressing(false);
     }
   };
 
@@ -481,19 +498,16 @@ function StudentDashboardContent() {
             throw new Error('仅支持 JPEG、PNG、GIF、WebP 格式的图片');
           }
 
-          // 3. 压缩图片
-          const compressed = await compressImage(file);
+          // 3. 生成原图预览URL（不压缩，直接显示）
+          const previewUrl = URL.createObjectURL(file);
 
-          // 4. 生成预览URL
-          const previewUrl = URL.createObjectURL(compressed);
-
-          // 5. 保存压缩后的文件和大小信息
+          // 4. 保存原始文件和大小信息
           setOriginalFileSize(file.size);
-          setCompressedFileSize(compressed.size);
-          setCompressedFile(compressed);
+          setCompressedFileSize(0); // 初始化为0，压缩后更新
+          setCompressedFile(file); // 先保存原始文件，压缩后更新
           setPreviewImageUrl(previewUrl);
 
-          // 6. 显示预览对话框
+          // 5. 显示预览对话框（此时还未压缩）
           setShowImagePreview(true);
           setCheckinLoading(false);
         } catch (error) {
@@ -518,32 +532,38 @@ function StudentDashboardContent() {
     }
   };
 
-  // 处理预览确认 - 上传图片并签到
+  // 处理预览确认 - 压缩图片、上传图片并签到
   const handlePreviewConfirm = async () => {
     if (!compressedFile || !attendanceData || !pendingLocationData) {
       return;
     }
 
-    setIsUploading(true);
-    setUploadProgress(0);
-
     try {
-      // 1. 获取预签名上传 URL
-      const presignedResult =
-        await attendanceApi.getPresignedUploadUrl(compressedFile);
+      // 1. 先压缩图片（在对话框中显示压缩进度）
+      const compressed = await compressImage(compressedFile);
 
-      if (!presignedResult.success || !presignedResult.data) {
-        throw new Error(presignedResult.message || '获取上传地址失败，请重试');
+      // 更新压缩后的文件大小
+      setCompressedFileSize(compressed.size);
+      setCompressedFile(compressed);
+
+      // 2. 上传图片到 OSS（带进度回调）
+      setIsUploading(true);
+      setUploadProgress(0);
+
+      const uploadResult = await attendanceApi.uploadCheckinPhoto(
+        compressed,
+        (progress) => {
+          setUploadProgress(progress);
+        }
+      );
+
+      if (!uploadResult.success || !uploadResult.data) {
+        throw new Error(uploadResult.message || '图片上传失败，请重试');
       }
 
-      const { uploadUrl, objectPath } = presignedResult.data;
+      const { photo_url: objectPath } = uploadResult.data;
 
-      // 2. 使用预签名 URL 直接上传到 OSS（带进度回调）
-      await attendanceApi.uploadToOSS(uploadUrl, compressedFile, (progress) => {
-        setUploadProgress(progress);
-      });
-
-      // 3. 构建图片签到 payload
+      // 2. 构建图片签到 payload
       const { verification_windows } = attendanceData;
       const isWindowCheckin = !!(
         verification_windows?.window_id &&
@@ -645,6 +665,8 @@ function StudentDashboardContent() {
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
+      setCompressionProgress(0);
+      setIsCompressing(false);
     }
   };
 
@@ -663,6 +685,8 @@ function StudentDashboardContent() {
     setCompressedFile(null);
     setUploadProgress(0);
     setIsUploading(false);
+    setCompressionProgress(0);
+    setIsCompressing(false);
     setCheckinLoading(false);
     setPendingLocationData(null);
     setLocationValidationDistance(undefined);
@@ -1014,6 +1038,8 @@ function StudentDashboardContent() {
         onClose={handlePreviewCancel}
         isUploading={isUploading}
         uploadProgress={uploadProgress}
+        isCompressing={isCompressing}
+        compressionProgress={compressionProgress}
       />
 
       {/* 位置校验失败对话框 */}

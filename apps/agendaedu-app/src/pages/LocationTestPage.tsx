@@ -37,6 +37,8 @@ export function LocationTestPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string>('');
+  const [isCompressing, setIsCompressing] = useState(false); // 压缩状态
+  const [compressionProgress, setCompressionProgress] = useState<number>(0); // 压缩进度
 
   const buildings = getSupportedBuildings();
 
@@ -54,6 +56,10 @@ export function LocationTestPage() {
   // 压缩图片
   const compressImage = async (file: File): Promise<File> => {
     try {
+      // 设置压缩状态
+      setIsCompressing(true);
+      setCompressionProgress(0);
+
       toast.info('正在压缩图片...', {
         description: '请稍候，不要关闭页面'
       });
@@ -62,18 +68,35 @@ export function LocationTestPage() {
         maxSizeMB: 0.4, // 最大文件大小 400KB
         maxWidthOrHeight: 1920, // 最大宽度或高度
         useWebWorker: true, // 使用 Web Worker 提升性能
-        initialQuality: 0.8 // 初始质量 80%
+        initialQuality: 0.8, // 初始质量 80%
+        fileType: file.type, // 保留原始文件类型
+        onProgress: (progress: number) => {
+          // browser-image-compression 的进度是 0-100
+          setCompressionProgress(progress);
+          console.log('压缩进度:', progress);
+        }
       };
 
-      const compressedFile = await imageCompression(file, options);
+      const compressedBlob = await imageCompression(file, options);
+
+      // ✅ 重要：确保压缩后的文件保留原始文件名
+      // imageCompression 返回的可能是 Blob，需要转换为 File 并保留原始文件名
+      const compressedFile = new File([compressedBlob], file.name, {
+        type: file.type,
+        lastModified: Date.now()
+      });
 
       console.log('图片压缩完成:', {
         originalSize: file.size,
         compressedSize: compressedFile.size,
         compressionRate: Math.round(
           ((file.size - compressedFile.size) / file.size) * 100
-        )
+        ),
+        fileName: compressedFile.name
       });
+
+      // 压缩完成，设置进度为100%
+      setCompressionProgress(100);
 
       addTestResult({
         type: 'success',
@@ -81,7 +104,8 @@ export function LocationTestPage() {
         details: {
           originalSize: `${(file.size / 1024).toFixed(2)} KB`,
           compressedSize: `${(compressedFile.size / 1024).toFixed(2)} KB`,
-          compressionRate: `${Math.round(((file.size - compressedFile.size) / file.size) * 100)}%`
+          compressionRate: `${Math.round(((file.size - compressedFile.size) / file.size) * 100)}%`,
+          fileName: compressedFile.name
         }
       });
 
@@ -96,18 +120,133 @@ export function LocationTestPage() {
         }
       });
       throw new Error('图片压缩失败，请重试');
+    } finally {
+      // 重置压缩状态
+      setIsCompressing(false);
     }
   };
 
-  // 上传图片到 OSS
+  // 使用 WPS SDK 相机接口上传图片到 OSS
   const handleImageUpload = async () => {
-    addTestResult({ type: 'info', message: '开始测试图片上传到 OSS...' });
+    addTestResult({
+      type: 'info',
+      message: '开始测试 WPS SDK 相机接口...'
+    });
+
+    // 检查 WPS SDK 是否可用
+    if (!window.ksoxz_sdk) {
+      toast.error('WPS SDK 不可用', {
+        description: '请在 WPS 协同环境中测试此功能'
+      });
+      addTestResult({
+        type: 'error',
+        message: 'WPS SDK 不可用',
+        details: {
+          error: '当前环境不支持 WPS SDK',
+          suggestion: '请在 WPS 协同应用中打开此页面'
+        }
+      });
+      return;
+    }
+
+    try {
+      // 使用 WPS SDK 的 chooseImage 方法调用相机
+      window.ksoxz_sdk.ready(() => {
+        addTestResult({
+          type: 'info',
+          message: 'WPS SDK 已就绪，正在打开相机...'
+        });
+
+        window.ksoxz_sdk.chooseImage({
+          params: {
+            sourceType: ['camera'], // 强制使用相机拍照（不使用相册）
+            count: 1, // 选择图片数量
+            sizeType: ['compressed'] // 使用压缩图片
+          },
+          onSuccess: async (res) => {
+            console.log('✅ WPS SDK 选择图片成功:', res);
+            addTestResult({
+              type: 'success',
+              message: 'WPS SDK 相机调用成功',
+              details: {
+                localIds: res.localIds,
+                count: res.localIds.length
+              }
+            });
+
+            // 处理返回的图片数据
+            if (res.localIds && res.localIds.length > 0) {
+              const localId = res.localIds[0];
+
+              addTestResult({
+                type: 'info',
+                message: '正在获取图片数据...',
+                details: { localId }
+              });
+
+              // TODO: 将 localId 转换为 File 对象并上传到 OSS
+              // 这里需要使用 WPS SDK 的其他方法来获取图片的实际数据
+              // 例如: window.ksoxz_sdk.getLocalImgData() 或 window.ksoxz_sdk.uploadImage()
+
+              toast.info('图片获取成功', {
+                description: `LocalID: ${localId}`
+              });
+
+              addTestResult({
+                type: 'info',
+                message: '⚠️ 需要实现图片数据转换',
+                details: {
+                  localId,
+                  nextStep:
+                    '需要使用 WPS SDK 的 getLocalImgData 或 uploadImage 方法获取图片数据'
+                }
+              });
+            }
+          },
+          onError: (err) => {
+            console.error('❌ WPS SDK 选择图片失败:', err);
+            toast.error('相机调用失败', {
+              description: err?.errMsg || '请检查相机权限'
+            });
+            addTestResult({
+              type: 'error',
+              message: 'WPS SDK 相机调用失败',
+              details: {
+                error: err,
+                errorMessage: err?.errMsg || '未知错误'
+              }
+            });
+          }
+        });
+      });
+    } catch (error) {
+      console.error('调用 WPS SDK 失败:', error);
+      toast.error('调用失败', {
+        description: error instanceof Error ? error.message : '请重试'
+      });
+      addTestResult({
+        type: 'error',
+        message: '调用 WPS SDK 失败',
+        details: {
+          error: error instanceof Error ? error.message : String(error)
+        }
+      });
+    }
+  };
+
+  // 备用方案：使用传统文件选择器上传图片
+  const handleImageUploadFallback = async () => {
+    addTestResult({
+      type: 'info',
+      message: '使用传统文件选择器上传图片...'
+    });
 
     try {
       // 1. 创建文件输入元素
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'image/*';
+      input.capture = 'environment'; // 优先使用后置摄像头
 
       input.onchange = async (e) => {
         const file = (e.target as HTMLInputElement).files?.[0];
@@ -576,12 +715,30 @@ export function LocationTestPage() {
 
             <button
               onClick={handleImageUpload}
-              disabled={isUploading}
+              disabled={isUploading || isCompressing}
               className='flex items-center justify-center gap-2 rounded bg-purple-600 px-4 py-2 text-white hover:bg-purple-700 disabled:opacity-50'
               type='button'
             >
               <Upload className='h-4 w-4' />
-              {isUploading ? `上传中 ${uploadProgress}%` : '上传图片到 OSS'}
+              {isCompressing
+                ? `压缩中 ${compressionProgress}%`
+                : isUploading
+                  ? `上传中 ${uploadProgress}%`
+                  : 'WPS 相机上传'}
+            </button>
+
+            <button
+              onClick={handleImageUploadFallback}
+              disabled={isUploading || isCompressing}
+              className='flex items-center justify-center gap-2 rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700 disabled:opacity-50'
+              type='button'
+            >
+              <Upload className='h-4 w-4' />
+              {isCompressing
+                ? `压缩中 ${compressionProgress}%`
+                : isUploading
+                  ? `上传中 ${uploadProgress}%`
+                  : '传统方式上传'}
             </button>
 
             {/* <button

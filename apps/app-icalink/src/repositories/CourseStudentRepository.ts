@@ -46,19 +46,17 @@ export default class CourseStudentRepository extends BaseRepository<
    *
    * 查询逻辑：
    * - 从 icalink_teaching_class 表获取教学班的所有学生成员（基于 course_code）
-   * - LEFT JOIN v_attendance_today_details 视图获取考勤状态（基于 student_id、external_id 和 semester）
+   * - LEFT JOIN v_attendance_today_details 视图获取考勤状态（基于 student_id 和 attendance_course_id）
    * - LEFT JOIN icalink_attendance_records 表获取详细信息（包括 metadata、签到时间、位置等）
    * - 确保即使学生未签到也能显示在列表中（使用 LEFT JOIN）
    *
+   * @param courseId 课程ID（用于关联 v_attendance_today_details 视图）
    * @param courseCode 课程代码（用于查询 icalink_teaching_class）
-   * @param semester 学期（用于关联 v_attendance_today_details 视图）
-   * @param externalId 课程外部ID（用于关联 v_attendance_today_details 视图）
    * @returns 学生列表及其实时考勤状态和统计信息
    */
   public async findStudentsWithRealtimeStatus(
-    courseCode: string,
-    semester: string,
-    externalId: string
+    courseId: number,
+    courseCode: string
   ): Promise<{
     students: Array<StudentAttendanceDetail>;
     stats: {
@@ -74,37 +72,35 @@ export default class CourseStudentRepository extends BaseRepository<
     // 使用 any 类型来处理跨数据库 JOIN 的类型问题
     // Kysely 的类型系统不支持跨数据库表引用，因此需要使用类型断言
 
+    // ========== 查询1: 获取学生列表及其考勤状态 ==========
+
     // 1. 从 icalink_teaching_class 表开始（获取教学班成员）
-    let query: any = db.selectFrom(
+    let studentsQuery: any = db.selectFrom(
       'icasync.icalink_teaching_class as tc' as any
     );
 
     // 2. LEFT JOIN v_attendance_today_details 视图获取考勤状态
-    // 关联条件：student_id、external_id 和 semester
-    query = query.leftJoin(
+    // 关联条件：student_id 和 attendance_course_id
+    studentsQuery = studentsQuery.leftJoin(
       'icasync.v_attendance_today_details as vatd',
       (join: any) =>
         join
-          .onRef('vatd.student_id', '=', 'tc.student_id')
-          .on('vatd.external_id', '=', externalId)
-          .on('vatd.semester', '=', semester)
+          .onRef('tc.student_id', '=', 'vatd.student_id')
+          .on('vatd.attendance_course_id', '=', courseId)
     );
 
     // 3. LEFT JOIN icalink_attendance_records 表获取详细信息（包括 metadata）
-    query = query.leftJoin(
+    studentsQuery = studentsQuery.leftJoin(
       'icasync.icalink_attendance_records as ar',
       (join: any) => join.onRef('ar.id', '=', 'vatd.attendance_record_id')
     );
 
-    // 4. SELECT 字段
-    query = query.select([
+    // 4. SELECT 字段（只选择学生相关字段，不包含聚合函数）
+    studentsQuery = studentsQuery.select([
       'tc.student_id',
-      // 优先使用 icalink_teaching_class 表的字段，如果为 NULL 则使用视图字段
-      sql<string>`COALESCE(tc.student_name, vatd.student_name)`.as(
-        'student_name'
-      ),
-      sql<string>`COALESCE(tc.class_name, vatd.class_name)`.as('class_name'),
-      sql<string>`COALESCE(tc.major_name, vatd.major_name)`.as('major_name'),
+      'tc.student_name',
+      'tc.class_name',
+      'tc.major_name',
       // 使用 COALESCE 将 NULL 转换为 'absent'（缺勤）
       // 当前课程中，如果没有考勤记录，默认为缺勤
       sql<string>`COALESCE(vatd.final_status, 'absent')`.as('absence_type'),
@@ -118,11 +114,11 @@ export default class CourseStudentRepository extends BaseRepository<
     ]);
 
     // 5. WHERE 条件：只查询指定课程代码的学生
-    query = query.where('tc.course_code', '=', courseCode);
+    studentsQuery = studentsQuery.where('tc.course_code', '=', courseCode);
 
     // 6. 按考勤状态排序：pending_approval 优先，然后是其他状态
     // 排序规则：pending_approval(1), leave_pending(2), truant(3), absent(4), leave(5), present(6)
-    query = query.orderBy(
+    studentsQuery = studentsQuery.orderBy(
       sql`CASE
         WHEN COALESCE(vatd.final_status, 'absent') = 'pending_approval' THEN 1
         WHEN COALESCE(vatd.final_status, 'absent') = 'leave_pending' THEN 2
@@ -134,40 +130,44 @@ export default class CourseStudentRepository extends BaseRepository<
       END`,
       'asc'
     );
-    query = query.orderBy('tc.student_id', 'asc'); // 同一状态内按学号排序
+    studentsQuery = studentsQuery.orderBy('tc.student_id', 'asc'); // 同一状态内按学号排序
 
-    const results = await query.execute();
+    // 执行学生列表查询
+    const students = await studentsQuery.execute();
 
-    // 在 SQL 中计算统计信息
-    // 使用相同的数据源：icalink_teaching_class + v_attendance_today_details
+    // ========== 查询2: 计算统计信息 ==========
+
     let statsQuery: any = db.selectFrom(
       'icasync.icalink_teaching_class as tc' as any
     );
+
     statsQuery = statsQuery.leftJoin(
       'icasync.v_attendance_today_details as vatd',
       (join: any) =>
         join
-          .onRef('vatd.student_id', '=', 'tc.student_id')
-          .on('vatd.external_id', '=', externalId)
-          .on('vatd.semester', '=', semester)
+          .onRef('tc.student_id', '=', 'vatd.student_id')
+          .on('vatd.attendance_course_id', '=', courseId)
     );
+
     statsQuery = statsQuery.select([
       sql<number>`COUNT(*)`.as('total_count'),
-      sql<number>`SUM(CASE WHEN COALESCE(vatd.final_status, 'absent') IN ('present', 'late') THEN 1 ELSE 0 END)`.as(
+      sql<number>`SUM(CASE WHEN COALESCE(vatd.final_status, 'absent') = 'present' THEN 1 ELSE 0 END)`.as(
         'checkin_count'
       ),
       sql<number>`SUM(CASE WHEN COALESCE(vatd.final_status, 'absent') = 'truant' THEN 1 ELSE 0 END)`.as(
         'truant_count'
       ),
-      sql<number>`SUM(CASE WHEN COALESCE(vatd.final_status, 'absent') = 'absent' THEN 1 ELSE 0 END)`.as(
+      sql<number>`SUM(CASE WHEN COALESCE(vatd.final_status, 'absent') IN ('absent', 'pending_approval') THEN 1 ELSE 0 END)`.as(
         'absent_count'
       ),
       sql<number>`SUM(CASE WHEN COALESCE(vatd.final_status, 'absent') IN ('leave', 'leave_pending') THEN 1 ELSE 0 END)`.as(
         'leave_count'
       )
     ]);
+
     statsQuery = statsQuery.where('tc.course_code', '=', courseCode);
 
+    // 执行统计查询
     const statsResult = await statsQuery.execute();
     const stats = statsResult[0] || {
       total_count: 0,
@@ -179,19 +179,19 @@ export default class CourseStudentRepository extends BaseRepository<
 
     this.logger.debug(
       {
+        courseId,
         courseCode,
-        semester,
-        externalId,
         totalCount: stats.total_count,
         checkinCount: stats.checkin_count,
         absentCount: stats.absent_count,
-        leaveCount: stats.leave_count
+        leaveCount: stats.leave_count,
+        truantCount: stats.truant_count
       },
       'Fetched students with realtime attendance status and stats'
     );
 
     // 解析 metadata 字段（从 JSON 字符串转换为对象）
-    const studentsWithParsedMetadata = results.map((student: any) => {
+    const studentsWithParsedMetadata = students.map((student: any) => {
       if (student.metadata && typeof student.metadata === 'string') {
         try {
           student.metadata = JSON.parse(student.metadata);

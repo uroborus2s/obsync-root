@@ -820,9 +820,12 @@ function AttendanceSheetContent() {
     setIsApprovingPhoto(true);
 
     try {
+      // 修复：使用正确的 API 路径
       const response = await icaLinkApiClient.post(
-        `/icalink/v1/attendance/records/${photoApprovalStudent.attendance_record_id}/approve`,
-        {}
+        `/icalink/v1/attendance/records/${photoApprovalStudent.attendance_record_id}/approve-photo`,
+        {
+          action: 'approved' // 审批通过
+        }
       );
 
       if (response.success) {
@@ -1495,18 +1498,13 @@ function AttendanceSheetContent() {
                                       <div className='text-right'>
                                         <div className='flex space-x-3 text-xs'>
                                           <span className='text-red-600'>
-                                            缺勤:{' '}
-                                            {formatPercentage(
-                                              stat.absence_rate
-                                            )}
+                                            缺勤次数: {stat.absent_count}
                                           </span>
                                           <span className='text-orange-600'>
-                                            旷课:{' '}
-                                            {formatPercentage(stat.truant_rate)}
+                                            旷课次数: {stat.truant_count}
                                           </span>
                                           <span className='text-blue-600'>
-                                            请假:{' '}
-                                            {formatPercentage(stat.leave_rate)}
+                                            请假次数: {stat.leave_count}
                                           </span>
                                         </div>
                                       </div>

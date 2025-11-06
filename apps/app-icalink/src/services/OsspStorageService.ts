@@ -21,6 +21,8 @@ export interface ImageUploadOptions {
   extension: string;
   /** 是否生成缩略图 */
   generateThumbnail: boolean;
+  /** 业务类型（用于组织文件路径：checkin/leave/other） */
+  businessType?: 'checkin' | 'leave' | 'other';
   /** 元数据 */
   metadata?: Record<string, string>;
 }
@@ -198,9 +200,10 @@ export default class OsspStorageService implements IOsspStorageService {
 
       const encodedFileName = encodeURIComponent(options.fileName);
 
-      // 3. 生成对象路径
+      // 3. 生成对象路径（按业务类型组织）
       const timestamp = Date.now();
-      const objectPath = `images/${timestamp}/${encodedFileName}`;
+      const businessPath = options.businessType || 'other';
+      const objectPath = `${businessPath}/${timestamp}/${encodedFileName}`;
 
       // 4. 上传原图
       const uploadResult = await this.osspClient.putObject(
@@ -329,9 +332,6 @@ export default class OsspStorageService implements IOsspStorageService {
         objectPath,
         { expiry: 60 } // 1 小时
       );
-
-      // 替换内网地址为外网地址（生产环境）
-      url = this.replaceInternalUrlWithPublicUrl(url);
 
       this.logger.info(
         { bucketName, objectPath, url },
@@ -500,10 +500,6 @@ export default class OsspStorageService implements IOsspStorageService {
         expiresIn
       );
 
-      // 4. 替换内网地址为外网地址（生产环境）
-      // 将 MinIO 内网地址替换为 Nginx 代理的外网地址
-      uploadUrl = this.replaceInternalUrlWithPublicUrl(uploadUrl);
-
       this.logger.info(
         { objectPath, expiresIn, uploadUrl },
         'Presigned upload URL generated successfully'
@@ -567,11 +563,8 @@ export default class OsspStorageService implements IOsspStorageService {
       const objectPath = `${businessPath}/${timestamp}/${encodedFileName}`;
 
       // 3. 创建 POST Policy
-      const minioClient = this.osspClient.getClient();
-      const PostPolicy =
-        minioClient.constructor.PostPolicy ||
-        (await import('minio')).PostPolicy;
-      const policy = new PostPolicy();
+      // 使用 MinioAdapter 的方法创建 PostPolicy 实例
+      const policy = (this.osspClient as any).createPostPolicy();
 
       // 设置存储桶
       policy.setBucket(bucketName);
@@ -594,23 +587,50 @@ export default class OsspStorageService implements IOsspStorageService {
       policy.setContentLengthRange(1, 10 * 1024 * 1024);
 
       // 4. 生成 POST Policy（使用 MinioAdapter 的方法）
-      const policyResult = await (this.osspClient as any).presignedPostPolicy(
-        policy
-      );
+      const policyResult = await this.osspClient.presignedPostPolicy(policy);
 
-      // 5. 替换内网地址为外网地址
-      const publicPostURL = this.replaceInternalUrlWithPublicUrl(
-        policyResult.postURL
-      );
+      // 5. 过滤 formData，移除 bucket 字段
+      // 根据 AWS S3 规范，bucket 不应该在 formData 中，因为它已经在 POST URL 中了
+      // 参考：https://github.com/minio/minio/discussions/19727
+      const { bucket, ...formDataWithoutBucket } = policyResult.formData;
 
       this.logger.info(
-        { objectPath, expiresIn, postURL: publicPostURL },
+        {
+          objectPath,
+          expiresIn,
+          postURL: policyResult.postURL,
+          formDataKeys: Object.keys(formDataWithoutBucket)
+        },
         'POST Policy upload credentials generated successfully'
+      );
+
+      // 6. 替换内网地址为外网地址
+      // 将 MinIO 内网地址替换为 Nginx 代理的外网地址
+      let publicPostURL = policyResult.postURL;
+
+      // 生产环境：http://minio-1:9000/ → https://kwps.jlufe.edu.cn/minio/api/
+      if (publicPostURL.includes('minio-1:9000')) {
+        publicPostURL = publicPostURL.replace(
+          'http://minio-1:9000/',
+          'https://kwps.jlufe.edu.cn/minio/api/'
+        );
+      }
+      // 开发环境：http://localhost:9000/ → https://kwps.jlufe.edu.cn/minio/api/
+      else if (publicPostURL.includes('localhost:9000')) {
+        publicPostURL = publicPostURL.replace(
+          'http://localhost:9000/',
+          'https://kwps.jlufe.edu.cn/minio/api/'
+        );
+      }
+
+      this.logger.info(
+        { originalURL: policyResult.postURL, publicURL: publicPostURL },
+        'URL replaced for public access'
       );
 
       return right({
         postURL: publicPostURL,
-        formData: policyResult.formData,
+        formData: formDataWithoutBucket,
         objectPath,
         expiresIn,
         bucketName
@@ -625,45 +645,6 @@ export default class OsspStorageService implements IOsspStorageService {
         message: '生成POST Policy上传凭证失败'
       });
     }
-  }
-
-  /**
-   * 替换内网地址为外网地址
-   *
-   * 将 MinIO 内网地址替换为 Nginx 代理的外网地址
-   * - 内网地址：http://minio-1:9000/...
-   * - 外网地址：https://kwps.jlufe.edu.cn/minio/api/...
-   *
-   * @param url 原始 URL
-   * @returns 替换后的 URL
-   */
-  private replaceInternalUrlWithPublicUrl(url: string): string {
-    // 定义内网地址和外网地址的映射
-    const internalPatterns = [
-      {
-        pattern: /^http:\/\/minio-1:9000\//,
-        replacement: 'https://kwps.jlufe.edu.cn/minio/api/'
-      }
-    ];
-
-    // 尝试匹配并替换
-    for (const { pattern, replacement } of internalPatterns) {
-      if (pattern.test(url)) {
-        const replacedUrl = url.replace(pattern, replacement);
-        this.logger.debug(
-          { originalUrl: url, replacedUrl },
-          'Replaced internal URL with public URL'
-        );
-        return replacedUrl;
-      }
-    }
-
-    // 如果没有匹配到任何模式，返回原始 URL
-    this.logger.debug(
-      { url },
-      'No internal URL pattern matched, returning original URL'
-    );
-    return url;
   }
 
   /**

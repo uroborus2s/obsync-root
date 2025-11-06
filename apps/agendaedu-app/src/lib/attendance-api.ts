@@ -5,6 +5,7 @@
 
 import { API_CONFIG } from '@/config/api-config';
 import { IcaLinkApiClient } from './icalink-api-client';
+import { getCookie } from './jwt-utils';
 
 // 从后端类型定义中导入的接口类型
 export interface StudentAttendanceSearchResponse {
@@ -835,102 +836,135 @@ export class AttendanceApiService {
     return response as unknown as StudentWithdrawLeaveResponse;
   }
 
-  /**
-   * 获取 OSS 预签名上传 URL
-   * POST /api/icalink/v1/oss/presigned-upload-url
-   *
-   * @param file - 图片文件
-   * @returns 预签名上传 URL 和对象路径
+  /* ========== 以下是已废弃的 POST Policy 相关方法 ==========
+   * 已改用后端上传方式，这些方法已不再使用
+   * 保留代码仅供参考
    */
-  async getPresignedUploadUrl(file: File): Promise<{
+
+  /*
+  async getPostPolicyUpload(file: File): Promise<{
     success: boolean;
     message?: string;
     data?: {
-      uploadUrl: string;
+      postURL: string;
+      formData: Record<string, string>;
       objectPath: string;
       expiresIn: number;
       bucketName: string;
     };
   }> {
-    const response = await this.apiClient.post<{
-      success: boolean;
-      message?: string;
-      data?: {
-        uploadUrl: string;
+    try {
+      const response = await this.apiClient.post<{
+        postURL: string;
+        formData: Record<string, string>;
         objectPath: string;
         expiresIn: number;
         bucketName: string;
-      };
-    }>('/icalink/v1/oss/presigned-upload-url', {
-      fileName: file.name,
-      mimeType: file.type,
-      fileSize: file.size,
-      businessType: 'checkin'
-    });
+      }>('/icalink/v1/oss/post-policy-upload', {
+        fileName: file.name,
+        mimeType: file.type,
+        fileSize: file.size,
+        businessType: 'checkin'
+      });
 
-    return response as unknown as {
-      success: boolean;
-      message?: string;
-      data?: {
-        uploadUrl: string;
-        objectPath: string;
-        expiresIn: number;
-        bucketName: string;
+      return {
+        success: !!response.success,
+        message: response.message,
+        data: response.data
       };
-    };
+    } catch (error) {
+      throw error;
+    }
   }
 
-  /**
-   * 上传文件到 OSS（使用预签名 URL，支持进度回调）
-   *
-   * @param uploadUrl - 预签名上传 URL
-   * @param file - 图片文件
-   * @param onProgress - 上传进度回调函数
-   */
-  async uploadToOSS(
-    uploadUrl: string,
+  async uploadWithPostPolicy(
+    postURL: string,
+    formData: Record<string, string>,
     file: File,
     onProgress?: (progress: number) => void
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
 
-      // 监听上传进度
-      xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable && onProgress) {
-          const progress = Math.round((e.loaded / e.total) * 100);
-          onProgress(progress);
-        }
-      });
+      if (onProgress) {
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            const progress = Math.round((e.loaded / e.total) * 100);
+            onProgress(progress);
+          }
+        });
+      }
 
-      // 监听上传完成
       xhr.addEventListener('load', () => {
         if (xhr.status >= 200 && xhr.status < 300) {
           resolve();
         } else {
-          reject(new Error(`上传失败: ${xhr.statusText}`));
+          reject(new Error(`上传失败: ${xhr.status} ${xhr.statusText}`));
         }
       });
 
-      // 监听上传错误
       xhr.addEventListener('error', () => {
-        reject(new Error('上传失败，请检查网络连接'));
+        reject(new Error('网络错误，上传失败'));
       });
 
-      // 监听上传中止
       xhr.addEventListener('abort', () => {
         reject(new Error('上传已取消'));
       });
 
-      // 发起上传请求
-      xhr.open('PUT', uploadUrl);
-      xhr.setRequestHeader('Content-Type', file.type);
-      xhr.send(file);
+      const formDataObj = new FormData();
+      Object.entries(formData).forEach(([key, value]) => {
+        formDataObj.append(key, value);
+      });
+      formDataObj.append('file', file);
+
+      xhr.open('POST', postURL);
+      xhr.send(formDataObj);
     });
   }
 
+  async uploadCheckinPhotoWithPostPolicy(
+    file: File,
+    onProgress?: (progress: number) => void
+  ): Promise<{
+    success: boolean;
+    message?: string;
+    data?: {
+      photo_url: string;
+      bucket_name: string;
+    };
+  }> {
+    try {
+      const policyResult = await this.getPostPolicyUpload(file);
+
+      if (!policyResult.success || !policyResult.data) {
+        return {
+          success: false,
+          message: policyResult.message || '获取上传凭证失败'
+        };
+      }
+
+      const { postURL, formData, objectPath, bucketName } = policyResult.data;
+      await this.uploadWithPostPolicy(postURL, formData, file, onProgress);
+
+      return {
+        success: true,
+        message: '上传成功',
+        data: {
+          photo_url: objectPath,
+          bucket_name: bucketName
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : '上传失败'
+      };
+    }
+  }
+  */
+
   /**
-   * 上传签到图片（完整流程，支持进度回调）
+   * 上传签到图片（后端上传方式，支持进度回调）
    *
    * @param file - 图片文件
    * @param onProgress - 上传进度回调函数
@@ -948,30 +982,82 @@ export class AttendanceApiService {
     };
   }> {
     try {
-      // 1. 获取预签名上传 URL
-      const presignedResult = await this.getPresignedUploadUrl(file);
+      // 构造 FormData
+      // ⚠️ 重要：字段必须在文件之前！
+      // 因为 @fastify/multipart 按顺序解析，文件流会消费整个请求体
+      const formData = new FormData();
+      formData.append('businessType', 'checkin'); // ✅ 字段在前
+      formData.append('file', file); // ✅ 文件在后
 
-      if (!presignedResult.success || !presignedResult.data) {
-        return {
-          success: false,
-          message: presignedResult.message || '获取上传地址失败'
-        };
-      }
+      // 使用 XMLHttpRequest 支持进度回调
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
 
-      const { uploadUrl, objectPath, bucketName } = presignedResult.data;
-
-      // 2. 上传文件到 OSS（带进度回调）
-      await this.uploadToOSS(uploadUrl, file, onProgress);
-
-      // 3. 返回对象路径
-      return {
-        success: true,
-        message: '上传成功',
-        data: {
-          photo_url: objectPath,
-          bucket_name: bucketName
+        // 监听上传进度
+        if (onProgress) {
+          xhr.upload.addEventListener('progress', (e) => {
+            if (e.lengthComputable) {
+              const progress = Math.round((e.loaded / e.total) * 100);
+              onProgress(progress);
+            }
+          });
         }
-      };
+
+        // 监听上传完成
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const response = JSON.parse(xhr.responseText);
+              if (response.success && response.data) {
+                resolve({
+                  success: true,
+                  message: response.message || '上传成功',
+                  data: {
+                    photo_url: response.data.objectPath, // ✅ 修正：使用 objectPath
+                    bucket_name: response.data.bucketName
+                  }
+                });
+              } else {
+                resolve({
+                  success: false,
+                  message: response.message || '上传失败'
+                });
+              }
+            } catch {
+              reject(new Error('解析响应失败'));
+            }
+          } else {
+            reject(new Error(`上传失败: ${xhr.status} ${xhr.statusText}`));
+          }
+        });
+
+        // 监听上传错误
+        xhr.addEventListener('error', () => {
+          reject(new Error('网络错误，上传失败'));
+        });
+
+        // 监听上传中止
+        xhr.addEventListener('abort', () => {
+          reject(new Error('上传已取消'));
+        });
+
+        // 发送请求
+        // 使用与 apiClient 相同的 baseUrl
+        const apiUrl =
+          import.meta.env.VITE_API_BASE_URL || 'http://localhost:8090/api';
+        xhr.open('POST', `${apiUrl}/icalink/v1/oss/upload`);
+
+        // 设置携带 cookie（重要！）
+        xhr.withCredentials = true;
+
+        // 添加认证头（从 cookie 获取 token）
+        const token = getCookie('token');
+        if (token) {
+          xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        }
+
+        xhr.send(formData);
+      });
     } catch (error) {
       console.error('上传签到图片失败:', error);
       return {
@@ -981,6 +1067,47 @@ export class AttendanceApiService {
     }
   }
 
+  /**
+   * 审批照片签到
+   *
+   * @param recordId - 签到记录ID
+   * @param action - 审批动作：'approved' 通过，'rejected' 拒绝
+   * @param remark - 审批备注（拒绝时建议填写）
+   * @returns 审批结果
+   */
+  async approvePhotoCheckin(
+    recordId: number,
+    action: 'approved' | 'rejected',
+    remark?: string
+  ): Promise<{
+    success: boolean;
+    message?: string;
+    data?: {
+      recordId: number;
+    };
+  }> {
+    try {
+      const response = await this.apiClient.post(
+        `/icalink/v1/attendance/records/${recordId}/approve-photo`,
+        {
+          action,
+          remark
+        }
+      );
+
+      return {
+        success: !!response.success,
+        message: response.message,
+        data: response.data
+      };
+    } catch (error) {
+      console.error('审批照片签到失败:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : '审批失败'
+      };
+    }
+  }
 }
 
 // 创建默认实例

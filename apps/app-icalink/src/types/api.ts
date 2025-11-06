@@ -755,6 +755,8 @@ export interface UpdateCourseCheckinSettingResponse {
  */
 export interface ApprovePhotoCheckinDTO {
   attendanceRecordId: number;
+  action: 'approved' | 'rejected';
+  remark?: string;
   userInfo: UserInfo;
 }
 

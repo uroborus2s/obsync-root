@@ -113,6 +113,9 @@ importers:
       '@radix-ui/react-dialog':
         specifier: ^1.1.14
         version: 1.1.14(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      '@radix-ui/react-progress':
+        specifier: ^1.1.8
+        version: 1.1.8(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
       '@tailwindcss/vite':
         specifier: ^4.1.8
         version: 4.1.11(vite@6.3.5(@types/node@22.17.1)(jiti@2.5.1)(lightningcss@1.30.1)(terser@5.43.1)(tsx@4.20.6)(yaml@2.8.1))
@@ -653,8 +656,8 @@ importers:
         specifier: 1.0.0-beta.12
         version: 1.0.0-beta.12(@stratix/core@1.0.0-beta.9)(better-sqlite3@12.2.0)(mysql2@3.14.3)(pg@8.16.3)(tarn@3.0.2)(tedious@18.6.1)
       '@stratix/ossp':
-        specifier: 0.0.1-beta.1
-        version: 0.0.1-beta.1(@stratix/core@1.0.0-beta.9)
+        specifier: workspace:*
+        version: link:../../packages/ossp
       '@stratix/queue':
         specifier: 1.0.0-beta.2
         version: 1.0.0-beta.2(@stratix/core@1.0.0-beta.9)(@stratix/redis@1.0.0-beta.2(@stratix/core@1.0.0-beta.9))
@@ -665,8 +668,8 @@ importers:
         specifier: 1.0.0-beta.4
         version: 1.0.0-beta.4
       '@stratix/was-v7':
-        specifier: workspace:*
-        version: link:../../packages/was_v7
+        specifier: 1.0.0-beta.25
+        version: 1.0.0-beta.25(@stratix/core@1.0.0-beta.9)(@stratix/redis@1.0.0-beta.2(@stratix/core@1.0.0-beta.9))
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
@@ -3792,6 +3795,15 @@ packages:
       '@types/react':
         optional: true
 
+  '@radix-ui/react-context@1.1.3':
+    resolution: {integrity: sha512-ieIFACdMpYfMEjF0rEf5KLvfVyIkOz6PDGyNnP+u+4xQ6jny3VCgA4OgXOwNx2aUkxn8zx9fiVcM8CfFYv9Lxw==}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+
   '@radix-ui/react-dialog@1.1.14':
     resolution: {integrity: sha512-+CpweKjqpzTmwRwcYECQcNYbI8V9VSQt0SNFKeEBLgfucbsLssU6Ppq7wUdNXEGb573bMjFhVjKVll8rmV6zMw==}
     peerDependencies:
@@ -4028,6 +4040,32 @@ packages:
       '@types/react-dom':
         optional: true
 
+  '@radix-ui/react-primitive@2.1.4':
+    resolution: {integrity: sha512-9hQc4+GNVtJAIEPEqlYqW5RiYdrr8ea5XQ0ZOnD6fgru+83kqT15mq2OCcbe8KnjRZl5vF3ks69AKz3kh1jrhg==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+
+  '@radix-ui/react-progress@1.1.8':
+    resolution: {integrity: sha512-+gISHcSPUJ7ktBy9RnTqbdKW78bcGke3t6taawyZ71pio1JewwGSJizycs7rLhGTvMJYCQB1DBK4KQsxs7U8dA==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+
   '@radix-ui/react-radio-group@1.3.7':
     resolution: {integrity: sha512-9w5XhD0KPOrm92OTTE0SysH3sYzHsSTHNvZgUBo/VZ80VdYyB5RneDbc0dKpURS24IxkoFRu/hI0i4XyfFwY6g==}
     peerDependencies:
@@ -4108,6 +4146,15 @@ packages:
 
   '@radix-ui/react-slot@1.2.3':
     resolution: {integrity: sha512-aeNmHnBxbi2St0au6VBVC7JXFlhLlOnvIIlePNniyUNAClzmtAUEY8/pBiK3iHjufOlwA+c20/8jngo7xcrg8A==}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+
+  '@radix-ui/react-slot@1.2.4':
+    resolution: {integrity: sha512-Jl+bCv8HxKnlTLVrcDE8zTMJ09R9/ukw4qBs/oZClOfoQk/cOTbDn+NceXfV7j09YPVQUryJPHurafcSg6EVKA==}
     peerDependencies:
       '@types/react': '*'
       react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
@@ -4477,12 +4524,6 @@ packages:
       tarn: ^3.0.2
       tedious: ^18.6.1
 
-  '@stratix/ossp@0.0.1-beta.1':
-    resolution: {integrity: sha512-eU2rmZTMZ6CNDxAaxxjKR2Mtqx7aWk0goSpUwZFj7KXaSEceqv2vXBViUwO5pehUZzq0jSNshF9zi8Vg6wGHvg==, tarball: https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/@stratix/ossp/-/@stratix/ossp-0.0.1-beta.1.tgz}
-    engines: {node: '>=22.0.0'}
-    peerDependencies:
-      '@stratix/core': 1.0.0-beta.9
-
   '@stratix/queue@1.0.0-beta.2':
     resolution: {integrity: sha512-5eNpCYmkX5LY07esoZvxBOUEN9nbNna99w/OrI5EvN+jqShV4HKN1dChjHX9Un4RP6m/fyIQE+wrivB521dxog==, tarball: https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/@stratix/queue/-/@stratix/queue-1.0.0-beta.2.tgz}
     engines: {node: '>=22.0.0'}
@@ -4508,6 +4549,12 @@ packages:
 
   '@stratix/was-v7@1.0.0-beta.21':
     resolution: {integrity: sha512-vXIHXBu0GNtpaQKyZA1m8jUFmCYfXZMC/oGICZXwKvL9N7qZsRvxe74FAPZJEQ/pWx1p4Rn1fcon/MzqShPgrA==, tarball: https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/@stratix/was-v7/-/@stratix/was-v7-1.0.0-beta.21.tgz}
+    peerDependencies:
+      '@stratix/core': 1.0.0-beta.9
+      '@stratix/redis': 1.0.0-beta.2
+
+  '@stratix/was-v7@1.0.0-beta.25':
+    resolution: {integrity: sha512-qVQT5d4AfFf6lv4vHxl7OrZsuOGb2GlVtSghbiz9RCuwY1vVtSN7Qkxqn9/38jp9gzPhTBMNJhW9C5+wcrecLg==, tarball: https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/@stratix/was-v7/-/@stratix/was-v7-1.0.0-beta.25.tgz}
     peerDependencies:
       '@stratix/core': 1.0.0-beta.9
       '@stratix/redis': 1.0.0-beta.2
@@ -16354,6 +16401,12 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.1.9
 
+  '@radix-ui/react-context@1.1.3(@types/react@19.1.9)(react@19.1.1)':
+    dependencies:
+      react: 19.1.1
+    optionalDependencies:
+      '@types/react': 19.1.9
+
   '@radix-ui/react-dialog@1.1.14(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)':
     dependencies:
       '@radix-ui/primitive': 1.1.2
@@ -16616,6 +16669,25 @@ snapshots:
       '@types/react': 19.1.9
       '@types/react-dom': 19.1.7(@types/react@19.1.9)
 
+  '@radix-ui/react-primitive@2.1.4(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)':
+    dependencies:
+      '@radix-ui/react-slot': 1.2.4(@types/react@19.1.9)(react@19.1.1)
+      react: 19.1.1
+      react-dom: 19.1.1(react@19.1.1)
+    optionalDependencies:
+      '@types/react': 19.1.9
+      '@types/react-dom': 19.1.7(@types/react@19.1.9)
+
+  '@radix-ui/react-progress@1.1.8(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)':
+    dependencies:
+      '@radix-ui/react-context': 1.1.3(@types/react@19.1.9)(react@19.1.1)
+      '@radix-ui/react-primitive': 2.1.4(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      react: 19.1.1
+      react-dom: 19.1.1(react@19.1.1)
+    optionalDependencies:
+      '@types/react': 19.1.9
+      '@types/react-dom': 19.1.7(@types/react@19.1.9)
+
   '@radix-ui/react-radio-group@1.3.7(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)':
     dependencies:
       '@radix-ui/primitive': 1.1.2
@@ -16724,6 +16796,13 @@ snapshots:
       '@types/react-dom': 19.1.7(@types/react@19.1.9)
 
   '@radix-ui/react-slot@1.2.3(@types/react@19.1.9)(react@19.1.1)':
+    dependencies:
+      '@radix-ui/react-compose-refs': 1.1.2(@types/react@19.1.9)(react@19.1.1)
+      react: 19.1.1
+    optionalDependencies:
+      '@types/react': 19.1.9
+
+  '@radix-ui/react-slot@1.2.4(@types/react@19.1.9)(react@19.1.1)':
     dependencies:
       '@radix-ui/react-compose-refs': 1.1.2(@types/react@19.1.9)(react@19.1.1)
       react: 19.1.1
@@ -17092,12 +17171,6 @@ snapshots:
       tarn: 3.0.2
       tedious: 18.6.1
 
-  '@stratix/ossp@0.0.1-beta.1(@stratix/core@1.0.0-beta.9)':
-    dependencies:
-      '@stratix/core': 1.0.0-beta.9
-      '@stratix/utils': 1.0.0-beta.4
-      minio: 8.0.6
-
   '@stratix/queue@1.0.0-beta.2(@stratix/core@1.0.0-beta.9)(@stratix/redis@1.0.0-beta.2(@stratix/core@1.0.0-beta.9))':
     dependencies:
       '@stratix/core': 1.0.0-beta.9
@@ -17127,6 +17200,16 @@ snapshots:
   '@stratix/utils@1.0.0-beta.4': {}
 
   '@stratix/was-v7@1.0.0-beta.21(@stratix/core@1.0.0-beta.9)(@stratix/redis@1.0.0-beta.2(@stratix/core@1.0.0-beta.9))':
+    dependencies:
+      '@stratix/core': 1.0.0-beta.9
+      '@stratix/redis': 1.0.0-beta.2(@stratix/core@1.0.0-beta.9)
+      '@stratix/utils': 1.0.0-beta.4
+      axios: 1.11.0
+      zod: 3.25.76
+    transitivePeerDependencies:
+      - debug
+
+  '@stratix/was-v7@1.0.0-beta.25(@stratix/core@1.0.0-beta.9)(@stratix/redis@1.0.0-beta.2(@stratix/core@1.0.0-beta.9))':
     dependencies:
       '@stratix/core': 1.0.0-beta.9
       '@stratix/redis': 1.0.0-beta.2(@stratix/core@1.0.0-beta.9)

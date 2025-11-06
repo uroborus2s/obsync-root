@@ -110,6 +110,14 @@ export class MinioAdapter implements IOSSAdapter {
     return this.client;
   }
 
+  /**
+   * 创建 PostPolicy 实例（用于生成 POST Policy）
+   * 使用 MinIO Client 的 newPostPolicy() 方法
+   */
+  createPostPolicy(): any {
+    return this.client.newPostPolicy();
+  }
+
   // ========== 存储桶操作 ==========
 
   async makeBucket(bucketName: string, region?: string): Promise<void> {
@@ -167,26 +175,30 @@ export class MinioAdapter implements IOSSAdapter {
     options?: UploadOptions
   ): Promise<UploadResult> {
     try {
-      // MinIO 的 metadata 类型是 ObjectMetaData (string | number)
-      // 需要过滤掉 boolean 类型的值
-      const metadata = options?.metadata
-        ? Object.entries(options.metadata).reduce(
-            (acc, [key, value]) => {
-              if (typeof value !== 'boolean') {
-                acc[key] = value;
-              }
-              return acc;
-            },
-            {} as Record<string, string | number>
-          )
-        : undefined;
+      // 构建 MinIO SDK 需要的 metadata 对象
+      // MinIO SDK 的 metadata 类型是 ObjectMetaData (string | number)
+      const metadata: Record<string, string | number> = {};
+
+      // 1. 处理 contentType（转换为 MinIO SDK 要求的 'Content-Type' 字段）
+      if (options?.contentType) {
+        metadata['Content-Type'] = options.contentType;
+      }
+
+      // 2. 处理自定义 metadata（过滤掉 boolean 类型的值）
+      if (options?.metadata) {
+        Object.entries(options.metadata).forEach(([key, value]) => {
+          if (typeof value !== 'boolean') {
+            metadata[key] = value;
+          }
+        });
+      }
 
       const result = await this.client.putObject(
         bucketName,
         objectName,
         stream,
         size,
-        metadata
+        Object.keys(metadata).length > 0 ? metadata : undefined
       );
       this.logger.info(`Object uploaded: ${bucketName}/${objectName}`);
       return {
@@ -206,25 +218,29 @@ export class MinioAdapter implements IOSSAdapter {
     options?: UploadOptions
   ): Promise<UploadResult> {
     try {
-      // MinIO 的 metadata 类型是 ObjectMetaData (string | number)
-      // 需要过滤掉 boolean 类型的值
-      const metadata = options?.metadata
-        ? Object.entries(options.metadata).reduce(
-            (acc, [key, value]) => {
-              if (typeof value !== 'boolean') {
-                acc[key] = value;
-              }
-              return acc;
-            },
-            {} as Record<string, string | number>
-          )
-        : undefined;
+      // 构建 MinIO SDK 需要的 metadata 对象
+      // MinIO SDK 的 metadata 类型是 ObjectMetaData (string | number)
+      const metadata: Record<string, string | number> = {};
+
+      // 1. 处理 contentType（转换为 MinIO SDK 要求的 'Content-Type' 字段）
+      if (options?.contentType) {
+        metadata['Content-Type'] = options.contentType;
+      }
+
+      // 2. 处理自定义 metadata（过滤掉 boolean 类型的值）
+      if (options?.metadata) {
+        Object.entries(options.metadata).forEach(([key, value]) => {
+          if (typeof value !== 'boolean') {
+            metadata[key] = value;
+          }
+        });
+      }
 
       const result = await this.client.fPutObject(
         bucketName,
         objectName,
         filePath,
-        metadata
+        Object.keys(metadata).length > 0 ? metadata : undefined
       );
       this.logger.info(
         `File uploaded: ${filePath} -> ${bucketName}/${objectName}`

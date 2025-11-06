@@ -937,32 +937,18 @@ export default class WpsDriveController {
         for await (const part of parts) {
           partCount++;
 
-          console.log(`\n========== Processing part ${partCount} ==========`);
-          console.log('Part type:', part.type);
-          console.log('Part fieldname:', part.fieldname);
-
           if (part.type === 'file') {
             // 这是文件部分
             fileData = part;
-            console.log('File details:');
-            console.log('  - filename:', part.filename);
-            console.log('  - mimetype:', part.mimetype);
-            console.log('  - encoding:', part.encoding);
 
             this.logger.info(`Received file part: ${part.filename}`);
 
             // ✅ 找到文件后，如果已经有 parent_id，就跳出循环
             if (parent_id) {
-              console.log('✅ Both file and parent_id found, breaking loop');
               break;
             }
           } else {
             // 这是字段部分 (part.type === 'field')
-            console.log('Field details:');
-            console.log('  - fieldname:', part.fieldname);
-            console.log('  - value:', part.value);
-            console.log('  - valueType:', typeof part.value);
-
             this.logger.info(
               `Received field: ${part.fieldname} = ${part.value}`
             );
@@ -973,7 +959,6 @@ export default class WpsDriveController {
 
               // ✅ 找到 parent_id 后，如果已经有文件，就跳出循环
               if (fileData) {
-                console.log('✅ Both parent_id and file found, breaking loop');
                 break;
               }
             } else if (part.fieldname === 'parent_path') {

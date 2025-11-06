@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.14",
+    "@radix-ui/react-progress": "^1.1.8",
     "@tailwindcss/vite": "^4.1.8",
     "autoprefixer": "^10.4.21",
     "browser-image-compression": "^2.0.2",

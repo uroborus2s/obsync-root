@@ -1,6 +1,6 @@
 /**
  * @stratix/ossp - OSS 适配器抽象接口
- * 
+ *
  * 定义统一的对象存储服务接口，支持多提供商实现
  * 遵循 Stratix 框架的适配器模式规范
  */
@@ -186,7 +186,7 @@ export interface DeleteObjectItem {
 
 /**
  * OSS 适配器抽象接口
- * 
+ *
  * 定义所有 OSS 提供商必须实现的标准方法
  */
 export interface IOSSAdapter {
@@ -399,6 +399,22 @@ export interface IOSSAdapter {
     expiry?: number
   ): Promise<string>;
 
+  /**
+   * 生成预签名 POST Policy（用于浏览器直接上传）
+   * @param policy POST Policy 对象
+   * @returns Promise<{ postURL: string; formData: Record<string, string> }>
+   */
+  presignedPostPolicy(policy: any): Promise<{
+    postURL: string;
+    formData: Record<string, string>;
+  }>;
+
+  /**
+   * 创建 PostPolicy 实例
+   * @returns PostPolicy 实例
+   */
+  createPostPolicy(): any;
+
   // ========== 健康检查和连接管理 ==========
 
   /**
@@ -416,4 +432,3 @@ export interface IOSSAdapter {
    */
   disconnect(): Promise<void>;
 }
-

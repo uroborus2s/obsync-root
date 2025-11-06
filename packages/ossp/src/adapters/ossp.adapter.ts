@@ -281,6 +281,17 @@ export default class ClientAdapter implements IOSSAdapter {
     return this.adapter.presignedPutObject(bucketName, objectName, expiry);
   }
 
+  async presignedPostPolicy(policy: any): Promise<{
+    postURL: string;
+    formData: Record<string, string>;
+  }> {
+    return this.adapter.presignedPostPolicy(policy);
+  }
+
+  createPostPolicy(): any {
+    return this.adapter.createPostPolicy();
+  }
+
   // ========== 健康检查和连接管理 ==========
 
   async ping(): Promise<boolean> {

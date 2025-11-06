@@ -890,12 +890,20 @@ export default class AttendanceController {
   ): Promise<void> {
     try {
       const { recordId } = request.params;
+      const { action, remark } = request.body;
 
       // 1. 验证参数
       if (!recordId) {
         return reply.status(400).send({
           success: false,
           message: '缺少必填参数：recordId'
+        });
+      }
+
+      if (!action || !['approved', 'rejected'].includes(action)) {
+        return reply.status(400).send({
+          success: false,
+          message: '缺少必填参数：action，或 action 值不合法'
         });
       }
 
@@ -911,6 +919,8 @@ export default class AttendanceController {
       // 3. 调用服务层审批
       const result = await this.attendanceService.approvePhotoCheckin({
         attendanceRecordId: parseInt(recordId, 10),
+        action,
+        remark,
         userInfo: teacherIdentity
       });
 

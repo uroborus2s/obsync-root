@@ -23,7 +23,7 @@
     "@fastify/under-pressure": "^9.0.3",
     "@stratix/core": "1.0.0-beta.9",
     "@stratix/database": "1.0.0-beta.12",
-    "@stratix/ossp": "0.0.1-beta.1",
+    "@stratix/ossp": "workspace:*",
     "@stratix/queue": "1.0.0-beta.2",
     "@stratix/redis": "1.0.0-beta.2",
     "@stratix/utils": "1.0.0-beta.4",

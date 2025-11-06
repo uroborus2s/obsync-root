@@ -665,9 +665,8 @@ export default class AttendanceService implements IAttendanceService {
     // - 按考勤状态优先级排序（pending_approval 最优先）
     const result =
       await this.courseStudentRepository.findStudentsWithRealtimeStatus(
-        course.course_code,
-        course.semester,
-        course.external_id
+        course.id,
+        course.course_code
       );
 
     const studentsWithStatus = result.students;
@@ -748,9 +747,8 @@ export default class AttendanceService implements IAttendanceService {
     // - 对于未来课程，v_attendance_today_details 视图会显示学生的请假状态（如果有提前请假）
     const result =
       await this.courseStudentRepository.findStudentsWithRealtimeStatus(
-        course.course_code,
-        course.semester,
-        course.external_id
+        course.id,
+        course.course_code
       );
 
     const { students: studentsWithStatus, stats: repositoryStats } = result;
@@ -1657,11 +1655,10 @@ export default class AttendanceService implements IAttendanceService {
   ): Promise<
     Either<ServiceError, import('../types/api.js').ApprovePhotoCheckinResponse>
   > {
-    const { attendanceRecordId, userInfo } = dto;
+    const { attendanceRecordId, action, remark, userInfo } = dto;
     const recordId = attendanceRecordId;
     const teacherId = userInfo.userId;
-    const action = 'approved'; // 默认为审批通过
-    const remark = undefined;
+
     try {
       this.logger.info(
         { recordId, action, teacherId },
@@ -1745,7 +1742,8 @@ export default class AttendanceService implements IAttendanceService {
 
       return right({
         success: true,
-        message: '照片签到审批通过',
+        message:
+          action === 'approved' ? '照片签到审批通过' : '照片签到审批拒绝',
         data: {
           attendance_record_id: recordId,
           status: newStatus,
