@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import {
   BookOpen,
@@ -19,6 +20,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { EnhancedPagination } from '@/components/ui/enhanced-pagination'
 import { Input } from '@/components/ui/input'
 import {
   Table,
@@ -35,42 +37,30 @@ export const Route = createFileRoute('/_authenticated/courses')({
 })
 
 function Courses() {
-  // 模拟课程数据
-  const courses = [
-    {
-      id: 'CS001',
-      name: '高等数学',
-      teacher: '李教授',
-      college: '理学院',
-      credits: 4,
-      students: 120,
-      schedule: '周一 1-2节',
-      classroom: 'A101',
-      status: '进行中',
-    },
-    {
-      id: 'CS002',
-      name: '数据结构',
-      teacher: '王老师',
-      college: '计算机学院',
-      credits: 3,
-      students: 85,
-      schedule: '周二 3-4节',
-      classroom: 'B201',
-      status: '进行中',
-    },
-    {
-      id: 'CS003',
-      name: '操作系统',
-      teacher: '张老师',
-      college: '计算机学院',
-      credits: 3,
-      students: 92,
-      schedule: '周三 1-2节',
-      classroom: 'B301',
-      status: '已结束',
-    },
-  ]
+  // 分页状态
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+
+  // 模拟课程数据（扩展为更多数据以演示分页）
+  const allCourses = Array.from({ length: 156 }, (_, i) => ({
+    id: `CS${String(i + 1).padStart(3, '0')}`,
+    name: ['高等数学', '数据结构', '操作系统', '计算机网络', '数据库原理'][
+      i % 5
+    ],
+    teacher: ['李教授', '王老师', '张老师', '刘老师', '陈老师'][i % 5],
+    college: ['理学院', '计算机学院', '软件学院'][i % 3],
+    credits: [3, 4, 2][i % 3],
+    students: 80 + (i % 50),
+    schedule: `周${['一', '二', '三', '四', '五'][i % 5]} ${(i % 4) + 1}-${(i % 4) + 2}节`,
+    classroom: `${['A', 'B', 'C'][i % 3]}${String((i % 5) + 1).padStart(2, '0')}1`,
+    status: i % 10 === 0 ? '已结束' : '进行中',
+  }))
+
+  // 计算分页数据
+  const total = allCourses.length
+  const startIndex = (page - 1) * pageSize
+  const endIndex = startIndex + pageSize
+  const courses = allCourses.slice(startIndex, endIndex)
 
   return (
     <div className='flex-1 space-y-6 p-4 pt-6 md:p-8'>
@@ -151,55 +141,66 @@ function Courses() {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>课程编号</TableHead>
-                <TableHead>课程名称</TableHead>
-                <TableHead>授课教师</TableHead>
-                <TableHead>所属学院</TableHead>
-                <TableHead>学分</TableHead>
-                <TableHead>学生数</TableHead>
-                <TableHead>上课时间</TableHead>
-                <TableHead>教室</TableHead>
-                <TableHead>状态</TableHead>
-                <TableHead>操作</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {courses.map((course) => (
-                <TableRow key={course.id}>
-                  <TableCell className='font-medium'>{course.id}</TableCell>
-                  <TableCell>{course.name}</TableCell>
-                  <TableCell>{course.teacher}</TableCell>
-                  <TableCell>{course.college}</TableCell>
-                  <TableCell>{course.credits}</TableCell>
-                  <TableCell>{course.students}</TableCell>
-                  <TableCell>{course.schedule}</TableCell>
-                  <TableCell>{course.classroom}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        course.status === '进行中' ? 'default' : 'secondary'
-                      }
-                    >
-                      {course.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className='flex items-center space-x-2'>
-                      <Button variant='ghost' size='sm'>
-                        <Edit className='h-4 w-4' />
-                      </Button>
-                      <Button variant='ghost' size='sm'>
-                        <Trash className='h-4 w-4' />
-                      </Button>
-                    </div>
-                  </TableCell>
+          <div className='overflow-x-auto'>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>课程编号</TableHead>
+                  <TableHead>课程名称</TableHead>
+                  <TableHead>授课教师</TableHead>
+                  <TableHead>所属学院</TableHead>
+                  <TableHead>学分</TableHead>
+                  <TableHead>学生数</TableHead>
+                  <TableHead>上课时间</TableHead>
+                  <TableHead>教室</TableHead>
+                  <TableHead>状态</TableHead>
+                  <TableHead>操作</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {courses.map((course) => (
+                  <TableRow key={course.id}>
+                    <TableCell className='font-medium'>{course.id}</TableCell>
+                    <TableCell>{course.name}</TableCell>
+                    <TableCell>{course.teacher}</TableCell>
+                    <TableCell>{course.college}</TableCell>
+                    <TableCell>{course.credits}</TableCell>
+                    <TableCell>{course.students}</TableCell>
+                    <TableCell>{course.schedule}</TableCell>
+                    <TableCell>{course.classroom}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          course.status === '进行中' ? 'default' : 'secondary'
+                        }
+                      >
+                        {course.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className='flex items-center space-x-2'>
+                        <Button variant='ghost' size='sm'>
+                          <Edit className='h-4 w-4' />
+                        </Button>
+                        <Button variant='ghost' size='sm'>
+                          <Trash className='h-4 w-4' />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* 分页控件 */}
+          <EnhancedPagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </CardContent>
       </Card>
     </div>

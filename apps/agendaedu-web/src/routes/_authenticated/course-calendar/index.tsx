@@ -17,8 +17,8 @@ import {
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { EnhancedPagination } from '@/components/ui/enhanced-pagination'
 import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -44,13 +44,13 @@ function CourseCalendarPage() {
   // 状态管理
   const [viewMode, setViewMode] = useState<'list' | 'detail'>('list') // 视图模式：列表或详情
   const [page, setPage] = useState(1)
-  const [pageSize] = useState(20)
+  const [pageSize, setPageSize] = useState(20)
   const [searchKeyword, setSearchKeyword] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [selectedCourse, setSelectedCourse] =
     useState<ICalendarCourseItem | null>(null)
   const [sessionPage, setSessionPage] = useState(1)
-  const [sessionPageSize] = useState(20)
+  const [sessionPageSize, setSessionPageSize] = useState(20)
   const [participantSearchInput, setParticipantSearchInput] = useState('') // 分享人搜索输入
   const [isSyncing, setIsSyncing] = useState(false) // 同步状态
 
@@ -92,18 +92,37 @@ function CourseCalendarPage() {
   const shareParticipants = shareParticipantsData?.participants || []
   const totalStudents = shareParticipantsData?.totalStudents || 0
   const existingPermissions = shareParticipantsData?.existingPermissions || 0
+  const toAddCount = shareParticipantsData?.toAddCount || 0
+  const toDeleteCount = shareParticipantsData?.toDeleteCount || 0
+  const needsSync = shareParticipantsData?.needsSync || false
 
-  // 过滤分享人列表（客户端搜索）
+  // 过滤和排序分享人列表（客户端搜索，教师优先）
   const filteredParticipants = useMemo(() => {
     if (!shareParticipants || shareParticipants.length === 0) return []
-    if (!participantSearchInput.trim()) return shareParticipants
 
-    const keyword = participantSearchInput.toLowerCase().trim()
-    return shareParticipants.filter(
-      (p) =>
-        p.userId.toLowerCase().includes(keyword) ||
-        p.studentName?.toLowerCase().includes(keyword)
-    )
+    // 1. 先过滤
+    let filtered = shareParticipants
+    if (participantSearchInput.trim()) {
+      const keyword = participantSearchInput.toLowerCase().trim()
+      filtered = shareParticipants.filter(
+        (p) =>
+          p.userId.toLowerCase().includes(keyword) ||
+          p.studentName?.toLowerCase().includes(keyword)
+      )
+    }
+
+    // 2. 排序：教师在前，学生在后
+    return filtered.sort((a, b) => {
+      const aIsTeacher = a.studentName?.includes('（教师）') || false
+      const bIsTeacher = b.studentName?.includes('（教师）') || false
+
+      // 教师优先
+      if (aIsTeacher && !bIsTeacher) return -1
+      if (!aIsTeacher && bIsTeacher) return 1
+
+      // 同类型按用户ID排序
+      return a.userId.localeCompare(b.userId)
+    })
   }, [shareParticipants, participantSearchInput])
 
   // 搜索处理
@@ -133,9 +152,20 @@ function CourseCalendarPage() {
       setIsSyncing(true)
       const result = await syncCalendarParticipants(selectedCourse.calendar_id)
 
+      // 构建同步结果描述
+      const syncDetails = []
+      if (result.addedCount > 0) {
+        syncDetails.push(`新增 ${result.addedCount} 人`)
+      }
+      if (result.removedCount > 0) {
+        syncDetails.push(`删除 ${result.removedCount} 人`)
+      }
+      const syncSummary =
+        syncDetails.length > 0 ? syncDetails.join('，') : '无变更'
+
       // 显示成功提示（5秒后自动消失）
-      toast.success(`同步成功！新增 ${result.addedCount} 个学生到日历权限`, {
-        description: `教学班总学生数: ${result.totalStudents}, 已有权限数: ${result.existingPermissions}`,
+      toast.success(`同步成功！${syncSummary}`, {
+        description: `教学班总人数: ${result.totalStudents}，当前权限数: ${result.existingPermissions}`,
         duration: 5000,
       })
 
@@ -190,7 +220,7 @@ function CourseCalendarPage() {
         </div>
       </Header>
 
-      <Main fixed>
+      <Main>
         {/* 列表视图 */}
         {viewMode === 'list' && (
           <>
@@ -227,123 +257,106 @@ function CourseCalendarPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className='overflow-x-auto'>
-                  <ScrollArea className='h-[600px]'>
-                    {isCoursesLoading ? (
-                      <div className='space-y-2'>
-                        {[...Array(10)].map((_, i) => (
-                          <Skeleton key={i} className='h-16 w-full' />
-                        ))}
-                      </div>
-                    ) : coursesData && coursesData.data.length > 0 ? (
-                      <>
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className='whitespace-nowrap'>
-                                课程代码
-                              </TableHead>
-                              <TableHead className='whitespace-nowrap'>
-                                课程名称
-                              </TableHead>
-                              <TableHead className='whitespace-nowrap'>
-                                学期
-                              </TableHead>
-                              <TableHead className='whitespace-nowrap'>
-                                时间
-                              </TableHead>
-                              <TableHead className='whitespace-nowrap'>
-                                教师姓名
-                              </TableHead>
-                              <TableHead className='text-right whitespace-nowrap'>
-                                学生总数
-                              </TableHead>
-                              <TableHead className='text-right whitespace-nowrap'>
-                                课节总数
-                              </TableHead>
-                              <TableHead className='whitespace-nowrap'>
-                                上课地点
-                              </TableHead>
-                              <TableHead className='text-right whitespace-nowrap'>
-                                操作
-                              </TableHead>
+                {/* 使用简单的 div 容器实现垂直滚动，保留 Table 组件的横向滚动能力 */}
+                <div className='max-h-[450px] overflow-y-auto'>
+                  {isCoursesLoading ? (
+                    <div className='space-y-2 pb-4'>
+                      {[...Array(10)].map((_, i) => (
+                        <Skeleton key={i} className='h-16 w-full' />
+                      ))}
+                    </div>
+                  ) : coursesData && coursesData.data.length > 0 ? (
+                    <div className='pb-4'>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className='whitespace-nowrap'>
+                              课程代码
+                            </TableHead>
+                            <TableHead className='whitespace-nowrap'>
+                              课程名称
+                            </TableHead>
+                            <TableHead className='whitespace-nowrap'>
+                              学期
+                            </TableHead>
+                            <TableHead className='whitespace-nowrap'>
+                              时间
+                            </TableHead>
+                            <TableHead className='whitespace-nowrap'>
+                              教师姓名
+                            </TableHead>
+                            <TableHead className='text-right whitespace-nowrap'>
+                              学生总数
+                            </TableHead>
+                            <TableHead className='text-right whitespace-nowrap'>
+                              课节总数
+                            </TableHead>
+                            <TableHead className='whitespace-nowrap'>
+                              上课地点
+                            </TableHead>
+                            <TableHead className='text-right whitespace-nowrap'>
+                              操作
+                            </TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {coursesData.data.map((course) => (
+                            <TableRow key={course.course_code}>
+                              <TableCell className='font-medium whitespace-nowrap'>
+                                {course.course_code}
+                              </TableCell>
+                              <TableCell className='whitespace-nowrap'>
+                                {course.course_name}
+                              </TableCell>
+                              <TableCell className='whitespace-nowrap'>
+                                {course.semester}
+                              </TableCell>
+                              <TableCell className='whitespace-nowrap'>
+                                {course.start_week}-{course.end_week}周
+                              </TableCell>
+                              <TableCell className='whitespace-nowrap'>
+                                {course.teacher_name || '-'}
+                              </TableCell>
+                              <TableCell className='text-right whitespace-nowrap'>
+                                {course.total_students ?? '-'}
+                              </TableCell>
+                              <TableCell className='text-right whitespace-nowrap'>
+                                {course.total_sessions ?? '-'}
+                              </TableCell>
+                              <TableCell className='whitespace-nowrap'>
+                                {course.class_location || '-'}
+                              </TableCell>
+                              <TableCell className='text-right whitespace-nowrap'>
+                                <Button
+                                  size='sm'
+                                  variant='ghost'
+                                  onClick={() => handleViewDetail(course)}
+                                >
+                                  <Eye className='mr-2 h-4 w-4' />
+                                  查看详情
+                                </Button>
+                              </TableCell>
                             </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {coursesData.data.map((course) => (
-                              <TableRow key={course.course_code}>
-                                <TableCell className='font-medium whitespace-nowrap'>
-                                  {course.course_code}
-                                </TableCell>
-                                <TableCell className='whitespace-nowrap'>
-                                  {course.course_name}
-                                </TableCell>
-                                <TableCell className='whitespace-nowrap'>
-                                  {course.semester}
-                                </TableCell>
-                                <TableCell className='whitespace-nowrap'>
-                                  {course.start_week}-{course.end_week}周
-                                </TableCell>
-                                <TableCell className='whitespace-nowrap'>
-                                  {course.teacher_name || '-'}
-                                </TableCell>
-                                <TableCell className='text-right whitespace-nowrap'>
-                                  {course.total_students ?? '-'}
-                                </TableCell>
-                                <TableCell className='text-right whitespace-nowrap'>
-                                  {course.total_sessions ?? '-'}
-                                </TableCell>
-                                <TableCell className='whitespace-nowrap'>
-                                  {course.class_location || '-'}
-                                </TableCell>
-                                <TableCell className='text-right whitespace-nowrap'>
-                                  <Button
-                                    size='sm'
-                                    variant='ghost'
-                                    onClick={() => handleViewDetail(course)}
-                                  >
-                                    <Eye className='mr-2 h-4 w-4' />
-                                    查看详情
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-
-                        {/* 分页控件 */}
-                        <div className='mt-4 flex items-center justify-between'>
-                          <div className='text-muted-foreground text-sm'>
-                            共 {coursesData.total} 条记录，第 {coursesData.page}{' '}
-                            / {coursesData.total_pages} 页
-                          </div>
-                          <div className='flex gap-2'>
-                            <Button
-                              size='sm'
-                              variant='outline'
-                              disabled={!coursesData.has_prev}
-                              onClick={() => setPage(page - 1)}
-                            >
-                              上一页
-                            </Button>
-                            <Button
-                              size='sm'
-                              variant='outline'
-                              disabled={!coursesData.has_next}
-                              onClick={() => setPage(page + 1)}
-                            >
-                              下一页
-                            </Button>
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      <p className='text-muted-foreground py-8 text-center text-sm'>
-                        暂无数据
-                      </p>
-                    )}
-                  </ScrollArea>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ) : (
+                    <p className='text-muted-foreground py-8 text-center text-sm'>
+                      暂无数据
+                    </p>
+                  )}
                 </div>
+
+                {/* 分页控件 */}
+                <EnhancedPagination
+                  page={page}
+                  pageSize={pageSize}
+                  total={coursesData?.total || 0}
+                  onPageChange={setPage}
+                  onPageSizeChange={setPageSize}
+                  disabled={isCoursesLoading}
+                />
               </CardContent>
             </Card>
           </>
@@ -384,147 +397,130 @@ function CourseCalendarPage() {
 
                   {/* Tab 1: 课节列表 */}
                   <TabsContent value='sessions'>
-                    <div className='overflow-x-auto'>
-                      <ScrollArea className='h-[500px]'>
-                        {isSessionsLoading ? (
-                          <div className='space-y-2'>
-                            {[...Array(5)].map((_, i) => (
-                              <Skeleton key={i} className='h-12 w-full' />
-                            ))}
-                          </div>
-                        ) : sessionsData && sessionsData.data.length > 0 ? (
-                          <>
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead className='whitespace-nowrap'>
-                                    课程名称
-                                  </TableHead>
-                                  <TableHead className='whitespace-nowrap'>
-                                    教学周
-                                  </TableHead>
-                                  <TableHead className='whitespace-nowrap'>
-                                    星期
-                                  </TableHead>
-                                  <TableHead className='whitespace-nowrap'>
-                                    节次
-                                  </TableHead>
-                                  <TableHead className='whitespace-nowrap'>
-                                    教师
-                                  </TableHead>
-                                  <TableHead className='whitespace-nowrap'>
-                                    地点
-                                  </TableHead>
-                                  <TableHead className='whitespace-nowrap'>
-                                    开始时间
-                                  </TableHead>
-                                  <TableHead className='whitespace-nowrap'>
-                                    结束时间
-                                  </TableHead>
-                                  <TableHead className='whitespace-nowrap'>
-                                    需要签到
-                                  </TableHead>
+                    {/* 使用简单的 div 容器实现垂直滚动，保留 Table 组件的横向滚动能力 */}
+                    <div className='max-h-[400px] overflow-y-auto'>
+                      {isSessionsLoading ? (
+                        <div className='space-y-2 pb-4'>
+                          {[...Array(5)].map((_, i) => (
+                            <Skeleton key={i} className='h-12 w-full' />
+                          ))}
+                        </div>
+                      ) : sessionsData && sessionsData.data.length > 0 ? (
+                        <div className='pb-4'>
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className='w-[60px] whitespace-nowrap'>
+                                  序号
+                                </TableHead>
+                                <TableHead className='whitespace-nowrap'>
+                                  课程名称
+                                </TableHead>
+                                <TableHead className='whitespace-nowrap'>
+                                  教学周
+                                </TableHead>
+                                <TableHead className='whitespace-nowrap'>
+                                  星期
+                                </TableHead>
+                                <TableHead className='whitespace-nowrap'>
+                                  节次
+                                </TableHead>
+                                <TableHead className='whitespace-nowrap'>
+                                  教师
+                                </TableHead>
+                                <TableHead className='whitespace-nowrap'>
+                                  地点
+                                </TableHead>
+                                <TableHead className='whitespace-nowrap'>
+                                  开始时间
+                                </TableHead>
+                                <TableHead className='whitespace-nowrap'>
+                                  结束时间
+                                </TableHead>
+                                <TableHead className='whitespace-nowrap'>
+                                  需要签到
+                                </TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {sessionsData.data.map((session, index) => (
+                                <TableRow key={session.id}>
+                                  <TableCell className='whitespace-nowrap'>
+                                    {(sessionPage - 1) * sessionPageSize +
+                                      index +
+                                      1}
+                                  </TableCell>
+                                  <TableCell className='font-medium whitespace-nowrap'>
+                                    {session.course_name}
+                                  </TableCell>
+                                  <TableCell className='whitespace-nowrap'>
+                                    {session.teaching_week
+                                      ? `第${session.teaching_week}周`
+                                      : '-'}
+                                  </TableCell>
+                                  <TableCell className='whitespace-nowrap'>
+                                    {session.week_day
+                                      ? `周${session.week_day}`
+                                      : '-'}
+                                  </TableCell>
+                                  <TableCell className='whitespace-nowrap'>
+                                    {session.periods || '-'}
+                                  </TableCell>
+                                  <TableCell className='whitespace-nowrap'>
+                                    {session.teacher_names || '-'}
+                                  </TableCell>
+                                  <TableCell className='whitespace-nowrap'>
+                                    {session.class_location || '-'}
+                                  </TableCell>
+                                  <TableCell className='text-sm'>
+                                    {new Date(
+                                      session.start_time
+                                    ).toLocaleString('zh-CN', {
+                                      month: '2-digit',
+                                      day: '2-digit',
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })}
+                                  </TableCell>
+                                  <TableCell className='text-sm whitespace-nowrap'>
+                                    {new Date(session.end_time).toLocaleString(
+                                      'zh-CN',
+                                      {
+                                        month: '2-digit',
+                                        day: '2-digit',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                      }
+                                    )}
+                                  </TableCell>
+                                  <TableCell className='whitespace-nowrap'>
+                                    {session.attendance_enabled ? (
+                                      <span className='text-green-600'>是</span>
+                                    ) : (
+                                      <span className='text-gray-400'>否</span>
+                                    )}
+                                  </TableCell>
                                 </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {sessionsData.data.map((session) => (
-                                  <TableRow key={session.id}>
-                                    <TableCell className='font-medium whitespace-nowrap'>
-                                      {session.course_name}
-                                    </TableCell>
-                                    <TableCell className='whitespace-nowrap'>
-                                      {session.teaching_week
-                                        ? `第${session.teaching_week}周`
-                                        : '-'}
-                                    </TableCell>
-                                    <TableCell className='whitespace-nowrap'>
-                                      {session.week_day
-                                        ? `周${session.week_day}`
-                                        : '-'}
-                                    </TableCell>
-                                    <TableCell className='whitespace-nowrap'>
-                                      {session.periods || '-'}
-                                    </TableCell>
-                                    <TableCell className='whitespace-nowrap'>
-                                      {session.teacher_names || '-'}
-                                    </TableCell>
-                                    <TableCell className='whitespace-nowrap'>
-                                      {session.class_location || '-'}
-                                    </TableCell>
-                                    <TableCell className='text-sm'>
-                                      {new Date(
-                                        session.start_time
-                                      ).toLocaleString('zh-CN', {
-                                        month: '2-digit',
-                                        day: '2-digit',
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                      })}
-                                    </TableCell>
-                                    <TableCell className='text-sm whitespace-nowrap'>
-                                      {new Date(
-                                        session.end_time
-                                      ).toLocaleString('zh-CN', {
-                                        month: '2-digit',
-                                        day: '2-digit',
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                      })}
-                                    </TableCell>
-                                    <TableCell className='whitespace-nowrap'>
-                                      {session.attendance_enabled ? (
-                                        <span className='text-green-600'>
-                                          是
-                                        </span>
-                                      ) : (
-                                        <span className='text-gray-400'>
-                                          否
-                                        </span>
-                                      )}
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-
-                            {/* 课节分页控件 */}
-                            <div className='mt-4 flex items-center justify-between'>
-                              <div className='text-muted-foreground text-sm'>
-                                共 {sessionsData.total} 条记录，第{' '}
-                                {sessionsData.page} / {sessionsData.total_pages}{' '}
-                                页
-                              </div>
-                              <div className='flex gap-2'>
-                                <Button
-                                  size='sm'
-                                  variant='outline'
-                                  disabled={!sessionsData.has_prev}
-                                  onClick={() =>
-                                    setSessionPage(sessionPage - 1)
-                                  }
-                                >
-                                  上一页
-                                </Button>
-                                <Button
-                                  size='sm'
-                                  variant='outline'
-                                  disabled={!sessionsData.has_next}
-                                  onClick={() =>
-                                    setSessionPage(sessionPage + 1)
-                                  }
-                                >
-                                  下一页
-                                </Button>
-                              </div>
-                            </div>
-                          </>
-                        ) : (
-                          <p className='text-muted-foreground py-8 text-center text-sm'>
-                            暂无课节数据
-                          </p>
-                        )}
-                      </ScrollArea>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      ) : (
+                        <p className='text-muted-foreground py-8 text-center text-sm'>
+                          暂无课节数据
+                        </p>
+                      )}
                     </div>
+
+                    {/* 课节分页控件 */}
+                    <EnhancedPagination
+                      page={sessionPage}
+                      pageSize={sessionPageSize}
+                      total={sessionsData?.total || 0}
+                      onPageChange={setSessionPage}
+                      onPageSizeChange={setSessionPageSize}
+                      disabled={isSessionsLoading}
+                    />
                   </TabsContent>
 
                   {/* Tab 2: 分享人列表 */}
@@ -532,7 +528,7 @@ function CourseCalendarPage() {
                     {/* 搜索和同步工具栏 */}
                     <div className='mb-4 space-y-3'>
                       {/* 教学班学生总数和已有权限数显示 */}
-                      <div className='text-muted-foreground flex items-center gap-6 text-sm'>
+                      <div className='text-muted-foreground flex flex-wrap items-center gap-4 text-sm'>
                         <div className='flex items-center gap-2'>
                           <span className='font-medium'>教学班学生总数：</span>
                           <span className='text-foreground font-semibold'>
@@ -545,6 +541,47 @@ function CourseCalendarPage() {
                             {existingPermissions} 人
                           </span>
                         </div>
+                        {needsSync && (
+                          <>
+                            {toAddCount > 0 && (
+                              <div className='flex items-center gap-2'>
+                                <span className='font-medium'>待添加：</span>
+                                <span className='font-semibold text-orange-600'>
+                                  {toAddCount} 人
+                                </span>
+                              </div>
+                            )}
+                            {toDeleteCount > 0 && (
+                              <div className='flex items-center gap-2'>
+                                <span className='font-medium'>待删除：</span>
+                                <span className='font-semibold text-red-600'>
+                                  {toDeleteCount} 人
+                                </span>
+                              </div>
+                            )}
+                          </>
+                        )}
+                        {!needsSync && (
+                          <div className='flex items-center gap-2'>
+                            <svg
+                              className='h-4 w-4 text-green-600'
+                              xmlns='http://www.w3.org/2000/svg'
+                              fill='none'
+                              viewBox='0 0 24 24'
+                              stroke='currentColor'
+                            >
+                              <path
+                                strokeLinecap='round'
+                                strokeLinejoin='round'
+                                strokeWidth={2}
+                                d='M5 13l4 4L19 7'
+                              />
+                            </svg>
+                            <span className='font-medium text-green-600'>
+                              权限已同步
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       {/* 搜索框和同步按钮 */}
@@ -562,8 +599,13 @@ function CourseCalendarPage() {
                         </div>
                         <Button
                           onClick={handleSync}
-                          disabled={isSyncing || !selectedCourse}
+                          disabled={isSyncing || !selectedCourse || !needsSync}
                           className='bg-primary hover:bg-primary/90 shrink-0'
+                          title={
+                            !needsSync
+                              ? '权限已同步，无需操作'
+                              : `点击同步：添加 ${toAddCount} 人，删除 ${toDeleteCount} 人`
+                          }
                         >
                           {isSyncing ? (
                             <>
@@ -612,24 +654,28 @@ function CourseCalendarPage() {
                       </div>
                     </div>
 
-                    <div className='overflow-x-auto'>
-                      <ScrollArea className='h-[500px]'>
-                        {isShareParticipantsLoading ? (
-                          <div className='space-y-2'>
-                            {[...Array(5)].map((_, i) => (
-                              <Skeleton key={i} className='h-12 w-full' />
-                            ))}
-                          </div>
-                        ) : filteredParticipants &&
-                          filteredParticipants.length > 0 ? (
+                    {/* 使用简单的 div 容器实现垂直滚动，保留 Table 组件的横向滚动能力 */}
+                    <div className='max-h-[400px] overflow-y-auto'>
+                      {isShareParticipantsLoading ? (
+                        <div className='space-y-2 pb-4'>
+                          {[...Array(5)].map((_, i) => (
+                            <Skeleton key={i} className='h-12 w-full' />
+                          ))}
+                        </div>
+                      ) : filteredParticipants &&
+                        filteredParticipants.length > 0 ? (
+                        <div className='pb-4'>
                           <Table>
                             <TableHeader>
                               <TableRow>
+                                <TableHead className='w-[60px] whitespace-nowrap'>
+                                  序号
+                                </TableHead>
                                 <TableHead className='whitespace-nowrap'>
                                   用户ID
                                 </TableHead>
                                 <TableHead className='whitespace-nowrap'>
-                                  学生姓名
+                                  姓名
                                 </TableHead>
                                 <TableHead className='whitespace-nowrap'>
                                   学院
@@ -646,38 +692,43 @@ function CourseCalendarPage() {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {filteredParticipants.map((participant) => (
-                                <TableRow key={participant.id}>
-                                  <TableCell className='font-medium whitespace-nowrap'>
-                                    {participant.userId}
-                                  </TableCell>
-                                  <TableCell className='whitespace-nowrap'>
-                                    {participant.studentName || '-'}
-                                  </TableCell>
-                                  <TableCell className='whitespace-nowrap'>
-                                    {participant.schoolName || '-'}
-                                  </TableCell>
-                                  <TableCell className='whitespace-nowrap'>
-                                    {participant.majorName || '-'}
-                                  </TableCell>
-                                  <TableCell className='whitespace-nowrap'>
-                                    {participant.className || '-'}
-                                  </TableCell>
-                                  <TableCell className='whitespace-nowrap'>
-                                    {renderRoleBadge(participant.role)}
-                                  </TableCell>
-                                </TableRow>
-                              ))}
+                              {filteredParticipants.map(
+                                (participant, index) => (
+                                  <TableRow key={participant.id}>
+                                    <TableCell className='whitespace-nowrap'>
+                                      {index + 1}
+                                    </TableCell>
+                                    <TableCell className='font-medium whitespace-nowrap'>
+                                      {participant.userId}
+                                    </TableCell>
+                                    <TableCell className='whitespace-nowrap'>
+                                      {participant.studentName || '-'}
+                                    </TableCell>
+                                    <TableCell className='whitespace-nowrap'>
+                                      {participant.schoolName || '-'}
+                                    </TableCell>
+                                    <TableCell className='whitespace-nowrap'>
+                                      {participant.majorName || '-'}
+                                    </TableCell>
+                                    <TableCell className='whitespace-nowrap'>
+                                      {participant.className || '-'}
+                                    </TableCell>
+                                    <TableCell className='whitespace-nowrap'>
+                                      {renderRoleBadge(participant.role)}
+                                    </TableCell>
+                                  </TableRow>
+                                )
+                              )}
                             </TableBody>
                           </Table>
-                        ) : (
-                          <p className='text-muted-foreground py-8 text-center text-sm'>
-                            {participantSearchInput.trim()
-                              ? '未找到匹配的学生'
-                              : '暂无分享人数据'}
-                          </p>
-                        )}
-                      </ScrollArea>
+                        </div>
+                      ) : (
+                        <p className='text-muted-foreground py-8 text-center text-sm'>
+                          {participantSearchInput.trim()
+                            ? '未找到匹配的学生'
+                            : '暂无分享人数据'}
+                        </p>
+                      )}
                     </div>
                   </TabsContent>
                 </Tabs>

@@ -20,12 +20,12 @@ export interface IAttendanceCourseRepository {
   /**
    * 根据课程代码和学期查找考勤课程列表
    * @param courseCode 课程代码
-   * @param semester 学期
+   * @param semester 学期（可选，如果不传则返回该课程代码的所有学期数据）
    * @returns 考勤课程列表
    */
   findByCourseCode(
     courseCode: string,
-    semester: string
+    semester?: string
   ): Promise<IcasyncAttendanceCourse[]>;
 
   /**

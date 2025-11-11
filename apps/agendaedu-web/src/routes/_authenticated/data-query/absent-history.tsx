@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { ChevronLeft, ChevronRight, Search as SearchIcon } from 'lucide-react'
+import { Search as SearchIcon } from 'lucide-react'
 import {
   AbsentStudentRelation,
   StatsQueryParams,
   statsApiService,
 } from '@/lib/stats-api'
-import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -15,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { EnhancedPagination } from '@/components/ui/enhanced-pagination'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
@@ -57,27 +57,9 @@ function AbsentHistoryPage() {
 
   const records = data?.data?.data ?? []
   const total = data?.data?.total ?? 0
-  const totalPages = data?.data?.totalPages ?? 0
 
   const handleFilterChange = (key: keyof StatsQueryParams, value: any) => {
     setFilters((prev) => ({ ...prev, [key]: value, page: 1 }))
-  }
-
-  const handlePageChange = (newPage: number) => {
-    if (newPage > 0 && newPage <= totalPages) {
-      setFilters((prev) => ({ ...prev, page: newPage }))
-    }
-  }
-
-  const handleReset = () => {
-    setFilters({
-      page: 1,
-      pageSize: 20,
-      searchKeyword: '',
-      teachingWeek: undefined,
-      sortField: undefined,
-      sortOrder: undefined,
-    })
   }
 
   const handleSort = (field: string) => {
@@ -100,7 +82,7 @@ function AbsentHistoryPage() {
         </div>
       </Header>
 
-      <Main fixed>
+      <Main>
         <div className='space-y-0.5'>
           <h1 className='text-2xl font-bold tracking-tight md:text-3xl'>
             缺勤历史明细
@@ -141,155 +123,151 @@ function AbsentHistoryPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className='overflow-x-auto'>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead
-                      className='hover:bg-muted cursor-pointer'
-                      onClick={() => handleSort('student_id')}
-                    >
-                      学号
-                      {filters.sortField === 'student_id' && (
-                        <span className='ml-1'>
-                          {filters.sortOrder === 'asc' ? '↑' : '↓'}
-                        </span>
-                      )}
-                    </TableHead>
-                    <TableHead>姓名</TableHead>
-                    <TableHead>课程代码</TableHead>
-                    <TableHead>课程名称</TableHead>
-                    <TableHead>缺勤类型</TableHead>
-                    <TableHead>学期</TableHead>
-                    <TableHead
-                      className='hover:bg-muted cursor-pointer'
-                      onClick={() => handleSort('teaching_week')}
-                    >
-                      教学周
-                      {filters.sortField === 'teaching_week' && (
-                        <span className='ml-1'>
-                          {filters.sortOrder === 'asc' ? '↑' : '↓'}
-                        </span>
-                      )}
-                    </TableHead>
-                    <TableHead>星期</TableHead>
-                    <TableHead>节次</TableHead>
-                    <TableHead>时间段</TableHead>
-                    <TableHead>学院</TableHead>
-                    <TableHead>班级</TableHead>
-                    <TableHead>专业</TableHead>
-                    <TableHead>年级</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoading ? (
+            {/* 表格区域 - 使用简单的 div 容器实现垂直滚动，保留 Table 组件的横向滚动能力 */}
+            <div className='max-h-[450px] overflow-y-auto'>
+              <div className='pb-4'>
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={14} className='h-24 text-center'>
-                        <SearchIcon className='mx-auto h-6 w-6 animate-pulse' />
-                        <p className='mt-2'>正在加载...</p>
-                      </TableCell>
-                    </TableRow>
-                  ) : isError ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={14}
-                        className='h-24 text-center text-red-500'
+                      <TableHead
+                        className='hover:bg-muted cursor-pointer'
+                        onClick={() => handleSort('student_id')}
                       >
-                        加载数据失败: {error?.message || '未知错误'}
-                      </TableCell>
+                        学号
+                        {filters.sortField === 'student_id' && (
+                          <span className='ml-1'>
+                            {filters.sortOrder === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </TableHead>
+                      <TableHead>姓名</TableHead>
+                      <TableHead>课程代码</TableHead>
+                      <TableHead>课程名称</TableHead>
+                      <TableHead>缺勤类型</TableHead>
+                      <TableHead>学期</TableHead>
+                      <TableHead
+                        className='hover:bg-muted cursor-pointer'
+                        onClick={() => handleSort('teaching_week')}
+                      >
+                        教学周
+                        {filters.sortField === 'teaching_week' && (
+                          <span className='ml-1'>
+                            {filters.sortOrder === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </TableHead>
+                      <TableHead>星期</TableHead>
+                      <TableHead>节次</TableHead>
+                      <TableHead>时间段</TableHead>
+                      <TableHead>学院</TableHead>
+                      <TableHead>班级</TableHead>
+                      <TableHead>专业</TableHead>
+                      <TableHead>年级</TableHead>
                     </TableRow>
-                  ) : records.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={14} className='h-24 text-center'>
-                        无结果
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    records.map((record: AbsentStudentRelation) => {
-                      const truncate = (
-                        text: string | number,
-                        maxLength = 10
-                      ) => {
-                        const str = String(text || '')
-                        return str.length > maxLength
-                          ? str.substring(0, maxLength) + '...'
-                          : str
-                      }
+                  </TableHeader>
+                  <TableBody>
+                    {isLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={14} className='h-24 text-center'>
+                          <SearchIcon className='mx-auto h-6 w-6 animate-pulse' />
+                          <p className='mt-2'>正在加载...</p>
+                        </TableCell>
+                      </TableRow>
+                    ) : isError ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={14}
+                          className='h-24 text-center text-red-500'
+                        >
+                          加载数据失败: {error?.message || '未知错误'}
+                        </TableCell>
+                      </TableRow>
+                    ) : records.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={14} className='h-24 text-center'>
+                          无结果
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      records.map((record: AbsentStudentRelation) => {
+                        const truncate = (
+                          text: string | number,
+                          maxLength = 10
+                        ) => {
+                          const str = String(text || '')
+                          return str.length > maxLength
+                            ? str.substring(0, maxLength) + '...'
+                            : str
+                        }
 
-                      return (
-                        <TableRow key={record.id}>
-                          <TableCell className='font-medium'>
-                            {record.student_id}
-                          </TableCell>
-                          <TableCell>{record.student_name}</TableCell>
-                          <TableCell>{record.course_code}</TableCell>
-                          <TableCell title={record.course_name}>
-                            {truncate(record.course_name)}
-                          </TableCell>
-                          <TableCell>
-                            <span
-                              className={`rounded-full px-2 py-1 text-xs ${
-                                record.absence_type === '旷课'
-                                  ? 'bg-red-100 text-red-800'
-                                  : 'bg-yellow-100 text-yellow-800'
-                              }`}
-                            >
-                              {record.absence_type}
-                            </span>
-                          </TableCell>
-                          <TableCell>{record.semester}</TableCell>
-                          <TableCell>{record.teaching_week}</TableCell>
-                          <TableCell title={String(record.weekday)}>
-                            {truncate(record.weekday)}
-                          </TableCell>
-                          <TableCell title={String(record.period)}>
-                            {truncate(record.period)}
-                          </TableCell>
-                          <TableCell>{record.time_slot}</TableCell>
-                          <TableCell title={record.school_name}>
-                            {truncate(record.school_name)}
-                          </TableCell>
-                          <TableCell title={record.class_name}>
-                            {truncate(record.class_name)}
-                          </TableCell>
-                          <TableCell title={record.major_name}>
-                            {truncate(record.major_name)}
-                          </TableCell>
-                          <TableCell>{record.grade || '-'}</TableCell>
-                        </TableRow>
-                      )
-                    })
-                  )}
-                </TableBody>
-              </Table>
+                        return (
+                          <TableRow key={record.id}>
+                            <TableCell className='font-medium'>
+                              {record.student_id}
+                            </TableCell>
+                            <TableCell>{record.student_name}</TableCell>
+                            <TableCell>{record.course_code}</TableCell>
+                            <TableCell title={record.course_name}>
+                              {truncate(record.course_name)}
+                            </TableCell>
+                            <TableCell>
+                              <span
+                                className={`rounded-full px-2 py-1 text-xs ${
+                                  record.absence_type === '旷课'
+                                    ? 'bg-red-100 text-red-800'
+                                    : 'bg-yellow-100 text-yellow-800'
+                                }`}
+                              >
+                                {record.absence_type}
+                              </span>
+                            </TableCell>
+                            <TableCell>{record.semester}</TableCell>
+                            <TableCell>{record.teaching_week}</TableCell>
+                            <TableCell title={String(record.weekday)}>
+                              {truncate(record.weekday)}
+                            </TableCell>
+                            <TableCell title={String(record.period)}>
+                              {truncate(record.period)}
+                            </TableCell>
+                            <TableCell>{record.time_slot}</TableCell>
+                            <TableCell title={record.school_name}>
+                              {truncate(record.school_name)}
+                            </TableCell>
+                            <TableCell title={record.class_name}>
+                              {truncate(record.class_name)}
+                            </TableCell>
+                            <TableCell title={record.major_name}>
+                              {truncate(record.major_name)}
+                            </TableCell>
+                            <TableCell>{record.grade || '-'}</TableCell>
+                          </TableRow>
+                        )
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
 
-            {/* 分页 */}
-            <div className='mt-4 flex items-center justify-between'>
-              <div className='text-muted-foreground text-sm'>
-                第 {filters.page} 页，共 {totalPages} 页 | 总计 {total} 条记录
-              </div>
-              <div className='flex items-center space-x-2'>
-                <Button
-                  variant='outline'
-                  size='sm'
-                  onClick={() => handlePageChange(filters.page! - 1)}
-                  disabled={filters.page === 1 || isLoading}
-                >
-                  <ChevronLeft className='h-4 w-4' />
-                  上一页
-                </Button>
-                <Button
-                  variant='outline'
-                  size='sm'
-                  onClick={() => handlePageChange(filters.page! + 1)}
-                  disabled={filters.page === totalPages || isLoading}
-                >
-                  下一页
-                  <ChevronRight className='h-4 w-4' />
-                </Button>
-              </div>
-            </div>
+            {/* 分页控件 */}
+            {records.length > 0 && (
+              <EnhancedPagination
+                page={filters.page!}
+                pageSize={filters.pageSize!}
+                total={total}
+                onPageChange={(newPage) =>
+                  setFilters((prev) => ({ ...prev, page: newPage }))
+                }
+                onPageSizeChange={(newPageSize) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    pageSize: newPageSize,
+                    page: 1,
+                  }))
+                }
+                disabled={isLoading}
+              />
+            )}
           </CardContent>
         </Card>
       </Main>

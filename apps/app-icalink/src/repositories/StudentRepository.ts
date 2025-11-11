@@ -34,21 +34,26 @@ export default class StudentRepository extends BaseRepository<
   /**
    * 根据课程代码和学期查询学生列表
    *
+   * 数据源：icalink_teaching_class 表（教学班表）
+   * 注意：semester 参数已废弃，保留以保持接口兼容性
+   *
    * @param courseCode - 课程代码
-   * @param semester - 学期
+   * @param semester - 学期（已废弃，不再使用）
    * @returns 学生列表（错误时返回空数组）
    */
   async findByCourse(courseCode: string, semester: string): Promise<OutXsxx[]> {
     try {
-      this.logger.info({ courseCode, semester }, 'Finding students by course');
+      this.logger.info(
+        { courseCode, semester: semester || 'N/A (deprecated)' },
+        'Finding students by course'
+      );
 
       const db = await this.getQueryConnection();
       const queryResult = await sql<OutXsxx>`
         SELECT DISTINCT s.*
-        FROM out_jw_kcb_xs kcb
-        INNER JOIN out_xsxx s ON kcb.xh = s.xh
-        WHERE kcb.kkh = ${courseCode}
-          AND kcb.xnxq = ${semester}
+        FROM icasync.icalink_teaching_class tc
+        INNER JOIN out_xsxx s ON tc.student_id = s.xh
+        WHERE tc.course_code = ${courseCode}
           AND (s.zt IS NULL OR (s.zt != '毕业' AND s.zt != '退学'))
         ORDER BY s.xh ASC
       `.execute(db);

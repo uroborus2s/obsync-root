@@ -1,13 +1,12 @@
 /**
  * 人员管理页面
  */
-
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { TeacherInfo } from '@/types/rbac.types'
 import { UserPlus, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import { roleApi, userRoleApi } from '@/lib/rbac-api'
-import type { TeacherInfo } from '@/types/rbac.types'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -16,6 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { EnhancedPagination } from '@/components/ui/enhanced-pagination'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -32,7 +32,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { Search } from '@/components/search'
@@ -43,6 +42,7 @@ export default function UsersManagementPage() {
   const queryClient = useQueryClient()
   const [keyword, setKeyword] = useState('')
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
   const [selectedRole, setSelectedRole] = useState<number | null>(null)
 
   // 获取角色列表
@@ -53,11 +53,11 @@ export default function UsersManagementPage() {
 
   // 获取教师列表
   const { data: teachersData, isLoading } = useQuery({
-    queryKey: ['teachers', page, keyword],
+    queryKey: ['teachers', page, pageSize, keyword],
     queryFn: () =>
       userRoleApi.getTeachers({
         page,
-        page_size: 20,
+        page_size: pageSize,
         keyword: keyword || undefined,
       }),
   })
@@ -106,9 +106,7 @@ export default function UsersManagementPage() {
             <Users className='h-8 w-8' />
             人员管理
           </h1>
-          <p className='text-muted-foreground'>
-            为教师分配角色和权限
-          </p>
+          <p className='text-muted-foreground'>为教师分配角色和权限</p>
         </div>
 
         <Card>
@@ -146,7 +144,7 @@ export default function UsersManagementPage() {
               </div>
 
               {/* 教师表格 */}
-              <div className='rounded-md border'>
+              <div className='overflow-x-auto'>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -200,34 +198,15 @@ export default function UsersManagementPage() {
               </div>
 
               {/* 分页 */}
-              {teachersData && teachersData.total_pages > 1 && (
-                <div className='flex items-center justify-between'>
-                  <div className='text-muted-foreground text-sm'>
-                    第 {page} 页，共 {teachersData.total_pages} 页
-                  </div>
-                  <div className='flex items-center space-x-2'>
-                    <Button
-                      variant='outline'
-                      size='sm'
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      disabled={page === 1}
-                    >
-                      上一页
-                    </Button>
-                    <Button
-                      variant='outline'
-                      size='sm'
-                      onClick={() =>
-                        setPage((p) =>
-                          Math.min(teachersData.total_pages, p + 1)
-                        )
-                      }
-                      disabled={page === teachersData.total_pages}
-                    >
-                      下一页
-                    </Button>
-                  </div>
-                </div>
+              {teachersData && (
+                <EnhancedPagination
+                  page={page}
+                  pageSize={pageSize}
+                  total={teachersData.total || 0}
+                  onPageChange={setPage}
+                  onPageSizeChange={setPageSize}
+                  disabled={isLoading}
+                />
               )}
             </div>
           </CardContent>
@@ -236,4 +215,3 @@ export default function UsersManagementPage() {
     </>
   )
 }
-

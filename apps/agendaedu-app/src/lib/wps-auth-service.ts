@@ -216,52 +216,6 @@ export class WPSAuthService {
   }
 
   /**
-   * 选择图片
-   */
-  public async chooseImage(count: number = 1): Promise<string[]> {
-    if (!this.isAuthorized()) {
-      throw new Error('未授权，请先进行鉴权');
-    }
-
-    if (!this.hasPermission('image')) {
-      throw new Error('没有图片权限');
-    }
-
-    if (!this.isWPSEnvironment()) {
-      return this.getMockImages(count);
-    }
-
-    return new Promise((resolve, reject) => {
-      window.ksoxz_sdk.chooseImage({
-        params: {
-          count,
-          sizeType: ['original', 'compressed'],
-          sourceType: ['album', 'camera']
-        },
-        onSuccess: (result) => {
-          console.log('📷 选择图片成功:', result);
-          resolve(result.localIds);
-        },
-        onError: (error) => {
-          console.error('❌ 选择图片失败:', error);
-          reject(new Error('选择图片失败'));
-        }
-      });
-    });
-  }
-
-  /**
-   * 获取模拟图片
-   */
-  private getMockImages(count: number): string[] {
-    const images: string[] = [];
-    for (let i = 0; i < count; i++) {
-      images.push(`mock_image_${i + 1}_${Date.now()}.jpg`);
-    }
-    return images;
-  }
-
-  /**
    * 显示Toast提示
    */
   public async showToast(

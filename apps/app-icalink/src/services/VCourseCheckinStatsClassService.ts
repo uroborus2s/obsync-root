@@ -1,4 +1,5 @@
 import type { Logger } from '@stratix/core';
+import type CourseCheckinStatsRepository from '../repositories/CourseCheckinStatsRepository.js';
 import type VCourseCheckinStatsClassRepository from '../repositories/VCourseCheckinStatsClassRepository.js';
 import type { VCourseCheckinStatsClass } from '../types/database.js';
 
@@ -53,7 +54,8 @@ export default class VCourseCheckinStatsClassService
 {
   constructor(
     private readonly logger: Logger,
-    private readonly vCourseCheckinStatsClassRepository: VCourseCheckinStatsClassRepository
+    private readonly vCourseCheckinStatsClassRepository: VCourseCheckinStatsClassRepository,
+    private readonly courseCheckinStatsRepository: CourseCheckinStatsRepository
   ) {
     this.logger.info('✅ VCourseCheckinStatsClassService initialized');
   }
@@ -99,13 +101,47 @@ export default class VCourseCheckinStatsClassService
           params.sortOrder
         );
 
+      // 为每条记录添加周度统计数据
+      const dataWithWeeklyStats = await Promise.all(
+        result.data.map(async (record) => {
+          try {
+            // 查询该教学班的周度统计数据
+            const weeklyData =
+              await this.courseCheckinStatsRepository.findClassWeeklyStats(
+                record.teaching_class_code,
+                record.semester
+              );
+
+            // 转换为前端需要的格式
+            const weekly_stats = weeklyData.map((stat) => ({
+              week: stat.teaching_week,
+              expected: stat.expected_attendance,
+              absent: stat.absent_count,
+              absence_rate: stat.absence_rate
+            }));
+
+            return {
+              ...record,
+              weekly_stats
+            };
+          } catch (error: any) {
+            this.logger.warn('Failed to fetch weekly stats for class', {
+              classCode: record.teaching_class_code,
+              error: error.message
+            });
+            // 如果查询周度数据失败，返回不带 weekly_stats 的记录
+            return record;
+          }
+        })
+      );
+
       // 计算总页数
       const totalPages = Math.ceil(result.total / params.pageSize);
 
       return {
         success: true,
         data: {
-          data: result.data,
+          data: dataWithWeeklyStats,
           total: result.total,
           page: params.page,
           pageSize: params.pageSize,
@@ -211,4 +247,3 @@ export default class VCourseCheckinStatsClassService
     }
   }
 }
-

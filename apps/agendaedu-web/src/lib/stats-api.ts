@@ -65,34 +65,6 @@ export interface AbsentStudentRelation {
 }
 
 /**
- * 课程历史统计记录
- */
-export interface CourseCheckinStats {
-  id: number
-  stat_date: string
-  course_id: number
-  external_id: string
-  course_code: string
-  course_name: string
-  location: string
-  teacher_name: string
-  teacher_codes: string
-  semester: string
-  teaching_week: number
-  weekday: number
-  time_slot: string
-  period: number
-  start_time: string
-  end_time: string
-  expected_count: number
-  actual_count: number
-  absent_count: number
-  truant_count: number
-  leave_count: number
-  leave_pending_count: number
-}
-
-/**
  * 教学班记录（对应 icalink_teaching_class 表）
  */
 export interface TeachingClass {
@@ -163,6 +135,16 @@ export interface StudentOverallAttendanceStatsDetails {
 }
 
 /**
+ * 周度统计数据
+ */
+export interface WeeklyStats {
+  week: number
+  expected: number
+  absent: number
+  absence_rate: number
+}
+
+/**
  * 单位级别签到统计记录
  */
 export interface CourseCheckinStatsUnit {
@@ -180,6 +162,7 @@ export interface CourseCheckinStatsUnit {
   total_truant: number
   absence_rate: number
   truancy_rate: number
+  weekly_stats?: WeeklyStats[]
 }
 
 /**
@@ -201,6 +184,7 @@ export interface CourseCheckinStatsClass {
   total_truant: number
   absence_rate: number
   truancy_rate: number
+  weekly_stats?: WeeklyStats[]
 }
 
 /**
@@ -225,6 +209,7 @@ export interface CourseCheckinStatsSummary {
   total_truant: number
   absence_rate: number
   truancy_rate: number
+  weekly_stats?: WeeklyStats[]
 }
 
 /**
@@ -251,28 +236,6 @@ export class StatsApiService {
 
     return apiClient.get(
       `/api/icalink/v1/stats/absent-history?${queryParams.toString()}`
-    )
-  }
-
-  /**
-   * 查询课程历史统计数据
-   */
-  async getCourseStats(
-    params: StatsQueryParams
-  ): Promise<PaginatedStatsResponse<CourseCheckinStats>> {
-    const queryParams = new URLSearchParams()
-    if (params.page) queryParams.append('page', params.page.toString())
-    if (params.pageSize)
-      queryParams.append('pageSize', params.pageSize.toString())
-    if (params.searchKeyword)
-      queryParams.append('searchKeyword', params.searchKeyword)
-    if (params.teachingWeek)
-      queryParams.append('teachingWeek', params.teachingWeek.toString())
-    if (params.sortField) queryParams.append('sortField', params.sortField)
-    if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder)
-
-    return apiClient.get(
-      `/api/icalink/v1/stats/course-stats?${queryParams.toString()}`
     )
   }
 
@@ -351,6 +314,8 @@ export class StatsApiService {
       queryParams.append('pageSize', params.pageSize.toString())
     if (params.searchKeyword)
       queryParams.append('searchKeyword', params.searchKeyword)
+    if (params.teachingWeek)
+      queryParams.append('teachingWeek', params.teachingWeek.toString())
     if (params.sortField) queryParams.append('sortField', params.sortField)
     if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder)
 

@@ -40,6 +40,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { EnhancedPagination } from '@/components/ui/enhanced-pagination'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -72,7 +73,7 @@ export default function WorkflowSchedulesPage() {
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [definitionFilter, setDefinitionFilter] = useState<string>('')
   const [page, setPage] = useState(1)
-  const pageSize = 20
+  const [pageSize, setPageSize] = useState(20)
   const queryClient = useQueryClient()
 
   // 获取定时任务列表
@@ -200,7 +201,6 @@ export default function WorkflowSchedulesPage() {
 
   const schedules = schedulesData?.items || []
   const total = schedulesData?.total || 0
-  const totalPages = schedulesData?.totalPages || 0
   const definitions = definitionsData?.items || []
 
   // 统计不同状态的任务数量
@@ -414,141 +414,107 @@ export default function WorkflowSchedulesPage() {
                   暂无定时任务
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>任务名称</TableHead>
-                      <TableHead>工作流</TableHead>
-                      <TableHead>Cron表达式</TableHead>
-                      <TableHead>状态</TableHead>
-                      <TableHead>下次运行</TableHead>
-                      <TableHead>最大实例数</TableHead>
-                      <TableHead>创建时间</TableHead>
-                      <TableHead className='text-right'>操作</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {schedules.map((schedule) => (
-                      <TableRow key={schedule.id}>
-                        <TableCell className='font-medium'>
-                          {schedule.name}
-                        </TableCell>
-                        <TableCell>
-                          {schedule.workflowDefinition?.name ||
-                            `工作流 ${schedule.workflowDefinitionId}`}
-                        </TableCell>
-                        <TableCell className='font-mono text-sm'>
-                          {formatCronExpression(schedule.cronExpression)}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              schedule.isEnabled ? 'default' : 'secondary'
-                            }
-                          >
-                            {schedule.isEnabled ? '启用' : '禁用'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {formatNextRunTime(schedule.nextRunAt)}
-                        </TableCell>
-                        <TableCell>{schedule.maxInstances}</TableCell>
-                        <TableCell>
-                          {formatDistanceToNow(new Date(schedule.createdAt), {
-                            addSuffix: true,
-                            locale: zhCN,
-                          })}
-                        </TableCell>
-                        <TableCell className='text-right'>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant='ghost' className='h-8 w-8 p-0'>
-                                <MoreHorizontal className='h-4 w-4' />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align='end'>
-                              <DropdownMenuItem
-                                onClick={() => handleEdit(schedule)}
-                              >
-                                <Edit className='mr-2 h-4 w-4' />
-                                编辑
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleToggle(schedule)}
-                              >
-                                {schedule.isEnabled ? (
-                                  <>
-                                    <PowerOff className='mr-2 h-4 w-4' />
-                                    禁用
-                                  </>
-                                ) : (
-                                  <>
-                                    <Power className='mr-2 h-4 w-4' />
-                                    启用
-                                  </>
-                                )}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleDelete(schedule)}
-                                className='text-red-600'
-                              >
-                                <Trash2 className='mr-2 h-4 w-4' />
-                                删除
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
+                <div className='overflow-x-auto'>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>任务名称</TableHead>
+                        <TableHead>工作流</TableHead>
+                        <TableHead>Cron表达式</TableHead>
+                        <TableHead>状态</TableHead>
+                        <TableHead>下次运行</TableHead>
+                        <TableHead>最大实例数</TableHead>
+                        <TableHead>创建时间</TableHead>
+                        <TableHead className='text-right'>操作</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {schedules.map((schedule) => (
+                        <TableRow key={schedule.id}>
+                          <TableCell className='font-medium'>
+                            {schedule.name}
+                          </TableCell>
+                          <TableCell>
+                            {schedule.workflowDefinition?.name ||
+                              `工作流 ${schedule.workflowDefinitionId}`}
+                          </TableCell>
+                          <TableCell className='font-mono text-sm'>
+                            {formatCronExpression(schedule.cronExpression)}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                schedule.isEnabled ? 'default' : 'secondary'
+                              }
+                            >
+                              {schedule.isEnabled ? '启用' : '禁用'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {formatNextRunTime(schedule.nextRunAt)}
+                          </TableCell>
+                          <TableCell>{schedule.maxInstances}</TableCell>
+                          <TableCell>
+                            {formatDistanceToNow(new Date(schedule.createdAt), {
+                              addSuffix: true,
+                              locale: zhCN,
+                            })}
+                          </TableCell>
+                          <TableCell className='text-right'>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant='ghost' className='h-8 w-8 p-0'>
+                                  <MoreHorizontal className='h-4 w-4' />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align='end'>
+                                <DropdownMenuItem
+                                  onClick={() => handleEdit(schedule)}
+                                >
+                                  <Edit className='mr-2 h-4 w-4' />
+                                  编辑
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handleToggle(schedule)}
+                                >
+                                  {schedule.isEnabled ? (
+                                    <>
+                                      <PowerOff className='mr-2 h-4 w-4' />
+                                      禁用
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Power className='mr-2 h-4 w-4' />
+                                      启用
+                                    </>
+                                  )}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handleDelete(schedule)}
+                                  className='text-red-600'
+                                >
+                                  <Trash2 className='mr-2 h-4 w-4' />
+                                  删除
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
 
               {/* 分页控件 */}
-              {totalPages > 1 && (
-                <div className='mt-4 flex items-center justify-between'>
-                  <div className='text-muted-foreground text-sm'>
-                    显示第 {(page - 1) * pageSize + 1} -{' '}
-                    {Math.min(page * pageSize, total)} 条，共 {total} 条记录
-                  </div>
-                  <div className='flex items-center space-x-2'>
-                    <Button
-                      variant='outline'
-                      size='sm'
-                      onClick={() => setPage(page - 1)}
-                      disabled={page <= 1}
-                    >
-                      上一页
-                    </Button>
-                    <div className='flex items-center space-x-1'>
-                      {Array.from(
-                        { length: Math.min(5, totalPages) },
-                        (_, i) => {
-                          const pageNum = i + 1
-                          return (
-                            <Button
-                              key={pageNum}
-                              variant={page === pageNum ? 'default' : 'outline'}
-                              size='sm'
-                              onClick={() => setPage(pageNum)}
-                            >
-                              {pageNum}
-                            </Button>
-                          )
-                        }
-                      )}
-                    </div>
-                    <Button
-                      variant='outline'
-                      size='sm'
-                      onClick={() => setPage(page + 1)}
-                      disabled={page >= totalPages}
-                    >
-                      下一页
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <EnhancedPagination
+                page={page}
+                pageSize={pageSize}
+                total={total}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+                disabled={isLoading}
+              />
             </CardContent>
           </Card>
         </div>

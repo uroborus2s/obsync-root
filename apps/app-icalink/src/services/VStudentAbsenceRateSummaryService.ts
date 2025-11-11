@@ -1,5 +1,5 @@
 import type { Logger } from '@stratix/core';
-import type VStudentAbsenceRateSummaryRepository from '../repositories/VStudentAbsenceRateSummaryRepository.js';
+import type StudentAbsenceRateDetailRepository from '../repositories/StudentAbsenceRateDetailRepository.js';
 import type { VStudentAbsenceRateSummary } from '../types/database.js';
 
 /**
@@ -10,7 +10,10 @@ export interface IVStudentAbsenceRateSummaryService {
    * 分页查询学生缺勤率汇总数据
    * @param page 页码
    * @param pageSize 每页数量
-   * @param exDeptId 外部部门ID（从组织架构树获取）
+   * @param collegeId 学院ID（4位）
+   * @param grade 年级（4位）
+   * @param majorId 专业ID（6位）
+   * @param classId 班级ID（可变长度）
    * @param searchKeyword 搜索关键词
    * @param sortField 排序字段
    * @param sortOrder 排序方向
@@ -18,7 +21,10 @@ export interface IVStudentAbsenceRateSummaryService {
   findWithPagination(
     page: number,
     pageSize: number,
-    exDeptId?: string,
+    collegeId?: string,
+    grade?: string,
+    majorId?: string,
+    classId?: string,
     searchKeyword?: string,
     sortField?: string,
     sortOrder?: 'asc' | 'desc'
@@ -32,8 +38,17 @@ export interface IVStudentAbsenceRateSummaryService {
 
   /**
    * 根据班级ID查询所有学生缺勤率统计数据
+   * @param classId 班级ID
+   * @param searchKeyword 搜索关键词（学生ID或学生姓名）
+   * @param page 页码（从1开始）
+   * @param pageSize 每页数量
    */
-  findByClassId(classId: string): Promise<VStudentAbsenceRateSummary[]>;
+  findByClassId(
+    classId: string,
+    searchKeyword?: string,
+    page?: number,
+    pageSize?: number
+  ): Promise<VStudentAbsenceRateSummary[]>;
 
   /**
    * 根据学生ID查询缺勤率统计数据
@@ -60,7 +75,7 @@ export default class VStudentAbsenceRateSummaryService
 {
   constructor(
     private readonly logger: Logger,
-    private readonly vStudentAbsenceRateSummaryRepository: VStudentAbsenceRateSummaryRepository
+    private readonly studentAbsenceRateDetailRepository: StudentAbsenceRateDetailRepository
   ) {
     this.logger.info('✅ VStudentAbsenceRateSummaryService initialized');
   }
@@ -69,19 +84,25 @@ export default class VStudentAbsenceRateSummaryService
    * 分页查询学生缺勤率汇总数据
    * @param page 页码（从1开始）
    * @param pageSize 每页数量
-   * @param exDeptId 外部部门ID（从组织架构树获取）
+   * @param collegeId 学院ID（4位）
+   * @param grade 年级（4位）
+   * @param majorId 专业ID（6位）
+   * @param classId 班级ID（可变长度）
    * @param searchKeyword 搜索关键词
    * @param sortField 排序字段
    * @param sortOrder 排序方向
    * @returns 分页结果
    *
    * @remarks
-   * exDeptId 从组织架构树节点获取，用于提取学院ID和班级ID组合
+   * 前端将 ex_dept_id 拆分后传递各个参数，后端进行组合查询
    */
   public async findWithPagination(
     page: number = 1,
     pageSize: number = 20,
-    exDeptId?: string,
+    collegeId?: string,
+    grade?: string,
+    majorId?: string,
+    classId?: string,
     searchKeyword?: string,
     sortField?: string,
     sortOrder?: 'asc' | 'desc'
@@ -106,7 +127,10 @@ export default class VStudentAbsenceRateSummaryService
     this.logger.debug('Finding student absence rate summary with pagination', {
       page,
       pageSize,
-      exDeptId,
+      collegeId,
+      grade,
+      majorId,
+      classId,
       searchKeyword,
       sortField,
       sortOrder
@@ -114,13 +138,16 @@ export default class VStudentAbsenceRateSummaryService
 
     try {
       const result =
-        await this.vStudentAbsenceRateSummaryRepository.findWithPagination(
-          page,
-          pageSize,
-          exDeptId,
+        await this.studentAbsenceRateDetailRepository.findStudentSummaryWithPagination(
+          collegeId,
+          grade,
+          majorId,
+          classId,
           searchKeyword,
           sortField,
-          sortOrder
+          sortOrder,
+          page,
+          pageSize
         );
 
       const totalPages = Math.ceil(result.total / pageSize);
@@ -141,10 +168,19 @@ export default class VStudentAbsenceRateSummaryService
   /**
    * 根据班级ID查询所有学生缺勤率统计数据
    * @param classId 班级ID
+   * @param searchKeyword 搜索关键词（学生ID或学生姓名）
+   * @param page 页码（从1开始）
+   * @param pageSize 每页数量
    * @returns 学生缺勤率统计数据列表
+   *
+   * @remarks
+   * 性能优化：直接查询明细表，避免视图全表扫描
    */
   public async findByClassId(
-    classId: string
+    classId: string,
+    searchKeyword?: string,
+    page: number = 1,
+    pageSize: number = 1000
   ): Promise<VStudentAbsenceRateSummary[]> {
     if (!classId) {
       this.logger.warn('findByClassId called with empty classId');
@@ -152,14 +188,19 @@ export default class VStudentAbsenceRateSummaryService
     }
 
     this.logger.debug(
-      { classId },
-      'Finding student absence rate summary by class ID'
+      { classId, searchKeyword, page, pageSize },
+      'Finding student absence rate summary by class ID (optimized)'
     );
 
     try {
-      return await this.vStudentAbsenceRateSummaryRepository.findByClassId(
-        classId
-      );
+      const result =
+        await this.studentAbsenceRateDetailRepository.findStudentSummaryByClassId(
+          classId,
+          searchKeyword,
+          page,
+          pageSize
+        );
+      return result.data;
     } catch (error) {
       this.logger.error(
         'Failed to find student absence rate summary by class ID',
@@ -188,7 +229,7 @@ export default class VStudentAbsenceRateSummaryService
     );
 
     try {
-      return await this.vStudentAbsenceRateSummaryRepository.findByStudentId(
+      return await this.studentAbsenceRateDetailRepository.findStudentSummaryByStudentId(
         studentId
       );
     } catch (error) {
@@ -227,7 +268,7 @@ export default class VStudentAbsenceRateSummaryService
     );
 
     try {
-      return await this.vStudentAbsenceRateSummaryRepository.findHighAbsenceRateStudents(
+      return await this.studentAbsenceRateDetailRepository.findHighAbsenceRateStudentsSummary(
         threshold,
         limit
       );

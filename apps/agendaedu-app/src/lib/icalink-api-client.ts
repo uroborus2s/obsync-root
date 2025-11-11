@@ -80,6 +80,13 @@ export class IcaLinkApiClient {
   }
 
   /**
+   * 获取API基础URL
+   */
+  getBaseUrl(): string {
+    return this.baseUrl;
+  }
+
+  /**
    * 发送HTTP请求
    */
   async request<T = any>(
@@ -102,7 +109,31 @@ export class IcaLinkApiClient {
   }
 
   /**
-   * 执行请求
+   * 下载二进制文件（返回Blob）
+   * @param endpoint API端点
+   * @param options 请求选项
+   * @returns Blob对象
+   */
+  async downloadBlob(
+    endpoint: string,
+    options: RequestOptions = {}
+  ): Promise<Blob> {
+    const config: RequestConfig = {
+      url: `${this.baseUrl}${endpoint}`,
+      method: options.method || 'GET',
+      headers: {
+        ...((options.headers as Record<string, string>) || {})
+      },
+      body: typeof options.body === 'string' ? options.body : undefined,
+      skipAuth: options.skipAuth || false,
+      retryOnAuth: options.retryOnAuth !== false
+    };
+
+    return this.executeBlobRequest(config);
+  }
+
+  /**
+   * 执行请求（JSON响应）
    */
   private async executeRequest<T>(
     config: RequestConfig
@@ -145,7 +176,75 @@ export class IcaLinkApiClient {
   }
 
   /**
-   * 处理401未授权响应
+   * 执行请求（Blob响应）
+   */
+  private async executeBlobRequest(config: RequestConfig): Promise<Blob> {
+    try {
+      // 添加授权头
+      if (!config.skipAuth) {
+        const token = await authManager.getAccessToken();
+        if (token) {
+          config.headers = {
+            ...config.headers,
+            Authorization: `Bearer ${token}`
+          };
+        }
+      }
+
+      console.log('📥 [IcaLinkApiClient] 开始下载Blob', {
+        url: config.url,
+        method: config.method
+      });
+
+      const response = await fetch(config.url, {
+        method: config.method,
+        headers: config.headers,
+        body: config.body,
+        credentials: 'include' // 确保发送cookie
+      });
+
+      console.log('📥 [IcaLinkApiClient] 响应状态', {
+        status: response.status,
+        ok: response.ok,
+        contentType: response.headers.get('Content-Type'),
+        contentLength: response.headers.get('Content-Length')
+      });
+
+      // 处理401未授权响应
+      if (response.status === 401 && !config.skipAuth && config.retryOnAuth) {
+        return this.handleUnauthorizedBlob(config);
+      }
+
+      // 处理其他HTTP错误
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ [IcaLinkApiClient] 请求失败', {
+          status: response.status,
+          errorText
+        });
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const blob = await response.blob();
+      console.log('✅ [IcaLinkApiClient] Blob下载成功', {
+        blobSize: blob.size,
+        blobType: blob.type,
+        blobIsEmpty: blob.size === 0
+      });
+
+      if (blob.size === 0) {
+        console.warn('⚠️ [IcaLinkApiClient] Blob为空');
+      }
+
+      return blob;
+    } catch (error) {
+      console.error('❌ [IcaLinkApiClient] Blob请求失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 处理401未授权响应（JSON）
    */
   private async handleUnauthorized<T>(
     config: RequestConfig
@@ -167,6 +266,53 @@ export class IcaLinkApiClient {
           // 刷新成功，重试原请求
           this.processQueue(null);
           return this.executeRequest(config);
+        } catch (refreshError) {
+          console.error('刷新token失败:', refreshError);
+          // 刷新失败，清除token并跳转授权
+          authManager.clearTokens();
+          this.processQueue(refreshError);
+          this.redirectToAuth();
+          throw new Error('需要重新授权');
+        }
+      } else {
+        // 没有有效token，直接跳转授权
+        this.processQueue(new Error('需要授权'));
+        this.redirectToAuth();
+        throw new Error('需要授权');
+      }
+    } finally {
+      this.isRefreshing = false;
+    }
+  }
+
+  /**
+   * 处理401未授权响应（Blob）
+   */
+  private async handleUnauthorizedBlob(config: RequestConfig): Promise<Blob> {
+    // 如果正在刷新token，等待刷新完成后重试
+    if (this.isRefreshing) {
+      return new Promise((resolve, reject) => {
+        this.failedQueue.push({
+          resolve: () => {
+            // 刷新成功后重新执行Blob请求
+            this.executeBlobRequest(config).then(resolve).catch(reject);
+          },
+          reject,
+          config
+        });
+      });
+    }
+
+    this.isRefreshing = true;
+
+    try {
+      // 尝试刷新token
+      if (authManager.isAuthenticated()) {
+        try {
+          await authManager.refreshAccessToken();
+          // 刷新成功，重试原请求
+          this.processQueue(null);
+          return this.executeBlobRequest(config);
         } catch (refreshError) {
           console.error('刷新token失败:', refreshError);
           // 刷新失败，清除token并跳转授权

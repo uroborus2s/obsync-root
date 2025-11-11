@@ -100,27 +100,37 @@ export default class AttendanceCourseRepository
   /**
    * 根据课程代码和学期查找考勤课程列表
    * @param courseCode 课程代码
-   * @param semester 学期
+   * @param semester 学期（可选，如果不传则返回该课程代码的所有学期数据）
    * @returns 考勤课程列表
    */
   public async findByCourseCode(
     courseCode: string,
-    semester: string
+    semester?: string
   ): Promise<IcasyncAttendanceCourse[]> {
     // 参数验证
-    if (!courseCode || !semester) {
-      this.logger.warn('findByCourseCode called with invalid parameters');
+    if (!courseCode) {
+      this.logger.warn('findByCourseCode called with invalid courseCode');
       return [];
     }
 
-    this.logger.debug({ courseCode, semester }, 'Finding courses by code');
+    this.logger.debug(
+      { courseCode, semester },
+      'Finding courses by code and optional semester'
+    );
 
     const result = (await this.findMany(
-      (qb) =>
-        qb
+      (qb) => {
+        let query = qb
           .where('course_code', '=', courseCode)
-          .where('semester', '=', semester)
-          .where('deleted_at', 'is', null),
+          .where('deleted_at', 'is', null);
+
+        // 只有当 semester 参数存在时才添加学期过滤
+        if (semester) {
+          query = query.where('semester', '=', semester);
+        }
+
+        return query;
+      },
       {
         orderBy: { field: 'start_time', direction: 'asc' }
       }

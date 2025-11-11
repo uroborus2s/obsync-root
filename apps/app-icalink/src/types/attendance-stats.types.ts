@@ -245,3 +245,110 @@ export interface CourseOverallStats {
   /** 缺勤率 */
   absence_rate: number;
 }
+
+/**
+ * 学院周度签到统计数据
+ * 用于展示指定学院在各教学周的签到统计情况
+ */
+export interface CollegeWeeklyAttendanceStats {
+  /** 教学周（1-18） */
+  teaching_week: number;
+  /** 应到人次（该周所有课程的应到人数总和） */
+  expected_attendance: number;
+  /** 缺勤人次（请假 + 旷课） */
+  absent_count: number;
+  /** 旷课人次 */
+  truant_count: number;
+  /** 请假人次 */
+  leave_count: number;
+  /** 实到人次 */
+  present_count: number;
+  /** 缺勤率（0-1，缺勤人次 / 应到人次） */
+  absence_rate: number;
+  /** 旷课率（0-1，旷课人次 / 应到人次） */
+  truant_rate: number;
+}
+
+/**
+ * 教学班周度签到统计数据
+ * 用于展示指定教学班在各教学周的签到统计情况
+ */
+export interface ClassWeeklyAttendanceStats {
+  /** 教学周（1-18） */
+  teaching_week: number;
+  /** 应到人次（该周所有课程的应到人数总和） */
+  expected_attendance: number;
+  /** 缺勤人次（请假 + 旷课） */
+  absent_count: number;
+  /** 旷课人次 */
+  truant_count: number;
+  /** 请假人次 */
+  leave_count: number;
+  /** 实到人次 */
+  present_count: number;
+  /** 缺勤率（0-1，缺勤人次 / 应到人次） */
+  absence_rate: number;
+  /** 旷课率（0-1，旷课人次 / 应到人次） */
+  truant_rate: number;
+}
+
+/**
+ * 课程周度签到统计数据
+ * 用于展示指定课程在各教学周的签到统计情况
+ */
+export interface CourseWeeklyAttendanceStats {
+  /** 教学周（1-18） */
+  teaching_week: number;
+  /** 应到人次（该周所有课程的应到人数总和） */
+  expected_attendance: number;
+  /** 缺勤人次（请假 + 旷课） */
+  absent_count: number;
+  /** 旷课人次 */
+  truant_count: number;
+  /** 请假人次 */
+  leave_count: number;
+  /** 实到人次 */
+  present_count: number;
+  /** 缺勤率（0-1，缺勤人次 / 应到人次） */
+  absence_rate: number;
+  /** 旷课率（0-1，旷课人次 / 应到人次） */
+  truant_rate: number;
+}
+
+/**
+ * 学院周度签到统计数据
+ * 用于展示指定学院在各教学周的签到统计情况
+ */
+export interface CollegeWeeklyAttendanceStats {
+  /** 教学周（1-18） */
+  teaching_week: number;
+  /** 应到人次（该周所有课程的应到人数总和） */
+  expected_attendance: number;
+  /** 缺勤人次（请假 + 旷课） */
+  absent_count: number;
+  /** 旷课人次 */
+  truant_count: number;
+  /** 请假人次 */
+  leave_count: number;
+  /** 实到人次 */
+  present_count: number;
+  /** 缺勤率（0-1，缺勤人次 / 应到人次） */
+  absence_rate: number;
+  /** 旷课率（0-1，旷课人次 / 应到人次） */
+  truant_rate: number;
+}
+
+/**
+ * 前端周度统计数据（简化版）
+ * 用于课程签到统计页面的列分组展开功能
+ */
+export interface WeeklyStats {
+  /** 周次 */
+  week: number;
+  /** 应到人次 */
+  expected: number;
+  /** 缺勤人次 */
+  absent: number;
+  /** 缺勤率（0-1） */
+  absence_rate: number;
+}

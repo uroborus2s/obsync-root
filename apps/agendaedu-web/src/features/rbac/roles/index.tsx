@@ -1,13 +1,12 @@
 /**
  * 角色管理页面
  */
-
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Users } from 'lucide-react'
-import { toast } from 'sonner'
-import { roleApi } from '@/lib/rbac-api'
+import { useQuery } from '@tanstack/react-query'
 import type { RoleEntity } from '@/types/rbac.types'
+import { Plus, Users } from 'lucide-react'
+import { roleApi } from '@/lib/rbac-api'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -16,7 +15,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { Search } from '@/components/search'
@@ -24,8 +22,7 @@ import { ThemeSwitch } from '@/components/theme-switch'
 import { UserNav } from '@/components/user-nav'
 
 export default function RolesPage() {
-  const queryClient = useQueryClient()
-  const [selectedRole, setSelectedRole] = useState<RoleEntity | null>(null)
+  const [_selectedRole, _setSelectedRole] = useState<RoleEntity | null>(null)
 
   // 获取角色列表
   const { data: roles = [], isLoading } = useQuery({
@@ -64,12 +61,12 @@ export default function RolesPage() {
           {isLoading ? (
             <div className='col-span-full text-center'>加载中...</div>
           ) : roles.length === 0 ? (
-            <div className='col-span-full text-center text-muted-foreground'>
+            <div className='text-muted-foreground col-span-full text-center'>
               暂无角色数据
             </div>
           ) : (
             roles.map((role) => (
-              <Card key={role.id} className='hover:shadow-md transition-shadow'>
+              <Card key={role.id} className='transition-shadow hover:shadow-md'>
                 <CardHeader>
                   <div className='flex items-start justify-between'>
                     <div>
@@ -79,9 +76,7 @@ export default function RolesPage() {
                       </CardDescription>
                     </div>
                     <div className='flex gap-2'>
-                      {role.isSystem && (
-                        <Badge variant='secondary'>系统</Badge>
-                      )}
+                      {role.isSystem && <Badge variant='secondary'>系统</Badge>}
                       <Badge
                         variant={
                           role.status === 'active' ? 'default' : 'outline'
@@ -113,4 +108,3 @@ export default function RolesPage() {
     </>
   )
 }
-

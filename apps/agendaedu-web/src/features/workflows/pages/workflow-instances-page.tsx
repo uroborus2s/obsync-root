@@ -24,6 +24,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { EnhancedPagination } from '@/components/ui/enhanced-pagination'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -45,9 +46,9 @@ export default function WorkflowInstancesPage() {
   const [statusFilter, setStatusFilter] = useState<WorkflowStatus | ''>('')
   const [definitionFilter, setDefinitionFilter] = useState<string>('')
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
   const [viewMode, setViewMode] = useState<'grouped' | 'list'>('grouped')
   const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set())
-  const pageSize = 20
 
   // 获取流程分组列表
   const {
@@ -168,8 +169,8 @@ export default function WorkflowInstancesPage() {
   // 根据视图模式获取当前数据
   const currentData = viewMode === 'grouped' ? groupsData : instancesData
   const total = currentData?.total || 0
-  const totalPages = currentData?.totalPages || 0
   const definitions = definitionsData?.items || []
+  const isLoading = viewMode === 'grouped' ? groupsLoading : instancesLoading
 
   // 根据视图模式计算统计数据
   let runningCount = 0
@@ -476,50 +477,14 @@ export default function WorkflowInstancesPage() {
               )}
 
               {/* 分页控件 */}
-              {totalPages > 1 && (
-                <div className='mt-4 flex items-center justify-between'>
-                  <div className='text-muted-foreground text-sm'>
-                    显示第 {(page - 1) * pageSize + 1} -{' '}
-                    {Math.min(page * pageSize, total)} 条，共 {total} 条记录
-                  </div>
-                  <div className='flex items-center space-x-2'>
-                    <Button
-                      variant='outline'
-                      size='sm'
-                      onClick={() => setPage(page - 1)}
-                      disabled={page <= 1}
-                    >
-                      上一页
-                    </Button>
-                    <div className='flex items-center space-x-1'>
-                      {Array.from(
-                        { length: Math.min(5, totalPages) },
-                        (_, i) => {
-                          const pageNum = i + 1
-                          return (
-                            <Button
-                              key={pageNum}
-                              variant={page === pageNum ? 'default' : 'outline'}
-                              size='sm'
-                              onClick={() => setPage(pageNum)}
-                            >
-                              {pageNum}
-                            </Button>
-                          )
-                        }
-                      )}
-                    </div>
-                    <Button
-                      variant='outline'
-                      size='sm'
-                      onClick={() => setPage(page + 1)}
-                      disabled={page >= totalPages}
-                    >
-                      下一页
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <EnhancedPagination
+                page={page}
+                pageSize={pageSize}
+                total={total}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+                disabled={isLoading}
+              />
             </CardContent>
           </Card>
         </div>

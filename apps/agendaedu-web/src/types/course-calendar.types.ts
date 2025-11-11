@@ -113,12 +113,18 @@ export interface CalendarParticipant {
  * 日历参与者列表响应（包含教学班总数和已有权限数）
  */
 export interface CalendarParticipantsResponse {
-  /** 参与者列表 */
+  /** 参与者列表（当前 WPS 中的权限列表） */
   participants: CalendarParticipant[]
-  /** 教学班学生总数 */
+  /** 教学班学生总数（预期应该有权限的总人数，包括学生和教师） */
   totalStudents: number
-  /** 已有权限数 */
+  /** 已有权限数（当前 WPS 中的权限数量） */
   existingPermissions: number
+  /** 需要添加的权限数量 */
+  toAddCount: number
+  /** 需要删除的权限数量 */
+  toDeleteCount: number
+  /** 是否需要同步（toAddCount > 0 或 toDeleteCount > 0） */
+  needsSync: boolean
 }
 
 /**
@@ -131,8 +137,102 @@ export interface CalendarSyncResult {
   existingPermissions: number
   /** 新增权限数 */
   addedCount: number
+  /** 删除权限数 */
+  removedCount: number
   /** 失败数 */
   failedCount: number
+}
+
+/**
+ * 单个日历同步详情
+ */
+export interface CalendarSyncDetail {
+  /** 日历ID */
+  calendarId: string
+  /** 开课号 */
+  courseCode: string
+  /** 是否同步成功 */
+  success: boolean
+  /** 新增的权限数量 */
+  addedCount?: number
+  /** 删除的权限数量 */
+  removedCount?: number
+  /** 错误信息（失败时） */
+  error?: string
+}
+
+/**
+ * 批量同步结果
+ */
+export interface BatchSyncResult {
+  /** 总日历数量 */
+  totalCalendars: number
+  /** 成功同步的日历数量 */
+  successCount: number
+  /** 失败的日历数量 */
+  failedCount: number
+  /** 总共新增的权限数量 */
+  totalAddedPermissions: number
+  /** 总共删除的权限数量 */
+  totalRemovedPermissions: number
+  /** 每个日历的详细同步结果 */
+  details: CalendarSyncDetail[]
+}
+
+/**
+ * 用户课程项
+ */
+export interface UserCourseItem {
+  /** 课程代码 */
+  courseCode: string
+  /** 课程名称 */
+  courseName: string
+  /** 学期 */
+  semester: string
+  /** 教师姓名 */
+  teacherName: string | null
+  /** 上课地点 */
+  classLocation: string | null
+  /** 日历ID */
+  calendarId: string
+  /** 教学班代码 */
+  teachingClassCode: string
+  /** 开课单位 */
+  courseUnit: string | null
+}
+
+/**
+ * 用户课程列表响应
+ */
+export interface UserCoursesResponse {
+  /** 用户类型 */
+  userType: 'teacher' | 'student'
+  /** 用户ID（学号或工号） */
+  userId: string
+  /** 用户姓名 */
+  userName: string | null
+  /** 课程列表 */
+  courses: UserCourseItem[]
+}
+
+/**
+ * 批量添加参与者结果
+ */
+export interface BatchAddParticipantResult {
+  /** 总日历数 */
+  totalCalendars: number
+  /** 成功添加的日历数 */
+  successCount: number
+  /** 失败的日历数 */
+  failedCount: number
+  /** 已存在权限，跳过的日历数 */
+  skippedCount: number
+  /** 详细结果 */
+  details: Array<{
+    calendarId: string
+    success: boolean
+    message?: string
+  }>
 }
 
 /**

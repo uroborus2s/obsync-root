@@ -1,4 +1,5 @@
 // import { wpsAuthService } from '@/lib/wps-auth-service';
+import { ImagePreviewDialog } from '@/components/ImagePreviewDialog';
 import { useToast } from '@/hooks/use-toast';
 import { attendanceApi } from '@/lib/attendance-api';
 import { LocationInfo } from '@/lib/wps-collaboration-api';
@@ -39,6 +40,17 @@ export function LocationTestPage() {
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string>('');
   const [isCompressing, setIsCompressing] = useState(false); // 压缩状态
   const [compressionProgress, setCompressionProgress] = useState<number>(0); // 压缩进度
+
+  // === 图片预览状态（与 StudentDashboard 保持一致）===
+  const [showImagePreview, setShowImagePreview] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string>('');
+  const [originalFileSize, setOriginalFileSize] = useState<number>(0);
+  const [compressedFileSize, setCompressedFileSize] = useState<number>(0);
+  const [compressedFile, setCompressedFile] = useState<File | null>(null);
+
+  // === WPS 相机测试状态 ===
+  const [wpsTestImage, setWpsTestImage] = useState<string | null>(null); // 图片 URL 或 Base64
+  const [wpsTestImageInfo, setWpsTestImageInfo] = useState<any>(null); // 图片文件信息
 
   const buildings = getSupportedBuildings();
 
@@ -126,15 +138,262 @@ export function LocationTestPage() {
     }
   };
 
-  // 使用 WPS SDK 相机接口上传图片到 OSS
+  // 使用浏览器原生相机接口上传图片到 OSS（与 StudentDashboard 保持一致）
   const handleImageUpload = async () => {
     addTestResult({
       type: 'info',
-      message: '开始测试 WPS SDK 相机接口...'
+      message: '开始测试图片上传（浏览器原生相机）...'
     });
 
-    // 检查 WPS SDK 是否可用
-    if (!window.ksoxz_sdk) {
+    try {
+      // 创建文件输入元素
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.capture = 'environment'; // 优先使用后置摄像头
+
+      input.onchange = async (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (!file) {
+          addTestResult({
+            type: 'error',
+            message: '未选择文件'
+          });
+          return;
+        }
+
+        addTestResult({
+          type: 'info',
+          message: '获取到图片文件',
+          details: {
+            fileName: file.name,
+            fileSize: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
+            fileType: file.type
+          }
+        });
+
+        try {
+          // 验证文件类型
+          const allowedTypes = [
+            'image/jpeg',
+            'image/jpg',
+            'image/png',
+            'image/gif',
+            'image/webp'
+          ];
+          if (!allowedTypes.includes(file.type)) {
+            toast.error('不支持的文件类型', {
+              description: '仅支持 JPEG、PNG、GIF、WebP 格式'
+            });
+            addTestResult({
+              type: 'error',
+              message: '不支持的文件类型',
+              details: { fileType: file.type, allowedTypes }
+            });
+            return;
+          }
+
+          // 验证文件大小（20MB）
+          const maxSize = 20 * 1024 * 1024;
+          if (file.size > maxSize) {
+            toast.error('文件过大', {
+              description: `文件大小不能超过 ${maxSize / 1024 / 1024}MB`
+            });
+            addTestResult({
+              type: 'error',
+              message: '文件过大',
+              details: {
+                fileSize: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
+                maxSize: `${maxSize / 1024 / 1024} MB`
+              }
+            });
+            return;
+          }
+
+          addTestResult({
+            type: 'success',
+            message: '文件验证通过'
+          });
+
+          // 生成预览 URL
+          const previewUrl = URL.createObjectURL(file);
+
+          // 设置预览状态
+          setOriginalFileSize(file.size);
+          setCompressedFileSize(0); // 标记为未压缩
+          setCompressedFile(file); // 保存原始文件
+          setPreviewImageUrl(previewUrl);
+
+          // 显示预览对话框
+          setShowImagePreview(true);
+
+          addTestResult({
+            type: 'success',
+            message: '已打开图片预览对话框'
+          });
+        } catch (error) {
+          console.error('❌ 处理图片失败:', error);
+          toast.error('处理图片失败', {
+            description: error instanceof Error ? error.message : '请稍后重试'
+          });
+          addTestResult({
+            type: 'error',
+            message: '处理图片失败',
+            details: {
+              error: error instanceof Error ? error.message : String(error)
+            }
+          });
+        }
+      };
+
+      // 触发文件选择
+      input.click();
+    } catch (error) {
+      console.error('❌ 打开文件选择器失败:', error);
+      toast.error('打开文件选择器失败', {
+        description: '请重试'
+      });
+      addTestResult({
+        type: 'error',
+        message: '打开文件选择器失败',
+        details: {
+          error: error instanceof Error ? error.message : String(error)
+        }
+      });
+    }
+  };
+
+  // 处理预览确认 - 压缩图片并上传到 OSS（与 StudentDashboard 保持一致，但不执行签到）
+  const handlePreviewConfirm = async () => {
+    if (!compressedFile) {
+      toast.error('未找到图片文件', {
+        description: '请重新选择图片'
+      });
+      return;
+    }
+
+    try {
+      addTestResult({
+        type: 'info',
+        message: '开始压缩图片...'
+      });
+
+      // 1. 先压缩图片（在对话框中显示压缩进度）
+      const compressed = await compressImage(compressedFile);
+
+      // 更新压缩后的文件大小
+      setCompressedFileSize(compressed.size);
+      setCompressedFile(compressed);
+
+      addTestResult({
+        type: 'success',
+        message: '图片压缩成功',
+        details: {
+          originalSize: `${(originalFileSize / 1024 / 1024).toFixed(2)} MB`,
+          compressedSize: `${(compressed.size / 1024 / 1024).toFixed(2)} MB`,
+          compressionRatio: `${((1 - compressed.size / originalFileSize) * 100).toFixed(1)}%`
+        }
+      });
+
+      // 2. 上传图片到 OSS（带进度回调）
+      setIsUploading(true);
+      setUploadProgress(0);
+
+      addTestResult({
+        type: 'info',
+        message: '开始上传到 OSS...'
+      });
+
+      const uploadResult = await attendanceApi.uploadCheckinPhoto(
+        compressed,
+        (progress) => {
+          setUploadProgress(progress);
+          console.log(`上传进度: ${progress}%`);
+        }
+      );
+
+      if (uploadResult.success && uploadResult.data) {
+        const { photo_url, bucket_name } = uploadResult.data;
+        setUploadedImageUrl(photo_url);
+
+        toast.success('上传成功！', {
+          description: '图片已成功上传到 OSS'
+        });
+
+        addTestResult({
+          type: 'success',
+          message: '图片上传成功',
+          details: {
+            photo_url,
+            bucket_name,
+            uploadProgress: '100%'
+          }
+        });
+
+        // ⚠️ 注意：这里不执行签到操作，仅上传图片
+        addTestResult({
+          type: 'info',
+          message: '⚠️ 测试模式：仅上传图片，不执行签到操作'
+        });
+
+        // 关闭预览对话框
+        handlePreviewCancel();
+      } else {
+        throw new Error(uploadResult.message || '上传失败');
+      }
+    } catch (error) {
+      console.error('图片上传失败:', error);
+      toast.error('上传失败', {
+        description: error instanceof Error ? error.message : '请稍后重试'
+      });
+      addTestResult({
+        type: 'error',
+        message: '图片上传失败',
+        details: {
+          error: error instanceof Error ? error.message : String(error)
+        }
+      });
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+      setCompressionProgress(0);
+      setIsCompressing(false);
+    }
+  };
+
+  // 处理预览取消 - 清理状态（与 StudentDashboard 保持一致）
+  const handlePreviewCancel = () => {
+    // 释放 Blob URL
+    if (previewImageUrl) {
+      URL.revokeObjectURL(previewImageUrl);
+    }
+
+    // 重置所有预览相关状态
+    setShowImagePreview(false);
+    setPreviewImageUrl('');
+    setOriginalFileSize(0);
+    setCompressedFileSize(0);
+    setCompressedFile(null);
+    setUploadProgress(0);
+    setIsUploading(false);
+    setCompressionProgress(0);
+    setIsCompressing(false);
+
+    addTestResult({
+      type: 'info',
+      message: '已关闭图片预览对话框'
+    });
+  };
+
+  // WPS 相机测试函数（仅测试相机功能，不上传）
+  const handleWPSCameraTest = async () => {
+    addTestResult({
+      type: 'info',
+      message: '开始测试 WPS 相机功能...'
+    });
+
+    // 1. 检查 WPS SDK 是否存在
+    if (!window.ksoxz_sdk || !window.ksoxz_sdk.ready) {
       toast.error('WPS SDK 不可用', {
         description: '请在 WPS 协同环境中测试此功能'
       });
@@ -149,19 +408,65 @@ export function LocationTestPage() {
       return;
     }
 
+    // 2. 检查是否支持 chooseImage 功能
+    const canUseCamera = window.ksoxz_sdk.canIUse('chooseImage');
+    addTestResult({
+      type: 'info',
+      message: 'WPS SDK 功能检测',
+      details: {
+        canUseChooseImage: canUseCamera
+      }
+    });
+
+    if (!canUseCamera) {
+      toast.error('不支持相机功能', {
+        description: '当前环境不支持 WPS 相机功能'
+      });
+      addTestResult({
+        type: 'error',
+        message: 'WPS SDK 不支持相机功能',
+        details: {
+          error: 'chooseImage API 不可用',
+          suggestion: '请在支持的 WPS 客户端中测试（Android/iOS）'
+        }
+      });
+      return;
+    }
+
     try {
-      // 使用 WPS SDK 的 chooseImage 方法调用相机
+      // 3. 等待 WPS SDK 就绪
       window.ksoxz_sdk.ready(() => {
         addTestResult({
           type: 'info',
           message: 'WPS SDK 已就绪，正在打开相机...'
         });
 
+        // 4. 调用 chooseImage（添加水印）
         window.ksoxz_sdk.chooseImage({
           params: {
-            sourceType: ['camera'], // 强制使用相机拍照（不使用相册）
-            count: 1, // 选择图片数量
-            sizeType: ['compressed'] // 使用压缩图片
+            sourceType: ['camera'], // 仅使用相机拍照
+            count: 1, // 选择1张图片
+            sizeType: ['compressed'], // 使用压缩图片
+            enableWatermark: true, // 启用水印
+            watermarkConfig: {
+              watermarkText: [
+                {
+                  text: `测试 ${new Date().toLocaleString('zh-CN', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                  })}`
+                }
+              ],
+              position: 'bottom', // 水印位置：底部
+              fontSize: 14,
+              color: '#FFFFFF',
+              backgroundStyleColor: '#000000',
+              backgroundStyleOpacity: 0.5
+            }
           },
           onSuccess: async (res) => {
             console.log('✅ WPS SDK 选择图片成功:', res);
@@ -169,36 +474,247 @@ export function LocationTestPage() {
               type: 'success',
               message: 'WPS SDK 相机调用成功',
               details: {
-                localIds: res.localIds,
-                count: res.localIds.length
+                imageInfos: res.imageInfos,
+                count: res.imageInfos.length
               }
             });
 
-            // 处理返回的图片数据
-            if (res.localIds && res.localIds.length > 0) {
-              const localId = res.localIds[0];
+            // 5. 处理返回的图片数据
+            if (res.imageInfos && res.imageInfos.length > 0) {
+              const imageInfo = res.imageInfos[0];
 
               addTestResult({
                 type: 'info',
-                message: '正在获取图片数据...',
-                details: { localId }
-              });
-
-              // TODO: 将 localId 转换为 File 对象并上传到 OSS
-              // 这里需要使用 WPS SDK 的其他方法来获取图片的实际数据
-              // 例如: window.ksoxz_sdk.getLocalImgData() 或 window.ksoxz_sdk.uploadImage()
-
-              toast.info('图片获取成功', {
-                description: `LocalID: ${localId}`
-              });
-
-              addTestResult({
-                type: 'info',
-                message: '⚠️ 需要实现图片数据转换',
+                message: '获取到图片信息',
                 details: {
-                  localId,
-                  nextStep:
-                    '需要使用 WPS SDK 的 getLocalImgData 或 uploadImage 方法获取图片数据'
+                  imageName: imageInfo.imageName,
+                  imageSize: imageInfo.imageSize,
+                  imagePath: imageInfo.imagePath,
+                  localID: imageInfo.localID
+                }
+              });
+
+              // 6. 获取设备平台信息
+              addTestResult({
+                type: 'info',
+                message: '正在检测设备平台...'
+              });
+
+              window.ksoxz_sdk.getSystemInfo({
+                onSuccess: async (systemInfo) => {
+                  addTestResult({
+                    type: 'success',
+                    message: '设备信息获取成功',
+                    details: {
+                      platform: systemInfo.platform,
+                      model: systemInfo.model,
+                      system: systemInfo.system
+                    }
+                  });
+
+                  // 7. 根据平台获取图片数据
+                  try {
+                    if (systemInfo.platform === 'ios') {
+                      // iOS 平台：使用 getImageBase64
+                      addTestResult({
+                        type: 'info',
+                        message: '正在获取图片 Base64 数据（iOS）...'
+                      });
+
+                      window.ksoxz_sdk.getImageBase64({
+                        params: {
+                          filePath: imageInfo.imagePath
+                        },
+                        onSuccess: async (base64Result) => {
+                          addTestResult({
+                            type: 'success',
+                            message: 'Base64 数据获取成功',
+                            details: {
+                              base64Length: base64Result.imageBase64.length
+                            }
+                          });
+
+                          // 将 Base64 转换为 Blob 以获取文件信息
+                          const base64Data = base64Result.imageBase64.replace(
+                            /^data:image\/\w+;base64,/,
+                            ''
+                          );
+                          const byteCharacters = atob(base64Data);
+                          const byteNumbers = new Array(byteCharacters.length);
+                          for (let i = 0; i < byteCharacters.length; i++) {
+                            byteNumbers[i] = byteCharacters.charCodeAt(i);
+                          }
+                          const byteArray = new Uint8Array(byteNumbers);
+                          const blob = new Blob([byteArray], {
+                            type: 'image/jpeg'
+                          });
+
+                          // 获取图片尺寸
+                          const img = new Image();
+                          img.onload = () => {
+                            // 获取文件头信息
+                            const fileHeader = Array.from(
+                              byteArray.slice(0, 16)
+                            )
+                              .map((b) => b.toString(16).padStart(2, '0'))
+                              .join(' ')
+                              .toUpperCase();
+
+                            const imageInfoData = {
+                              fileName: imageInfo.imageName,
+                              fileSize: `${(blob.size / 1024 / 1024).toFixed(2)} MB`,
+                              fileType: 'image/jpeg',
+                              imageDimensions: `${img.width}x${img.height}`,
+                              platform: systemInfo.platform,
+                              base64Length: base64Result.imageBase64.length,
+                              fileHeader: fileHeader
+                            };
+
+                            setWpsTestImage(base64Result.imageBase64);
+                            setWpsTestImageInfo(imageInfoData);
+
+                            addTestResult({
+                              type: 'success',
+                              message: '图片信息获取成功（iOS）',
+                              details: imageInfoData
+                            });
+
+                            toast.success('WPS 相机测试成功', {
+                              description: '图片已显示在下方'
+                            });
+                          };
+                          img.src = base64Result.imageBase64;
+                        },
+                        onError: (error) => {
+                          console.error('❌ 获取 Base64 失败:', error);
+                          addTestResult({
+                            type: 'error',
+                            message: '获取 Base64 失败（iOS）',
+                            details: {
+                              error: error?.errMsg || '未知错误'
+                            }
+                          });
+                          toast.error('获取图片数据失败', {
+                            description: error?.errMsg || '请重试'
+                          });
+                        }
+                      });
+                    } else if (systemInfo.platform === 'android') {
+                      // Android 平台：使用 localID 通过特殊协议获取
+                      addTestResult({
+                        type: 'info',
+                        message: '正在获取图片数据（Android）...'
+                      });
+
+                      if (!imageInfo.localID) {
+                        throw new Error('Android 平台未返回 localID');
+                      }
+
+                      // 使用 ksoxz:// 协议获取图片
+                      const localUrl = `ksoxz://xz.wps.cn/resource?localID=${imageInfo.localID}`;
+
+                      try {
+                        const response = await fetch(localUrl);
+                        const blob = await response.blob();
+
+                        // 获取图片尺寸
+                        const objectUrl = URL.createObjectURL(blob);
+                        const img = new Image();
+                        img.onload = async () => {
+                          // 获取文件头信息
+                          const arrayBuffer = await blob.arrayBuffer();
+                          const byteArray = new Uint8Array(arrayBuffer);
+                          const fileHeader = Array.from(byteArray.slice(0, 16))
+                            .map((b) => b.toString(16).padStart(2, '0'))
+                            .join(' ')
+                            .toUpperCase();
+
+                          const imageInfoData = {
+                            fileName: imageInfo.imageName,
+                            fileSize: `${(blob.size / 1024 / 1024).toFixed(2)} MB`,
+                            fileType: blob.type || 'image/jpeg',
+                            imageDimensions: `${img.width}x${img.height}`,
+                            platform: systemInfo.platform,
+                            localID: imageInfo.localID,
+                            fileHeader: fileHeader
+                          };
+
+                          setWpsTestImage(objectUrl);
+                          setWpsTestImageInfo(imageInfoData);
+
+                          addTestResult({
+                            type: 'success',
+                            message: '图片信息获取成功（Android）',
+                            details: imageInfoData
+                          });
+
+                          toast.success('WPS 相机测试成功', {
+                            description: '图片已显示在下方'
+                          });
+                        };
+                        img.src = objectUrl;
+                      } catch (fetchError) {
+                        console.error(
+                          '❌ 从 localID 获取图片失败:',
+                          fetchError
+                        );
+                        addTestResult({
+                          type: 'error',
+                          message: '从 localID 获取图片失败（Android）',
+                          details: {
+                            error:
+                              fetchError instanceof Error
+                                ? fetchError.message
+                                : String(fetchError)
+                          }
+                        });
+                        toast.error('获取图片数据失败', {
+                          description: '请重试'
+                        });
+                      }
+                    } else {
+                      // 其他平台
+                      addTestResult({
+                        type: 'error',
+                        message: '不支持的平台',
+                        details: {
+                          platform: systemInfo.platform,
+                          suggestion: '仅支持 iOS 和 Android 平台'
+                        }
+                      });
+                      toast.error('不支持的平台', {
+                        description: '仅支持 iOS 和 Android 平台'
+                      });
+                    }
+                  } catch (conversionError) {
+                    console.error('❌ 图片处理失败:', conversionError);
+                    addTestResult({
+                      type: 'error',
+                      message: '图片处理失败',
+                      details: {
+                        error:
+                          conversionError instanceof Error
+                            ? conversionError.message
+                            : String(conversionError)
+                      }
+                    });
+                    toast.error('图片处理失败', {
+                      description: '请重试'
+                    });
+                  }
+                },
+                onError: (error) => {
+                  console.error('❌ 获取设备信息失败:', error);
+                  addTestResult({
+                    type: 'error',
+                    message: '获取设备信息失败',
+                    details: {
+                      error: error?.errMsg || '未知错误'
+                    }
+                  });
+                  toast.error('获取设备信息失败', {
+                    description: '请重试'
+                  });
                 }
               });
             }
@@ -227,144 +743,6 @@ export function LocationTestPage() {
       addTestResult({
         type: 'error',
         message: '调用 WPS SDK 失败',
-        details: {
-          error: error instanceof Error ? error.message : String(error)
-        }
-      });
-    }
-  };
-
-  // 备用方案：使用传统文件选择器上传图片
-  const handleImageUploadFallback = async () => {
-    addTestResult({
-      type: 'info',
-      message: '使用传统文件选择器上传图片...'
-    });
-
-    try {
-      // 1. 创建文件输入元素
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/*';
-      input.capture = 'environment'; // 优先使用后置摄像头
-
-      input.onchange = async (e) => {
-        const file = (e.target as HTMLInputElement).files?.[0];
-        if (!file) {
-          addTestResult({
-            type: 'error',
-            message: '未选择文件'
-          });
-          return;
-        }
-
-        // 2. 验证文件类型
-        const allowedTypes = [
-          'image/jpeg',
-          'image/jpg',
-          'image/png',
-          'image/gif',
-          'image/webp'
-        ];
-        if (!allowedTypes.includes(file.type)) {
-          toast.error('不支持的文件类型', {
-            description: '仅支持 JPEG、PNG、GIF、WebP 格式'
-          });
-          addTestResult({
-            type: 'error',
-            message: '不支持的文件类型',
-            details: { fileType: file.type, allowedTypes }
-          });
-          return;
-        }
-
-        // 3. 验证文件大小（10MB）
-        const maxSize = 10 * 1024 * 1024;
-        if (file.size > maxSize) {
-          toast.error('文件过大', {
-            description: `文件大小不能超过 ${maxSize / 1024 / 1024}MB`
-          });
-          addTestResult({
-            type: 'error',
-            message: '文件过大',
-            details: {
-              fileSize: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
-              maxSize: `${maxSize / 1024 / 1024} MB`
-            }
-          });
-          return;
-        }
-
-        setIsUploading(true);
-        setUploadProgress(0);
-        setUploadedImageUrl('');
-
-        try {
-          // 4. 压缩图片
-          const compressedFile = await compressImage(file);
-
-          // 5. 上传到 OSS
-          addTestResult({
-            type: 'info',
-            message: '开始上传到 OSS...'
-          });
-
-          const uploadResult = await attendanceApi.uploadCheckinPhoto(
-            compressedFile,
-            (progress) => {
-              setUploadProgress(progress);
-              console.log(`上传进度: ${progress}%`);
-            }
-          );
-
-          if (uploadResult.success && uploadResult.data) {
-            const { photo_url, bucket_name } = uploadResult.data;
-            setUploadedImageUrl(photo_url);
-
-            toast.success('上传成功！', {
-              description: '图片已成功上传到 OSS'
-            });
-
-            addTestResult({
-              type: 'success',
-              message: '图片上传成功',
-              details: {
-                photo_url,
-                bucket_name,
-                uploadProgress: '100%'
-              }
-            });
-          } else {
-            throw new Error(uploadResult.message || '上传失败');
-          }
-        } catch (error) {
-          console.error('上传图片失败:', error);
-          toast.error('上传失败', {
-            description: error instanceof Error ? error.message : '请稍后重试'
-          });
-          addTestResult({
-            type: 'error',
-            message: '图片上传失败',
-            details: {
-              error: error instanceof Error ? error.message : String(error)
-            }
-          });
-        } finally {
-          setIsUploading(false);
-          setUploadProgress(0);
-        }
-      };
-
-      // 触发文件选择
-      input.click();
-    } catch (error) {
-      console.error('打开文件选择器失败:', error);
-      toast.error('打开文件选择器失败', {
-        description: '请重试'
-      });
-      addTestResult({
-        type: 'error',
-        message: '打开文件选择器失败',
         details: {
           error: error instanceof Error ? error.message : String(error)
         }
@@ -724,21 +1102,16 @@ export function LocationTestPage() {
                 ? `压缩中 ${compressionProgress}%`
                 : isUploading
                   ? `上传中 ${uploadProgress}%`
-                  : 'WPS 相机上传'}
+                  : '测试图片上传'}
             </button>
 
             <button
-              onClick={handleImageUploadFallback}
-              disabled={isUploading || isCompressing}
-              className='flex items-center justify-center gap-2 rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700 disabled:opacity-50'
+              onClick={handleWPSCameraTest}
+              className='flex items-center justify-center gap-2 rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700'
               type='button'
             >
               <Upload className='h-4 w-4' />
-              {isCompressing
-                ? `压缩中 ${compressionProgress}%`
-                : isUploading
-                  ? `上传中 ${uploadProgress}%`
-                  : '传统方式上传'}
+              测试 WPS 相机
             </button>
 
             {/* <button
@@ -945,6 +1318,117 @@ export function LocationTestPage() {
           </div>
         )}
 
+        {/* WPS 相机测试结果显示 */}
+        {wpsTestImage && wpsTestImageInfo && (
+          <div className='mb-6 rounded-lg bg-white p-6 shadow'>
+            <h2 className='mb-4 text-xl font-semibold'>WPS 相机测试结果</h2>
+            <div className='space-y-4'>
+              {/* 图片预览 */}
+              <div>
+                <p className='mb-2 text-sm font-medium text-gray-700'>
+                  拍摄的图片:
+                </p>
+                <div className='rounded border border-gray-200 p-2'>
+                  <img
+                    src={wpsTestImage}
+                    alt='WPS 相机拍摄的图片'
+                    className='max-h-96 w-full object-contain'
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                      const errorMsg = document.createElement('p');
+                      errorMsg.className = 'text-red-500 text-sm';
+                      errorMsg.textContent = '图片加载失败';
+                      e.currentTarget.parentElement?.appendChild(errorMsg);
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* 图片文件信息表格 */}
+              <div>
+                <p className='mb-2 text-sm font-medium text-gray-700'>
+                  图片文件信息:
+                </p>
+                <div className='overflow-x-auto'>
+                  <table className='min-w-full divide-y divide-gray-200 border border-gray-200'>
+                    <tbody className='divide-y divide-gray-200 bg-white'>
+                      <tr>
+                        <td className='whitespace-nowrap bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700'>
+                          文件名
+                        </td>
+                        <td className='px-4 py-2 text-sm text-gray-900'>
+                          {wpsTestImageInfo.fileName}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className='whitespace-nowrap bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700'>
+                          文件大小
+                        </td>
+                        <td className='px-4 py-2 text-sm text-gray-900'>
+                          {wpsTestImageInfo.fileSize}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className='whitespace-nowrap bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700'>
+                          文件类型
+                        </td>
+                        <td className='px-4 py-2 text-sm text-gray-900'>
+                          {wpsTestImageInfo.fileType}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className='whitespace-nowrap bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700'>
+                          图片尺寸
+                        </td>
+                        <td className='px-4 py-2 text-sm text-gray-900'>
+                          {wpsTestImageInfo.imageDimensions}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className='whitespace-nowrap bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700'>
+                          平台
+                        </td>
+                        <td className='px-4 py-2 text-sm text-gray-900'>
+                          {wpsTestImageInfo.platform}
+                        </td>
+                      </tr>
+                      {wpsTestImageInfo.localID && (
+                        <tr>
+                          <td className='whitespace-nowrap bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700'>
+                            localID (Android)
+                          </td>
+                          <td className='break-all px-4 py-2 font-mono text-sm text-gray-900'>
+                            {wpsTestImageInfo.localID}
+                          </td>
+                        </tr>
+                      )}
+                      {wpsTestImageInfo.base64Length && (
+                        <tr>
+                          <td className='whitespace-nowrap bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700'>
+                            Base64 长度 (iOS)
+                          </td>
+                          <td className='px-4 py-2 text-sm text-gray-900'>
+                            {wpsTestImageInfo.base64Length.toLocaleString()}{' '}
+                            字符
+                          </td>
+                        </tr>
+                      )}
+                      <tr>
+                        <td className='whitespace-nowrap bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700'>
+                          文件头
+                        </td>
+                        <td className='px-4 py-2 font-mono text-sm text-gray-900'>
+                          {wpsTestImageInfo.fileHeader}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 支持的建筑物列表 */}
         <div className='mb-6 rounded-lg bg-white p-6 shadow'>
           <h2 className='mb-4 text-xl font-semibold'>支持的建筑物</h2>
@@ -1011,6 +1495,20 @@ export function LocationTestPage() {
           </div>
         </div>
       </div>
+
+      {/* 图片预览对话框（与 StudentDashboard 保持一致）*/}
+      <ImagePreviewDialog
+        isOpen={showImagePreview}
+        imageUrl={previewImageUrl}
+        originalSize={originalFileSize}
+        compressedSize={compressedFileSize}
+        onConfirm={handlePreviewConfirm}
+        onClose={handlePreviewCancel}
+        isUploading={isUploading}
+        uploadProgress={uploadProgress}
+        isCompressing={isCompressing}
+        compressionProgress={compressionProgress}
+      />
     </div>
   );
 }

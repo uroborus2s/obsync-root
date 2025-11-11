@@ -1,7 +1,6 @@
 /**
  * 权限管理页面
  */
-
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -15,9 +14,9 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
+import type { PermissionEntity } from '@/types/rbac.types'
 import { Plus, Shield } from 'lucide-react'
 import { permissionApi } from '@/lib/rbac-api'
-import type { PermissionEntity } from '@/types/rbac.types'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -26,6 +25,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { EnhancedPagination } from '@/components/ui/enhanced-pagination'
 import { Input } from '@/components/ui/input'
 import {
   Table,
@@ -40,9 +40,9 @@ import { Main } from '@/components/layout/main'
 import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { UserNav } from '@/components/user-nav'
+import { DeletePermissionDialog } from './components/delete-permission-dialog'
 import { getPermissionColumns } from './components/permission-columns'
 import { PermissionDialog } from './components/permission-dialog'
-import { DeletePermissionDialog } from './components/delete-permission-dialog'
 
 export default function PermissionsPage() {
   const [sorting, setSorting] = useState<SortingState>([])
@@ -54,6 +54,8 @@ export default function PermissionsPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [selectedPermission, setSelectedPermission] =
     useState<PermissionEntity | null>(null)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
 
   // 获取权限列表
   const { data: permissions = [], isLoading } = useQuery({
@@ -133,9 +135,7 @@ export default function PermissionsPage() {
         <Card>
           <CardHeader>
             <CardTitle>权限列表</CardTitle>
-            <CardDescription>
-              共 {permissions.length} 个权限
-            </CardDescription>
+            <CardDescription>共 {permissions.length} 个权限</CardDescription>
           </CardHeader>
           <CardContent>
             <div className='space-y-4'>
@@ -154,7 +154,7 @@ export default function PermissionsPage() {
               </div>
 
               {/* 表格 */}
-              <div className='rounded-md border'>
+              <div className='overflow-x-auto'>
                 <Table>
                   <TableHeader>
                     {table.getHeaderGroups().map((headerGroup) => (
@@ -213,29 +213,20 @@ export default function PermissionsPage() {
               </div>
 
               {/* 分页 */}
-              <div className='flex items-center justify-between'>
-                <div className='text-muted-foreground text-sm'>
-                  共 {table.getFilteredRowModel().rows.length} 条记录
-                </div>
-                <div className='flex items-center space-x-2'>
-                  <Button
-                    variant='outline'
-                    size='sm'
-                    onClick={() => table.previousPage()}
-                    disabled={!table.getCanPreviousPage()}
-                  >
-                    上一页
-                  </Button>
-                  <Button
-                    variant='outline'
-                    size='sm'
-                    onClick={() => table.nextPage()}
-                    disabled={!table.getCanNextPage()}
-                  >
-                    下一页
-                  </Button>
-                </div>
-              </div>
+              <EnhancedPagination
+                page={page}
+                pageSize={pageSize}
+                total={table.getFilteredRowModel().rows.length}
+                onPageChange={(newPage) => {
+                  setPage(newPage)
+                  table.setPageIndex(newPage - 1)
+                }}
+                onPageSizeChange={(newPageSize) => {
+                  setPageSize(newPageSize)
+                  table.setPageSize(newPageSize)
+                }}
+                disabled={isLoading}
+              />
             </div>
           </CardContent>
         </Card>
@@ -257,4 +248,3 @@ export default function PermissionsPage() {
     </>
   )
 }
-

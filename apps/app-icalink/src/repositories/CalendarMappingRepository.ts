@@ -133,8 +133,14 @@ export default class CalendarMappingRepository
 
   /**
    * 分页查询日历-课程关联列表（主列表）
-   * 关联 icasync_calendar_mapping、v_course_checkin_stats_summary、
-   * icalink_teaching_class 和 icasync_attendance_courses
+   * 关联 icasync_calendar_mapping、icasync_attendance_courses、icalink_teaching_class
+   *
+   * 数据源说明：
+   * - 主表：icasync_calendar_mapping（日历映射表）
+   * - 课程信息：从 icasync_attendance_courses 聚合获取（课程名称、教师、地点、时间范围等）
+   * - 学生信息：从 icalink_teaching_class 聚合获取（课程单位、教学班代码、学生总数）
+   *
+   * 使用 LEFT JOIN 确保所有映射都能显示，即使课程还没有课节或学生数据
    *
    * @param page 页码（从1开始）
    * @param pageSize 每页数量
@@ -154,58 +160,80 @@ export default class CalendarMappingRepository
     try {
       const connection = await this.getQueryConnection();
 
-      // 构建查询：关联多个表获取完整数据
-      let query = connection
-        .selectFrom('icasync_calendar_mapping as cm')
-        .innerJoin(
-          'v_course_checkin_stats_summary as cs',
-          'cm.kkh',
-          'cs.course_code'
-        )
+      // 构建课程聚合子查询：从 icasync_attendance_courses 按 course_code 聚合
+      // 获取课程的基本信息、时间范围、课节总数
+      const courseAggQuery = connection
+        .selectFrom('icasync_attendance_courses')
         .select([
-          // 来自 v_course_checkin_stats_summary 的字段（移除了5个不需要的字段）
-          'cs.course_code',
-          'cs.course_name',
-          'cs.semester',
-          'cs.class_location',
-          'cs.teacher_name',
-          'cs.teacher_codes',
-          'cs.course_unit_id',
-          'cs.course_unit',
-          'cs.teaching_class_code',
-          'cs.start_week',
-          'cs.end_week',
-          'cs.start_time',
-          'cs.end_time',
-          // 来自 icasync_calendar_mapping 的字段
+          'course_code',
+          (eb: any) => eb.fn.max('course_name').as('course_name'),
+          (eb: any) => eb.fn.max('semester').as('semester'),
+          (eb: any) => eb.fn.max('class_location').as('class_location'),
+          (eb: any) => eb.fn.max('teacher_names').as('teacher_name'),
+          (eb: any) => eb.fn.max('teacher_codes').as('teacher_codes'),
+          (eb: any) => eb.fn.min('teaching_week').as('start_week'),
+          (eb: any) => eb.fn.max('teaching_week').as('end_week'),
+          (eb: any) => eb.fn.min('start_time').as('start_time'),
+          (eb: any) => eb.fn.max('end_time').as('end_time'),
+          (eb: any) => eb.fn.count('id').as('total_sessions')
+        ])
+        .where('deleted_at', 'is', null)
+        .groupBy('course_code')
+        .as('ac');
+
+      // 构建学生统计子查询：从 icalink_teaching_class 按 course_code 聚合
+      // 获取课程单位信息和学生总数
+      const studentStatsQuery = connection
+        .selectFrom('icalink_teaching_class')
+        .select([
+          'course_code',
+          (eb: any) => eb.fn.max('course_unit_id').as('course_unit_id'),
+          (eb: any) => eb.fn.max('course_unit').as('course_unit'),
+          (eb: any) =>
+            eb.fn.max('teaching_class_code').as('teaching_class_code'),
+          (eb: any) => eb.fn.count('id').as('total_students')
+        ])
+        .groupBy('course_code')
+        .as('tc');
+
+      // 主查询：从日历映射表开始，LEFT JOIN 课程和学生数据
+      let query: any = connection
+        .selectFrom('icasync_calendar_mapping as cm')
+        .leftJoin(courseAggQuery, 'ac.course_code', 'cm.kkh')
+        .leftJoin(studentStatsQuery, 'tc.course_code', 'cm.kkh')
+        .select([
+          // 来自课程聚合的字段
+          'ac.course_code',
+          'ac.course_name',
+          'ac.semester',
+          'ac.class_location',
+          'ac.teacher_name',
+          'ac.teacher_codes',
+          'ac.start_week',
+          'ac.end_week',
+          'ac.start_time',
+          'ac.end_time',
+          'ac.total_sessions',
+          // 来自学生统计的字段
+          'tc.course_unit_id',
+          'tc.course_unit',
+          'tc.teaching_class_code',
+          'tc.total_students',
+          // 来自日历映射的字段
           'cm.calendar_id',
-          'cm.calendar_name',
-          // 来自关联查询的统计字段 - 使用子查询
-          (eb) =>
-            eb
-              .selectFrom('icalink_teaching_class')
-              .select((eb) => eb.fn.count('id').as('count'))
-              .whereRef('icalink_teaching_class.course_code', '=', 'cm.kkh')
-              .as('total_students'),
-          (eb) =>
-            eb
-              .selectFrom('icasync_attendance_courses')
-              .select((eb) => eb.fn.count('id').as('count'))
-              .whereRef('icasync_attendance_courses.course_code', '=', 'cm.kkh')
-              .where('icasync_attendance_courses.deleted_at', 'is', null)
-              .as('total_sessions')
+          'cm.calendar_name'
         ])
         .where('cm.is_deleted', '=', false);
 
       // 搜索条件：支持课程代码、课程名称、教师姓名、教师代码
       if (searchKeyword && searchKeyword.trim()) {
         const keyword = `%${searchKeyword.trim()}%`;
-        query = query.where((eb) =>
+        query = query.where((eb: any) =>
           eb.or([
-            eb('cs.course_code', 'like', keyword),
-            eb('cs.course_name', 'like', keyword),
-            eb('cs.teacher_name', 'like', keyword),
-            eb('cs.teacher_codes', 'like', keyword)
+            eb('ac.course_code', 'like', keyword),
+            eb('ac.course_name', 'like', keyword),
+            eb('ac.teacher_name', 'like', keyword),
+            eb('ac.teacher_codes', 'like', keyword)
           ])
         );
       }
@@ -234,6 +262,7 @@ export default class CalendarMappingRepository
 
   /**
    * 获取日历-课程关联列表的总数
+   * 使用与 findCalendarCoursesWithPagination 相同的数据源逻辑
    */
   public async getCalendarCoursesTotalCount(
     searchKeyword?: string
@@ -246,25 +275,35 @@ export default class CalendarMappingRepository
     try {
       const connection = await this.getQueryConnection();
 
-      let query = connection
+      // 构建课程聚合子查询（与分页查询保持一致）
+      const courseAggQuery = connection
+        .selectFrom('icasync_attendance_courses')
+        .select([
+          'course_code',
+          (eb: any) => eb.fn.max('course_name').as('course_name'),
+          (eb: any) => eb.fn.max('teacher_names').as('teacher_name'),
+          (eb: any) => eb.fn.max('teacher_codes').as('teacher_codes')
+        ])
+        .where('deleted_at', 'is', null)
+        .groupBy('course_code')
+        .as('ac');
+
+      // 主查询：统计符合条件的记录数
+      let query: any = connection
         .selectFrom('icasync_calendar_mapping as cm')
-        .innerJoin(
-          'v_course_checkin_stats_summary as cs',
-          'cm.kkh',
-          'cs.course_code'
-        )
-        .select((eb) => eb.fn.count('cs.course_code').as('count'))
+        .leftJoin(courseAggQuery, 'ac.course_code', 'cm.kkh')
+        .select((eb: any) => eb.fn.count('cm.id').as('count'))
         .where('cm.is_deleted', '=', false);
 
-      // 搜索条件
+      // 搜索条件（与分页查询保持一致）
       if (searchKeyword && searchKeyword.trim()) {
         const keyword = `%${searchKeyword.trim()}%`;
-        query = query.where((eb) =>
+        query = query.where((eb: any) =>
           eb.or([
-            eb('cs.course_code', 'like', keyword),
-            eb('cs.course_name', 'like', keyword),
-            eb('cs.teacher_name', 'like', keyword),
-            eb('cs.teacher_codes', 'like', keyword)
+            eb('ac.course_code', 'like', keyword),
+            eb('ac.course_name', 'like', keyword),
+            eb('ac.teacher_name', 'like', keyword),
+            eb('ac.teacher_codes', 'like', keyword)
           ])
         );
       }

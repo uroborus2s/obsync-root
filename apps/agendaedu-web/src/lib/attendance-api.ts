@@ -27,9 +27,10 @@ export class AttendanceApiService {
 
   constructor(baseUrl?: string) {
     // 开发环境使用本地API地址，生产环境使用kwps.jlufe.edu.cn
+    // 注意：在 Vite 项目中应该使用 import.meta.env 而不是 process.env
     this.baseUrl =
       baseUrl ||
-      (process.env.NODE_ENV === 'development'
+      (import.meta.env.DEV
         ? 'http://localhost:8090'
         : 'https://kwps.jlufe.edu.cn')
   }
@@ -864,14 +865,12 @@ export class AttendanceApiService {
       return {
         success: false,
         message: response.message || '获取统计数据失败',
-        data: null,
       }
     } catch (error) {
       console.error('获取整体统计失败:', error)
       return {
         success: false,
         message: `获取统计数据失败: ${error instanceof Error ? error.message : '未知错误'}`,
-        data: null,
       }
     }
   }
@@ -1220,4 +1219,5 @@ export class AttendanceApiService {
 }
 
 // 导出单例实例
-export const attendanceApi = new AttendanceApiService('http://localhost:8090')
+// 不传入 baseUrl 参数，让构造函数根据环境自动选择
+export const attendanceApi = new AttendanceApiService()

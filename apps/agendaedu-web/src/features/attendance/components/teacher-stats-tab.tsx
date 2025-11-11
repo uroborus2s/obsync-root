@@ -3,8 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { BookOpen, CalendarDays, GraduationCap, TrendingUp } from 'lucide-react'
 // import { attendanceApi } from '@/lib/attendance-api'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { EnhancedPagination } from '@/components/ui/enhanced-pagination'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -307,35 +307,17 @@ export function TeacherStatsTab() {
       </div>
 
       {/* 分页 */}
-      {data && data.total > filters.page_size && (
-        <div className='flex items-center justify-between'>
-          <div className='text-muted-foreground text-sm'>
-            显示 {(filters.page - 1) * filters.page_size + 1} 到{' '}
-            {Math.min(filters.page * filters.page_size, data.total)} 条，共{' '}
-            {data.total} 条
-          </div>
-          <div className='flex items-center space-x-2'>
-            <Button
-              variant='outline'
-              size='sm'
-              onClick={() => handleFilterChange('page', filters.page - 1)}
-              disabled={filters.page <= 1}
-            >
-              上一页
-            </Button>
-            <Button
-              variant='outline'
-              size='sm'
-              onClick={() => handleFilterChange('page', filters.page + 1)}
-              disabled={
-                filters.page >= Math.ceil(data.total / filters.page_size)
-              }
-            >
-              下一页
-            </Button>
-          </div>
-        </div>
-      )}
+      <EnhancedPagination
+        page={filters.page}
+        pageSize={filters.page_size}
+        total={data?.total || 0}
+        onPageChange={(page) => handleFilterChange('page', page)}
+        onPageSizeChange={(pageSize) => {
+          handleFilterChange('page_size', pageSize)
+          handleFilterChange('page', 1)
+        }}
+        disabled={isLoading}
+      />
     </div>
   )
 }

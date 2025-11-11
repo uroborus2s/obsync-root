@@ -328,6 +328,7 @@ export default class StatsController {
    * - page: 页码（默认1）
    * - pageSize: 每页数量（默认20，最大100）
    * - searchKeyword: 搜索关键词（单位名称、单位ID、学期）
+   * - teachingWeek: 教学周筛选（可选）
    * - sortField: 排序字段
    * - sortOrder: 排序方向（asc/desc）
    *
@@ -352,6 +353,7 @@ export default class StatsController {
           page: { type: 'integer', minimum: 1, default: 1 },
           pageSize: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
           searchKeyword: { type: 'string' },
+          teachingWeek: { type: 'integer', minimum: 1 },
           sortField: { type: 'string' },
           sortOrder: { type: 'string', enum: ['asc', 'desc'] }
         }
@@ -385,6 +387,7 @@ export default class StatsController {
         page = 1,
         pageSize = 20,
         searchKeyword,
+        teachingWeek,
         sortField,
         sortOrder
       } = request.query;
@@ -392,7 +395,8 @@ export default class StatsController {
       this.logger.debug('Querying course stats unit', {
         page,
         pageSize,
-        searchKeyword
+        searchKeyword,
+        teachingWeek
       });
 
       const result =
@@ -400,6 +404,7 @@ export default class StatsController {
           page,
           pageSize,
           searchKeyword,
+          teachingWeek,
           sortField,
           sortOrder
         });
@@ -638,14 +643,20 @@ export default class StatsController {
    * 查询参数:
    * - page: 页码（默认1）
    * - pageSize: 每页数量（默认20，最大100）
-   * - classId: 班级ID（从前端提取自 ex_dept_id，用于筛选班级）
+   * - collegeId: 学院ID（4位）
+   * - grade: 年级（4位）
+   * - majorId: 专业ID（6位）
+   * - classId: 班级ID（可变长度）
    * - searchKeyword: 搜索关键词（学生ID、学生姓名）
    * - sortField: 排序字段
    * - sortOrder: 排序方向（asc/desc）
    *
    * @remarks
-   * classId 由前端从组织架构树节点的 ex_dept_id 中提取（去掉前2个字符）
-   * 后端使用精确匹配：class_id = classId
+   * 前端将 ex_dept_id 拆分后传递：
+   * - collegeId: ex_dept_id.substring(2, 6)
+   * - grade: ex_dept_id.substring(6, 10)
+   * - majorId: ex_dept_id.substring(10, 16)
+   * - classId: ex_dept_id.substring(16)
    *
    * 响应格式:
    * {
@@ -667,7 +678,10 @@ export default class StatsController {
         properties: {
           page: { type: 'integer', minimum: 1, default: 1 },
           pageSize: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
-          exDeptId: { type: 'string' },
+          collegeId: { type: 'string' },
+          grade: { type: 'string' },
+          majorId: { type: 'string' },
+          classId: { type: 'string' },
           searchKeyword: { type: 'string' },
           sortField: { type: 'string' },
           sortOrder: { type: 'string', enum: ['asc', 'desc'] }
@@ -695,7 +709,12 @@ export default class StatsController {
   })
   async getStudentAbsenceSummary(
     request: FastifyRequest<{
-      Querystring: StatsQueryParams & { exDeptId?: string };
+      Querystring: StatsQueryParams & {
+        collegeId?: string;
+        grade?: string;
+        majorId?: string;
+        classId?: string;
+      };
     }>,
     reply: FastifyReply
   ): Promise<void> {
@@ -703,7 +722,10 @@ export default class StatsController {
       const {
         page = 1,
         pageSize = 20,
-        exDeptId,
+        collegeId,
+        grade,
+        majorId,
+        classId,
         searchKeyword,
         sortField,
         sortOrder
@@ -712,7 +734,10 @@ export default class StatsController {
       this.logger.debug('Querying student absence rate summary', {
         page,
         pageSize,
-        exDeptId,
+        collegeId,
+        grade,
+        majorId,
+        classId,
         searchKeyword,
         sortField,
         sortOrder
@@ -722,7 +747,10 @@ export default class StatsController {
         await this.vStudentAbsenceRateSummaryService.findWithPagination(
           page,
           pageSize,
-          exDeptId,
+          collegeId,
+          grade,
+          majorId,
+          classId,
           searchKeyword,
           sortField,
           sortOrder
@@ -1440,6 +1468,488 @@ export default class StatsController {
     }
   }
 
+  /**
+   * 获取当前教学周
+   * GET /api/icalink/v1/stats/current-teaching-week
+   *
+   * @param request - Fastify请求对象
+   * @param reply - Fastify响应对象
+   * @returns 当前教学周信息
+   *
+   * 功能说明:
+   * - 从 icalink_system_configs 表获取学期开始日期（config_key = 'term.start_date'）
+   * - 根据当前日期计算当前教学周
+   *
+   * 响应格式:
+   * {
+   *   success: boolean,
+   *   data: {
+   *     currentWeek: number,
+   *     termStartDate: string
+   *   },
+   *   error?: string
+   * }
+   */
+  @Get('/api/icalink/v1/stats/current-teaching-week', {
+    schema: {
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            data: {
+              type: 'object',
+              properties: {
+                currentWeek: { type: 'integer' },
+                termStartDate: { type: 'string' }
+              }
+            }
+          }
+        },
+        500: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            error: { type: 'string' }
+          }
+        }
+      }
+    }
+  })
+  async getCurrentTeachingWeek(
+    request: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<void> {
+    try {
+      const result =
+        await this.courseCheckinStatsService.getCurrentTeachingWeek();
 
-  
+      if (!result.success) {
+        this.logger.error('Failed to get current teaching week', {
+          error: result.error
+        });
+        return reply.status(500).send({
+          success: false,
+          error: result.error || 'Failed to get current teaching week'
+        });
+      }
+
+      return reply.status(200).send({
+        success: true,
+        data: result.data
+      });
+    } catch (error: any) {
+      this.logger.error('Error in getCurrentTeachingWeek', {
+        error: error.message,
+        stack: error.stack
+      });
+      return reply.status(500).send({
+        success: false,
+        error: 'Internal server error'
+      });
+    }
+  }
+
+  /**
+   * 查询学院周度签到统计数据（自动计算当前周并查询到上周）
+   * GET /api/icalink/v1/stats/college-weekly-attendance
+   *
+   * @param request - Fastify请求对象
+   * @param reply - Fastify响应对象
+   * @returns 周度签到统计数据
+   *
+   * 查询参数:
+   * - courseUnitId: 学院ID（必需）
+   * - semester: 学期（可选）
+   * - fillMissingWeeks: 是否填充缺失的周数据（可选，默认true）
+   *
+   * 功能说明:
+   * - 自动从 icalink_system_configs 表获取学期开始日期（config_key = 'term.start_date'）
+   * - 根据当前日期计算当前教学周
+   * - 查询范围：第1周到上周（当前周 - 1）
+   * - 如果当前周 ≤ 1，返回空数组
+   *
+   * 响应格式:
+   * {
+   *   success: boolean,
+   *   data: Array<{
+   *     teaching_week: number,
+   *     expected_attendance: number,
+   *     absent_count: number,
+   *     truant_count: number,
+   *     leave_count: number,
+   *     present_count: number,
+   *     absence_rate: number,
+   *     truant_rate: number
+   *   }>,
+   *   message?: string,
+   *   error?: string
+   * }
+   */
+  @Get('/api/icalink/v1/stats/college-weekly-attendance', {
+    schema: {
+      querystring: {
+        type: 'object',
+        properties: {
+          courseUnitId: { type: 'string' },
+          semester: { type: 'string' },
+          fillMissingWeeks: { type: 'boolean', default: true }
+        },
+        required: ['courseUnitId']
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            data: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  teaching_week: { type: 'integer' },
+                  expected_attendance: { type: 'integer' },
+                  absent_count: { type: 'integer' },
+                  truant_count: { type: 'integer' },
+                  leave_count: { type: 'integer' },
+                  present_count: { type: 'integer' },
+                  absence_rate: { type: 'number' },
+                  truant_rate: { type: 'number' }
+                }
+              }
+            },
+            message: { type: 'string' }
+          }
+        },
+        400: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            error: { type: 'string' },
+            message: { type: 'string' }
+          }
+        },
+        500: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            error: { type: 'string' }
+          }
+        }
+      }
+    }
+  })
+  async getCollegeWeeklyAttendance(
+    request: FastifyRequest<{
+      Querystring: {
+        courseUnitId: string;
+        semester?: string;
+        fillMissingWeeks?: boolean;
+      };
+    }>,
+    reply: FastifyReply
+  ): Promise<void> {
+    try {
+      const { courseUnitId, semester, fillMissingWeeks = true } = request.query;
+
+      this.logger.debug('Querying college weekly attendance stats', {
+        courseUnitId,
+        semester,
+        fillMissingWeeks
+      });
+
+      const result = await this.courseCheckinStatsService.getCollegeWeeklyStats(
+        courseUnitId,
+        semester,
+        fillMissingWeeks
+      );
+
+      if (!result.success) {
+        this.logger.error('Failed to query college weekly attendance stats', {
+          error: result.error
+        });
+        return reply.status(400).send({
+          success: false,
+          error:
+            result.error || 'Failed to query college weekly attendance stats',
+          message: result.message
+        });
+      }
+
+      return reply.status(200).send({
+        success: true,
+        data: result.data,
+        message: result.message
+      });
+    } catch (error: any) {
+      this.logger.error('Error in getCollegeWeeklyAttendance', {
+        error: error.message,
+        stack: error.stack
+      });
+      return reply.status(500).send({
+        success: false,
+        error: 'Internal server error'
+      });
+    }
+  }
+
+  /**
+   * 查询教学班周度签到统计数据（自动计算当前周并查询到上周）
+   * GET /api/icalink/v1/stats/class-weekly-attendance
+   *
+   * @param request - Fastify请求对象
+   * @param reply - Fastify响应对象
+   * @returns 周度签到统计数据
+   *
+   * 查询参数:
+   * - teachingClassCode: 教学班代码（必需）
+   * - semester: 学期（可选）
+   * - fillMissingWeeks: 是否填充缺失的周数据（可选，默认true）
+   *
+   * 功能说明:
+   * - 自动从 icalink_system_configs 表获取学期开始日期（config_key = 'term.start_date'）
+   * - 根据当前日期计算当前教学周
+   * - 查询范围：第1周到上周（当前周 - 1）
+   * - 如果当前周 ≤ 1，返回空数组
+   *
+   * 响应格式:
+   * {
+   *   success: boolean,
+   *   data: Array<{
+   *     teaching_week: number,
+   *     expected_attendance: number,
+   *     absent_count: number,
+   *     truant_count: number,
+   *     leave_count: number,
+   *     present_count: number,
+   *     absence_rate: number,
+   *     truant_rate: number
+   *   }>,
+   *   message?: string,
+   *   error?: string
+   * }
+   */
+  @Get('/api/icalink/v1/stats/class-weekly-attendance', {
+    schema: {
+      querystring: {
+        type: 'object',
+        properties: {
+          teachingClassCode: { type: 'string' },
+          semester: { type: 'string' },
+          fillMissingWeeks: { type: 'boolean', default: true }
+        },
+        required: ['teachingClassCode']
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            data: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  teaching_week: { type: 'number' },
+                  expected_attendance: { type: 'number' },
+                  absent_count: { type: 'number' },
+                  truant_count: { type: 'number' },
+                  leave_count: { type: 'number' },
+                  present_count: { type: 'number' },
+                  absence_rate: { type: 'number' },
+                  truant_rate: { type: 'number' }
+                }
+              }
+            },
+            message: { type: 'string' }
+          }
+        }
+      }
+    }
+  })
+  async getClassWeeklyAttendance(
+    request: FastifyRequest<{
+      Querystring: {
+        teachingClassCode: string;
+        semester?: string;
+        fillMissingWeeks?: boolean;
+      };
+    }>,
+    reply: FastifyReply
+  ): Promise<void> {
+    try {
+      const {
+        teachingClassCode,
+        semester,
+        fillMissingWeeks = true
+      } = request.query;
+
+      this.logger.debug('Querying class weekly attendance stats', {
+        teachingClassCode,
+        semester,
+        fillMissingWeeks
+      });
+
+      const result = await this.courseCheckinStatsService.getClassWeeklyStats(
+        teachingClassCode,
+        semester,
+        fillMissingWeeks
+      );
+
+      if (!result.success) {
+        this.logger.error('Failed to query class weekly attendance stats', {
+          error: result.error
+        });
+        return reply.status(400).send({
+          success: false,
+          error:
+            result.error || 'Failed to query class weekly attendance stats',
+          message: result.message
+        });
+      }
+
+      return reply.status(200).send({
+        success: true,
+        data: result.data,
+        message: result.message
+      });
+    } catch (error: any) {
+      this.logger.error('Error in getClassWeeklyAttendance', {
+        error: error.message,
+        stack: error.stack
+      });
+      return reply.status(500).send({
+        success: false,
+        error: 'Internal server error'
+      });
+    }
+  }
+
+  /**
+   * 查询课程周度签到统计数据（自动计算当前周并查询到上周）
+   * GET /api/icalink/v1/stats/course-weekly-attendance
+   *
+   * @param request - Fastify请求对象
+   * @param reply - Fastify响应对象
+   * @returns 周度签到统计数据
+   *
+   * 查询参数:
+   * - courseCode: 课程代码（必需）
+   * - semester: 学期（可选）
+   * - fillMissingWeeks: 是否填充缺失的周数据（可选，默认true）
+   *
+   * 功能说明:
+   * - 自动从 icalink_system_configs 表获取学期开始日期（config_key = 'term.start_date'）
+   * - 根据当前日期计算当前教学周
+   * - 查询范围：第1周到上周（当前周 - 1）
+   * - 如果当前周 ≤ 1，返回空数组
+   *
+   * 响应格式:
+   * {
+   *   success: boolean,
+   *   data: Array<{
+   *     teaching_week: number,
+   *     expected_attendance: number,
+   *     absent_count: number,
+   *     truant_count: number,
+   *     leave_count: number,
+   *     present_count: number,
+   *     absence_rate: number,
+   *     truant_rate: number
+   *   }>,
+   *   message?: string,
+   *   error?: string
+   * }
+   */
+  @Get('/api/icalink/v1/stats/course-weekly-attendance', {
+    schema: {
+      querystring: {
+        type: 'object',
+        properties: {
+          courseCode: { type: 'string' },
+          semester: { type: 'string' },
+          fillMissingWeeks: { type: 'boolean', default: true }
+        },
+        required: ['courseCode']
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            data: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  teaching_week: { type: 'number' },
+                  expected_attendance: { type: 'number' },
+                  absent_count: { type: 'number' },
+                  truant_count: { type: 'number' },
+                  leave_count: { type: 'number' },
+                  present_count: { type: 'number' },
+                  absence_rate: { type: 'number' },
+                  truant_rate: { type: 'number' }
+                }
+              }
+            },
+            message: { type: 'string' }
+          }
+        }
+      }
+    }
+  })
+  async getCourseWeeklyAttendance(
+    request: FastifyRequest<{
+      Querystring: {
+        courseCode: string;
+        semester?: string;
+        fillMissingWeeks?: boolean;
+      };
+    }>,
+    reply: FastifyReply
+  ): Promise<void> {
+    try {
+      const { courseCode, semester, fillMissingWeeks = true } = request.query;
+
+      this.logger.debug('Querying course weekly attendance stats', {
+        courseCode,
+        semester,
+        fillMissingWeeks
+      });
+
+      const result = await this.courseCheckinStatsService.getCourseWeeklyStats(
+        courseCode,
+        semester,
+        fillMissingWeeks
+      );
+
+      if (!result.success) {
+        this.logger.error('Failed to query course weekly attendance stats', {
+          error: result.error
+        });
+        return reply.status(400).send({
+          success: false,
+          error:
+            result.error || 'Failed to query course weekly attendance stats',
+          message: result.message
+        });
+      }
+
+      return reply.status(200).send({
+        success: true,
+        data: result.data,
+        message: result.message
+      });
+    } catch (error: any) {
+      this.logger.error('Error in getCourseWeeklyAttendance', {
+        error: error.message,
+        stack: error.stack
+      });
+      return reply.status(500).send({
+        success: false,
+        error: 'Internal server error'
+      });
+    }
+  }
 }

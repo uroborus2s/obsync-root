@@ -303,52 +303,58 @@ export function CourseAttendanceStatistics() {
             </div>
           ) : (
             <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>课程名称</TableHead>
-                    <TableHead>课次信息</TableHead>
-                    <TableHead>周次</TableHead>
-                    <TableHead>任课教师</TableHead>
-                    <TableHead>学生数量</TableHead>
-                    <TableHead>状态</TableHead>
-                    <TableHead>签到数量</TableHead>
-                    <TableHead>请假数量</TableHead>
-                    <TableHead>缺勤数量</TableHead>
-                    <TableHead>签到率</TableHead>
-                    <TableHead>出勤率</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data?.data.map((course) => (
-                    <TableRow key={course.courseId}>
-                      <TableCell className='font-medium'>
-                        {course.courseName}
-                      </TableCell>
-                      <TableCell>{course.sessionInfo}</TableCell>
-                      <TableCell>{course.weekNumber}</TableCell>
-                      <TableCell>{course.teacher}</TableCell>
-                      <TableCell>{course.totalStudents}</TableCell>
-                      <TableCell>{getStatusBadge(course.status)}</TableCell>
-                      <TableCell>{course.checkedInCount}</TableCell>
-                      <TableCell>
-                        {course.leavePendingCount + course.leaveApprovedCount}
-                      </TableCell>
-                      <TableCell>{course.absentCount}</TableCell>
-                      <TableCell>
-                        {getCheckinRateBadge(course.checkinRate)}
-                      </TableCell>
-                      <TableCell>
-                        {getAttendanceRateBadge(course.attendanceRate)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              {/* 表格区域 - 使用简单的 div 容器实现垂直滚动，保留 Table 组件的横向滚动能力 */}
+              <div className='max-h-[450px] overflow-y-auto'>
+                <div className='pb-4'>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>课程名称</TableHead>
+                        <TableHead>课次信息</TableHead>
+                        <TableHead>周次</TableHead>
+                        <TableHead>任课教师</TableHead>
+                        <TableHead>学生数量</TableHead>
+                        <TableHead>状态</TableHead>
+                        <TableHead>签到数量</TableHead>
+                        <TableHead>请假数量</TableHead>
+                        <TableHead>缺勤数量</TableHead>
+                        <TableHead>签到率</TableHead>
+                        <TableHead>出勤率</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data?.data.map((course) => (
+                        <TableRow key={course.courseId}>
+                          <TableCell className='font-medium'>
+                            {course.courseName}
+                          </TableCell>
+                          <TableCell>{course.sessionInfo}</TableCell>
+                          <TableCell>{course.weekNumber}</TableCell>
+                          <TableCell>{course.teacher}</TableCell>
+                          <TableCell>{course.totalStudents}</TableCell>
+                          <TableCell>{getStatusBadge(course.status)}</TableCell>
+                          <TableCell>{course.checkedInCount}</TableCell>
+                          <TableCell>
+                            {course.leavePendingCount +
+                              course.leaveApprovedCount}
+                          </TableCell>
+                          <TableCell>{course.absentCount}</TableCell>
+                          <TableCell>
+                            {getCheckinRateBadge(course.checkinRate)}
+                          </TableCell>
+                          <TableCell>
+                            {getAttendanceRateBadge(course.attendanceRate)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
 
               {/* 分页控件 */}
               {data && data.total > 0 && (
-                <div className='flex items-center justify-between space-x-2 py-4'>
+                <div className='mt-4 flex items-center justify-between border-t pt-4'>
                   <div className='text-muted-foreground text-sm'>
                     显示第 {(data.page - 1) * data.page_size + 1} -{' '}
                     {Math.min(data.page * data.page_size, data.total)} 条， 共{' '}

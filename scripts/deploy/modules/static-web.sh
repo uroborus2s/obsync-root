@@ -37,8 +37,9 @@ get_server_info() {
             ;;
         "backup")
             # 备用服务器通常不需要静态文件
-            log_warning "备用服务器通常不需要静态文件，跳过部署"
-            exit 0
+            SERVER_HOST="$BACKUP_SERVER_HOST"
+            SERVER_USER="$BACKUP_SERVER_USER"
+            SERVER_NAME="$MAIN_SBACKUP_SERVER_NAMEERVER_NAME"
             ;;
         *)
             log_error "无效的服务器: $DEPLOY_SERVER"

@@ -30,3 +30,9 @@ export * from './IAttendanceStatsRepository.js';
 
 // 日历映射仓储接口
 export * from './ICalendarMappingRepository.js';
+
+// 课程时间配置仓储接口
+export * from './ICoursePeriodRepository.js';
+export * from './ICoursePeriodRuleConditionRepository.js';
+export * from './ICoursePeriodRuleRepository.js';
+export * from './ISystemConfigTermRepository.js';

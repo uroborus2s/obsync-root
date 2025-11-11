@@ -3,7 +3,8 @@
  */
 import type {
   ApiResponse,
-  CalendarParticipant,
+  BatchAddParticipantResult,
+  BatchSyncResult,
   CalendarParticipantsResponse,
   CalendarSyncResult,
   CourseCalendarTreeNode,
@@ -11,6 +12,7 @@ import type {
   ICalendarCourseItem,
   IcasyncAttendanceCourse,
   PaginatedResponse,
+  UserCoursesResponse,
 } from '@/types/course-calendar.types'
 import { apiClient } from '@/lib/api-client'
 
@@ -32,10 +34,10 @@ export async function getCourseCalendarTree(): Promise<CourseCalendarTreeNode> {
  */
 export async function getCalendarParticipants(
   calendarId: string
-): Promise<CalendarParticipant[]> {
-  const response = await apiClient.get<ApiResponse<CalendarParticipant[]>>(
-    `/api/icalink/v1/course-calendar/${calendarId}/participants`
-  )
+): Promise<CalendarParticipantsResponse> {
+  const response = await apiClient.get<
+    ApiResponse<CalendarParticipantsResponse>
+  >(`/api/icalink/v1/course-calendar/${calendarId}/participants`)
   if (!response.success || !response.data) {
     throw new Error(response.message || '获取日历参与者失败')
   }
@@ -144,6 +146,70 @@ export async function syncCalendarParticipants(
 
   if (!response.success || !response.data) {
     throw new Error(response.message || '同步日历参与者失败')
+  }
+  return response.data
+}
+
+/**
+ * 批量同步所有日历的参与者权限
+ */
+export async function syncAllCalendarParticipants(): Promise<BatchSyncResult> {
+  const response = await apiClient.post<ApiResponse<BatchSyncResult>>(
+    '/api/icalink/v1/course-calendar/sync-all-participants'
+  )
+
+  if (!response.success || !response.data) {
+    throw new Error(response.message || '批量同步日历参与者失败')
+  }
+  return response.data
+}
+
+/**
+ * 获取指定用户的所有课程列表
+ * @param userType 用户类型（teacher 或 student）
+ * @param userId 学号或工号
+ */
+export async function getUserCourses(
+  userType: 'teacher' | 'student',
+  userId: string
+): Promise<UserCoursesResponse> {
+  const params = new URLSearchParams({
+    user_type: userType,
+    user_id: userId,
+  })
+
+  const response = await apiClient.get<ApiResponse<UserCoursesResponse>>(
+    `/api/icalink/v1/course-calendar/user-courses?${params.toString()}`
+  )
+
+  if (!response.success || !response.data) {
+    throw new Error(response.message || '获取用户课程列表失败')
+  }
+  return response.data
+}
+
+/**
+ * 批量将用户添加到多个日历的权限中
+ * @param userType 用户类型（teacher 或 student）
+ * @param userId 学号或工号
+ * @param calendarIds 日历 ID 列表
+ */
+export async function batchAddParticipant(
+  userType: 'teacher' | 'student',
+  userId: string,
+  calendarIds: string[]
+): Promise<BatchAddParticipantResult> {
+  const response = await apiClient.post<ApiResponse<BatchAddParticipantResult>>(
+    '/api/icalink/v1/course-calendar/batch-add-participant',
+    {
+      userType,
+      userId,
+      calendarIds,
+    }
+  )
+
+  if (!response.success || !response.data) {
+    throw new Error(response.message || '批量添加参与者失败')
   }
   return response.data
 }

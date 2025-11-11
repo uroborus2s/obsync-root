@@ -405,9 +405,7 @@ export default class CourseCalendarController {
       );
 
       const result =
-        await this.courseCalendarService.getCourseShareParticipants(
-          calendar_id
-        );
+        await this.courseCalendarService.getCalendarParticipants(calendar_id);
 
       if (!result.success) {
         let statusCode = 500;
@@ -506,6 +504,238 @@ export default class CourseCalendarController {
       });
     } catch (error) {
       this.logger.error({ error }, 'Failed to sync calendar participants');
+      return reply.status(500).send({
+        success: false,
+        message: '服务器内部错误'
+      });
+    }
+  }
+
+  /**
+   * 批量同步所有日历的参与者权限
+   * POST /api/icalink/v1/course-calendar/sync-all-participants
+   *
+   * @description
+   * 批量同步所有有效日历的参与者权限，包括：
+   * - 添加缺失的参与者（教学班中存在但日历权限中不存在的学生和教师）
+   * - 删除多余的权限（日历权限中存在但教学班中不存在的参与者）
+   *
+   * 同步逻辑：
+   * 1. 查询所有有效的日历映射（is_deleted = false）
+   * 2. 遍历每个日历，调用 syncCalendarParticipants 方法
+   * 3. 单个日历同步失败不影响其他日历的同步
+   * 4. 返回批量同步的统计结果
+   *
+   * @returns 批量同步结果统计
+   *
+   * HTTP 状态码：
+   * - 200: 成功（即使部分日历同步失败，只要批量操作完成就返回200）
+   * - 500: 服务器内部错误（批量操作本身失败）
+   */
+  @Post('/api/icalink/v1/course-calendar/sync-all-participants')
+  async syncAllCalendarParticipants(
+    _request: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<void> {
+    try {
+      this.logger.info('Starting batch sync for all calendar participants');
+
+      const result =
+        await this.courseCalendarService.syncAllCalendarParticipants();
+
+      if (!result.success) {
+        return reply.status(500).send({
+          success: false,
+          message: result.message || '批量同步日历参与者失败',
+          code: result.code
+        });
+      }
+
+      // 即使部分日历同步失败，只要批量操作完成就返回成功
+      return reply.status(200).send({
+        success: true,
+        data: result.data
+      });
+    } catch (error) {
+      this.logger.error({ error }, 'Failed to execute batch sync');
+      return reply.status(500).send({
+        success: false,
+        message: '服务器内部错误'
+      });
+    }
+  }
+
+  /**
+   * 获取指定用户的所有课程列表
+   * GET /api/icalink/v1/course-calendar/user-courses
+   *
+   * @description
+   * 根据用户类型和用户ID查询该用户的所有课程列表
+   * - 如果是学生：查询 icalink_teaching_class 表中该学号的所有课程
+   * - 如果是教师：查询 icasync_attendance_courses 表中 teacher_codes 包含该工号的所有课程
+   * - 返回课程列表及对应的日历ID
+   *
+   * @param user_type - 用户类型（teacher 或 student）
+   * @param user_id - 学号或工号
+   *
+   * @returns 用户的课程列表
+   *
+   * HTTP 状态码：
+   * - 200: 成功
+   * - 400: 参数错误
+   * - 500: 服务器内部错误
+   */
+  @Get('/api/icalink/v1/course-calendar/user-courses')
+  async getUserCourses(
+    request: FastifyRequest<{
+      Querystring: {
+        user_type: 'teacher' | 'student';
+        user_id: string;
+      };
+    }>,
+    reply: FastifyReply
+  ): Promise<void> {
+    try {
+      const { user_type, user_id } = request.query;
+
+      // 参数验证
+      if (!user_type || !user_id) {
+        return reply.status(400).send({
+          success: false,
+          message: '用户类型和用户ID不能为空'
+        });
+      }
+
+      if (user_type !== 'teacher' && user_type !== 'student') {
+        return reply.status(400).send({
+          success: false,
+          message: '用户类型必须是 teacher 或 student'
+        });
+      }
+
+      this.logger.debug(
+        { userType: user_type, userId: user_id },
+        'Getting user courses'
+      );
+
+      const result = await this.courseCalendarService.getUserCourses(
+        user_type,
+        user_id
+      );
+
+      if (!result.success) {
+        let statusCode = 500;
+        if (result.code === 'VALIDATION_ERROR') {
+          statusCode = 400;
+        }
+
+        return reply.status(statusCode).send({
+          success: false,
+          message: result.message || '获取用户课程列表失败',
+          code: result.code
+        });
+      }
+
+      return reply.status(200).send({
+        success: true,
+        data: result.data
+      });
+    } catch (error) {
+      this.logger.error({ error }, 'Failed to get user courses');
+      return reply.status(500).send({
+        success: false,
+        message: '服务器内部错误'
+      });
+    }
+  }
+
+  /**
+   * 批量将用户添加到多个日历的权限中
+   * POST /api/icalink/v1/course-calendar/batch-add-participant
+   *
+   * @description
+   * 将指定用户批量添加到多个日历的分享者权限中
+   * - 检查用户是否已有权限，如果已有则跳过
+   * - 所有参与者都设置为 reader 权限
+   * - 单个日历添加失败不影响其他日历的处理
+   *
+   * @param userType - 用户类型（teacher 或 student）
+   * @param userId - 学号或工号
+   * @param calendarIds - 日历 ID 列表
+   *
+   * @returns 批量操作结果统计
+   *
+   * HTTP 状态码：
+   * - 200: 成功
+   * - 400: 参数错误
+   * - 500: 服务器内部错误
+   */
+  @Post('/api/icalink/v1/course-calendar/batch-add-participant')
+  async batchAddParticipant(
+    request: FastifyRequest<{
+      Body: {
+        userType: 'teacher' | 'student';
+        userId: string;
+        calendarIds: string[];
+      };
+    }>,
+    reply: FastifyReply
+  ): Promise<void> {
+    try {
+      const { userType, userId, calendarIds } = request.body;
+
+      // 参数验证
+      if (!userType || !userId || !calendarIds) {
+        return reply.status(400).send({
+          success: false,
+          message: '用户类型、用户ID和日历ID列表不能为空'
+        });
+      }
+
+      if (userType !== 'teacher' && userType !== 'student') {
+        return reply.status(400).send({
+          success: false,
+          message: '用户类型必须是 teacher 或 student'
+        });
+      }
+
+      if (!Array.isArray(calendarIds) || calendarIds.length === 0) {
+        return reply.status(400).send({
+          success: false,
+          message: '日历ID列表必须是非空数组'
+        });
+      }
+
+      this.logger.info(
+        { userType, userId, calendarsCount: calendarIds.length },
+        'Batch adding participant to calendars'
+      );
+
+      const result = await this.courseCalendarService.batchAddParticipant(
+        userType,
+        userId,
+        calendarIds
+      );
+
+      if (!result.success) {
+        let statusCode = 500;
+        if (result.code === 'VALIDATION_ERROR') {
+          statusCode = 400;
+        }
+
+        return reply.status(statusCode).send({
+          success: false,
+          message: result.message || '批量添加参与者失败',
+          code: result.code
+        });
+      }
+
+      return reply.status(200).send({
+        success: true,
+        data: result.data
+      });
+    } catch (error) {
+      this.logger.error({ error }, 'Failed to batch add participant');
       return reply.status(500).send({
         success: false,
         message: '服务器内部错误'

@@ -1,7 +1,19 @@
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { systemConfigApi, type SystemConfig } from '@/lib/system-config-api'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -18,18 +30,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { systemConfigApi, type SystemConfig } from '@/lib/system-config-api'
 import { ConfigDialog } from '../components/config-dialog'
 
 interface ConfigListProps {
@@ -38,9 +38,15 @@ interface ConfigListProps {
   description?: string
 }
 
-export function ConfigList({ configGroup, title, description }: ConfigListProps) {
+export function ConfigList({
+  configGroup,
+  title,
+  description,
+}: ConfigListProps) {
   const queryClient = useQueryClient()
-  const [selectedConfig, setSelectedConfig] = useState<SystemConfig | null>(null)
+  const [selectedConfig, setSelectedConfig] = useState<SystemConfig | null>(
+    null
+  )
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [deleteConfig, setDeleteConfig] = useState<SystemConfig | null>(null)
 
@@ -55,8 +61,7 @@ export function ConfigList({ configGroup, title, description }: ConfigListProps)
 
   // 删除配置
   const deleteMutation = useMutation({
-    mutationFn: (configKey: string) =>
-      systemConfigApi.deleteConfig(configKey),
+    mutationFn: (configKey: string) => systemConfigApi.deleteConfig(configKey),
     onSuccess: () => {
       toast.success('配置删除成功')
       queryClient.invalidateQueries({ queryKey: ['system-configs'] })
@@ -90,7 +95,10 @@ export function ConfigList({ configGroup, title, description }: ConfigListProps)
   }
 
   const getConfigTypeBadge = (type: string) => {
-    const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+    const variants: Record<
+      string,
+      'default' | 'secondary' | 'destructive' | 'outline'
+    > = {
       string: 'default',
       number: 'secondary',
       boolean: 'outline',
@@ -102,7 +110,7 @@ export function ConfigList({ configGroup, title, description }: ConfigListProps)
   }
 
   return (
-    <div className='space-y-6'>
+    <div className='w-full space-y-6'>
       <Card>
         <CardHeader>
           <div className='flex items-center justify-between'>
@@ -149,7 +157,9 @@ export function ConfigList({ configGroup, title, description }: ConfigListProps)
                     <TableCell className='max-w-xs truncate'>
                       {config.config_value || '-'}
                     </TableCell>
-                    <TableCell>{getConfigTypeBadge(config.config_type)}</TableCell>
+                    <TableCell>
+                      {getConfigTypeBadge(config.config_type)}
+                    </TableCell>
                     <TableCell>
                       <Badge variant='outline'>{config.config_group}</Badge>
                     </TableCell>
@@ -195,7 +205,10 @@ export function ConfigList({ configGroup, title, description }: ConfigListProps)
       />
 
       {/* 删除确认对话框 */}
-      <AlertDialog open={!!deleteConfig} onOpenChange={() => setDeleteConfig(null)}>
+      <AlertDialog
+        open={!!deleteConfig}
+        onOpenChange={() => setDeleteConfig(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>确认删除</AlertDialogTitle>
@@ -217,4 +230,3 @@ export function ConfigList({ configGroup, title, description }: ConfigListProps)
     </div>
   )
 }
-

@@ -1,10 +1,8 @@
 import { IconClipboardCheck } from '@tabler/icons-react'
 import {
   Activity,
-  BarChart3,
   BookOpen,
   Calendar,
-  Clock,
   Command,
   FileText,
   HardDrive,
@@ -12,7 +10,6 @@ import {
   RefreshCw,
   Settings,
   Users,
-  Workflow,
 } from 'lucide-react'
 import { type SidebarData } from '../types'
 
@@ -33,57 +30,58 @@ export const sidebarData: SidebarData = {
     {
       title: '系统管理',
       items: [
-        {
-          title: '工作流管理',
-          icon: Workflow,
-          // TODO: 后续统一处理权限 - 临时允许teacher角色访问
-          permission: {
-            requiredRoles: ['teacher', 'admin', 'super_admin'],
-            mode: 'or',
-          },
-          items: [
-            {
-              title: '工作流定义',
-              url: '/workflows/definitions' as const,
-              icon: FileText,
-              // TODO: 后续统一处理权限 - 临时允许teacher角色访问
-              permission: {
-                requiredRoles: ['teacher', 'admin', 'super_admin'],
-                mode: 'or',
-              },
-            },
-            {
-              title: '工作流实例',
-              url: '/workflows/instances' as const,
-              icon: Activity,
-              // TODO: 后续统一处理权限 - 临时允许teacher角色访问
-              permission: {
-                requiredRoles: ['teacher', 'admin', 'super_admin'],
-                mode: 'or',
-              },
-            },
-            {
-              title: '课表重建',
-              url: '/workflows/course-restore' as const,
-              icon: RefreshCw,
-              // TODO: 后续统一处理权限 - 临时允许teacher角色访问
-              permission: {
-                requiredRoles: ['teacher', 'admin', 'super_admin'],
-                mode: 'or',
-              },
-            },
-            {
-              title: '定时任务',
-              url: '/workflows/schedules' as const,
-              icon: Clock,
-              // TODO: 后续统一处理权限 - 临时允许teacher角色访问
-              permission: {
-                requiredRoles: ['teacher', 'admin', 'super_admin'],
-                mode: 'or',
-              },
-            },
-          ],
-        },
+        // 工作流管理菜单已隐藏 - 2025-11-10
+        // {
+        //   title: '工作流管理',
+        //   icon: Workflow,
+        //   // TODO: 后续统一处理权限 - 临时允许teacher角色访问
+        //   permission: {
+        //     requiredRoles: ['teacher', 'admin', 'super_admin'],
+        //     mode: 'or',
+        //   },
+        //   items: [
+        //     {
+        //       title: '工作流定义',
+        //       url: '/workflows/definitions' as const,
+        //       icon: FileText,
+        //       // TODO: 后续统一处理权限 - 临时允许teacher角色访问
+        //       permission: {
+        //         requiredRoles: ['teacher', 'admin', 'super_admin'],
+        //         mode: 'or',
+        //       },
+        //     },
+        //     {
+        //       title: '工作流实例',
+        //       url: '/workflows/instances' as const,
+        //       icon: Activity,
+        //       // TODO: 后续统一处理权限 - 临时允许teacher角色访问
+        //       permission: {
+        //         requiredRoles: ['teacher', 'admin', 'super_admin'],
+        //         mode: 'or',
+        //       },
+        //     },
+        //     {
+        //       title: '课表重建',
+        //       url: '/workflows/course-restore' as const,
+        //       icon: RefreshCw,
+        //       // TODO: 后续统一处理权限 - 临时允许teacher角色访问
+        //       permission: {
+        //         requiredRoles: ['teacher', 'admin', 'super_admin'],
+        //         mode: 'or',
+        //       },
+        //     },
+        //     {
+        //       title: '定时任务',
+        //       url: '/workflows/schedules' as const,
+        //       icon: Clock,
+        //       // TODO: 后续统一处理权限 - 临时允许teacher角色访问
+        //       permission: {
+        //         requiredRoles: ['teacher', 'admin', 'super_admin'],
+        //         mode: 'or',
+        //       },
+        //     },
+        //   ],
+        // },
         {
           title: '签到管理',
           icon: IconClipboardCheck,
@@ -102,15 +100,6 @@ export const sidebarData: SidebarData = {
               },
             },
             {
-              title: '课程历史统计表',
-              url: '/data-query/course-stats' as const,
-              icon: BarChart3,
-              permission: {
-                requiredRoles: ['teacher', 'admin', 'super_admin'],
-                mode: 'or',
-              },
-            },
-            {
               title: '教学班表',
               url: '/data-query/teaching-class' as const,
               icon: BookOpen,
@@ -120,7 +109,7 @@ export const sidebarData: SidebarData = {
               },
             },
             {
-              title: '课程签到统计（树形）',
+              title: '课程签到统计',
               url: '/data-query/course-stats-tree' as const,
               icon: Network,
               permission: {
@@ -138,8 +127,8 @@ export const sidebarData: SidebarData = {
               },
             },
             {
-              title: '调串课',
-              url: '/course-reschedule' as const,
+              title: '课程管理',
+              url: '/course-management' as const,
               icon: RefreshCw,
               permission: {
                 requiredRoles: ['teacher', 'admin', 'super_admin'],

@@ -201,7 +201,7 @@ function StudentDashboardContent() {
       );
       if (
         !locationValidation.valid
-        // && attendanceData.student.xh !== '0306012409428'
+        // attendanceData.student.xh !== '0306012409428'
       ) {
         // 位置校验失败，显示对话框让用户选择
         setPendingLocationData(locationData);
@@ -454,15 +454,9 @@ function StudentDashboardContent() {
     }
   };
 
-  // 图片签到
-  const handlePhotoCheckin = async () => {
-    if (!attendanceData || !pendingLocationData) {
-      return;
-    }
-
-    // 关闭对话框
-    setShowLocationFailedDialog(false);
-    setCheckinLoading(true);
+  // 浏览器原生相机拍照处理函数
+  const handleBrowserCameraCapture = () => {
+    console.log('📸 使用浏览器原生相机接口');
 
     try {
       // 创建文件输入元素
@@ -474,19 +468,18 @@ function StudentDashboardContent() {
       input.onchange = async (e) => {
         const file = (e.target as HTMLInputElement).files?.[0];
         if (!file) {
-          setCheckinLoading(false);
-          setPendingLocationData(null);
+          console.log('⚠️ 未选择文件');
           return;
         }
 
-        try {
-          // 1. 验证文件大小（最大 10MB）
-          const maxFileSize = 10 * 1024 * 1024;
-          if (file.size > maxFileSize) {
-            throw new Error('图片大小不能超过 10MB');
-          }
+        console.log('📷 获取到图片文件:', {
+          name: file.name,
+          size: file.size,
+          type: file.type
+        });
 
-          // 2. 验证文件类型
+        try {
+          // 验证文件类型
           const allowedTypes = [
             'image/jpeg',
             'image/jpg',
@@ -494,42 +487,71 @@ function StudentDashboardContent() {
             'image/gif',
             'image/webp'
           ];
-          if (!allowedTypes.includes(file.type.toLowerCase())) {
-            throw new Error('仅支持 JPEG、PNG、GIF、WebP 格式的图片');
+          if (!allowedTypes.includes(file.type)) {
+            toast.error('不支持的文件类型', {
+              description: '仅支持 JPEG、PNG、GIF、WebP 格式'
+            });
+            console.error('❌ 不支持的文件类型:', file.type);
+            return;
           }
 
-          // 3. 生成原图预览URL（不压缩，直接显示）
+          // 验证文件大小（10MB）
+          const maxSize = 20 * 1024 * 1024;
+          if (file.size > maxSize) {
+            toast.error('文件过大', {
+              description: `文件大小不能超过 ${maxSize / 1024 / 1024}MB`
+            });
+            console.error('❌ 文件过大:', file.size);
+            return;
+          }
+
+          console.log('✅ 文件验证通过');
+
+          // 生成预览 URL
           const previewUrl = URL.createObjectURL(file);
 
-          // 4. 保存原始文件和大小信息
+          // 设置预览状态
           setOriginalFileSize(file.size);
-          setCompressedFileSize(0); // 初始化为0，压缩后更新
-          setCompressedFile(file); // 先保存原始文件，压缩后更新
+          setCompressedFileSize(0); // 标记为未压缩
+          setCompressedFile(file); // 保存原始文件
           setPreviewImageUrl(previewUrl);
 
-          // 5. 显示预览对话框（此时还未压缩）
+          // 显示预览对话框
           setShowImagePreview(true);
-          setCheckinLoading(false);
+
+          console.log('✅ 已打开图片预览对话框');
         } catch (error) {
-          console.error('处理图片失败:', error);
+          console.error('❌ 处理图片失败:', error);
           toast.error('处理图片失败', {
             description: error instanceof Error ? error.message : '请稍后重试'
           });
-          setCheckinLoading(false);
-          setPendingLocationData(null);
         }
       };
 
       // 触发文件选择
       input.click();
     } catch (error) {
-      console.error('打开相机失败:', error);
+      console.error('❌ 打开相机失败:', error);
       toast.error('打开相机失败', {
-        description: '请检查相机权限设置'
+        description: '请重试'
       });
-      setCheckinLoading(false);
-      setPendingLocationData(null);
     }
+  };
+
+  // 图片签到（使用浏览器原生相机）
+  const handlePhotoCheckin = async () => {
+    if (!attendanceData || !pendingLocationData) {
+      return;
+    }
+
+    // 关闭对话框
+    setShowLocationFailedDialog(false);
+    setCheckinLoading(true);
+
+    console.log('🚀 开始图片签到流程');
+
+    // 使用浏览器原生相机
+    handleBrowserCameraCapture();
   };
 
   // 处理预览确认 - 压缩图片、上传图片并签到

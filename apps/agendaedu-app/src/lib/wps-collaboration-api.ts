@@ -26,6 +26,14 @@ interface ImageInfo {
   base64?: string;
 }
 
+// WPS SDK chooseImage 返回的图片信息
+interface WPSImageInfo {
+  imageSize: number; // 图片大小（字节）
+  imagePath: string; // 图片路径
+  imageName: string; // 文件名
+  localID?: string; // 本地资源 ID（仅 Android）
+}
+
 interface ShareData {
   title: string;
   desc: string;
@@ -157,8 +165,74 @@ declare global {
           count?: number;
           sizeType?: string[];
           sourceType?: string[];
+          enableWatermark?: boolean;
+          watermarkConfig?: {
+            watermarkText: Array<{ text: string; icon?: string }>;
+            position?: 'top' | 'bottom';
+            fontSize?: number;
+            color?: string;
+            backgroundStyleColor?: string;
+            backgroundStyleOpacity?: number;
+          };
+          applyBtnText?: string;
         };
-        onSuccess: (result: { localIds: string[] }) => void;
+        onSuccess: (result: {
+          imageInfos: Array<{
+            imageSize: number;
+            imagePath: string;
+            imageName: string;
+            localID?: string;
+          }>;
+        }) => void;
+        onError: (error: any) => void;
+      }) => void;
+
+      // 获取图片 Base64（仅 iOS 支持）
+      getImageBase64: (params: {
+        params: {
+          filePath: string;
+        };
+        onSuccess: (result: { imageBase64: string }) => void;
+        onError: (error: any) => void;
+      }) => void;
+
+      // 压缩图片
+      compressImage: (params: {
+        params: {
+          filepath: string;
+          quality?: number;
+        };
+        onSuccess: (result: { tempFilePath: string }) => void;
+        onError: (error: any) => void;
+      }) => void;
+
+      // 获取图片信息
+      getImageInfo: (params: {
+        params: {
+          src: string;
+        };
+        onSuccess: (result: {
+          imageSize: number;
+          width: number;
+          height: number;
+          path: string;
+        }) => void;
+        onError: (error: any) => void;
+      }) => void;
+
+      // 获取设备信息
+      getSystemInfo: (params: {
+        onSuccess: (result: {
+          platform: 'android' | 'ios' | 'windows' | 'mac';
+          brand: string;
+          model: string;
+          system: string;
+          appVersion: string;
+          deviceId: string;
+          screenWidth: number;
+          screenHeight: number;
+          statusBarHeight: number;
+        }) => void;
         onError: (error: any) => void;
       }) => void;
 
@@ -245,5 +319,6 @@ export type {
   PersonalAttendanceStats,
   ShareData,
   StudentInfo,
-  WPSCollaborationConfig
+  WPSCollaborationConfig,
+  WPSImageInfo
 };

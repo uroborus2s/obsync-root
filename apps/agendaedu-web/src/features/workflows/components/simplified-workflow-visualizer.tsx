@@ -308,7 +308,7 @@ export function SimplifiedWorkflowVisualizer({
       </CardHeader>
       <CardContent>
         {/* 调试信息 */}
-        {process.env.NODE_ENV === 'development' && (
+        {import.meta.env.DEV && (
           <div className='mb-4 rounded-lg border border-yellow-200 bg-yellow-50 p-3'>
             <h4 className='mb-2 text-sm font-medium'>调试信息:</h4>
             <div className='space-y-1 text-xs'>

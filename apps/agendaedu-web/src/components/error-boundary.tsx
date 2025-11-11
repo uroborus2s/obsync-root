@@ -5,7 +5,13 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react'
 import { AlertTriangle, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 
 interface Props {
   children: ReactNode
@@ -32,7 +38,7 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // 记录错误信息
     console.error('ErrorBoundary caught an error:', error, errorInfo)
-    
+
     this.setState({
       error,
       errorInfo,
@@ -55,31 +61,31 @@ export class ErrorBoundary extends Component<Props, State> {
 
       // 默认错误UI
       return (
-        <div className="flex min-h-[400px] items-center justify-center p-4">
-          <Card className="w-full max-w-md">
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900">
-                <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
+        <div className='flex min-h-[400px] items-center justify-center p-4'>
+          <Card className='w-full max-w-md'>
+            <CardHeader className='text-center'>
+              <div className='mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900'>
+                <AlertTriangle className='h-6 w-6 text-red-600 dark:text-red-400' />
               </div>
-              <CardTitle className="text-red-900 dark:text-red-100">
+              <CardTitle className='text-red-900 dark:text-red-100'>
                 出现了一些问题
               </CardTitle>
               <CardDescription>
                 页面遇到了意外错误，请尝试刷新页面或联系技术支持
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {process.env.NODE_ENV === 'development' && this.state.error && (
-                <div className="rounded-md bg-red-50 p-3 dark:bg-red-950">
-                  <h4 className="text-sm font-medium text-red-800 dark:text-red-200">
+            <CardContent className='space-y-4'>
+              {import.meta.env.DEV && this.state.error && (
+                <div className='rounded-md bg-red-50 p-3 dark:bg-red-950'>
+                  <h4 className='text-sm font-medium text-red-800 dark:text-red-200'>
                     错误详情 (开发模式)
                   </h4>
-                  <div className="mt-2 text-xs text-red-700 dark:text-red-300">
-                    <p className="font-mono">{this.state.error.message}</p>
+                  <div className='mt-2 text-xs text-red-700 dark:text-red-300'>
+                    <p className='font-mono'>{this.state.error.message}</p>
                     {this.state.errorInfo?.componentStack && (
-                      <details className="mt-2">
-                        <summary className="cursor-pointer">组件堆栈</summary>
-                        <pre className="mt-1 whitespace-pre-wrap text-xs">
+                      <details className='mt-2'>
+                        <summary className='cursor-pointer'>组件堆栈</summary>
+                        <pre className='mt-1 text-xs whitespace-pre-wrap'>
                           {this.state.errorInfo.componentStack}
                         </pre>
                       </details>
@@ -87,19 +93,19 @@ export class ErrorBoundary extends Component<Props, State> {
                   </div>
                 </div>
               )}
-              
-              <div className="flex gap-2">
-                <Button 
-                  onClick={this.handleRetry} 
-                  className="flex-1"
-                  variant="outline"
+
+              <div className='flex gap-2'>
+                <Button
+                  onClick={this.handleRetry}
+                  className='flex-1'
+                  variant='outline'
                 >
-                  <RefreshCw className="mr-2 h-4 w-4" />
+                  <RefreshCw className='mr-2 h-4 w-4' />
                   重试
                 </Button>
-                <Button 
-                  onClick={() => window.location.reload()} 
-                  className="flex-1"
+                <Button
+                  onClick={() => window.location.reload()}
+                  className='flex-1'
                 >
                   刷新页面
                 </Button>

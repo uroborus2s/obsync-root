@@ -21,6 +21,7 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
   const webConfig = sensitiveConfig.web || {};
   const osspConfig = sensitiveConfig.ossp || {};
   const redisConfig = sensitiveConfig.redis || {};
+  const wasV7Config = sensitiveConfig.wasV7 || {};
 
   return {
     // 服务器配置
@@ -109,8 +110,8 @@ export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
         name: '@stratix/was-v7',
         plugin: wasV7Plugin,
         options: {
-          appId: sensitiveConfig.wasV7?.appId || 'your-app-id',
-          appSecret: sensitiveConfig.wasV7?.appSecret || 'your-app-secret',
+          appId: wasV7Config.appId || 'your-app-id',
+          appSecret: wasV7Config.appSecret || 'your-app-secret',
           baseUrl: 'https://openapi.wps.cn'
         }
       },

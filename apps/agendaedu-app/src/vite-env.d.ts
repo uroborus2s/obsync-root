@@ -23,9 +23,29 @@ interface WPSSDKLocationInfo {
   accuracy?: number;
 }
 
+interface WPSSDKChooseImageResult {
+  localIds: string[]; // 返回选定照片的本地ID列表
+}
+
+interface WPSSDKChooseImageOptions {
+  sourceType: ('camera' | 'album')[]; // 图片来源：camera-相机，album-相册
+  count: number; // 可选择的图片数量
+  onSuccess: (res: WPSSDKChooseImageResult) => void; // 成功回调
+  onFail: (error: { errMsg: string }) => void; // 失败回调
+}
+
+interface WPSSDKGetLocalImgDataResult {
+  localData: string; // 图片的base64数据
+}
+
 interface WPSSDK {
   getLocationInfo(): Promise<WPSSDKLocationInfo>;
-  // 可以根据需要添加更多WPS SDK方法
+  chooseImage(options: WPSSDKChooseImageOptions): void;
+  getLocalImgData(options: {
+    localId: string;
+    onSuccess: (res: WPSSDKGetLocalImgDataResult) => void;
+    onFail: (error: { errMsg: string }) => void;
+  }): void;
 }
 
 declare global {

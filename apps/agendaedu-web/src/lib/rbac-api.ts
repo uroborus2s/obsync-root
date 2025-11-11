@@ -1,11 +1,8 @@
 /**
  * RBAC权限管理API客户端
  */
-
-import { apiClient } from './api-client'
 import type {
   ApiResponse,
-  AssignRolePermissionsRequest,
   AssignUserRolesRequest,
   CreateMenuData,
   CreatePermissionData,
@@ -21,6 +18,7 @@ import type {
   UserPermissionData,
   UserType,
 } from '@/types/rbac.types'
+import { apiClient } from './api-client'
 
 const BASE_URL = '/api/icalink/v1/rbac'
 
@@ -35,7 +33,7 @@ export const permissionApi = {
     const response = await apiClient.get<ApiResponse<PermissionEntity[]>>(
       `${BASE_URL}/permissions`
     )
-    return response.data.data || []
+    return response.data || []
   },
 
   /**
@@ -45,18 +43,20 @@ export const permissionApi = {
     const response = await apiClient.get<ApiResponse<PermissionEntity>>(
       `${BASE_URL}/permissions/${id}`
     )
-    return response.data.data || null
+    return response.data || null
   },
 
   /**
    * 创建权限
    */
-  async createPermission(data: CreatePermissionData): Promise<PermissionEntity> {
+  async createPermission(
+    data: CreatePermissionData
+  ): Promise<PermissionEntity> {
     const response = await apiClient.post<ApiResponse<PermissionEntity>>(
       `${BASE_URL}/permissions`,
       data
     )
-    return response.data.data!
+    return response.data!
   },
 
   /**
@@ -70,7 +70,7 @@ export const permissionApi = {
       `${BASE_URL}/permissions/${id}`,
       data
     )
-    return response.data.data!
+    return response.data!
   },
 
   /**
@@ -80,7 +80,7 @@ export const permissionApi = {
     const response = await apiClient.delete<ApiResponse<{ deleted: boolean }>>(
       `${BASE_URL}/permissions/${id}`
     )
-    return response.data.data?.deleted || false
+    return response.data?.deleted || false
   },
 
   /**
@@ -90,7 +90,7 @@ export const permissionApi = {
     const response = await apiClient.get<ApiResponse<PermissionEntity[]>>(
       `${BASE_URL}/permissions/system`
     )
-    return response.data.data || []
+    return response.data || []
   },
 
   /**
@@ -100,7 +100,7 @@ export const permissionApi = {
     const response = await apiClient.get<ApiResponse<PermissionEntity[]>>(
       `${BASE_URL}/permissions/custom`
     )
-    return response.data.data || []
+    return response.data || []
   },
 }
 
@@ -115,7 +115,7 @@ export const roleApi = {
     const response = await apiClient.get<ApiResponse<RoleEntity[]>>(
       `${BASE_URL}/roles`
     )
-    return response.data.data || []
+    return response.data || []
   },
 
   /**
@@ -125,7 +125,7 @@ export const roleApi = {
     const response = await apiClient.get<ApiResponse<RoleEntity>>(
       `${BASE_URL}/roles/${id}`
     )
-    return response.data.data || null
+    return response.data || null
   },
 
   /**
@@ -136,7 +136,7 @@ export const roleApi = {
       `${BASE_URL}/roles`,
       data
     )
-    return response.data.data!
+    return response.data!
   },
 
   /**
@@ -147,7 +147,7 @@ export const roleApi = {
       `${BASE_URL}/roles/${id}`,
       data
     )
-    return response.data.data!
+    return response.data!
   },
 
   /**
@@ -157,7 +157,7 @@ export const roleApi = {
     const response = await apiClient.delete<ApiResponse<{ deleted: boolean }>>(
       `${BASE_URL}/roles/${id}`
     )
-    return response.data.data?.deleted || false
+    return response.data?.deleted || false
   },
 
   /**
@@ -167,7 +167,7 @@ export const roleApi = {
     const response = await apiClient.get<ApiResponse<PermissionEntity[]>>(
       `${BASE_URL}/roles/${roleId}/permissions`
     )
-    return response.data.data || []
+    return response.data || []
   },
 
   /**
@@ -181,7 +181,7 @@ export const roleApi = {
       `${BASE_URL}/roles/${roleId}/permissions`,
       { permissionIds }
     )
-    return response.data.data?.assigned || false
+    return response.data?.assigned || false
   },
 }
 
@@ -196,7 +196,7 @@ export const menuApi = {
     const response = await apiClient.get<ApiResponse<MenuEntity[]>>(
       `${BASE_URL}/menus`
     )
-    return response.data.data || []
+    return response.data || []
   },
 
   /**
@@ -206,7 +206,7 @@ export const menuApi = {
     const response = await apiClient.get<ApiResponse<MenuEntity[]>>(
       `${BASE_URL}/menus/tree`
     )
-    return response.data.data || []
+    return response.data || []
   },
 
   /**
@@ -216,7 +216,7 @@ export const menuApi = {
     const response = await apiClient.get<ApiResponse<MenuEntity>>(
       `${BASE_URL}/menus/${id}`
     )
-    return response.data.data || null
+    return response.data || null
   },
 
   /**
@@ -227,7 +227,7 @@ export const menuApi = {
       `${BASE_URL}/menus`,
       data
     )
-    return response.data.data!
+    return response.data!
   },
 
   /**
@@ -238,7 +238,7 @@ export const menuApi = {
       `${BASE_URL}/menus/${id}`,
       data
     )
-    return response.data.data!
+    return response.data!
   },
 
   /**
@@ -248,7 +248,7 @@ export const menuApi = {
     const response = await apiClient.delete<ApiResponse<{ deleted: boolean }>>(
       `${BASE_URL}/menus/${id}`
     )
-    return response.data.data?.deleted || false
+    return response.data?.deleted || false
   },
 
   /**
@@ -259,7 +259,7 @@ export const menuApi = {
       `${BASE_URL}/menus/sort`,
       request
     )
-    return response.data.data?.sorted || false
+    return response.data?.sorted || false
   },
 
   /**
@@ -273,7 +273,7 @@ export const menuApi = {
       `${BASE_URL}/menus/user/${userId}`,
       { params: { userType } }
     )
-    return response.data.data || []
+    return response.data || []
   },
 }
 
@@ -284,12 +284,15 @@ export const userRoleApi = {
   /**
    * 获取用户的所有角色
    */
-  async getUserRoles(userId: string, userType: UserType): Promise<RoleEntity[]> {
+  async getUserRoles(
+    userId: string,
+    userType: UserType
+  ): Promise<RoleEntity[]> {
     const response = await apiClient.get<ApiResponse<RoleEntity[]>>(
       `${BASE_URL}/user-roles/${userId}`,
       { params: { userType } }
     )
-    return response.data.data || []
+    return response.data || []
   },
 
   /**
@@ -303,7 +306,7 @@ export const userRoleApi = {
       `${BASE_URL}/user-permissions/${userId}`,
       { params: { userType } }
     )
-    return response.data.data!
+    return response.data!
   },
 
   /**
@@ -314,7 +317,7 @@ export const userRoleApi = {
       `${BASE_URL}/user-roles`,
       request
     )
-    return response.data.data?.assigned || false
+    return response.data?.assigned || false
   },
 
   /**
@@ -329,7 +332,7 @@ export const userRoleApi = {
       `${BASE_URL}/user-roles/${userId}/${roleId}`,
       { params: { userType } }
     )
-    return response.data.data?.removed || false
+    return response.data?.removed || false
   },
 
   /**
@@ -355,7 +358,7 @@ export const userRoleApi = {
         total_pages: number
       }>
     >(`${BASE_URL}/teachers`, { params })
-    return response.data.data!
+    return response.data!
   },
 
   /**
@@ -368,7 +371,6 @@ export const userRoleApi = {
     const response = await apiClient.get<
       ApiResponse<{ userIds: string[]; count: number }>
     >(`${BASE_URL}/roles/${roleId}/users`, { params: { userType } })
-    return response.data.data!
+    return response.data!
   },
 }
-

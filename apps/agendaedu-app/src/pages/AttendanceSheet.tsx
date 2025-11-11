@@ -2,6 +2,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import LeaveApprovalDialog from '@/components/LeaveApprovalDialog';
 import ManualCheckinDialog from '@/components/ManualCheckinDialog';
 import PhotoApprovalDialog from '@/components/PhotoApprovalDialog';
+import { ShareAttendanceDialog } from '@/components/ShareAttendanceDialog';
 import { Toaster, ToastProvider } from '@/components/ui/toast';
 import VerificationConfirmDialog from '@/components/VerificationConfirmDialog';
 import { useToast } from '@/hooks/use-toast';
@@ -12,6 +13,7 @@ import {
   Calendar,
   CheckCircle,
   MapPin,
+  Share2,
   User,
   XCircle
 } from 'lucide-react';
@@ -182,6 +184,9 @@ function AttendanceSheetContent() {
     useState(false);
   const [isApprovingPhoto, setIsApprovingPhoto] = useState(false);
 
+  // 分享考勤数据对话框状态
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+
   // 缺勤统计状态
   const [absenceStats, setAbsenceStats] = useState<StudentAbsenceStats[]>([]);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
@@ -275,11 +280,6 @@ function AttendanceSheetContent() {
   const formatWeekDay = (weekDay: number) => {
     const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
     return weekdays[weekDay] || `周${weekDay}`;
-  };
-
-  // 格式化百分比
-  const formatPercentage = (rate: number) => {
-    return `${(rate * 100).toFixed(1)}%`;
   };
 
   const loadTeacherAttendanceData = async () => {
@@ -1065,21 +1065,21 @@ function AttendanceSheetContent() {
     const { course, students, stats } = teacherData;
 
     return (
-      <div className='flex h-screen flex-col bg-gray-50'>
-        <div className='mx-auto flex max-w-4xl flex-1 flex-col bg-white shadow-lg'>
-          {/* 头部标题 - 移除标签页，只显示标题 */}
-          <div className='bg-white shadow-sm'>
+      <div className='min-h-screen bg-gray-50'>
+        <div className='mx-auto max-w-4xl bg-white shadow-lg'>
+          {/* 头部标题 - 固定在顶部 */}
+          <div className='sticky top-0 z-30 bg-white shadow-sm'>
             <div className='border-b border-blue-600 bg-blue-50 px-4 py-3'>
               <h1 className='text-center text-lg font-semibold text-blue-600'>
                 本节课签到
               </h1>
             </div>
           </div>
-          {/* 主要内容 - 直接显示本节课签到内容 */}
-          <div className='flex-1 overflow-hidden p-4'>
+          {/* 主要内容 - 可滚动区域 */}
+          <div className='p-4'>
             <>
-              {/* 课程信息 */}
-              <div className='mb-6 rounded-lg bg-blue-50 p-4'>
+              {/* 课程信息 - 吸顶效果 */}
+              <div className='sticky top-[57px] z-20 mb-6 rounded-lg bg-blue-50 p-4 shadow-md'>
                 <div className='mb-3 flex items-center justify-between'>
                   <div className='flex items-center space-x-3'>
                     <h2 className='text-xl font-semibold text-gray-800'>
@@ -1285,32 +1285,45 @@ function AttendanceSheetContent() {
               {students && students.length > 0 && (
                 <div className='mb-6 rounded-lg bg-white shadow-sm'>
                   {/* Tab 导航栏 */}
-                  <div className='flex border-b border-gray-200'>
-                    {/* 签到情况 Tab - 仅在 need_checkin = 1 时显示 */}
-                    {course.need_checkin === 1 && (
+                  <div className='flex items-center border-b border-gray-200'>
+                    {/* Tab按钮组 - 使用flex-1占据左侧空间 */}
+                    <div className='flex flex-1'>
+                      {/* 签到情况 Tab - 仅在 need_checkin = 1 时显示 */}
+                      {course.need_checkin === 1 && (
+                        <button
+                          type='button'
+                          onClick={() => setActiveTab('attendance')}
+                          className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                            activeTab === 'attendance'
+                              ? 'border-b-2 border-blue-500 text-blue-600'
+                              : 'text-gray-600 hover:text-gray-800'
+                          }`}
+                        >
+                          本节签到情况
+                        </button>
+                      )}
+                      {/* 缺勤统计 Tab - 始终显示 */}
                       <button
                         type='button'
-                        onClick={() => setActiveTab('attendance')}
+                        onClick={() => setActiveTab('absence')}
                         className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                          activeTab === 'attendance'
+                          activeTab === 'absence'
                             ? 'border-b-2 border-blue-500 text-blue-600'
                             : 'text-gray-600 hover:text-gray-800'
                         }`}
                       >
-                        签到情况
+                        历史缺勤统计
                       </button>
-                    )}
-                    {/* 缺勤统计 Tab - 始终显示 */}
+                    </div>
+
+                    {/* 分享按钮 - 固定在右侧 */}
                     <button
                       type='button'
-                      onClick={() => setActiveTab('absence')}
-                      className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                        activeTab === 'absence'
-                          ? 'border-b-2 border-blue-500 text-blue-600'
-                          : 'text-gray-600 hover:text-gray-800'
-                      }`}
+                      onClick={() => setIsShareDialogOpen(true)}
+                      className='flex items-center gap-2 px-4 py-3 text-sm font-medium text-gray-600 transition-colors hover:text-blue-600'
                     >
-                      缺勤统计
+                      <Share2 className='h-4 w-4' />
+                      导出
                     </button>
                   </div>
 
@@ -1318,7 +1331,7 @@ function AttendanceSheetContent() {
                   <div className='p-4'>
                     {/* 签到情况 Tab */}
                     {activeTab === 'attendance' && (
-                      <div className='max-h-96 space-y-2 overflow-y-auto'>
+                      <div className='space-y-2'>
                         {students.map((student, index) => (
                           <div
                             key={index}
@@ -1459,7 +1472,7 @@ function AttendanceSheetContent() {
 
                     {/* 缺勤统计 Tab */}
                     {activeTab === 'absence' && (
-                      <div className='max-h-96 overflow-y-auto'>
+                      <div>
                         {isLoadingStats ? (
                           <div className='flex items-center justify-center py-8'>
                             <div className='text-sm text-gray-500'>
@@ -1618,6 +1631,9 @@ function AttendanceSheetContent() {
               )}
             </>
           </div>
+
+          {/* 底部间距，确保内容不被遮挡 */}
+          <div className='h-20'></div>
         </div>
 
         {/* <TeacherFloatingMessageButton className='fixed bottom-24 right-6 z-50' /> */}
@@ -1663,6 +1679,15 @@ function AttendanceSheetContent() {
             isSubmitting={isApprovingPhoto}
           />
         )}
+
+        {/* 分享考勤数据对话框 */}
+        <ShareAttendanceDialog
+          isOpen={isShareDialogOpen}
+          onClose={() => setIsShareDialogOpen(false)}
+          courseId={course.id}
+          courseCode={course.course_code}
+          courseName={course.course_name}
+        />
 
         {/* 切换签到设置确认对话框 */}
         <ConfirmDialog

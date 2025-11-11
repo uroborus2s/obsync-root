@@ -38,7 +38,7 @@ SELECT
     WHEN lw.window_id IS NOT NULL THEN
       CASE
         WHEN arh.window_id = lw.window_id THEN arh.status
-        WHEN arh.status IN ('present') AND (arh.window_id <> lw.window_id OR arh.window_id IS NULL) THEN 'truant'
+        WHEN arh.status IN ('present','pending_approval') AND (arh.window_id <> lw.window_id OR arh.window_id IS NULL) THEN 'truant'
         ELSE 'absent'
       END
     WHEN arh.id IS NOT NULL THEN arh.status

@@ -1,5 +1,10 @@
 import { Outlet } from '@tanstack/react-router'
-import { IconSettings, IconCalendar, IconClock, IconDatabase } from '@tabler/icons-react'
+import {
+  IconCalendar,
+  IconClock,
+  IconDatabase,
+  IconSettings,
+} from '@tabler/icons-react'
 import { Separator } from '@/components/ui/separator'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
@@ -34,7 +39,7 @@ export default function SystemConfig() {
           <aside className='top-0 lg:sticky lg:w-1/5'>
             <SidebarNav items={sidebarNavItems} />
           </aside>
-          <div className='flex w-full overflow-y-hidden p-1'>
+          <div className='flex w-full p-1 lg:w-4/5'>
             <Outlet />
           </div>
         </div>
@@ -65,4 +70,3 @@ const sidebarNavItems = [
     href: '/system-config/sync',
   },
 ]
-

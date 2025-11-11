@@ -8,10 +8,11 @@ import {
   Loader2,
   Users,
 } from 'lucide-react'
+import { apiClient } from '@/lib/api-client'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { EnhancedPagination } from '@/components/ui/enhanced-pagination'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -98,6 +99,25 @@ interface AbsentRecord {
 }
 
 /**
+ * 拆分 ex_dept_id 参数
+ * @param exDeptId 完整的 ex_dept_id，例如 "030308202303080603080623018"
+ * @returns 拆分后的参数对象，如果格式不正确则返回 null
+ */
+function parseExDeptId(exDeptId: string) {
+  if (!exDeptId || exDeptId.length < 17) {
+    return null
+  }
+
+  return {
+    // type: exDeptId.substring(0, 2),        // 前2位：类型（不传给后端）
+    collegeId: exDeptId.substring(2, 6), // 第3-6位：学院 ID
+    grade: exDeptId.substring(6, 10), // 第7-10位：年级
+    majorId: exDeptId.substring(10, 16), // 第11-16位：专业 ID
+    classId: exDeptId.substring(16), // 第17位及以后：班级 ID
+  }
+}
+
+/**
  * 学生缺勤统计组件
  * 左侧：组织架构树
  * 右侧：学生统计表格
@@ -115,7 +135,7 @@ export function StudentAbsenceStats() {
   const [treeError, setTreeError] = useState<string | null>(null) // 记录树加载错误
   const [searchKeyword, setSearchKeyword] = useState('')
   const [page, setPage] = useState(1)
-  const pageSize = 20
+  const [pageSize, setPageSize] = useState(20)
   const [sortField, setSortField] = useState<string>('overall_absence_rate')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
@@ -141,14 +161,10 @@ export function StudentAbsenceStats() {
   const { data: rootDept, isLoading: isLoadingRoot } = useQuery({
     queryKey: ['department-root'],
     queryFn: async (): Promise<DepartmentNode> => {
-      const response = await fetch('/api/icalink/v1/depts/root')
-      if (!response.ok) {
-        throw new Error('获取根部门失败')
-      }
-      const result = await response.json()
-      console.log('🌳 根部门数据:', result.data)
-      console.log('🌳 根部门ID:', result.data?.id)
-      console.log('🌳 根部门名称:', result.data?.name)
+      const result = await apiClient.get<{
+        success: boolean
+        data: DepartmentNode
+      }>('/api/icalink/v1/depts/root')
       return result.data
     },
   })
@@ -158,20 +174,10 @@ export function StudentAbsenceStats() {
     deptId: string,
     parentExDeptId?: string
   ): Promise<DepartmentNode[]> => {
-    console.log('📡 fetchChildren 被调用:', {
-      deptId,
-      parentExDeptId,
-      hasCache: treeData.has(deptId),
-      cacheSize: treeData.size,
-    })
-
     // 检查缓存
     if (treeData.has(deptId)) {
-      console.log('✅ 使用缓存数据，子节点数量:', treeData.get(deptId)!.length)
       return treeData.get(deptId)!
     }
-
-    console.log('🌐 开始发起 HTTP 请求获取子部门...')
 
     try {
       const allChildren: DepartmentNode[] = []
@@ -179,47 +185,34 @@ export function StudentAbsenceStats() {
 
       // 循环获取所有页的数据
       do {
-        const url = new URL(
-          `/api/icalink/v1/depts/${deptId}/children`,
-          window.location.origin
-        )
-        url.searchParams.set('page_size', '50')
+        // 构建查询参数
+        const params: Record<string, string> = {
+          page_size: '50',
+        }
         if (pageToken) {
-          url.searchParams.set('page_token', pageToken)
+          params.page_token = pageToken
         }
         // 性能优化：传递根部门ID，避免后端额外的API调用
         if (rootDept?.id) {
-          url.searchParams.set('root_dept_id', rootDept.id)
+          params.root_dept_id = rootDept.id
         }
         // 权限过滤：传递父部门的 ex_dept_id，用于学院级别权限过滤
         if (parentExDeptId) {
-          url.searchParams.set('parent_ex_dept_id', parentExDeptId)
+          params.parent_ex_dept_id = parentExDeptId
         }
 
-        console.log('🔗 请求 URL:', url.toString())
+        console.log('🔗 请求参数:', params)
 
-        const response = await fetch(url.toString())
-
-        console.log('📥 收到响应:', {
-          status: response.status,
-          statusText: response.statusText,
-          ok: response.ok,
-        })
-
-        // 处理HTTP错误
-        if (!response.ok) {
-          if (response.status === 401) {
-            throw new Error('未授权，请重新登录')
-          } else if (response.status === 403) {
-            throw new Error('无权限访问此部门')
-          } else if (response.status === 404) {
-            throw new Error('部门不存在')
-          } else {
-            throw new Error(`获取子部门失败 (${response.status})`)
+        const result = await apiClient.get<{
+          success: boolean
+          data?: {
+            items: DepartmentNode[]
+            next_page_token?: string
           }
-        }
+          error?: string
+        }>(`/api/icalink/v1/depts/${deptId}/children`, { params })
 
-        const result = await response.json()
+        console.log('📥 收到响应:', result)
 
         // 处理业务错误
         if (!result.success) {
@@ -230,21 +223,9 @@ export function StudentAbsenceStats() {
         const items = result.data?.items || []
         allChildren.push(...items)
 
-        console.log('📦 收集到子部门:', {
-          currentPageCount: items.length,
-          totalCount: allChildren.length,
-          hasNextPage: !!result.data?.next_page_token,
-        })
-
         // 获取下一页标记
         pageToken = result.data?.next_page_token
       } while (pageToken)
-
-      console.log('✅ 所有子部门加载完成:', {
-        deptId,
-        totalChildren: allChildren.length,
-        isLeaf: allChildren.length === 0,
-      })
 
       // 标记叶子节点（没有子部门的节点）
       if (allChildren.length === 0) {
@@ -290,10 +271,15 @@ export function StudentAbsenceStats() {
         pageSize: pageSize.toString(),
       })
 
-      // 直接传递 ex_dept_id 给后端
-      // 后端会自动提取学院ID（前2个字符）和剩余部分（年级+专业ID+班级ID）
+      // 拆分 ex_dept_id 并传递给后端
       if (selectedExDeptId) {
-        params.append('exDeptId', selectedExDeptId)
+        const parsed = parseExDeptId(selectedExDeptId)
+        if (parsed) {
+          params.append('collegeId', parsed.collegeId)
+          params.append('grade', parsed.grade)
+          params.append('majorId', parsed.majorId)
+          params.append('classId', parsed.classId)
+        }
       }
 
       if (searchKeyword) {
@@ -308,16 +294,20 @@ export function StudentAbsenceStats() {
         params.append('sortOrder', sortOrder)
       }
 
-      const response = await fetch(
-        `/api/icalink/v1/stats/student-absence-summary?${params}`
-      )
-      if (!response.ok) {
-        throw new Error('获取学生统计数据失败')
-      }
-      const result = await response.json()
+      const result = await apiClient.get<{
+        success: boolean
+        data: {
+          data: StudentAbsenceStats[]
+          total: number
+          page: number
+          pageSize: number
+        }
+      }>(`/api/icalink/v1/stats/student-absence-summary?${params}`)
       return result.data
     },
-    enabled: true,
+    // 只有当选中的节点是叶子节点（班级）时，才启用查询
+    enabled:
+      !!selectedExDeptId && !!selectedNodeId && leafNodes.has(selectedNodeId),
   })
 
   // 获取学生课程详情
@@ -326,13 +316,10 @@ export function StudentAbsenceStats() {
     queryFn: async () => {
       if (!selectedStudent?.id) return null
 
-      const response = await fetch(
-        `/api/icalink/v1/stats/student-course-details/${selectedStudent.id}`
-      )
-      if (!response.ok) {
-        throw new Error('获取学生课程详情失败')
-      }
-      const result = await response.json()
+      const result = await apiClient.get<{
+        success: boolean
+        data: StudentCourseDetail[]
+      }>(`/api/icalink/v1/stats/student-course-details/${selectedStudent.id}`)
       return result.data
     },
     enabled: !!selectedStudent?.id && viewMode === 'course-detail',
@@ -365,13 +352,10 @@ export function StudentAbsenceStats() {
         params.append('absenceType', absenceType)
       }
 
-      const response = await fetch(
-        `/api/icalink/v1/stats/student-absent-records?${params.toString()}`
-      )
-      if (!response.ok) {
-        throw new Error('获取学生缺勤记录失败')
-      }
-      const result = await response.json()
+      const result = await apiClient.get<{
+        success: boolean
+        data: AbsentRecord[]
+      }>(`/api/icalink/v1/stats/student-absent-records?${params.toString()}`)
       return result.data
     },
     enabled:
@@ -401,13 +385,9 @@ export function StudentAbsenceStats() {
 
     // 如果节点还没有加载子节点，则加载
     if (!treeData.has(nodeId)) {
-      console.log('Fetching children for nodeId:', nodeId)
-
       // 从 nodeMap 中获取当前节点的 ex_dept_id
       const currentNode = nodeMap.get(nodeId) || rootDept
       const parentExDeptId = currentNode?.ex_dept_id
-
-      console.log('Parent ex_dept_id:', parentExDeptId)
 
       // 设置加载状态
       setLoadingNodes((prev) => new Set(prev).add(nodeId))
@@ -444,19 +424,28 @@ export function StudentAbsenceStats() {
       nodeId: node.id,
       nodeName: node.name,
       exDeptId: node.ex_dept_id,
+      isLeaf: leafNodes.has(node.id),
     })
 
     // 1. 选中节点
     setSelectedNodeId(node.id)
-    setSelectedExDeptId(node.ex_dept_id) // 保存ex_dept_id用于提取classId
-    setPage(1) // 重置页码
 
-    // 2. 如果不是叶子节点且不在加载中，则展开/折叠
+    // 2. 判断是否为班级节点（叶子节点）
     const isLeaf = leafNodes.has(node.id)
     const isLoading = loadingNodes.has(node.id)
 
-    if (!isLeaf && !isLoading) {
-      await toggleNode(node.id)
+    if (isLeaf) {
+      // 是班级节点，设置 ex_dept_id 用于查询学生统计数据
+      setSelectedExDeptId(node.ex_dept_id)
+      setPage(1) // 重置页码
+    } else {
+      // 不是班级节点，清空 ex_dept_id，阻止查询
+      setSelectedExDeptId(null)
+
+      // 如果不在加载中，则展开/折叠
+      if (!isLoading) {
+        await toggleNode(node.id)
+      }
     }
   }
 
@@ -474,23 +463,6 @@ export function StudentAbsenceStats() {
     const isLeaf = leafNodes.has(node.id)
     const hasChildren =
       !isLeaf && (children.length > 0 || !treeData.has(node.id))
-
-    // 调试日志
-    if (level === 0) {
-      console.log('🎯 渲染根节点:', {
-        nodeId: node.id,
-        nodeName: node.name,
-        isExpanded,
-        isSelected,
-        isLoading,
-        isLeaf,
-        hasChildren,
-        childrenCount: children.length,
-        inTreeData: treeData.has(node.id),
-        inLeafNodes: leafNodes.has(node.id),
-        clickDisabled: isLoading || isLeaf,
-      })
-    }
 
     return (
       <div key={node.id}>
@@ -592,7 +564,6 @@ export function StudentAbsenceStats() {
             {/* 搜索框 */}
             <div className='flex items-center gap-4'>
               <div className='flex-1'>
-                <Label htmlFor='search'>搜索学生</Label>
                 <Input
                   id='search'
                   placeholder='输入学生ID或姓名搜索...'
@@ -756,7 +727,11 @@ export function StudentAbsenceStats() {
                         colSpan={11}
                         className='text-muted-foreground text-center'
                       >
-                        暂无数据
+                        {!selectedNodeId
+                          ? '请选择组织架构节点'
+                          : !leafNodes.has(selectedNodeId)
+                            ? '请选择具体班级查看学生统计'
+                            : '暂无数据'}
                       </TableCell>
                     </TableRow>
                   )}
@@ -765,31 +740,15 @@ export function StudentAbsenceStats() {
             </div>
 
             {/* 分页 */}
-            {statsData && statsData.totalPages > 1 && (
-              <div className='flex items-center justify-between'>
-                <p className='text-muted-foreground text-sm'>
-                  共 {statsData.total} 条记录，第 {page} /{' '}
-                  {statsData.totalPages} 页
-                </p>
-                <div className='flex gap-2'>
-                  <Button
-                    variant='outline'
-                    size='sm'
-                    disabled={page === 1}
-                    onClick={() => setPage(page - 1)}
-                  >
-                    上一页
-                  </Button>
-                  <Button
-                    variant='outline'
-                    size='sm'
-                    disabled={page === statsData.totalPages}
-                    onClick={() => setPage(page + 1)}
-                  >
-                    下一页
-                  </Button>
-                </div>
-              </div>
+            {statsData && statsData.total > 0 && (
+              <EnhancedPagination
+                page={page}
+                pageSize={pageSize}
+                total={statsData.total}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+                disabled={isLoadingStats}
+              />
             )}
           </>
         ) : viewMode === 'course-detail' ? (

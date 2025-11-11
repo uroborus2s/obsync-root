@@ -8,6 +8,7 @@ type ColumnType<
 // @wps/app-icalink 数据库类型定义
 // 基于 Stratix 框架的数据库实体接口定义
 
+import type { IcalinkAttendanceExportRecord } from './attendance-export.types.js';
 import type { VStudentSemesterAttendanceStats } from './student-attendance-stats.types.js';
 
 /**
@@ -419,6 +420,44 @@ export interface VAttendanceHistoryDetails {
   periods: string | null;
 }
 
+/**
+ * 未来课程考勤详情视图实体
+ * 对应视图: v_attendance_future_details
+ */
+export interface VAttendanceFutureDetails {
+  attendance_course_id: number;
+  external_id: string;
+  course_code: string;
+  course_name: string;
+  created_at: Date;
+  student_id: string;
+  student_name: string;
+  class_name: string | null;
+  major_name: string | null;
+  school_name: string | null;
+  grade: string | null;
+  gender: string | null;
+  people: string | null;
+  class_id: string | null;
+  school_id: string | null;
+  major_id: string | null;
+  course_unit_id: string | null;
+  course_unit: string | null;
+  teaching_class_code: string | null;
+  teaching_week: number | null;
+  week_day: number | null;
+  periods: string | null;
+  time_period: string | null;
+  start_time: Date;
+  end_time: Date;
+  teacher_names: string | null;
+  teacher_codes: string | null;
+  semester: string | null;
+  class_location: string | null;
+  need_checkin: number;
+  final_status: string;
+}
+
 // =====================================================
 // RBAC权限管理系统表实体
 // =====================================================
@@ -805,6 +844,13 @@ export interface VCourseCheckinStatsUnit {
   total_truant: number;
   absence_rate: number;
   truancy_rate: number;
+  /** 周度统计数据（可选，用于前端列分组展开功能） */
+  weekly_stats?: Array<{
+    week: number;
+    expected: number;
+    absent: number;
+    absence_rate: number;
+  }>;
 }
 
 /**
@@ -827,6 +873,13 @@ export interface VCourseCheckinStatsClass {
   total_truant: number;
   absence_rate: number;
   truancy_rate: number;
+  /** 周度统计数据（可选，用于前端列分组展开功能） */
+  weekly_stats?: Array<{
+    week: number;
+    expected: number;
+    absent: number;
+    absence_rate: number;
+  }>;
 }
 
 /**
@@ -852,6 +905,81 @@ export interface VCourseCheckinStatsSummary {
   total_truant: number;
   absence_rate: number;
   truancy_rate: number;
+  /** 周度统计数据（可选，用于前端列分组展开功能） */
+  weekly_stats?: Array<{
+    week: number;
+    expected: number;
+    absent: number;
+    absence_rate: number;
+  }>;
+}
+
+/**
+ * 学期配置表实体
+ * 对应表: icalink_system_config_terms
+ */
+export interface IcalinkSystemConfigTerm {
+  id: ColumnType<number, number | undefined, number>;
+  term_code: string;
+  name: string;
+  start_date: string; // YYYY-MM-DD
+  end_date: string | null;
+  is_active: ColumnType<boolean, boolean | undefined, boolean>;
+  remark: string | null;
+  created_at: ColumnType<Date, string | undefined, string>;
+  updated_at: ColumnType<Date, string | undefined, string>;
+}
+
+/**
+ * 课节配置表实体
+ * 对应表: icalink_course_periods
+ */
+export interface IcalinkCoursePeriod {
+  id: ColumnType<number, number | undefined, number>;
+  term_id: number;
+  period_no: number;
+  name: string | null;
+  default_start_time: string; // HH:mm:ss
+  default_end_time: string; // HH:mm:ss
+  is_active: ColumnType<boolean, boolean | undefined, boolean>;
+  remark: string | null;
+  created_at: ColumnType<Date, string | undefined, string>;
+  updated_at: ColumnType<Date, string | undefined, string>;
+}
+
+/**
+ * 课节规则表实体
+ * 对应表: icalink_course_period_rules
+ */
+export interface IcalinkCoursePeriodRule {
+  id: ColumnType<number, number | undefined, number>;
+  period_id: number;
+  priority: number;
+  rule_name: string | null;
+  start_time: string; // HH:mm:ss
+  end_time: string; // HH:mm:ss
+  effective_start_date: string | null; // YYYY-MM-DD
+  effective_end_date: string | null; // YYYY-MM-DD
+  enabled: ColumnType<boolean, boolean | undefined, boolean>;
+  remark: string | null;
+  created_at: ColumnType<Date, string | undefined, string>;
+  updated_at: ColumnType<Date, string | undefined, string>;
+}
+
+/**
+ * 规则条件表实体
+ * 对应表: icalink_course_period_rule_conditions
+ */
+export interface IcalinkCoursePeriodRuleCondition {
+  id: ColumnType<number, number | undefined, number>;
+  rule_id: number;
+  group_no: number;
+  group_connector: 'AND' | 'OR';
+  dimension: string;
+  operator: '=' | '!=' | 'in' | 'not_in' | '>' | '>=' | '<' | '<=' | 'between';
+  value_json: any; // JSON 类型
+  created_at: ColumnType<Date, string | undefined, string>;
+  updated_at: ColumnType<Date, string | undefined, string>;
 }
 
 /**
@@ -872,17 +1000,25 @@ export interface IcalinkDatabase {
   icalink_course_checkin_stats: IcalinkCourseCheckinStats;
   icalink_teaching_class: IcalinkTeachingClass;
   icalink_student_absence_rate_detail: IcalinkStudentAbsenceRateDetail;
+  icalink_attendance_export_records: IcalinkAttendanceExportRecord;
+
+  // 课程时间配置表
+  icalink_system_config_terms: IcalinkSystemConfigTerm;
+  icalink_course_periods: IcalinkCoursePeriod;
+  icalink_course_period_rules: IcalinkCoursePeriodRule;
+  icalink_course_period_rule_conditions: IcalinkCoursePeriodRuleCondition;
 
   // 考勤相关视图
   v_teaching_class: VTeachingClass;
   v_attendance_realtime_details: VAttendanceRealtimeDetails;
   v_attendance_today_details: VAttendanceTodayDetails;
   v_attendance_history_details: VAttendanceHistoryDetails;
+  v_attendance_future_details: VAttendanceFutureDetails;
   v_student_semester_attendance_stats: VStudentSemesterAttendanceStats;
   v_student_overall_attendance_stats: VStudentOverallAttendanceStats;
   v_student_overall_attendance_stats_details: VStudentOverallAttendanceStatsDetails;
   v_student_absence_rate_detail: VStudentAbsenceRateDetail;
-  v_student_absence_rate_summary: VStudentAbsenceRateSummary;
+  // v_student_absence_rate_summary: VStudentAbsenceRateSummary; // 已删除：改为直接查询明细表
   v_course_checkin_stats_unit: VCourseCheckinStatsUnit;
   v_course_checkin_stats_class: VCourseCheckinStatsClass;
   v_course_checkin_stats_summary: VCourseCheckinStatsSummary;

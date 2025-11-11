@@ -4,7 +4,7 @@
  */
 
 import { API_CONFIG } from '@/config/api-config';
-import { IcaLinkApiClient } from './icalink-api-client';
+import { IcaLinkApiClient, icaLinkApiClient } from './icalink-api-client';
 import { getCookie } from './jwt-utils';
 
 // 从后端类型定义中导入的接口类型
@@ -1108,6 +1108,153 @@ export class AttendanceApiService {
       };
     }
   }
+
+  /**
+   * 导出实时考勤数据
+   * @param courseId 课程ID
+   * @returns 导出任务响应
+   */
+  async exportRealtimeData(courseId: number): Promise<ExportTaskResponse> {
+    try {
+      const response = await icaLinkApiClient.post<ExportTaskResponse>(
+        '/icalink/v1/attendance/export/realtime',
+        {
+          courseId
+        }
+      );
+
+      if (!response.success || !response.data) {
+        throw new Error(response.message || '导出失败');
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('导出实时考勤数据失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 导出历史统计数据
+   * @param courseCode 课程代码
+   * @param sortField 排序字段（可选）
+   * @param sortOrder 排序方向（可选）
+   * @returns 导出任务响应
+   */
+  async exportHistoryData(
+    courseCode: string,
+    sortField?: string,
+    sortOrder?: 'asc' | 'desc'
+  ): Promise<ExportTaskResponse> {
+    try {
+      const response = await icaLinkApiClient.post<ExportTaskResponse>(
+        '/icalink/v1/attendance/export/history',
+        {
+          courseCode,
+          sortField,
+          sortOrder
+        }
+      );
+
+      if (!response.success || !response.data) {
+        throw new Error(response.message || '导出失败');
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('导出历史统计数据失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 查询导出任务状态
+   * @param taskId 任务ID
+   * @returns 导出任务响应
+   */
+  async getExportTaskStatus(taskId: string): Promise<ExportTaskResponse> {
+    try {
+      const response = await icaLinkApiClient.get<ExportTaskResponse>(
+        `/icalink/v1/attendance/export/status/${taskId}`
+      );
+
+      if (!response.success || !response.data) {
+        throw new Error(response.message || '查询失败');
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('查询导出任务状态失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 下载导出文件
+   * @param taskId 任务ID
+   * @param fileName 文件名
+   */
+  async downloadExportFile(taskId: string, fileName: string): Promise<void> {
+    try {
+      console.log('📥 [前端下载] 开始下载文件', {
+        taskId,
+        fileName
+      });
+
+      // 使用统一的icaLinkApiClient下载Blob
+      // 优点：
+      // 1. 自动携带Cookie（credentials: 'include'）
+      // 2. 自动处理401响应和token刷新
+      // 3. 统一的错误处理机制
+      // 4. 代码一致性
+      const blob = await icaLinkApiClient.downloadBlob(
+        `/icalink/v1/attendance/export/download/${taskId}`
+      );
+
+      console.log('📥 [前端下载] Blob下载成功', {
+        blobSize: blob.size,
+        blobType: blob.type,
+        blobIsEmpty: blob.size === 0
+      });
+
+      if (blob.size === 0) {
+        console.error('❌ [前端下载] Blob为空！');
+        throw new Error('下载的文件为空');
+      }
+
+      // 创建临时URL并触发浏览器下载
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // 清理临时URL，释放内存
+      window.URL.revokeObjectURL(downloadUrl);
+
+      console.log('✅ [前端下载] 文件下载成功', { fileName });
+    } catch (error) {
+      console.error('❌ [前端下载] 下载导出文件失败:', error);
+      throw error;
+    }
+  }
+}
+
+// 导出任务响应接口
+export interface ExportTaskResponse {
+  taskId: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  downloadUrl?: string;
+  cacheHit?: boolean;
+  progress?: number;
+  error?: string;
+  fileName?: string;
+  fileSize?: number;
+  recordCount?: number;
+  createdAt?: Date;
+  completedAt?: Date;
 }
 
 // 创建默认实例

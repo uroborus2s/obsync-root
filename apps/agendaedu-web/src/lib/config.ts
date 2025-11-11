@@ -20,32 +20,42 @@ export interface AppConfig {
  * 根据当前环境获取API基础URL
  */
 function getApiBaseUrl(): string {
-  // 优先使用环境变量
-  if (import.meta.env.VITE_API_BASE_URL) {
-    return import.meta.env.VITE_API_BASE_URL
+  // 1. 优先使用环境变量（构建时注入）
+  const envApiUrl = import.meta.env.VITE_API_BASE_URL
+  if (envApiUrl) {
+    console.log('🔧 使用环境变量 VITE_API_BASE_URL:', envApiUrl)
+    return envApiUrl
   }
 
-  // 服务端渲染环境
+  // 2. 服务端渲染环境
   if (typeof window === 'undefined') {
+    console.log('🔧 服务端渲染环境，使用生产地址')
     return 'https://kwps.jlufe.edu.cn'
   }
 
   const hostname = window.location.hostname
+  console.log('🔧 当前 hostname:', hostname)
+  console.log('🔧 当前 MODE:', import.meta.env.MODE)
+  console.log('🔧 当前 DEV:', import.meta.env.DEV)
+  console.log('🔧 当前 PROD:', import.meta.env.PROD)
 
-  // 生产环境：统一使用kwps.jlufe.edu.cn域名
+  // 3. 生产环境：根据域名判断
   if (hostname.includes('whzhsc.cn') || hostname.includes('jlufe.edu.cn')) {
+    console.log('🔧 检测到生产域名，使用生产地址')
     return 'https://kwps.jlufe.edu.cn'
   }
 
-  // 开发环境：根据环境模式决定
+  // 4. 本地环境：根据构建模式决定
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    // 开发模式使用本地API，生产模式使用生产API
-    return import.meta.env.DEV
+    const apiUrl = import.meta.env.DEV
       ? 'http://localhost:8090'
       : 'https://kwps.jlufe.edu.cn'
+    console.log('🔧 本地环境，使用地址:', apiUrl)
+    return apiUrl
   }
 
-  // 默认情况：统一使用kwps.jlufe.edu.cn
+  // 5. 默认情况：使用生产地址
+  console.log('🔧 默认情况，使用生产地址')
   return 'https://kwps.jlufe.edu.cn'
 }
 
@@ -168,13 +178,19 @@ export function isProductionEnvironment(): boolean {
 }
 
 /**
- * 打印配置信息（仅在开发环境）
+ * 打印配置信息（开发和生产环境都打印，方便调试）
  */
-if (appConfig.isDevelopment && typeof window !== 'undefined') {
+if (typeof window !== 'undefined') {
   console.group('🔧 应用配置信息')
   console.log('环境:', appConfig.environment)
   console.log('API基础URL:', appConfig.apiBaseUrl)
   console.log('认证基础URL:', appConfig.authBaseUrl)
   console.log('开发模式:', appConfig.isDevelopment)
+  console.log('生产模式:', appConfig.isProduction)
+  console.log('MODE:', import.meta.env.MODE)
+  console.log(
+    'VITE_API_BASE_URL:',
+    import.meta.env.VITE_API_BASE_URL || '(未设置)'
+  )
   console.groupEnd()
 }

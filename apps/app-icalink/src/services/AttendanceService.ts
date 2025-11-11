@@ -16,9 +16,9 @@ import AttendanceRecordRepository from '../repositories/AttendanceRecordReposito
 import AttendanceTodayViewRepository from '../repositories/AttendanceTodayViewRepository.js';
 import AttendanceViewRepository from '../repositories/AttendanceViewRepository.js';
 import ContactRepository from '../repositories/ContactRepository.js';
-import CourseStudentRepository from '../repositories/CourseStudentRepository.js';
 import LeaveApplicationRepository from '../repositories/LeaveApplicationRepository.js';
 import VerificationWindowRepository from '../repositories/VerificationWindowRepository.js';
+import VTeachingClassRepository from '../repositories/VTeachingClassRepository.js';
 import type OsspStorageService from './OsspStorageService.js';
 
 import { isAfter, isBefore, isEqual, startOfDay } from 'date-fns';
@@ -61,7 +61,7 @@ export default class AttendanceService implements IAttendanceService {
     private readonly logger: Logger,
     private readonly queueClient: IQueueAdapter,
     private readonly contactRepository: ContactRepository,
-    private readonly courseStudentRepository: CourseStudentRepository,
+    private readonly vTeachingClassRepository: VTeachingClassRepository,
     private readonly attendanceCourseRepository: AttendanceCourseRepository,
     private readonly attendanceRecordRepository: AttendanceRecordRepository,
     private readonly attendanceViewRepository: AttendanceViewRepository,
@@ -588,10 +588,10 @@ export default class AttendanceService implements IAttendanceService {
 
     // 通过 Repository 层查询教学班学生及其缺勤状态
     // Repository 使用 LEFT JOIN 关联以下表：
-    // - out_xsxx: 学生信息表（获取姓名、班级、专业）
+    // - icalink_teaching_class: 教学班表（获取学生基本信息）
     // - icalink_absent_student_relations: 缺勤记录表（获取缺勤状态）
     const result =
-      await this.courseStudentRepository.findStudentsWithAttendanceStatus(
+      await this.vTeachingClassRepository.findStudentsWithAttendanceStatus(
         course.course_code,
         course.semester,
         course.id
@@ -664,7 +664,7 @@ export default class AttendanceService implements IAttendanceService {
     // - LEFT JOIN icalink_attendance_records 表获取详细信息（包括 metadata）
     // - 按考勤状态优先级排序（pending_approval 最优先）
     const result =
-      await this.courseStudentRepository.findStudentsWithRealtimeStatus(
+      await this.vTeachingClassRepository.findStudentsWithRealtimeStatus(
         course.id,
         course.course_code
       );
@@ -716,63 +716,97 @@ export default class AttendanceService implements IAttendanceService {
    * @description
    * 未来课程的教师视图需要显示：
    * 1. 教学班的所有学生列表
-   * 2. 学生的请假状态（如果有提前请假）
+   * 2. 学生的实际请假状态（保留视图返回的状态，不强制覆盖）
    * 3. 统计信息（总人数、请假人数等）
+   * 4. 学生列表按状态优先级排序
    *
-   * 数据源：
-   * 1. icalink_teaching_class 表：教学班成员
-   * 2. v_attendance_today_details 视图：当天考勤状态（包括提前请假）
-   * 3. icalink_attendance_records 表：考勤详细信息
+   * 数据源：v_attendance_future_details 视图
    *
-   * 查询逻辑：
-   * - 从 icalink_teaching_class 表获取教学班的所有学生成员
-   * - LEFT JOIN v_attendance_today_details 视图获取学生的请假状态
-   * - 对于未来课程，v_attendance_today_details 视图会显示学生的请假状态（如果有提前请假）
+   * 该视图会自动关联以下数据：
+   * - icalink_teaching_class: 教学班成员
+   * - icalink_attendance_records: 考勤记录（主要是请假记录）
+   * - icalink_verification_windows: 签到窗口（用于判断状态）
    *
    * 可能的学生状态：
+   * - 'leave_pending': 请假待审批（需要教师审批）
+   * - 'leave': 请假已批准
    * - 'absent': 默认状态（还未签到，也未请假）
-   * - 'leave': 已批准的请假
-   * - 'leave_pending': 待审批的请假
+   *
+   * 排序规则（按优先级从高到低）：
+   * 1. leave_pending（请假待审批）- 最优先显示
+   * 2. leave（请假已批准）- 第二优先
+   * 3. 其他状态（如 absent）- 最后显示
+   * 4. 同优先级内按学号排序
    */
   private async buildFutureTeacherView(
     course: IcasyncAttendanceCourse
   ): Promise<Either<ServiceError, TeacherCourseCompleteDataVO>> {
     this.logger.debug({ courseId: course.id }, 'Building future teacher view');
 
-    // 1. 通过 Repository 查询教学班学生及其实时考勤状态
-    // Repository 层实现：
-    // - 从 icalink_teaching_class 表获取教学班成员（基于 course_code 和 semester）
-    // - LEFT JOIN v_attendance_today_details 视图获取考勤状态（基于 student_id 和 external_id）
-    // - LEFT JOIN icalink_attendance_records 表获取详细信息
-    // - 对于未来课程，v_attendance_today_details 视图会显示学生的请假状态（如果有提前请假）
+    // 通过 Repository 查询未来课程的学生及其考勤状态
+    // 数据源：v_attendance_future_details 视图
     const result =
-      await this.courseStudentRepository.findStudentsWithRealtimeStatus(
-        course.id,
-        course.course_code
+      await this.vTeachingClassRepository.findStudentsWithFutureStatus(
+        course.id
       );
 
     const { students: studentsWithStatus, stats: repositoryStats } = result;
+
+    // 统计各种状态的学生数量（用于日志）
+    const statusCounts = studentsWithStatus.reduce(
+      (acc, student) => {
+        const status = student.absence_type || 'absent';
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
 
     this.logger.debug(
       {
         courseId: course.id,
         totalStudents: repositoryStats.total_count,
-        leaveCount: repositoryStats.leave_count
+        leaveCount: repositoryStats.leave_count,
+        statusBreakdown: statusCounts
       },
-      'Fetched future course students with leave status'
+      'Fetched future course students from v_attendance_future_details'
     );
 
-    // 2. 构建返回数据
-    // 对于未来课程，学生的状态可能是：
-    // - 'absent': 默认状态（还未签到）
-    // - 'leave': 已批准的请假
-    // - 'leave_pending': 待审批的请假
+    // 定义状态优先级（用于排序）
+    const statusPriority: Record<string, number> = {
+      leave_pending: 1, // 请假待审批 - 最优先显示
+      leave: 2 // 请假已批准 - 第二优先
+      // 其他状态（absent、unstarted 等）优先级为 3
+    };
+
+    // 对学生列表进行排序：leave_pending > leave > 其他状态
+    const sortedStudents = [...studentsWithStatus].sort((a, b) => {
+      const priorityA = statusPriority[a.absence_type || ''] || 3;
+      const priorityB = statusPriority[b.absence_type || ''] || 3;
+
+      // 如果优先级相同，按学号排序
+      if (priorityA === priorityB) {
+        return (a.student_id || '').localeCompare(b.student_id || '');
+      }
+
+      return priorityA - priorityB;
+    });
+
+    this.logger.debug(
+      {
+        courseId: course.id,
+        firstStudentStatus: sortedStudents[0]?.absence_type,
+        lastStudentStatus:
+          sortedStudents[sortedStudents.length - 1]?.absence_type
+      },
+      'Students sorted by status priority'
+    );
+
+    // 构建返回数据
+    // 保留视图返回的实际状态（leave_pending、leave、absent 等）
     const vo: TeacherCourseCompleteDataVO = {
       course,
-      students: studentsWithStatus.map((student) => ({
-        ...student,
-        absence_type: 'unstarted' as AttendanceStatus
-      })),
+      students: sortedStudents, // 使用排序后的学生列表，保留原始状态
       stats: {
         total_count: repositoryStats.total_count,
         checkin_count: 0, // 未来课程还未开始签到
@@ -1145,16 +1179,13 @@ export default class AttendanceService implements IAttendanceService {
       }
 
       // 4. 验证选课关系（在队列中异步校验）
-      const enrollmentMaybe = await this.courseStudentRepository.findOne((qb) =>
-        qb
-          .clearSelect()
-          .select(['xh'])
-          .where('kkh', '=', course.course_code)
-          .where('xh', '=', studentInfo.userId)
-          .where('zt', 'in', ['add', 'update'])
-      );
+      const validStudentIds =
+        await this.vTeachingClassRepository.validateStudentsInCourse(
+          course.course_code,
+          [studentInfo.userId]
+        );
 
-      if (isNone(enrollmentMaybe)) {
+      if (validStudentIds.length === 0) {
         this.logger.error(
           { courseId: course.id, studentId: studentInfo.userId },
           'Student not enrolled in course'
@@ -1563,14 +1594,13 @@ export default class AttendanceService implements IAttendanceService {
     }
 
     // 3. 验证学生是否注册了该课程
-    const enrollmentMaybe = await this.courseStudentRepository.findOne((qb) =>
-      qb
-        .where('kkh', '=', course.course_code)
-        .where('xh', '=', studentId)
-        .where('zt', 'in', ['add', 'update'])
-    );
+    const validStudentIds =
+      await this.vTeachingClassRepository.validateStudentsInCourse(
+        course.course_code,
+        [studentId]
+      );
 
-    if (isNone(enrollmentMaybe)) {
+    if (validStudentIds.length === 0) {
       this.logger.warn(
         { courseId, studentId },
         'Student not enrolled in this course'

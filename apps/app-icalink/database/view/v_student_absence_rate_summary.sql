@@ -75,7 +75,7 @@ SELECT
 
 FROM icalink_student_absence_rate_detail
 
-GROUP BY student_id, student_name, semester
+GROUP BY student_id, semester;
 
 -- 按总体缺勤率降序排序
 ORDER BY overall_absence_rate DESC;

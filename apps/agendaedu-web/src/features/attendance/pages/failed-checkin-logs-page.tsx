@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Search as SearchIcon } from 'lucide-react'
+import { Copy, Eye, Search as SearchIcon } from 'lucide-react'
+import { toast } from 'sonner'
 import { attendanceApi } from '@/lib/attendance-api'
 import { Button } from '@/components/ui/button'
 import {
@@ -10,6 +11,14 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { EnhancedPagination } from '@/components/ui/enhanced-pagination'
 import { Separator } from '@/components/ui/separator'
 import {
   Table,
@@ -27,7 +36,9 @@ import { UserNav } from '@/components/user-nav'
 
 export function FailedCheckinLogsPage() {
   const [page, setPage] = useState(1)
-  const pageSize = 20
+  const [pageSize, setPageSize] = useState(20)
+  const [selectedJsonData, setSelectedJsonData] = useState<unknown>(null)
+  const [isJsonModalOpen, setIsJsonModalOpen] = useState(false)
 
   // 查询失败的签到任务
   const { data, isLoading, isError, error } = useQuery({
@@ -38,11 +49,23 @@ export function FailedCheckinLogsPage() {
 
   const records = data?.data?.data ?? []
   const total = data?.data?.total ?? 0
-  const totalPages = Math.ceil(total / pageSize)
 
-  const handlePageChange = (newPage: number) => {
-    if (newPage > 0 && newPage <= totalPages) {
-      setPage(newPage)
+  const handleShowJsonData = (data: unknown) => {
+    setSelectedJsonData(data)
+    setIsJsonModalOpen(true)
+  }
+
+  const handleCopyJson = () => {
+    if (selectedJsonData) {
+      const jsonString = JSON.stringify(selectedJsonData, null, 2)
+      navigator.clipboard
+        .writeText(jsonString)
+        .then(() => {
+          toast.success('JSON 数据已复制到剪贴板')
+        })
+        .catch(() => {
+          toast.error('复制失败，请手动复制')
+        })
     }
   }
 
@@ -102,13 +125,13 @@ export function FailedCheckinLogsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>任务ID</TableHead>
                     <TableHead>学生ID</TableHead>
                     <TableHead>学生姓名</TableHead>
                     <TableHead>课程ID</TableHead>
                     <TableHead>签到时间</TableHead>
                     <TableHead>失败原因</TableHead>
                     <TableHead>处理时间</TableHead>
+                    <TableHead className='text-center'>签到数据</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -138,13 +161,13 @@ export function FailedCheckinLogsPage() {
                     records.map((record) => {
                       const jobData = record.data || {}
                       const studentInfo = jobData.studentInfo || {}
+                      const checkinData = jobData.checkinData || {}
 
                       return (
                         <TableRow key={record.id}>
                           <TableCell className='font-medium'>
-                            {record.id}
+                            {studentInfo.userId || '-'}
                           </TableCell>
-                          <TableCell>{studentInfo.userId || '-'}</TableCell>
                           <TableCell>{studentInfo.username || '-'}</TableCell>
                           <TableCell>{jobData.courseExtId || '-'}</TableCell>
                           <TableCell>
@@ -165,6 +188,17 @@ export function FailedCheckinLogsPage() {
                           <TableCell>
                             {formatTimestamp(record.processedOn)}
                           </TableCell>
+                          <TableCell className='text-center'>
+                            <Button
+                              variant='ghost'
+                              size='sm'
+                              onClick={() => handleShowJsonData(checkinData)}
+                              className='h-8'
+                            >
+                              <Eye className='mr-1 h-4 w-4' />
+                              查看详情
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       )
                     })
@@ -174,35 +208,54 @@ export function FailedCheckinLogsPage() {
             </div>
 
             {/* 分页 */}
-            <div className='mt-4 flex items-center justify-between'>
-              <div className='text-muted-foreground text-sm'>
-                第 {page} 页，共 {totalPages} 页 | 总计 {total} 条记录
-              </div>
-              <div className='flex items-center space-x-2'>
-                <Button
-                  variant='outline'
-                  size='sm'
-                  onClick={() => handlePageChange(page - 1)}
-                  disabled={page === 1 || isLoading}
-                >
-                  <ChevronLeft className='h-4 w-4' />
-                  上一页
-                </Button>
-                <Button
-                  variant='outline'
-                  size='sm'
-                  onClick={() => handlePageChange(page + 1)}
-                  disabled={page === totalPages || isLoading}
-                >
-                  下一页
-                  <ChevronRight className='h-4 w-4' />
-                </Button>
-              </div>
-            </div>
+            <EnhancedPagination
+              page={page}
+              pageSize={pageSize}
+              total={total}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              disabled={isLoading}
+            />
           </CardContent>
         </Card>
+
+        {/* JSON 数据查看模态框 */}
+        <Dialog open={isJsonModalOpen} onOpenChange={setIsJsonModalOpen}>
+          <DialogContent className='max-h-[80vh] max-w-3xl overflow-hidden'>
+            <DialogHeader>
+              <DialogTitle>签到数据详情</DialogTitle>
+              <DialogDescription>
+                查看完整的签到数据 JSON 格式
+              </DialogDescription>
+            </DialogHeader>
+            <div className='flex flex-col gap-4'>
+              {/* 操作按钮 */}
+              <div className='flex justify-end'>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  onClick={handleCopyJson}
+                  className='gap-2'
+                >
+                  <Copy className='h-4 w-4' />
+                  复制 JSON
+                </Button>
+              </div>
+
+              {/* JSON 数据展示 */}
+              <div className='bg-muted max-h-[60vh] overflow-auto rounded-md p-4'>
+                <pre className='text-sm'>
+                  <code>
+                    {selectedJsonData
+                      ? JSON.stringify(selectedJsonData, null, 2)
+                      : '暂无数据'}
+                  </code>
+                </pre>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </Main>
     </>
   )
 }
-

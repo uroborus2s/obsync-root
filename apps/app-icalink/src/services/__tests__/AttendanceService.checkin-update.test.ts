@@ -26,8 +26,8 @@ const mockQueueAdapter: IQueueAdapter = {
 };
 
 const mockStudentRepository = {};
-const mockCourseStudentRepository = {
-  findOne: vi.fn()
+const mockVTeachingClassRepository = {
+  validateStudentsInCourse: vi.fn()
 };
 const mockAttendanceCourseRepository = {
   findOne: vi.fn()
@@ -50,7 +50,7 @@ describe('AttendanceService - checkin', () => {
       mockLogger,
       mockQueueAdapter,
       mockStudentRepository as any,
-      mockCourseStudentRepository as any,
+      mockVTeachingClassRepository as any,
       mockAttendanceCourseRepository as any,
       mockAttendanceRecordRepository as any,
       mockAttendanceStatsRepository as any,
@@ -92,9 +92,9 @@ describe('AttendanceService - checkin', () => {
     mockAttendanceCourseRepository.findOne.mockResolvedValue(
       fromNullable(mockCourse)
     );
-    mockCourseStudentRepository.findOne.mockResolvedValue(
-      fromNullable(mockEnrollment)
-    );
+    mockVTeachingClassRepository.validateStudentsInCourse.mockResolvedValue([
+      studentInfo.userId
+    ]);
     mockVerificationWindowRepository.findLatestByCourse.mockResolvedValue(null);
     mockQueueAdapter.add.mockResolvedValue({ id: 'job1' });
 
@@ -169,11 +169,10 @@ describe('AttendanceService - checkin', () => {
 
   it('should return VALIDATION_FAILED if student is not enrolled in the course', async () => {
     // Arrange
-    const { None } = await import('@stratix/utils/functional');
     mockAttendanceCourseRepository.findOne.mockResolvedValue(
       fromNullable(mockCourse)
     );
-    mockCourseStudentRepository.findOne.mockResolvedValue(None());
+    mockVTeachingClassRepository.validateStudentsInCourse.mockResolvedValue([]);
 
     // Act
     const dto = {
@@ -196,9 +195,9 @@ describe('AttendanceService - checkin', () => {
     mockAttendanceCourseRepository.findOne.mockResolvedValue(
       fromNullable(mockCourse)
     );
-    mockCourseStudentRepository.findOne.mockResolvedValue(
-      fromNullable(mockEnrollment)
-    );
+    mockVTeachingClassRepository.validateStudentsInCourse.mockResolvedValue([
+      studentInfo.userId
+    ]);
     mockVerificationWindowRepository.findLatestByCourse.mockResolvedValue(null);
     const queueError = new Error('Queue is down');
     mockQueueAdapter.add.mockRejectedValue(queueError);
