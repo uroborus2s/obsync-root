@@ -1,0 +1,18 @@
+{
+  "id": "queue",
+  "version": "1.0.0",
+  "displayName": "Queue Preset",
+  "description": "Add @stratix/queue for queued job execution",
+  "appliesTo": [
+    { "kind": "app" },
+    { "kind": "plugin" }
+  ],
+  "requires": ["redis"],
+  "contributes": {
+    "dependencies": {
+      "runtime": {
+        "@stratix/queue": "^1.0.0-beta.2"
+      }
+    }
+  }
+}

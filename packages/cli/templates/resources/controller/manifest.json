@@ -1,0 +1,16 @@
+{
+  "id": "resource-controller",
+  "kind": "resource",
+  "type": "controller",
+  "version": "1.0.0",
+  "displayName": "Controller Resource",
+  "description": "Generate a Stratix controller that depends on the service layer",
+  "contributes": {
+    "files": [
+      {
+        "source": "src/controllers/ResourceController.ts.tpl",
+        "destination": "src/controllers/{{pascalName}}Controller.ts"
+      }
+    ]
+  }
+}

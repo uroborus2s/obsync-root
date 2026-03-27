@@ -1,0 +1,16 @@
+{
+  "id": "resource-plugin-controller",
+  "kind": "resource",
+  "type": "plugin-controller",
+  "version": "1.0.0",
+  "displayName": "Plugin Controller Resource",
+  "description": "Generate a controller inside a Stratix plugin",
+  "contributes": {
+    "files": [
+      {
+        "source": "src/controllers/PluginController.ts.tpl",
+        "destination": "src/controllers/{{pascalName}}Controller.ts"
+      }
+    ]
+  }
+}

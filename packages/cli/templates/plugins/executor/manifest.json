@@ -1,0 +1,26 @@
+{
+  "id": "plugin-executor",
+  "kind": "plugin",
+  "type": "executor",
+  "version": "1.0.0",
+  "displayName": "Executor Plugin",
+  "description": "Plugin with executor-oriented extension points",
+  "runtime": "service",
+  "defaultPresets": ["tasks", "testing"],
+  "contributes": {
+    "files": [
+      {
+        "source": "src/adapters/ClientAdapter.ts.tpl",
+        "destination": "src/adapters/ClientAdapter.ts"
+      },
+      {
+        "source": "src/services/ExecutorService.ts.tpl",
+        "destination": "src/services/ExecutorService.ts"
+      },
+      {
+        "source": "src/executors/SampleExecutor.ts.tpl",
+        "destination": "src/executors/SampleExecutor.ts"
+      }
+    ]
+  }
+}

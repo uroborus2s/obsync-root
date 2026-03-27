@@ -1,0 +1,210 @@
+{
+  "projectName": "stratix框架以及生态",
+  "repositoryName": "obsync-root",
+  "repositoryPath": "/Users/uroborus/NodeProject/wps/obsync-root",
+  "projectType": "historical-monorepo",
+  "primaryStack": [
+    "Node.js",
+    "TypeScript",
+    "pnpm",
+    "turbo",
+    "Fastify",
+    "Vitest",
+    "Vite"
+  ],
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=10.0.0"
+  },
+  "currentStage": "ANALYSIS",
+  "recommendedNextStage": "Continue ANALYSIS until root verification and release-surface blockers are closed",
+  "sourceOfTruth": {
+    "stableCollaboration": [
+      "AGENTS.md",
+      "GEMINI.md"
+    ],
+    "humanDocs": "docs/",
+    "aiMemory": ".factory/memory/",
+    "changeControl": ".factory/workitems/"
+  },
+  "workspace": {
+    "publicPackages": [
+      "@stratix/cli",
+      "@stratix/core",
+      "@stratix/database",
+      "@stratix/devtools",
+      "@stratix/ossp",
+      "@stratix/queue",
+      "@stratix/redis",
+      "@stratix/tasks",
+      "@stratix/testing",
+      "@stratix/was-v7"
+    ],
+    "archivedLegacyPackages": [
+      "@stratix/utils -> legacy/packages/utils"
+    ],
+    "previewSamples": [
+      "examples/web-admin-preview"
+    ]
+  },
+  "releaseSurface": {
+    "checkedAt": "2026-03-28",
+    "npmRegistry": {
+      "@stratix/core": {
+        "published": true,
+        "version": "0.8.2",
+        "modifiedAt": "2026-01-07T12:57:22.097Z"
+      },
+      "notFound": [
+        "@stratix/cli",
+        "@stratix/database",
+        "@stratix/devtools",
+        "@stratix/ossp",
+        "@stratix/queue",
+        "@stratix/redis",
+        "@stratix/tasks",
+        "@stratix/testing",
+        "@stratix/utils",
+        "@stratix/was-v7"
+      ]
+    },
+    "gitTags": {
+      "@stratix/core": "@stratix/core@0.0.3-beta.2",
+      "@stratix/database": "@stratix/database@0.0.3-beta.2",
+      "@stratix/queue": "@stratix/queue@0.0.3-beta.2",
+      "@stratix/tasks": "@stratix/tasks@0.0.3-beta.2",
+      "@stratix/utils": "@stratix/utils@0.0.2",
+      "@stratix/was-v7": "@stratix/was-v7@0.0.3-beta.2"
+    },
+    "assessment": "Manifest versions, git tags, and npm registry are not aligned."
+  },
+  "verification": {
+    "checkedAt": "2026-03-28",
+    "install": [
+      {
+        "command": "CI=true pnpm install --no-frozen-lockfile",
+        "status": "passed",
+        "reason": "Root lockfile refreshed after removing the workspace app"
+      },
+      {
+        "command": "CI=true pnpm install --frozen-lockfile",
+        "status": "passed"
+      },
+      {
+        "command": "CI=true pnpm install --frozen-lockfile --offline",
+        "status": "failed",
+        "reason": "ERR_PNPM_NO_OFFLINE_TARBALL for ajv-8.17.1"
+      },
+      {
+        "command": "CI=true pnpm install --ignore-workspace",
+        "status": "passed",
+        "reason": "Preview sample dependencies installed independently"
+      }
+    ],
+    "build": [
+      {
+        "command": "pnpm build",
+        "status": "failed",
+        "reason": "Root script requires a filter value but supplies none"
+      },
+      {
+        "command": "pnpm build:all",
+        "status": "failed",
+        "reason": "@stratix/ossp cannot resolve @stratix/core during the package graph build"
+      },
+      {
+        "command": "pnpm --filter @stratix/cli build",
+        "status": "passed"
+      },
+      {
+        "command": "pnpm --filter @stratix/core build",
+        "status": "passed"
+      },
+      {
+        "command": "pnpm --filter @stratix/database build",
+        "status": "passed"
+      },
+      {
+        "command": "pnpm --filter @stratix/redis build",
+        "status": "passed"
+      },
+      {
+        "command": "pnpm --filter @stratix/ossp build",
+        "status": "passed"
+      },
+      {
+        "command": "pnpm --filter @stratix/queue build",
+        "status": "passed"
+      },
+      {
+        "command": "pnpm --filter @stratix/was-v7 build",
+        "status": "passed"
+      },
+      {
+        "command": "pnpm --filter @stratix/tasks build",
+        "status": "passed"
+      },
+      {
+        "command": "pnpm build",
+        "workdir": "examples/web-admin-preview",
+        "status": "passed"
+      }
+    ],
+    "test": [
+      {
+        "command": "pnpm test",
+        "status": "failed",
+        "reason": "Workspace test profile is unstable: queue/ossp have no test files, was-v7 has vitest startup errors, and downstream packages fail"
+      },
+      {
+        "command": "pnpm --filter @stratix/cli test",
+        "status": "passed",
+        "summary": "21 tests"
+      },
+      {
+        "command": "pnpm test",
+        "workdir": "examples/web-admin-preview",
+        "status": "passed",
+        "summary": "6 files / 18 tests"
+      }
+    ],
+    "runtime": [
+      {
+        "command": "node packages/cli/dist/bin/stratix.js --help",
+        "status": "passed"
+      },
+      {
+        "command": "pnpm preview --host 127.0.0.1 --port 4273",
+        "workdir": "examples/web-admin-preview",
+        "status": "passed_with_local_port_permission",
+        "url": "http://127.0.0.1:4273/"
+      }
+    ]
+  },
+  "phaseBaseline": {
+    "stage": "ANALYSIS",
+    "entrySatisfied": [
+      "Current-state evidence collected",
+      "docs/ and .factory/ bootstrapped",
+      "Stable collaboration rules separated from transient state",
+      "CLI preview sample moved out of workspace"
+    ],
+    "exitBlockedBy": [
+      "BUG-001",
+      "BUG-002",
+      "BUG-003",
+      "BUG-004",
+      "CR-001"
+    ]
+  },
+  "currentWorkitems": [
+    "BUG-001",
+    "BUG-002",
+    "BUG-003",
+    "BUG-004",
+    "CR-001",
+    "TASK-001",
+    "TASK-002"
+  ]
+}

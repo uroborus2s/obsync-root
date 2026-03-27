@@ -1,0 +1,16 @@
+{
+  "id": "resource-plugin-adapter",
+  "kind": "resource",
+  "type": "plugin-adapter",
+  "version": "1.0.0",
+  "displayName": "Plugin Adapter Resource",
+  "description": "Generate an adapter inside a Stratix plugin",
+  "contributes": {
+    "files": [
+      {
+        "source": "src/adapters/PluginAdapter.ts.tpl",
+        "destination": "src/adapters/{{pascalName}}Adapter.ts"
+      }
+    ]
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "id": "testing",
+  "version": "1.0.0",
+  "displayName": "Testing Preset",
+  "description": "Add Vitest configuration and basic smoke tests",
+  "appliesTo": [
+    { "kind": "app" },
+    { "kind": "plugin" }
+  ],
+  "contributes": {
+    "directories": [
+      "src/__tests__"
+    ],
+    "files": [
+      {
+        "source": "vitest.config.ts.tpl",
+        "destination": "vitest.config.ts"
+      },
+      {
+        "source": "src/__tests__/project.smoke.test.ts.tpl",
+        "destination": "src/__tests__/project.smoke.test.ts"
+      }
+    ],
+    "dependencies": {
+      "dev": {
+        "@vitest/coverage-v8": "^4.0.5",
+        "vitest": "^4.0.5"
+      }
+    },
+    "scripts": {
+      "test": "vitest",
+      "test:run": "vitest run",
+      "test:coverage": "vitest run --coverage"
+    }
+  }
+}

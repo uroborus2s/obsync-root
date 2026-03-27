@@ -1,0 +1,59 @@
+{
+  "name": "@stratix/utils",
+  "version": "1.0.0-beta.4",
+  "description": "Stratix framework core utility functions - minimal edition",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rimraf dist",
+    "build": "pnpm run clean && tsc",
+    "lint": "eslint src --ext .ts",
+    "dev": "tsc --watch",
+    "build:docs": "api-extractor run --local --verbose",
+    "build:api-docs": "api-documenter markdown -i api/temp -o ../../apps/api-website/docs/api/utils && rimraf api/temp",
+    "docs:generate": "pnpm run build && pnpm run build:docs && pnpm run build:api-docs"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/types/index.d.ts"
+    },
+    "./async": {
+      "import": "./dist/async/index.js",
+      "types": "./dist/types/async/index.d.ts"
+    },
+    "./environment": {
+      "import": "./dist/environment/index.js",
+      "types": "./dist/types/environment/index.d.ts"
+    },
+    "./context": {
+      "import": "./dist/context/index.js",
+      "types": "./dist/types/context/index.d.ts"
+    },
+    "./data": {
+      "import": "./dist/data/index.js",
+      "types": "./dist/types/data/index.d.ts"
+    },
+    "./functional": {
+      "import": "./dist/functional/index.js",
+      "types": "./dist/types/functional/index.d.ts"
+    },
+    "./auth": {
+      "import": "./dist/auth/index.js",
+      "types": "./dist/types/auth/index.d.ts"
+    }
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "keywords": [
+    "stratix",
+    "utils",
+    "utility",
+    "functions"
+  ],
+  "author": "Stratix Team",
+  "license": "MIT"
+}

@@ -1,0 +1,16 @@
+{
+  "id": "resource-plugin-service",
+  "kind": "resource",
+  "type": "plugin-service",
+  "version": "1.0.0",
+  "displayName": "Plugin Service Resource",
+  "description": "Generate a service inside a Stratix plugin",
+  "contributes": {
+    "files": [
+      {
+        "source": "src/services/PluginService.ts.tpl",
+        "destination": "src/services/{{pascalName}}Service.ts"
+      }
+    ]
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "id": "app-base",
+  "kind": "app",
+  "type": "base",
+  "version": "1.0.0",
+  "displayName": "App Base",
+  "description": "Shared Stratix application baseline",
+  "runtime": "web",
+  "contributes": {
+    "directories": [
+      "src/config",
+      "src/controllers",
+      "src/services",
+      "src/repositories",
+      "src/repositories/interfaces",
+      "src/executors",
+      "src/types"
+    ],
+    "dependencies": {
+      "runtime": {
+        "@stratix/core": "^1.1.0"
+      },
+      "dev": {
+        "@stratix/cli": "^1.1.0",
+        "@tsconfig/recommended": "^1.0.8",
+        "@types/node": "^22.16.5",
+        "rimraf": "^6.0.1",
+        "tsx": "^4.20.6",
+        "typescript": "^5.9.3"
+      }
+    },
+    "scripts": {
+      "clean": "rimraf dist",
+      "build": "rimraf dist && tsc",
+      "start": "node dist/index.js",
+      "dev": "tsx --watch src/index.ts",
+      "env": "stratix config encrypt prod.env.json",
+      "env:dev": "stratix config encrypt dev.env.json",
+      "env:decrypt": "stratix config decrypt"
+    },
+    "env": [
+      {
+        "key": "PORT",
+        "default": "3000",
+        "description": "Application port"
+      },
+      {
+        "key": "HOST",
+        "default": "0.0.0.0",
+        "description": "Application host"
+      }
+    ],
+    "policies": {
+      "layering": ["controller", "service", "repository"],
+      "forbidServiceDatabasePlugin": true,
+      "forbidControllerDatabaseAccess": true,
+      "controllerDecoratorPrefix": false,
+      "pluginTokenFromFunctionName": true
+    }
+  }
+}

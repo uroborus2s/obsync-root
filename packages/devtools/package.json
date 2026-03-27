@@ -1,0 +1,27 @@
+{
+  "name": "@stratix/devtools",
+  "version": "1.0.0-beta.1",
+  "description": "Developer tools and dashboard for Stratix framework",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@fastify/websocket": "^11.2.0",
+    "@stratix/core": "workspace:*",
+    "fastify": "^4.26.0",
+    "fastify-static": "^4.7.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.2.2",
+    "@types/node": "^20.19.10",
+    "awilix": "^12.0.5",
+    "rimraf": "^5.0.0",
+    "typescript": "^5.3.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

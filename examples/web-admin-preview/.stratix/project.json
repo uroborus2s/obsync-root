@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "kind": "app",
+  "type": "web-admin",
+  "runtime": "web",
+  "templateId": "app:web-admin",
+  "templateVersion": "1.0.0",
+  "packageManager": "pnpm",
+  "presets": [],
+  "policies": {
+    "layering": [],
+    "forbidServiceDatabasePlugin": false,
+    "forbidControllerDatabaseAccess": false,
+    "controllerDecoratorPrefix": false,
+    "pluginTokenFromFunctionName": false
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "id": "resource-service",
+  "kind": "resource",
+  "type": "service",
+  "version": "1.0.0",
+  "displayName": "Service Resource",
+  "description": "Generate a Stratix service that only depends on repository abstractions",
+  "contributes": {
+    "files": [
+      {
+        "source": "src/services/ResourceService.ts.tpl",
+        "destination": "src/services/{{pascalName}}Service.ts"
+      }
+    ]
+  }
+}

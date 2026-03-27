@@ -1,0 +1,16 @@
+{
+  "id": "resource-business-repository",
+  "kind": "resource",
+  "type": "business-repository",
+  "version": "1.0.0",
+  "displayName": "Business Repository Resource",
+  "description": "Generate a multi-table business repository scaffold for database-backed durable workflows",
+  "contributes": {
+    "files": [
+      {
+        "source": "src/repositories/BusinessRepository.ts.tpl",
+        "destination": "src/repositories/{{pascalName}}BusinessRepository.ts"
+      }
+    ]
+  }
+}

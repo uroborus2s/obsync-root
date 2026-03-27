@@ -1,0 +1,56 @@
+{
+  "id": "resource-admin-crud",
+  "kind": "resource",
+  "type": "admin-crud",
+  "version": "1.0.0",
+  "displayName": "Admin CRUD Resource",
+  "description": "Generate a standard CRUD module for web-admin projects",
+  "contributes": {
+    "files": [
+      {
+        "source": "src/routes/_authenticated/resource.tsx.tpl",
+        "destination": "src/routes/_authenticated/{{pluralKebabName}}.tsx"
+      },
+      {
+        "source": "src/features/module/index.ts.tpl",
+        "destination": "src/features/{{pluralKebabName}}/index.ts"
+      },
+      {
+        "source": "src/features/module/pages/resource-page.tsx.tpl",
+        "destination": "src/features/{{pluralKebabName}}/pages/{{pluralKebabName}}-page.tsx"
+      },
+      {
+        "source": "src/features/module/components/resource-columns.tsx.tpl",
+        "destination": "src/features/{{pluralKebabName}}/components/{{pluralKebabName}}-columns.tsx"
+      },
+      {
+        "source": "src/features/module/components/resource-filter-bar.tsx.tpl",
+        "destination": "src/features/{{pluralKebabName}}/components/{{pluralKebabName}}-filter-bar.tsx"
+      },
+      {
+        "source": "src/features/module/components/resource-form-sheet.tsx.tpl",
+        "destination": "src/features/{{pluralKebabName}}/components/{{pluralKebabName}}-form-sheet.tsx"
+      },
+      {
+        "source": "src/features/module/components/resource-detail-sheet.tsx.tpl",
+        "destination": "src/features/{{pluralKebabName}}/components/{{pluralKebabName}}-detail-sheet.tsx"
+      },
+      {
+        "source": "src/features/module/data/mock-resource.ts.tpl",
+        "destination": "src/features/{{pluralKebabName}}/data/mock-{{pluralKebabName}}.ts"
+      },
+      {
+        "source": "src/features/module/hooks/use-resource.ts.tpl",
+        "destination": "src/features/{{pluralKebabName}}/hooks/use-{{pluralKebabName}}.ts"
+      },
+      {
+        "source": "src/features/module/lib/schema.ts.tpl",
+        "destination": "src/features/{{pluralKebabName}}/lib/schema.ts"
+      },
+      {
+        "source": "src/features/module/api/resource.ts.tpl",
+        "destination": "src/features/{{pluralKebabName}}/api/{{pluralKebabName}}.ts"
+      }
+    ]
+  }
+}

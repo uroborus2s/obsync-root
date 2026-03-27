@@ -1,0 +1,16 @@
+{
+  "id": "resource-executor",
+  "kind": "resource",
+  "type": "executor",
+  "version": "1.0.0",
+  "displayName": "Executor Resource",
+  "description": "Generate a decorated executor class",
+  "contributes": {
+    "files": [
+      {
+        "source": "src/executors/ResourceExecutor.ts.tpl",
+        "destination": "src/executors/{{pascalName}}Executor.ts"
+      }
+    ]
+  }
+}

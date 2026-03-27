@@ -1,0 +1,43 @@
+{
+  "id": "plugin-base",
+  "kind": "plugin",
+  "type": "base",
+  "version": "1.0.0",
+  "displayName": "Plugin Base",
+  "description": "Shared Stratix plugin baseline",
+  "runtime": "service",
+  "contributes": {
+    "directories": [
+      "src/config",
+      "src/adapters",
+      "src/services",
+      "src/repositories",
+      "src/controllers",
+      "src/executors",
+      "src/types"
+    ],
+    "dependencies": {
+      "runtime": {
+        "@stratix/core": "^1.1.0"
+      },
+      "dev": {
+        "@stratix/cli": "^1.1.0",
+        "@tsconfig/recommended": "^1.0.8",
+        "@types/node": "^22.16.5",
+        "rimraf": "^6.0.1",
+        "typescript": "^5.9.3"
+      }
+    },
+    "scripts": {
+      "clean": "rimraf dist",
+      "build": "rimraf dist && tsc"
+    },
+    "policies": {
+      "layering": ["controller", "service", "repository"],
+      "forbidServiceDatabasePlugin": true,
+      "forbidControllerDatabaseAccess": true,
+      "controllerDecoratorPrefix": false,
+      "pluginTokenFromFunctionName": true
+    }
+  }
+}

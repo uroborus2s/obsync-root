@@ -1,0 +1,38 @@
+{
+  "id": "resource-module",
+  "kind": "resource",
+  "type": "module",
+  "version": "1.0.0",
+  "displayName": "Module Resource",
+  "description": "Generate a Stratix business module with controller, service, and repository layers",
+  "contributes": {
+    "directories": [
+      "src/modules/{{kebabName}}/controllers",
+      "src/modules/{{kebabName}}/services",
+      "src/modules/{{kebabName}}/repositories",
+      "src/modules/{{kebabName}}/repositories/interfaces"
+    ],
+    "files": [
+      {
+        "source": "src/modules/module/index.ts.tpl",
+        "destination": "src/modules/{{kebabName}}/index.ts"
+      },
+      {
+        "source": "src/modules/module/controllers/ResourceController.ts.tpl",
+        "destination": "src/modules/{{kebabName}}/controllers/{{pascalName}}Controller.ts"
+      },
+      {
+        "source": "src/modules/module/services/ResourceService.ts.tpl",
+        "destination": "src/modules/{{kebabName}}/services/{{pascalName}}Service.ts"
+      },
+      {
+        "source": "src/modules/module/repositories/ResourceRepository.ts.tpl",
+        "destination": "src/modules/{{kebabName}}/repositories/{{pascalName}}Repository.ts"
+      },
+      {
+        "source": "src/modules/module/repositories/interfaces/IResourceRepository.ts.tpl",
+        "destination": "src/modules/{{kebabName}}/repositories/interfaces/I{{pascalName}}Repository.ts"
+      }
+    ]
+  }
+}

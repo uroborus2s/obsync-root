@@ -1,0 +1,37 @@
+{
+  "id": "app-sync",
+  "kind": "app",
+  "type": "sync",
+  "version": "1.0.0",
+  "displayName": "Sync Application",
+  "description": "Integration and synchronization application with repository and executor layers",
+  "runtime": "web",
+  "defaultPresets": ["database", "redis", "queue", "tasks", "testing"],
+  "contributes": {
+    "directories": [
+      "src/adapters"
+    ],
+    "files": [
+      {
+        "source": "src/controllers/HealthController.ts.tpl",
+        "destination": "src/controllers/HealthController.ts"
+      },
+      {
+        "source": "src/services/SyncOrchestratorService.ts.tpl",
+        "destination": "src/services/SyncOrchestratorService.ts"
+      },
+      {
+        "source": "src/repositories/SyncCheckpointRepository.ts.tpl",
+        "destination": "src/repositories/SyncCheckpointRepository.ts"
+      },
+      {
+        "source": "src/executors/SyncExecutor.ts.tpl",
+        "destination": "src/executors/SyncExecutor.ts"
+      },
+      {
+        "source": "src/types/sync.ts.tpl",
+        "destination": "src/types/sync.ts"
+      }
+    ]
+  }
+}

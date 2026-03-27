@@ -1,0 +1,24 @@
+{
+  "id": "resource-admin-page",
+  "kind": "resource",
+  "type": "admin-page",
+  "version": "1.0.0",
+  "displayName": "Admin Page Resource",
+  "description": "Generate a route and feature module for a standard web-admin page",
+  "contributes": {
+    "files": [
+      {
+        "source": "src/routes/_authenticated/page.tsx.tpl",
+        "destination": "src/routes/_authenticated/{{kebabName}}.tsx"
+      },
+      {
+        "source": "src/features/module/pages/page-page.tsx.tpl",
+        "destination": "src/features/{{kebabName}}/pages/{{kebabName}}-page.tsx"
+      },
+      {
+        "source": "src/features/module/index.ts.tpl",
+        "destination": "src/features/{{kebabName}}/index.ts"
+      }
+    ]
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "id": "app-worker",
+  "kind": "app",
+  "type": "worker",
+  "version": "1.0.0",
+  "displayName": "Worker Application",
+  "description": "Background worker with executor-oriented project structure",
+  "runtime": "worker",
+  "defaultPresets": ["redis", "queue", "tasks", "testing"],
+  "contributes": {
+    "files": [
+      {
+        "source": "src/services/WorkerBootstrapService.ts.tpl",
+        "destination": "src/services/WorkerBootstrapService.ts"
+      },
+      {
+        "source": "src/executors/SampleExecutor.ts.tpl",
+        "destination": "src/executors/SampleExecutor.ts"
+      },
+      {
+        "source": "src/types/jobs.ts.tpl",
+        "destination": "src/types/jobs.ts"
+      }
+    ]
+  }
+}

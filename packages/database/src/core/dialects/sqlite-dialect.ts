@@ -1,0 +1,411 @@
+// @stratix/database SQLite方言实现
+// 基于Kysely和better-sqlite3驱动的SQLite数据库支持
+
+import { type Logger } from '@stratix/core';
+import {
+  eitherChain,
+  eitherMap,
+  isLeft,
+  tryCatch
+} from '@stratix/core/functional';
+import Database from 'better-sqlite3';
+import { existsSync, mkdirSync } from 'fs';
+import { Kysely, sql, SqliteDialect } from 'kysely';
+import { dirname, resolve } from 'path';
+import type { ConnectionConfig, DatabaseType } from '../../types/index.js';
+import { DatabaseResult } from '../../utils/error-handler.js';
+import { BaseDialect } from './base-dialect.js';
+
+/**
+ * SQLite数据库方言实现
+ */
+export class SQLiteDialect extends BaseDialect {
+  readonly type: DatabaseType = 'sqlite';
+  readonly defaultPort: number = 0; // SQLite不使用端口
+
+  /**
+   * 创建 Kysely 实例
+   */
+  async createKysely(
+    config: ConnectionConfig,
+    logger: Logger
+  ): Promise<DatabaseResult<Kysely<any>>> {
+    return this.wrapConnectionCreation(async () => {
+      // 验证配置
+      const configResult = this.validateConfig(config);
+      if (isLeft(configResult)) {
+        throw new Error(
+          configResult.left?.message || 'Configuration validation failed'
+        );
+      }
+
+      // 检查better-sqlite3驱动是否可用
+      const driverResult = await this.checkDriverAvailability();
+      if (isLeft(driverResult)) {
+        throw new Error(
+          driverResult.left?.message || 'Driver availability check failed'
+        );
+      }
+
+      // 获取数据库文件路径
+      const dbPath = this.getDatabasePath(config);
+
+      // 确保目录存在
+      await this.ensureDirectoryExists(dbPath);
+
+      // 创建SQLite数据库连接选项
+      const options = this.createDatabaseOptions(config, logger);
+
+      const database = new Database(dbPath, options);
+
+      // 设置Pragma选项
+      this.setPragmaOptions(database!, config);
+
+      // 创建Kysely实例
+      const kysely = new Kysely({
+        dialect: new SqliteDialect({
+          database: database
+        }),
+        log: this.createDatabaseLogger(logger, 'SQLite')
+      });
+
+      // 测试连接
+      try {
+        // 执行简单的健康检查查询
+        const result = await sql`SELECT 1 as health`.execute(kysely);
+
+        if (!result || (result as any).rows[0].health !== 1) {
+          throw new Error('SQLite health check failed');
+        }
+      } catch (error) {
+        database.close();
+        throw this.handleConnectionError(error as Error);
+      }
+
+      return kysely;
+    }, 'create-connection');
+  }
+
+  /**
+   * 验证配置
+   */
+  validateConfig(config: ConnectionConfig): DatabaseResult<boolean> {
+    // 基础验证
+    const baseResult = this.validateBaseConfig(config);
+
+    const onSuccess = () => {
+      // SQLite特定验证
+      const dbPath = this.getDatabasePath(config);
+
+      if (!dbPath) {
+        throw new Error(
+          'Database path is required for SQLite connections. Use database field or sqlite.filename.'
+        );
+      }
+
+      // 验证路径格式
+      if (dbPath !== ':memory:' && !this.isValidPath(dbPath)) {
+        throw new Error(`Invalid database path: ${dbPath}`);
+      }
+
+      // 验证pragma选项
+      if (config.sqlite?.pragma) {
+        this.validatePragmaOptions(config.sqlite.pragma);
+      }
+      return true;
+    };
+    const onError = (error: unknown) =>
+      this.handleConnectionError(error as Error);
+    return eitherChain(() => tryCatch(onSuccess, onError))(baseResult as any);
+  }
+
+  /**
+   * 获取健康检查查询
+   */
+  getHealthCheckQuery(): string {
+    return 'SELECT 1 as health';
+  }
+
+  /**
+   * 检查驱动依赖是否可用
+   */
+  async checkDriverAvailability(): Promise<DatabaseResult<boolean>> {
+    const sqliteResult = await this.checkRequiredModule('better-sqlite3');
+
+    return eitherMap(() => true)(sqliteResult) as DatabaseResult<boolean>;
+  }
+
+  /**
+   * 格式化连接字符串
+   */
+  protected formatConnectionString(params: {
+    host: string;
+    port: number;
+    database: string;
+    username: string;
+    password: string;
+    [key: string]: any;
+  }): string {
+    // SQLite使用文件路径作为连接字符串
+    return `sqlite:${params.database}`;
+  }
+
+  /**
+   * 获取方言特定的连接选项
+   */
+  protected getDialectSpecificOptions(
+    config: ConnectionConfig
+  ): Record<string, any> {
+    const options: Record<string, any> = {};
+
+    // SQLite特定选项
+    if (config.sqlite) {
+      // 文件名
+      if (config.sqlite.filename) {
+        options.filename = config.sqlite.filename;
+      }
+
+      // Pragma选项
+      if (config.sqlite.pragma) {
+        options.pragma = config.sqlite.pragma;
+      }
+    }
+
+    // better-sqlite3特定选项
+    if (config.options?.readonly !== undefined) {
+      options.readonly = config.options.readonly;
+    }
+
+    if (config.options?.fileMustExist !== undefined) {
+      options.fileMustExist = config.options.fileMustExist;
+    }
+
+    if (config.options?.timeout !== undefined) {
+      options.timeout = config.options.timeout;
+    }
+
+    if (config.options?.verbose !== undefined) {
+      options.verbose = config.options.verbose;
+    }
+
+    return options;
+  }
+
+  /**
+   * 获取数据库文件路径
+   */
+  private getDatabasePath(config: ConnectionConfig): string {
+    // 优先使用sqlite.filename
+    if (config.sqlite?.filename) {
+      return config.sqlite.filename;
+    }
+
+    // 使用database字段
+    if (config.database) {
+      // 如果是内存数据库
+      if (config.database === ':memory:') {
+        return ':memory:';
+      }
+
+      // 如果已经是完整路径
+      if (config.database.includes('/') || config.database.includes('\\')) {
+        return config.database;
+      }
+
+      // 默认在当前目录创建数据库文件
+      return resolve(process.cwd(), config.database);
+    }
+
+    throw new Error('SQLite database path not specified');
+  }
+
+  /**
+   * 确保目录存在
+   */
+  private async ensureDirectoryExists(dbPath: string): Promise<void> {
+    if (dbPath === ':memory:') {
+      return;
+    }
+
+    const dir = dirname(dbPath);
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+    }
+  }
+
+  /**
+   * 验证路径格式
+   */
+  private isValidPath(path: string): boolean {
+    try {
+      resolve(path);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * 验证Pragma选项
+   */
+  private validatePragmaOptions(pragma: Record<string, string | number>): void {
+    const validPragmas = [
+      'journal_mode',
+      'synchronous',
+      'cache_size',
+      'foreign_keys',
+      'busy_timeout',
+      'temp_store',
+      'mmap_size',
+      'page_size',
+      'auto_vacuum',
+      'wal_autocheckpoint'
+    ];
+
+    for (const key of Object.keys(pragma)) {
+      if (!validPragmas.includes(key)) {
+        console.warn(`Unknown SQLite pragma option: ${key}`);
+      }
+    }
+  }
+
+  /**
+   * 创建数据库选项
+   */
+  private createDatabaseOptions(config: ConnectionConfig, logger: Logger): any {
+    const options: any = {};
+
+    // 基本选项
+    if (config.options?.readonly !== undefined) {
+      options.readonly = config.options.readonly;
+    }
+
+    if (config.options?.fileMustExist !== undefined) {
+      options.fileMustExist = config.options.fileMustExist;
+    }
+
+    if (config.options?.timeout !== undefined) {
+      options.timeout = config.options.timeout;
+    }
+
+    if (config.options?.verbose) {
+      options.verbose = (message: string) => {
+        logger.debug({ dialect: 'SQLite', message }, '[SQLITE] Verbose');
+      };
+    }
+
+    return options;
+  }
+
+  /**
+   * 设置Pragma选项
+   */
+  private setPragmaOptions(
+    database: Database.Database,
+    config: ConnectionConfig
+  ): void {
+    // 默认pragma设置
+    const defaultPragmas = {
+      journal_mode: 'WAL',
+      synchronous: 'NORMAL',
+      cache_size: -64000,
+      foreign_keys: 'ON',
+      busy_timeout: 30000
+    };
+
+    // 合并用户配置
+    const pragmas = {
+      ...defaultPragmas,
+      ...config.sqlite?.pragma
+    };
+
+    // 应用pragma设置
+    for (const [key, value] of Object.entries(pragmas)) {
+      try {
+        database.pragma(this.buildPragmaStatement(key, value));
+      } catch (error) {
+        console.warn(`Failed to set SQLite pragma ${key}: ${error}`);
+      }
+    }
+  }
+
+  private buildPragmaStatement(key: string, value: string | number): string {
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
+      throw new Error(`Invalid SQLite pragma key: ${key}`);
+    }
+
+    return `${key} = ${this.serializePragmaValue(value)}`;
+  }
+
+  private serializePragmaValue(value: string | number): string {
+    if (typeof value === 'number') {
+      return String(value);
+    }
+
+    const normalized = value.trim();
+    if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(normalized)) {
+      return normalized;
+    }
+
+    return `'${normalized.replace(/'/g, "''")}'`;
+  }
+
+  /**
+   * 格式化错误消息
+   */
+  protected formatErrorMessage(error: Error): string {
+    const message = error.message;
+
+    // SQLite特定错误处理
+    if (message.includes('SQLITE_CANTOPEN')) {
+      return 'SQLite cannot open database file. Please check the file path and permissions.';
+    }
+
+    if (message.includes('SQLITE_LOCKED')) {
+      return 'SQLite database is locked. Please ensure no other process is using the database.';
+    }
+
+    if (message.includes('SQLITE_BUSY')) {
+      return 'SQLite database is busy. Please try again later.';
+    }
+
+    if (message.includes('SQLITE_READONLY')) {
+      return 'SQLite database is read-only. Please check file permissions.';
+    }
+
+    if (message.includes('SQLITE_CORRUPT')) {
+      return 'SQLite database file is corrupted. Please restore from backup.';
+    }
+
+    if (message.includes('SQLITE_FULL')) {
+      return 'SQLite database disk is full. Please free up disk space.';
+    }
+
+    if (message.includes('no such table')) {
+      return 'SQLite table does not exist. Please check your query or run migrations.';
+    }
+
+    return `SQLite error: ${message}`;
+  }
+
+  /**
+   * 获取默认连接池配置
+   */
+  protected getDefaultPoolConfig() {
+    return {
+      ...super.getDefaultPoolConfig(),
+      // SQLite是单线程的，所以连接池大小设为1
+      min: 1,
+      max: 1,
+      acquireTimeoutMillis: 10000,
+      createTimeoutMillis: 5000
+    };
+  }
+}
+
+/**
+ * 创建SQLite方言实例
+ */
+export const createSQLiteDialect = (): SQLiteDialect => {
+  return new SQLiteDialect();
+};

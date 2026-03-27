@@ -1,0 +1,45 @@
+{
+  "name": "@stratix/queue",
+  "version": "1.0.0-beta.2",
+  "description": "Stratix Queue Plugin based on BullMQ with adapter pattern, dependency injection and cross-plugin sharing",
+  "main": "dist/index.js",
+  "types": "dist/types/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "clean": "rimraf dist",
+    "build": "rimraf dist && tsc",
+    "build:watch": "tsc --watch",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest --coverage",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix"
+  },
+  "keywords": [
+    "stratix",
+    "queue",
+    "bullmq",
+    "adapter",
+    "dependency-injection",
+    "typescript",
+    "plugin"
+  ],
+  "author": "Stratix Team",
+  "license": "MIT",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "bullmq": "5.61.0"
+  },
+  "peerDependencies": {
+    "@stratix/core": "workspace:*",
+    "@stratix/redis": "workspace:*"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

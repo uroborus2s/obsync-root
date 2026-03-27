@@ -1,0 +1,23 @@
+{
+  "id": "resource-repository",
+  "kind": "resource",
+  "type": "repository",
+  "version": "1.0.0",
+  "displayName": "Repository Resource",
+  "description": "Generate a Stratix repository and repository interface skeleton",
+  "contributes": {
+    "directories": [
+      "src/repositories/interfaces"
+    ],
+    "files": [
+      {
+        "source": "src/repositories/ResourceRepository.ts.tpl",
+        "destination": "src/repositories/{{pascalName}}Repository.ts"
+      },
+      {
+        "source": "src/repositories/interfaces/IResourceRepository.ts.tpl",
+        "destination": "src/repositories/interfaces/I{{pascalName}}Repository.ts"
+      }
+    ]
+  }
+}

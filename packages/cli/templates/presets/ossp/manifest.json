@@ -1,0 +1,34 @@
+{
+  "id": "ossp",
+  "version": "1.0.0",
+  "displayName": "OSSP Preset",
+  "description": "Add @stratix/ossp object storage integration",
+  "appliesTo": [
+    { "kind": "app" },
+    { "kind": "plugin" }
+  ],
+  "contributes": {
+    "dependencies": {
+      "runtime": {
+        "@stratix/ossp": "^0.0.1-beta.3"
+      }
+    },
+    "env": [
+      {
+        "key": "OSSP_ENDPOINT",
+        "default": "localhost",
+        "description": "OSSP endpoint"
+      },
+      {
+        "key": "OSSP_ACCESS_KEY",
+        "default": "minioadmin",
+        "description": "OSSP access key"
+      },
+      {
+        "key": "OSSP_SECRET_KEY",
+        "default": "minioadmin",
+        "description": "OSSP secret key"
+      }
+    ]
+  }
+}

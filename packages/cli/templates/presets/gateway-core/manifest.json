@@ -1,0 +1,18 @@
+{
+  "id": "gateway-core",
+  "version": "1.0.0",
+  "displayName": "Gateway Core Preset",
+  "description": "Add environment defaults for gateway projects",
+  "appliesTo": [
+    { "kind": "app", "types": ["gateway"] }
+  ],
+  "contributes": {
+    "env": [
+      {
+        "key": "UPSTREAM_URL",
+        "default": "http://127.0.0.1:3001",
+        "description": "Default upstream for gateway routing"
+      }
+    ]
+  }
+}

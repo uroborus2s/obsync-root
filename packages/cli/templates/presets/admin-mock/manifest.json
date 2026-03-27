@@ -1,0 +1,41 @@
+{
+  "id": "admin-mock",
+  "version": "1.0.0",
+  "displayName": "Admin Mock Preset",
+  "description": "Enable MSW-based mock wiring for web-admin projects",
+  "appliesTo": [
+    { "kind": "app", "types": ["web-admin"] }
+  ],
+  "contributes": {
+    "directories": [
+      "src/mocks"
+    ],
+    "files": [
+      {
+        "source": "src/main.tsx.tpl",
+        "destination": "src/main.tsx"
+      },
+      {
+        "source": "src/mocks/index.ts.tpl",
+        "destination": "src/mocks/index.ts"
+      },
+      {
+        "source": "src/mocks/browser.ts.tpl",
+        "destination": "src/mocks/browser.ts"
+      },
+      {
+        "source": "src/mocks/handlers.ts.tpl",
+        "destination": "src/mocks/handlers.ts"
+      },
+      {
+        "source": ".env.example.tpl",
+        "destination": ".env.example"
+      }
+    ],
+    "dependencies": {
+      "runtime": {
+        "msw": "^2.11.3"
+      }
+    }
+  }
+}

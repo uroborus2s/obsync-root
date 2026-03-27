@@ -1,0 +1,34 @@
+{
+  "id": "was-v7",
+  "version": "1.0.0",
+  "displayName": "WAS V7 Preset",
+  "description": "Add @stratix/was-v7 integration defaults",
+  "appliesTo": [
+    { "kind": "app" },
+    { "kind": "plugin" }
+  ],
+  "contributes": {
+    "dependencies": {
+      "runtime": {
+        "@stratix/was-v7": "^1.0.0-beta.36"
+      }
+    },
+    "env": [
+      {
+        "key": "WAS_V7_APP_ID",
+        "default": "your-app-id",
+        "description": "WAS V7 app id"
+      },
+      {
+        "key": "WAS_V7_APP_SECRET",
+        "default": "your-app-secret",
+        "description": "WAS V7 app secret"
+      },
+      {
+        "key": "WAS_V7_BASE_URL",
+        "default": "https://openapi.wps.cn",
+        "description": "WAS V7 base URL"
+      }
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "id": "resource-plugin-executor",
+  "kind": "resource",
+  "type": "plugin-executor",
+  "version": "1.0.0",
+  "displayName": "Plugin Executor Resource",
+  "description": "Generate an executor inside a Stratix plugin",
+  "contributes": {
+    "files": [
+      {
+        "source": "src/executors/PluginExecutor.ts.tpl",
+        "destination": "src/executors/{{pascalName}}Executor.ts"
+      }
+    ]
+  }
+}
