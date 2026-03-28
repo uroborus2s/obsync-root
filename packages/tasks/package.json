@@ -38,9 +38,9 @@
     "typescript"
   ],
   "dependencies": {
-    "ajv": "^8.17.1",
-    "jsonpath-plus": "^10.3.0",
-    "cron-parser": "5.3.0"
+    "ajv": "^8.18.0",
+    "jsonpath-plus": "^10.4.0",
+    "cron-parser": "5.5.0"
   },
   "devDependencies": {
     "@types/jsonpath-plus": "^5.0.5"
@@ -50,7 +50,7 @@
     "@stratix/database": "workspace:*"
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=24.0.0"
   },
   "license": "MIT",
   "repository": {

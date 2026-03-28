@@ -76,10 +76,13 @@ export const ErrorUtils = {
     
     // 记录日志
     if (options.logger) {
-      options.logger.error(wrappedMessage, {
-        originalError: error,
-        metadata: options.metadata
-      });
+      options.logger.error(
+        {
+          error: ErrorUtils.formatForLogging(error),
+          metadata: options.metadata
+        },
+        wrappedMessage
+      );
     }
     
     return wrappedError;
@@ -105,11 +108,14 @@ export const ErrorUtils = {
           ? `Safe execution failed in ${options.context?.component || 'unknown'}.${options.context?.operation || 'unknown'}: ${message}`
           : `Safe execution failed: ${message}`;
           
-        options.logger[logLevel](logMessage, {
-          error,
-          context: options.context,
-          defaultValue: options.defaultValue
-        });
+        options.logger[logLevel](
+          {
+            error: ErrorUtils.formatForLogging(error),
+            context: options.context,
+            defaultValue: options.defaultValue
+          },
+          logMessage
+        );
       }
       
       return options.defaultValue;
@@ -134,11 +140,14 @@ export const ErrorUtils = {
           ? `Safe execution failed in ${options.context?.component || 'unknown'}.${options.context?.operation || 'unknown'}: ${message}`
           : `Safe execution failed: ${message}`;
           
-        options.logger[logLevel](logMessage, {
-          error,
-          context: options.context,
-          defaultValue: options.defaultValue
-        });
+        options.logger[logLevel](
+          {
+            error: ErrorUtils.formatForLogging(error),
+            context: options.context,
+            defaultValue: options.defaultValue
+          },
+          logMessage
+        );
       }
       
       return options.defaultValue;
@@ -311,9 +320,12 @@ export const withRetry = async <T>(
         : delay * (attempt + 1);
       
       if (logger && context) {
-        logger.warn(`${context} failed, retrying in ${currentDelay}ms (attempt ${attempt + 1}/${maxRetries + 1})`, {
-          error: ErrorUtils.formatForLogging(error)
-        });
+        logger.warn(
+          {
+            error: ErrorUtils.formatForLogging(error)
+          },
+          `${context} failed, retrying in ${currentDelay}ms (attempt ${attempt + 1}/${maxRetries + 1})`
+        );
       }
       
       await new Promise(resolve => setTimeout(resolve, currentDelay));

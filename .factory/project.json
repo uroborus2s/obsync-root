@@ -12,13 +12,13 @@
     "Vitest",
     "Vite"
   ],
-  "packageManager": "pnpm@10.28.0",
+  "packageManager": "pnpm@10.33.0",
   "engines": {
-    "node": ">=22",
-    "pnpm": ">=10.0.0"
+    "node": ">=24.0.0",
+    "pnpm": ">=10.33.0"
   },
   "currentStage": "ANALYSIS",
-  "recommendedNextStage": "Continue ANALYSIS until root verification and release-surface blockers are closed",
+  "recommendedNextStage": "Continue ANALYSIS until root test profile, offline install, and release-surface blockers are closed",
   "sourceOfTruth": {
     "stableCollaboration": [
       "AGENTS.md",
@@ -80,69 +80,53 @@
     "assessment": "Manifest versions, git tags, and npm registry are not aligned."
   },
   "verification": {
-    "checkedAt": "2026-03-28",
+    "checkedAt": "2026-03-29",
     "install": [
       {
         "command": "CI=true pnpm install --no-frozen-lockfile",
         "status": "passed",
-        "reason": "Root lockfile refreshed after removing the workspace app"
+        "reason": "Root workspace dependencies were refreshed to the latest Node 24 baseline"
       },
       {
         "command": "CI=true pnpm install --frozen-lockfile",
-        "status": "passed"
+        "status": "passed",
+        "reason": "Refreshed root lockfile is internally consistent after the upgrade"
       },
       {
         "command": "CI=true pnpm install --frozen-lockfile --offline",
         "status": "failed",
-        "reason": "ERR_PNPM_NO_OFFLINE_TARBALL for ajv-8.17.1"
+        "reason": "Last known failure is unresolved; offline install was not re-verified after the 2026-03-29 dependency refresh"
       },
       {
-        "command": "CI=true pnpm install --ignore-workspace",
+        "command": "CI=true pnpm install --ignore-workspace --no-frozen-lockfile",
+        "workdir": "examples/web-admin-preview",
         "status": "passed",
-        "reason": "Preview sample dependencies installed independently"
+        "reason": "Preview sample lockfile was refreshed on the upgraded frontend dependency stack"
+      },
+      {
+        "command": "CI=true pnpm install --ignore-workspace --frozen-lockfile",
+        "workdir": "examples/web-admin-preview",
+        "status": "passed",
+        "reason": "Refreshed preview-sample lockfile is internally consistent after the upgrade"
       }
     ],
     "build": [
       {
         "command": "pnpm build",
-        "status": "failed",
-        "reason": "Root script requires a filter value but supplies none"
+        "status": "passed",
+        "reason": "Root build entry now delegates to build:all"
       },
       {
         "command": "pnpm build:all",
-        "status": "failed",
-        "reason": "@stratix/ossp cannot resolve @stratix/core during the package graph build"
-      },
-      {
-        "command": "pnpm --filter @stratix/cli build",
-        "status": "passed"
+        "status": "passed",
+        "reason": "All 10 public workspace packages compile after the Node 24, TypeScript 6, and logger compatibility upgrades"
       },
       {
         "command": "pnpm --filter @stratix/core build",
         "status": "passed"
       },
       {
-        "command": "pnpm --filter @stratix/database build",
-        "status": "passed"
-      },
-      {
-        "command": "pnpm --filter @stratix/redis build",
-        "status": "passed"
-      },
-      {
-        "command": "pnpm --filter @stratix/ossp build",
-        "status": "passed"
-      },
-      {
-        "command": "pnpm --filter @stratix/queue build",
-        "status": "passed"
-      },
-      {
-        "command": "pnpm --filter @stratix/was-v7 build",
-        "status": "passed"
-      },
-      {
-        "command": "pnpm --filter @stratix/tasks build",
+        "command": "pnpm --filter @stratix/cli build",
         "status": "passed"
       },
       {
@@ -155,7 +139,7 @@
       {
         "command": "pnpm test",
         "status": "failed",
-        "reason": "Workspace test profile is unstable: queue/ossp have no test files, was-v7 has vitest startup errors, and downstream packages fail"
+        "reason": "The current Vitest 4 profile still treats no-test packages as failures (`@stratix/ossp`, `@stratix/queue`), and several package suites still need individual triage on the upgraded stack"
       },
       {
         "command": "pnpm --filter @stratix/cli test",
@@ -191,7 +175,6 @@
       "CLI preview sample moved out of workspace"
     ],
     "exitBlockedBy": [
-      "BUG-001",
       "BUG-002",
       "BUG-003",
       "BUG-004",
@@ -199,7 +182,6 @@
     ]
   },
   "currentWorkitems": [
-    "BUG-001",
     "BUG-002",
     "BUG-003",
     "BUG-004",

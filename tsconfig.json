@@ -11,11 +11,13 @@
     "vitest.config.ts"
   ],
   "compilerOptions": {
-    "target": "ESNext", // 对齐Node.js 22的V8引擎版本
+    "target": "ESNext", // 对齐Node.js 24的V8引擎版本
     "module": "NodeNext", // 强制使用Node.js原生ESM模块系统
     "moduleResolution": "NodeNext",
     "allowSyntheticDefaultImports": true,
     "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
+    "types": ["node"],
     "sourceMap": true,
     "declaration": true,
     "declarationMap": true,

@@ -132,5 +132,5 @@ export type {
 
 export { Lifetime, asFunction, asValue } from 'awilix';
 export type { AwilixContainer, InjectorFunction } from 'awilix';
-
-export type { Logger, LoggerOptions } from 'pino';
+export type { Logger } from './logger/index.js';
+export type { LoggerOptions } from 'pino';

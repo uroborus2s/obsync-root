@@ -57,7 +57,7 @@ export class Stratix {
       this.logger.info('✅ Stratix application created successfully');
       return this.application;
     } catch (error) {
-      this.logger.error('❌ Failed to create Stratix application:', error);
+      this.logger.error({ err: error }, '❌ Failed to create Stratix application');
       this.application = null;
       throw error;
     }
@@ -85,7 +85,7 @@ export class Stratix {
       this.application = null;
       this.logger.info('✅ Stratix application stopped successfully');
     } catch (error) {
-      this.logger.error('❌ Failed to stop Stratix application:', error);
+      this.logger.error({ err: error }, '❌ Failed to stop Stratix application');
       throw error;
     }
   }

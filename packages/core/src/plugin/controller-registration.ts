@@ -208,8 +208,8 @@ async function registerSingleControllerRoutes(
         !routeMetadata.propertyKey
       ) {
         fastify.log.warn(
-          `Invalid route metadata for controller ${controllerInfo.name}:`,
-          routeMetadata
+          { routeMetadata },
+          `Invalid route metadata for controller ${controllerInfo.name}`
         );
         continue;
       }
@@ -260,8 +260,8 @@ async function registerSingleControllerRoutes(
       );
     } catch (error) {
       fastify.log.error(
-        `Failed to register route ${routeMetadata.method} ${routeMetadata.path} for controller ${controllerInfo.name}:`,
-        error
+        { err: error },
+        `Failed to register route ${routeMetadata.method} ${routeMetadata.path} for controller ${controllerInfo.name}`
       );
       // 继续处理其他路由
     }
@@ -317,8 +317,8 @@ export async function registerControllerRoutes(
             );
           } catch (error) {
             subFastify.log.error(
-              `Failed to register routes for controller ${controllerInfo.name}:`,
-              error
+              { err: error },
+              `Failed to register routes for controller ${controllerInfo.name}`
             );
             // 继续处理其他控制器，不中断整个过程
           }
@@ -342,8 +342,8 @@ export async function registerControllerRoutes(
         );
       } catch (error) {
         fastify.log.error(
-          `Failed to register routes for controller ${controllerInfo.name}:`,
-          error
+          { err: error },
+          `Failed to register routes for controller ${controllerInfo.name}`
         );
         // 继续处理其他控制器，不中断整个过程
       }

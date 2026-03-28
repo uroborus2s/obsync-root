@@ -2,9 +2,17 @@
 // 负责创建和配置单一的 Pino 日志器实例，确保整个应用使用同一个日志器
 
 import { get, getNodeEnv, isProduction } from '../utils/environment/index.js';
-import { multistream, pino, type Logger, type LoggerOptions } from 'pino';
+import {
+  multistream,
+  pino,
+  stdSerializers,
+  type Logger,
+  type LoggerOptions
+} from 'pino';
 import type { StratixRunOptions } from '../types/config.js';
 import type { LoggerConfig, LogLevel } from '../types/index.js';
+
+type LogLevelMethod = 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace';
 
 /**
  * 统一日志器工厂
@@ -49,9 +57,13 @@ export class LoggerFactory {
         { stream: extraStream }     // 额外的流（例如 WebSocket）
       ];
 
-      LoggerFactory.pinoInstance = pino(finalConfig, multistream(streams));
+      LoggerFactory.pinoInstance = LoggerFactory.applyCompatibilityLayer(
+        pino(finalConfig, multistream(streams))
+      );
     } else {
-      LoggerFactory.pinoInstance = pino(finalConfig);
+      LoggerFactory.pinoInstance = LoggerFactory.applyCompatibilityLayer(
+        pino(finalConfig)
+      );
     }
 
     return LoggerFactory.pinoInstance;
@@ -124,10 +136,10 @@ export class LoggerFactory {
 
       // 序列化器
       serializers: {
-        err: pino.stdSerializers.err,
-        error: pino.stdSerializers.err,
-        req: pino.stdSerializers.req,
-        res: pino.stdSerializers.res
+        err: stdSerializers.err,
+        error: stdSerializers.err,
+        req: stdSerializers.req,
+        res: stdSerializers.res
       },
 
       // 敏感信息过滤
@@ -201,6 +213,61 @@ export class LoggerFactory {
     }
 
     return pinoConfig;
+  }
+
+  /**
+   * 为旧式 logger 调用方式提供运行时兼容层：
+   * `logger.error('message', error)` -> `logger.error({ err: error }, 'message')`
+   * `logger.info('message', { ... })` -> `logger.info({ ... }, 'message')`
+   */
+  private static applyCompatibilityLayer(logger: Logger): Logger {
+    if ((logger as Logger & { __stratixCompatPatched?: boolean }).__stratixCompatPatched) {
+      return logger;
+    }
+
+    const levels: LogLevelMethod[] = [
+      'fatal',
+      'error',
+      'warn',
+      'info',
+      'debug',
+      'trace'
+    ];
+    const formatSpecifierPattern = /%[%sdifoOj]/;
+
+    for (const level of levels) {
+      const original = logger[level].bind(logger) as (...args: any[]) => void;
+
+      Object.defineProperty(logger, level, {
+        configurable: true,
+        writable: true,
+        value: ((first: unknown, second?: unknown, ...rest: unknown[]) => {
+          if (
+            typeof first === 'string' &&
+            second !== undefined &&
+            !formatSpecifierPattern.test(first)
+          ) {
+            if (second instanceof Error) {
+              return original({ err: second }, first, ...rest);
+            }
+
+            if (second && typeof second === 'object') {
+              return original(second, first, ...rest);
+            }
+          }
+
+          return original(first, second, ...rest);
+        }) as (...args: any[]) => void
+      });
+    }
+
+    Object.defineProperty(logger, '__stratixCompatPatched', {
+      value: true,
+      enumerable: false,
+      configurable: false
+    });
+
+    return logger;
   }
 }
 

@@ -3,6 +3,7 @@
 
 import type { AwilixContainer } from 'awilix';
 import fastify, {
+  type FastifyError,
   type FastifyInstance,
   type FastifyServerOptions
 } from 'fastify';
@@ -68,6 +69,18 @@ const DEFAULT_CONFIG_FILENAME = 'stratix.config';
  * 默认配置文件扩展名
  */
 const CONFIG_FILE_EXTENSIONS = ['.ts', '.js', '.mjs', '.cjs'];
+
+type FastifyHandledError = Partial<FastifyError> & {
+  validation?: unknown;
+  code?: string;
+  statusCode?: number;
+  message?: string;
+  details?: unknown;
+};
+
+type EagerInitializable = {
+  initialize?: () => unknown | Promise<unknown>;
+};
 
 /**
  * 应用启动器类
@@ -280,8 +293,11 @@ export class ApplicationBootstrap {
       this.logger?.warn(
         '⚠️ Logger unity check failed: app.logger !== app.fastify.log'
       );
-      this.logger?.warn('App logger:', typeof appLogger);
-      this.logger?.warn('Fastify logger:', typeof fastifyLogger);
+      this.logger?.warn({ appLoggerType: typeof appLogger }, 'App logger');
+      this.logger?.warn(
+        { fastifyLoggerType: typeof fastifyLogger },
+        'Fastify logger'
+      );
     }
 
     // 验证日志器是否为同一个 Pino 实例
@@ -408,7 +424,7 @@ export class ApplicationBootstrap {
             // 这里实现了真正的优先级覆盖机制
             Object.assign(allEnvVars, parsed);
           } catch (error) {
-            this.logger.warn(`解析环境变量文件失败: ${filePath}`, error);
+            this.logger.warn({ err: error }, `解析环境变量文件失败: ${filePath}`);
             // 继续处理其他文件，不中断整个流程
           }
         }
@@ -429,7 +445,7 @@ export class ApplicationBootstrap {
         const expandResult = dotenvExpand.expand({ parsed: allEnvVars });
 
         if (expandResult.error) {
-          this.logger.warn('变量扩展过程中出现错误:', expandResult.error);
+          this.logger.warn({ err: expandResult.error }, '变量扩展过程中出现错误');
         } else {
           this.logger.debug('变量扩展完成');
         }
@@ -699,7 +715,7 @@ export class ApplicationBootstrap {
         );
 
       } catch (error) {
-        this.logger?.error('❌ Application-level auto DI failed:', error);
+        this.logger?.error({ err: error }, '❌ Application-level auto DI failed');
         // 抛出错误，不允许应用继续启动
         throw error;
       }
@@ -749,9 +765,14 @@ export class ApplicationBootstrap {
   private setupErrorHandling(fastify: FastifyInstance): void {
     // 全局错误处理器
     fastify.setErrorHandler(async (error, _request, reply) => {
+      const handledError = error as FastifyHandledError;
+
       // 如果响应已经发送，则记录错误但不尝试再次发送
       if (reply.sent) {
-        this.logger?.error('Response already sent, but an error occurred:', error);
+        this.logger?.error(
+          { err: error },
+          'Response already sent, but an error occurred'
+        );
         return;
       }
 
@@ -775,22 +796,22 @@ export class ApplicationBootstrap {
         details = error.details;
       }
       // 3. 处理 Fastify 验证错误
-      else if (error.validation) {
+      else if (handledError.validation) {
         statusCode = 400;
         errorCode = 'VALIDATION_ERROR';
         message = 'Validation Error';
-        details = error.validation;
+        details = handledError.validation;
       }
       // 4. 处理 Fastify 自带的 HTTP 错误 (具有 statusCode 属性)
-      else if (error.statusCode) {
-        statusCode = error.statusCode;
-        errorCode = error.code || 'HTTP_ERROR';
-        message = error.message;
+      else if (handledError.statusCode) {
+        statusCode = handledError.statusCode;
+        errorCode = handledError.code || 'HTTP_ERROR';
+        message = handledError.message || message;
       }
 
       // 记录错误日志 (500及以上错误记录为 error，其他为 warn/info)
       if (statusCode >= 500) {
-        this.logger?.error('Unhandled error:', error);
+        this.logger?.error({ err: error }, 'Unhandled error');
       } else {
         this.logger?.warn(`Handled error (${statusCode}): ${message}`);
       }
@@ -853,7 +874,7 @@ export class ApplicationBootstrap {
           (request as any).diScope = null;
         }
       } catch (error) {
-        this.logger?.error('Failed to dispose request scope container:', error);
+        this.logger?.error({ err: error }, 'Failed to dispose request scope container');
       }
     });
   }
@@ -894,8 +915,8 @@ export class ApplicationBootstrap {
         this.logger?.debug(`Plugin "${pluginConfig.name}" loaded successfully`);
       } catch (error) {
         this.logger?.error(
-          `Failed to load plugin "${pluginConfig.name}":`,
-          error
+          { err: error, pluginName: pluginConfig.name },
+          `Failed to load plugin "${pluginConfig.name}"`
         );
         throw new Error(`Plugin loading failed: ${pluginConfig.name}`);
       }
@@ -957,7 +978,7 @@ export class ApplicationBootstrap {
 
       this.logger?.info(`🌐 Server listening on ${host}:${port}`);
     } catch (error) {
-      this.logger?.error('Failed to start server:', error);
+      this.logger?.error({ err: error }, 'Failed to start server');
       throw error;
     }
   }
@@ -1000,7 +1021,7 @@ export class ApplicationBootstrap {
 
         process.exit(0);
       } catch (error) {
-        this.logger?.error('Error during graceful shutdown:', error);
+        this.logger?.error({ err: error }, 'Error during graceful shutdown');
         process.exit(1);
       }
     };
@@ -1035,7 +1056,7 @@ export class ApplicationBootstrap {
 
       this.logger?.info(`✅ Application stopped gracefully in ${duration}ms`);
     } catch (error) {
-      this.logger?.error('❌ Error during shutdown:', error);
+      this.logger?.error({ err: error }, '❌ Error during shutdown');
       throw error;
     } finally {
       this.isShuttingDown = false;
@@ -1073,8 +1094,8 @@ export class ApplicationBootstrap {
     results.forEach((result, index) => {
       if (result.status === 'rejected') {
         this.logger?.error(
-          `Shutdown handler ${index + 1} failed:`,
-          result.reason
+          { err: result.reason, handlerIndex: index + 1 },
+          `Shutdown handler ${index + 1} failed`
         );
       }
     });
@@ -1107,7 +1128,7 @@ export class ApplicationBootstrap {
 
       this.logger?.debug('✅ Cleanup completed successfully');
     } catch (error) {
-      this.logger?.error('❌ Error during cleanup:', error);
+      this.logger?.error({ err: error }, '❌ Error during cleanup');
       throw error; // 重新抛出错误，确保调用者知道清理失败
     }
   }
@@ -1147,7 +1168,9 @@ export class ApplicationBootstrap {
           for (const serviceName of eagerInitServices) {
             try {
               const startTime = Date.now();
-              const instance = this.rootContainer.resolve(serviceName);
+              const instance = this.rootContainer.resolve(
+                serviceName
+              ) as EagerInitializable | undefined;
 
               // 如果实例有initialize方法，调用它
               if (instance && typeof instance.initialize === 'function') {
@@ -1160,8 +1183,8 @@ export class ApplicationBootstrap {
               );
             } catch (error) {
               this.logger?.error(
-                `❌ Failed to eager initialize: ${serviceName}`,
-                error
+                { err: error, serviceName },
+                `❌ Failed to eager initialize: ${serviceName}`
               );
             }
           }
@@ -1170,7 +1193,7 @@ export class ApplicationBootstrap {
         }
       }
     } catch (error) {
-      this.logger?.error('Error during eager initialization:', error);
+      this.logger?.error({ err: error }, 'Error during eager initialization');
       // 不抛出错误，避免影响应用启动
     }
   }

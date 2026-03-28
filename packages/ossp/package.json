@@ -47,7 +47,7 @@
     "LICENSE"
   ],
   "dependencies": {
-    "minio": "^8.0.1"
+    "minio": "^8.0.7"
   },
   "peerDependencies": {
     "@stratix/core": "workspace:*"
@@ -56,6 +56,6 @@
     "@types/minio": "^7.1.1"
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=24.0.0"
   }
 }

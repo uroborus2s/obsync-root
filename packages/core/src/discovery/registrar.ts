@@ -87,12 +87,14 @@ export class StandardRegistrar implements IComponentRegistrar {
     component: ComponentMetadata,
     container: AwilixContainer
   ): Promise<void> {
-     // Check if the task executor registry is available
-     if (container.hasRegistration('registerTaskExecutor')) {
-       const registerTaskExecutor = container.resolve('registerTaskExecutor');
-       const instance = container.resolve(component.name);
-       registerTaskExecutor(component.name, instance);
-       this.logger.debug(`Registered executor: ${component.name}`);
-     }
+    // Check if the task executor registry is available
+    if (container.hasRegistration('registerTaskExecutor')) {
+      const registerTaskExecutor = container.resolve(
+        'registerTaskExecutor'
+      ) as (name: string, instance: unknown) => void;
+      const instance = container.resolve(component.name);
+      registerTaskExecutor(component.name, instance);
+      this.logger.debug(`Registered executor: ${component.name}`);
+    }
   }
 }

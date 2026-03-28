@@ -7,7 +7,7 @@
 - 人类文档入口：[`docs/index.md`](./docs/index.md)
 - 稳定协作规则：[`AGENTS.md`](./AGENTS.md)、[`GEMINI.md`](./GEMINI.md)
 - 机器可消费项目基线：[`/.factory/project.json`](./.factory/project.json)
-- 当前真实状态快照：[`docs/01-framework-development/01-discovery/current-state-analysis.md`](./docs/01-framework-development/01-discovery/current-state-analysis.md)
+- 当前真实状态快照：[`docs/04-project-development/02-discovery/current-state-analysis.md`](./docs/04-project-development/02-discovery/current-state-analysis.md)
 
 ## 仓库布局
 
@@ -31,7 +31,7 @@
 - 这些瞬时结论统一维护在：
   - `.factory/project.json`
   - `.factory/memory/current-state.md`
-  - `docs/01-framework-development/01-discovery/current-state-analysis.md`
+  - `docs/04-project-development/02-discovery/current-state-analysis.md`
 
 ## 变更约束
 

@@ -1,6 +1,6 @@
 import { AwilixContainer, RESOLVER } from '@stratix/core';
 import { createHash, createHmac } from 'crypto';
-import type { SignatureParams } from '../types/index.js';
+import type { SignatureParams, WpsConfig } from '../types/index.js';
 
 /**
  * WPS API 签名工具类
@@ -9,7 +9,7 @@ import type { SignatureParams } from '../types/index.js';
 export class SignatureService {
   static [RESOLVER] = {
     injector: (container: AwilixContainer) => {
-      const config = container.resolve('config');
+      const config = container.resolve<WpsConfig>('config');
       const appId = config.appId;
       const appSecret = config.appSecret;
       return { appId, appSecret };

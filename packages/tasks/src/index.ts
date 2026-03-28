@@ -180,7 +180,10 @@ async function tasks(
 
     fastify.log.info('✅ @stratix/tasks plugin initialized successfully');
   } catch (error) {
-    fastify.log.error('❌ @stratix/tasks plugin initialization failed:', error);
+    fastify.log.error(
+      { err: error },
+      '❌ @stratix/tasks plugin initialization failed'
+    );
     throw error;
   }
 }

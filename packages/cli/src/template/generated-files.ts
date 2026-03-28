@@ -263,7 +263,7 @@ function createPackageJson(context: GeneratedProjectContext): string {
     dependencies: context.contribution.dependencies?.runtime || {},
     devDependencies: context.contribution.dependencies?.dev || {},
     engines: {
-      node: '>=22.0.0'
+      node: '>=24.0.0'
     }
   };
 
@@ -284,6 +284,7 @@ function createTsConfig(): string {
         esModuleInterop: true,
         skipLibCheck: true,
         forceConsistentCasingInFileNames: true,
+        types: ['node'],
         experimentalDecorators: true,
         emitDecoratorMetadata: true,
         sourceMap: true,

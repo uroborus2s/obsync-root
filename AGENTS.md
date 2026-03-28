@@ -23,7 +23,7 @@ Do not write transient install, build, test, release, or runtime conclusions her
 - Current verification results belong in:
   - `.factory/project.json`
   - `.factory/memory/current-state.md`
-  - `docs/01-framework-development/01-discovery/current-state-analysis.md`
+  - `docs/04-project-development/02-discovery/current-state-analysis.md`
 
 ## Responsibilities
 

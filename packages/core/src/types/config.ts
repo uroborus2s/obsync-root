@@ -3,9 +3,9 @@
 
 import { AwilixContainer } from 'awilix';
 import type { FastifyInstance, FastifyServerOptions } from 'fastify';
-import type { Logger } from 'pino';
 import type { ApplicationAutoDIConfig } from '../bootstrap/application-auto-di.js';
 import { BootstrapStatus } from '../bootstrap/index.js';
+import type { Logger } from '../logger/index.js';
 import type { AutoLoadConfig } from './auto-load.js';
 import type { PluginConfig } from './plugin.js';
 

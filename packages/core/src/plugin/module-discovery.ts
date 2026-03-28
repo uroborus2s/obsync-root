@@ -389,7 +389,9 @@ async function registerExecutorImmediate(
 
   // 确定执行器名称
   const finalExecutorName = executorMetadata.name || executorName;
-  const registerTaskExecutor = rootContainer.resolve('registerTaskExecutor');
+  const registerTaskExecutor = rootContainer.resolve(
+    'registerTaskExecutor'
+  ) as (name: string, executor: unknown) => void;
   // 注册执行器到 tasks 插件
   registerTaskExecutor(finalExecutorName, executorInstance);
 
@@ -477,8 +479,8 @@ export async function discoverAndProcessModules<T>(
         continue;
       }
 
-      const instance = internalContainer.resolve(name);
-      if (!instance && !instance.constructor) {
+      const instance = internalContainer.resolve(name) as unknown;
+      if (!instance || (typeof instance !== 'object' && typeof instance !== 'function')) {
         result.statistics.skippedModules++;
         if (debugEnabled) {
           const logger = getLogger();
@@ -490,7 +492,7 @@ export async function discoverAndProcessModules<T>(
       }
 
       // 检查是否为类注册（asClass）
-      const constructor = instance.constructor as new (...args: any[]) => any;
+      const constructor = (instance as { constructor: new (...args: any[]) => any }).constructor;
       result.statistics.classModules++;
 
       result.statistics.totalModules++;
