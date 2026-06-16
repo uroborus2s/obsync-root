@@ -1,7 +1,6 @@
 import { AwilixContainer } from 'awilix';
 import { FastifyInstance } from 'fastify';
-// @ts-ignore
-import fastifyStatic from 'fastify-static';
+import fastifyStatic from '@fastify/static';
 // @ts-ignore
 import fastifyWebsocket from '@fastify/websocket';
 import path from 'path';

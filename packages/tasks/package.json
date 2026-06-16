@@ -38,11 +38,13 @@
     "typescript"
   ],
   "dependencies": {
-    "ajv": "^8.18.0",
-    "jsonpath-plus": "^10.4.0",
-    "cron-parser": "5.5.0"
+    "ajv": "^8.20.0",
+    "cron-parser": "5.5.0",
+    "jsonpath-plus": "^10.4.0"
   },
   "devDependencies": {
+    "@stratix/core": "workspace:*",
+    "@stratix/database": "workspace:*",
     "@types/jsonpath-plus": "^5.0.5"
   },
   "peerDependencies": {

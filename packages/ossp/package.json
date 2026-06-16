@@ -53,7 +53,7 @@
     "@stratix/core": "workspace:*"
   },
   "devDependencies": {
-    "@types/minio": "^7.1.1"
+    "@stratix/core": "workspace:*"
   },
   "engines": {
     "node": ">=24.0.0"

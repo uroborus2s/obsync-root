@@ -44,10 +44,15 @@ vi.mock('ioredis', () => {
     exec: vi.fn()
   };
 
-  return {
-    Redis: vi.fn(() => mockRedis),
-    Cluster: vi.fn(() => mockRedis)
-  };
+  const Cluster = vi.fn(function RedisClusterMock() {
+    return mockRedis;
+  });
+  const Redis = vi.fn(function RedisMock() {
+    return mockRedis;
+  });
+  (Redis as any).Cluster = Cluster;
+
+  return { Redis, Cluster, default: Redis };
 });
 
 describe('Redis Adapter', () => {
@@ -69,12 +74,10 @@ describe('Redis Adapter', () => {
     container.register({
       logger: asValue(mockLogger),
       config: asValue({
-        redis: {
-          single: {
-            host: 'localhost',
-            port: 6379,
-            db: 0
-          }
+        single: {
+          host: 'localhost',
+          port: 6379,
+          db: 0
         }
       })
     });

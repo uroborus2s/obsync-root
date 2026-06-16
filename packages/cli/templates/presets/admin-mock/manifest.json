@@ -34,7 +34,7 @@
     ],
     "dependencies": {
       "runtime": {
-        "msw": "^2.11.3"
+        "msw": "^2.14.6"
       }
     }
   }

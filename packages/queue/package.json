@@ -32,13 +32,16 @@
     "LICENSE"
   ],
   "dependencies": {
-    "bullmq": "5.71.1"
+    "bullmq": "5.78.1"
   },
   "peerDependencies": {
     "@stratix/core": "workspace:*",
     "@stratix/redis": "workspace:*"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "@stratix/core": "workspace:*",
+    "@stratix/redis": "workspace:*"
+  },
   "engines": {
     "node": ">=24.0.0"
   }

@@ -18,10 +18,15 @@ vi.mock('ioredis', () => {
     ping: vi.fn()
   };
 
-  return {
-    Redis: vi.fn(() => mockRedis),
-    Cluster: vi.fn(() => mockRedis)
-  };
+  const Cluster = vi.fn(function RedisClusterMock() {
+    return mockRedis;
+  });
+  const Redis = vi.fn(function RedisMock() {
+    return mockRedis;
+  });
+  (Redis as any).Cluster = Cluster;
+
+  return { Redis, Cluster, default: Redis };
 });
 
 describe('Redis Adapter Lifecycle', () => {

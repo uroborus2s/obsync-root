@@ -255,7 +255,7 @@ describe('@stratix/cli', () => {
     assert.equal(manifest.kind, 'app');
     assert.equal(manifest.type, 'web-admin');
     assert.ok(manifest.presets.includes('admin-mock'));
-    assert.equal(packageJson.dependencies.msw, '^2.11.3');
+    assert.equal(packageJson.dependencies.msw, '^2.14.6');
     assert.match(readText(path.join(projectDir, '.gitignore')), /\.turbo/);
     assert.ok(prompts.some((prompt) => /project name/i.test(prompt)));
   });
@@ -278,7 +278,7 @@ describe('@stratix/cli', () => {
     const mainSource = readText(path.join(projectDir, 'src', 'main.tsx'));
 
     assert.ok(manifest.presets.includes('admin-mock'));
-    assert.equal(packageJson.dependencies.msw, '^2.11.3');
+    assert.equal(packageJson.dependencies.msw, '^2.14.6');
     assert.match(mainSource, /enableMocking/);
     assert.equal(
       fs.existsSync(path.join(projectDir, 'src', 'mocks', 'index.ts')),
@@ -630,7 +630,7 @@ describe('@stratix/cli', () => {
     const packageJson = readJson(path.join(projectDir, 'package.json'));
 
     assert.ok(manifest.presets.includes('admin-mock'));
-    assert.equal(packageJson.dependencies.msw, '^2.11.3');
+    assert.equal(packageJson.dependencies.msw, '^2.14.6');
     assert.match(
       readText(path.join(projectDir, 'src', 'main.tsx')),
       /enableMocking/

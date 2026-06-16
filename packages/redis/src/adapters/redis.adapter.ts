@@ -475,6 +475,8 @@ export function createRedisAdapter(
  * 遵循 Stratix 框架的 Adapter 层规范
  */
 export default class clientAdapter {
+  static adapterName = 'redisClient';
+
   private adapter: RedisAdapter;
   private logger: Logger;
 
@@ -517,6 +519,9 @@ export default class clientAdapter {
   }
 
   async set(key: string, value: string, ttl?: number) {
+    if (ttl === undefined) {
+      return this.adapter.set(key, value);
+    }
     return this.adapter.set(key, value, ttl);
   }
 

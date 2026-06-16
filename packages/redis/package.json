@@ -44,12 +44,15 @@
     "LICENSE"
   ],
   "dependencies": {
-    "ioredis": "^5.10.1"
+    "ioredis": "^5.11.1"
   },
   "peerDependencies": {
     "@stratix/core": "workspace:*"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "@stratix/core": "workspace:*",
+    "awilix": "^13.0.5"
+  },
   "engines": {
     "node": ">=24.0.0"
   }
