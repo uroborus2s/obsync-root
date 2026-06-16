@@ -50,3 +50,5 @@ Do not write transient install, build, test, release, or runtime conclusions her
 - Do not treat declared scripts or old documents as verified fact.
 - When command validity matters, re-verify and record the result in the current-state artifacts.
 - Do not put phase-specific status, temporary findings, or release snapshots into this file.
+- Do not modify `main` directly for future code changes.
+- Use the `1.1.0` branch for ongoing project updates, then merge back to `main` only through a pull request.
