@@ -14,8 +14,8 @@
 | 模块 | 边界职责 | 不负责 | 主要依赖 |
 |---|---|---|---|
 | `MOD-001 @stratix/cli` | 初始化、生成、doctor、start、config | runtime 核心实现 | - |
-| `MOD-002 @stratix/core` | runtime、DI、discovery、装饰器，以及原 `utils` 的共享工具导出 | 业务插件逻辑 | - |
-| `MOD-003 @stratix/utils` | async、data、functional、environment、context、auth 等通用工具函数 | 业务 runtime、插件协议、应用编排 | - |
+| `MOD-002 @stratix/core` | runtime、DI、discovery、装饰器，以及共享工具导出 | 业务插件逻辑 | - |
+| `MOD-003 @stratix/core/utils` | async、data、functional、environment、context、auth、crypto、error、file-scanner 等通用工具函数 | 独立包发布、业务 runtime、插件协议、应用编排 | `core` |
 | `MOD-004 @stratix/database` | repository-first 数据能力 | 业务 service 编排 | `core` |
 | `MOD-005 @stratix/redis` | Redis 能力封装 | 业务流程编排 | `core` |
 | `MOD-006 @stratix/queue` | 队列/worker 能力 | Redis 原生管理 | `core`, `redis` |
@@ -44,3 +44,4 @@
 |---|---|---|
 | 2026-03-28 | 模块边界初版 | Codex |
 | 2026-06-16 | 将 `MOD-003` 从 legacy 归档边界更新为 `packages/utils` 公共工具包边界 | Codex |
+| 2026-06-16 | 将 `MOD-003` 收敛为 `@stratix/core/utils` 子模块，删除独立 `@stratix/utils` 发布边界 | Codex |

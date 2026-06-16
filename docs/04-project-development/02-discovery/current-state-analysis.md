@@ -28,7 +28,7 @@
 
 ## 2. 当前真实仓库形态
 
-当前仓库不是根 README 描述的旧四包结构，也不再包含 workspace 应用。当前真实形态是 11 个公共包，以及 1 个非 workspace 的 CLI 预览样例。
+当前仓库不是根 README 描述的旧四包结构，也不再包含 workspace 应用。当前真实形态是 10 个公共包，以及 1 个非 workspace 的 CLI 预览样例。
 
 | 单元 | 类型 | 当前版本 | 公开性 | 主要职责 | 关键内部依赖 |
 |---|---|---:|---|---|---|
@@ -41,17 +41,16 @@
 | `@stratix/redis` | package | 1.0.0-beta.2 | public | Redis 插件 | `@stratix/core` |
 | `@stratix/tasks` | package | 1.0.0-beta.5 | public | 执行器与工作流能力 | `@stratix/core`, `@stratix/database` |
 | `@stratix/testing` | package | 1.0.0-beta.1 | public | 测试辅助模块 | `@stratix/core` |
-| `@stratix/utils` | package | 1.0.0-beta.4 | public | async、data、functional、environment、context、auth 等通用工具函数 | - |
 | `@stratix/was-v7` | package | 1.0.0-beta.36 | public | WPS WAS V7 集成插件 | `@stratix/core`, `@stratix/redis` |
 | `examples/web-admin-preview` | sample | generated | private/local | CLI `web-admin` 模板预览样例，不参与 workspace 发布面 | - |
 
 附加事实：
 
 - `apps/admin-dashboard` 已从 workspace 移除并删除。
-- `@stratix/utils` 已从 `legacy/packages/utils` 迁回 `packages/utils`，重新进入 `packages/*` workspace 包图。
+- `@stratix/utils` 已从当前 workspace 删除；async、data、functional、environment、context、auth 等共享工具由 `@stratix/core/utils` 及 core 子路径承接。
 - 预览样例由 CLI 重新生成到 `examples/web-admin-preview`，用于验证模板输出，不代表正式产品模块。
 - 当前依赖基线已整体刷新到 Node `24.14.1` / pnpm `10.33.0`。
-- 本轮迁移提交前的工作区变更范围收敛在 `@stratix/utils` 路径迁移及其状态记录同步。
+- 本轮重构提交前的工作区变更范围收敛在删除独立 `@stratix/utils` 包、刷新 workspace lockfile、同步 core utilities 边界及其状态记录。
 - 在本轮前，仓库没有 `docs/`、`.factory/`、`AGENTS.md` 或 `GEMINI.md`。
 - 根 README 曾混入过时模块结构、旧命令和历史变更说明，现已迁移为稳定入口。
 
@@ -89,7 +88,6 @@
 | `@stratix/redis` | 1.0.0-beta.2 | 无当前包名 tag | 404 | 有包无 tag/registry 对应记录 |
 | `@stratix/tasks` | 1.0.0-beta.5 | `0.0.3-beta.2` | 404 | 本地版本领先，发布面未对齐 |
 | `@stratix/testing` | 1.0.0-beta.1 | 无当前包名 tag | 404 | 有包无 tag/registry 对应记录 |
-| `@stratix/utils` | 1.0.0-beta.4 | `0.0.2` / `0.0.2-beta.0` | 404 | 已迁回 `packages/utils`，发布面仍未对齐 |
 | `@stratix/was-v7` | 1.0.0-beta.36 | `0.0.3-beta.2` | 404 | 本地版本领先，发布面未对齐 |
 
 结论：
@@ -112,17 +110,17 @@
 | `CI=true pnpm install --frozen-lockfile --offline` | failed (last known) | 上次已知失败是 `ERR_PNPM_NO_OFFLINE_TARBALL`；本轮升级后未重新验证离线链路 |
 | `CI=true pnpm install --ignore-workspace --no-frozen-lockfile` | passed | `examples/web-admin-preview` 已刷新独立 lockfile |
 | `CI=true pnpm install --ignore-workspace --frozen-lockfile` | passed | 样例冻结安装可通过 |
-| `pnpm install --lockfile-only --ignore-scripts` | passed | `packages/utils` 已作为 workspace importer 写入根 lockfile |
+| `CI=true pnpm install --frozen-lockfile --ignore-scripts` | passed | `packages/utils` 已从 workspace importer 移除，根 lockfile 与 10 包工作区一致 |
 
 ### 5.2 构建验证
 
 | 命令 | 结论 | 关键结果 |
 |---|---|---|
 | `pnpm build` | passed | 根入口已改为委托 `build:all`，用户从仓库根执行时有稳定目标范围 |
-| `pnpm build:all` | passed (last known before utils restore) | `@stratix/utils` 迁回 `packages/utils` 前的 10 个 workspace 公共包在 Node 24 / TypeScript 6 基线上均可完成构建；迁回后仍需重新验证 11 包构建 |
+| `pnpm build:all` | passed | 删除独立 `@stratix/utils` 后，当前 10 个 workspace 公共包完成构建 |
+| `pnpm exec turbo run build '--filter=./packages/*' --force` | passed | 10 个 packages 强制构建通过，`Cached: 0 cached, 10 total` |
 | `pnpm --filter @stratix/core build` | passed | `@stratix/core` 已完成对 `pino@10` 和更严格 TS 推断的适配 |
 | `pnpm --filter @stratix/cli build` | passed | 共享 tsconfig 补齐 Node 类型与 TS6 deprecation 处理后，CLI 可单独构建 |
-| `pnpm --filter @stratix/utils build` | passed | `@stratix/utils` 迁回 `packages/utils` 后包级构建通过 |
 | `pnpm build`（`examples/web-admin-preview`） | passed | CLI 生成样例可单独完成静态构建 |
 
 ### 5.3 测试验证
@@ -130,8 +128,8 @@
 | 命令 | 结论 | 关键结果 |
 |---|---|---|
 | `pnpm test` | failed | 根测试的首个明确阻塞已变成 test profile 不稳定：`@stratix/ossp` 与 `@stratix/queue` 因 “No test files found” 直接退出，其他包套件仍需逐包复核 |
+| `pnpm --filter @stratix/core test` | failed | 40 个测试文件中 28 个失败；273 个测试中 116 个失败，失败族包括装饰器元数据期望、Fastify mock、缺失 `.env` 处理、`ErrorUtils` 期望漂移 |
 | `pnpm --filter @stratix/cli test` | passed | `21` 个测试全部通过 |
-| `pnpm --filter @stratix/utils test` | incomplete | 命令进入 `vitest run` 后以 137 退出，未产出可用测试结果 |
 | `pnpm test`（`examples/web-admin-preview`） | passed | `6` 个文件、`18` 个测试全部通过 |
 
 当前根测试暴露的主要问题：
@@ -154,7 +152,7 @@
 
 ## 6. 当前真实状态结论
 
-当前项目的真实状态不是“整体不可用”，而是“workspace 结构已收敛、根 build 入口已修复、CLI、utils 包级构建与样例入口健康，但 `@stratix/utils` 迁回后的根级 11 包构建仍需重验，根 test 仍不稳定”。
+当前项目的真实状态不是“整体不可用”，而是“workspace 结构已收敛、独立 `@stratix/utils` 已删除且公共工具能力归入 core、根 build 入口已修复、删除后的根级 10 包构建通过、CLI 与样例入口健康，但 core 与根级 test 仍不稳定”。
 
 可以明确成立的结论：
 
@@ -162,10 +160,11 @@
 - workspace 现在只包含公共 `@stratix/*` 包，不再混入模板副本型应用
 - 当前依赖基线已整体切到 Node 24 / pnpm 10.33 / TypeScript 6
 - `@stratix/cli` 是真实可构建、可执行的入口
-- `@stratix/utils` 迁回 `packages/utils` 后包级构建可通过
+- `@stratix/core` 通过 `@stratix/core/utils` 与 `@stratix/core/async`、`@stratix/core/data`、`@stratix/core/functional` 等子路径承接共享工具能力
 - `examples/web-admin-preview` 是真实可安装、可构建、可测试、可预览的 CLI 输出样例
 - 根 `pnpm build` 已恢复成可信入口
-- 根 `pnpm build:all` 已在 `@stratix/utils` 迁回前的公共包图范围内通过；11 包范围仍需重验
+- 根 `pnpm build:all` 已在删除 `@stratix/utils` 后的 10 包范围内通过，强制构建同样通过
+- `pnpm --filter @stratix/core test` 仍失败，当前失败面属于既有测试基线问题，不是独立 utils 包删除导致的编译问题
 - 根 `pnpm test` 目前首先暴露的是 workspace test profile 与包级套件的稳定性问题
 - 离线安装与发布口径仍需治理
 
@@ -206,3 +205,4 @@
 | 2026-03-29 | 记录最新依赖升级结果：Node 24 / pnpm 10.33 基线完成，CLI 与样例通过，根级阻塞收敛到 `@stratix/core` | Codex |
 | 2026-03-29 | 回写升级后真实状态：根 `build` 与 `build:all` 已恢复，测试阻塞前移到 workspace test profile 与逐包套件复核 | Codex |
 | 2026-06-16 | 记录 `@stratix/utils` 从 legacy 归档目录迁回 `packages/utils`，同步 lockfile importer 与未完成的定向测试结果 | Codex |
+| 2026-06-16 | 删除独立 `@stratix/utils` 包，将共享工具边界收敛到 `@stratix/core/utils`，并记录 10 包强制构建通过与 core 测试失败现状 | Codex |

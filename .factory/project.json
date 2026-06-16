@@ -39,10 +39,11 @@
       "@stratix/redis",
       "@stratix/tasks",
       "@stratix/testing",
-      "@stratix/utils",
       "@stratix/was-v7"
     ],
-    "archivedLegacyPackages": [],
+    "archivedLegacyPackages": [
+      "@stratix/utils"
+    ],
     "previewSamples": [
       "examples/web-admin-preview"
     ]
@@ -64,7 +65,6 @@
         "@stratix/redis",
         "@stratix/tasks",
         "@stratix/testing",
-        "@stratix/utils",
         "@stratix/was-v7"
       ]
     },
@@ -73,14 +73,18 @@
       "@stratix/database": "@stratix/database@0.0.3-beta.2",
       "@stratix/queue": "@stratix/queue@0.0.3-beta.2",
       "@stratix/tasks": "@stratix/tasks@0.0.3-beta.2",
-      "@stratix/utils": "@stratix/utils@0.0.2",
       "@stratix/was-v7": "@stratix/was-v7@0.0.3-beta.2"
     },
     "assessment": "Manifest versions, git tags, and npm registry are not aligned."
   },
   "verification": {
-    "checkedAt": "2026-03-29",
+    "checkedAt": "2026-06-16",
     "install": [
+      {
+        "command": "CI=true pnpm install --frozen-lockfile --ignore-scripts",
+        "status": "passed",
+        "reason": "Frozen install accepts the lockfile after removing the standalone packages/utils importer"
+      },
       {
         "command": "CI=true pnpm install --no-frozen-lockfile",
         "status": "passed",
@@ -118,7 +122,7 @@
       {
         "command": "pnpm build:all",
         "status": "passed",
-        "reason": "Last verified before @stratix/utils was restored to packages/utils; the then-current 10 public workspace packages compiled after the Node 24, TypeScript 6, and logger compatibility upgrades"
+        "reason": "10 public workspace packages compiled after deleting standalone @stratix/utils; the forced turbo build also passed with zero cached tasks"
       },
       {
         "command": "pnpm --filter @stratix/core build",
@@ -139,6 +143,12 @@
         "command": "pnpm test",
         "status": "failed",
         "reason": "The current Vitest 4 profile still treats no-test packages as failures (`@stratix/ossp`, `@stratix/queue`), and several package suites still need individual triage on the upgraded stack"
+      },
+      {
+        "command": "pnpm --filter @stratix/core test",
+        "status": "failed",
+        "summary": "28 failed files / 116 failed tests out of 40 files / 273 tests",
+        "reason": "Existing core test baseline still fails on decorator metadata, Fastify mocks, missing .env handling, and ErrorUtils expectation drift"
       },
       {
         "command": "pnpm --filter @stratix/cli test",

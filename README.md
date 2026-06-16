@@ -11,7 +11,7 @@
 
 ## 仓库布局
 
-- `packages/core`: 灵枢枢机核心框架
+- `packages/core`: 灵枢枢机核心框架，包含共享 `utils` 工具模块
 - `packages/cli`: 灵枢枢机 CLI
 - `packages/database`: 数据库插件
 - `packages/redis`: Redis 插件
@@ -21,7 +21,6 @@
 - `packages/ossp`: OSS 存储插件
 - `packages/devtools`: 开发工具包
 - `packages/testing`: 测试辅助包
-- `legacy/packages/utils`: `@stratix/utils` 的历史版本基线，不再参与当前 workspace 维护
 - `examples/web-admin-preview`: 由 CLI 生成的“幻廊之镜”(`web-admin`) 预览样例，不参与 workspace 安装、构建和发布
 
 ## 文档边界

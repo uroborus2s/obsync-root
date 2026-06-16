@@ -14,7 +14,7 @@
 当前仓库是一个源码级 monorepo，包含：
 
 - 框架核心层：`@stratix/core`, `@stratix/cli`
-- 基础工具层：`@stratix/utils`
+- 核心工具层：`@stratix/core/utils`
 - 能力插件层：`database`, `redis`, `queue`, `tasks`, `ossp`, `was-v7`, `devtools`, `testing`
 - 样例层：`examples/web-admin-preview`（CLI 生成预览样例，不属于 workspace）
 
@@ -33,8 +33,8 @@ flowchart TD
 ## 3. 当前架构事实
 
 - `@stratix/core` 是运行时和 DI 中心。
-- `@stratix/core` 现在同时承接原 `@stratix/utils` 的公共工具导出面。
-- `@stratix/utils` 已迁回 `packages/utils`，作为独立 workspace 公共工具包保留源码与测试。
+- `@stratix/core` 通过 `@stratix/core/utils` 以及 `@stratix/core/async`、`@stratix/core/data`、`@stratix/core/functional` 等子路径承接共享工具导出面。
+- `@stratix/utils` 不再作为独立 workspace 公共包维护。
 - `@stratix/database`、`@stratix/redis` 等插件依赖 core，并向消费方暴露能力 token。
 - `@stratix/cli` 负责工程化初始化、资源生成和应用启动入口。
 - `examples/web-admin-preview` 是 CLI 生成样例，用于预览模板输出，不属于公共包发布面。
@@ -57,3 +57,4 @@ flowchart TD
 |---|---|---|
 | 2026-03-28 | 架构基线初版 | Codex |
 | 2026-06-16 | 记录 `@stratix/utils` 重新进入 `packages/*` workspace 包图 | Codex |
+| 2026-06-16 | 删除独立 `@stratix/utils` 包，明确共享工具能力归入 `@stratix/core/utils` | Codex |
