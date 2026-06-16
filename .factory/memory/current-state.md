@@ -1,6 +1,6 @@
 # Current State
 
-- Snapshot date: 2026-03-29
+- Snapshot date: 2026-06-16
 - Recommended software-factory stage: `ANALYSIS`
 - Repository type: historical Stratix source monorepo
 - Toolchain baseline:
@@ -8,22 +8,25 @@
   - pnpm `10.33.0`
   - TypeScript `6.0.2`
 - Workspace reality:
-  - 10 public `@stratix/*` packages
+  - 11 public `@stratix/*` packages
   - 0 workspace apps
   - 1 non-workspace preview sample at `examples/web-admin-preview`
-  - 1 archived legacy package baseline at `legacy/packages/utils`
+  - `@stratix/utils` restored from `legacy/packages/utils` to `packages/utils`
 - Stable docs were missing before this baseline; `docs/`, `.factory/`, `AGENTS.md`, `GEMINI.md` are now present.
 - Developer guides now include beginner-oriented paths for backend apps, plugins, and the CLI scaffold.
 
 ## Verified Facts
 
 - Root and preview-sample lockfiles were refreshed after the dependency upgrade.
+- `pnpm install --lockfile-only --ignore-scripts` passes after adding `packages/utils` back to the workspace lockfile.
 - Root `CI=true pnpm install --frozen-lockfile` passes on pnpm `10.33.0`.
 - Preview sample `CI=true pnpm install --ignore-workspace --frozen-lockfile` passes.
 - Root `pnpm build` now delegates to `build:all` and passes.
-- Root `pnpm build:all` passes for all 10 public workspace packages on the Node 24 / TypeScript 6 baseline.
+- Root `pnpm build:all` last passed for the then-current 10 public workspace packages before `@stratix/utils` was restored to `packages/utils`.
+- `pnpm --filter @stratix/utils build` passes after `@stratix/utils` was restored to `packages/utils`.
 - `@stratix/cli` can build and run `--help` on the Node 24 baseline.
 - `examples/web-admin-preview` can install independently, build, test, and preview on the upgraded frontend stack.
+- `pnpm --filter @stratix/utils test` was attempted on 2026-06-16 but exited with code 137 before producing Vitest results.
 - Root `pnpm test` still fails, but the failure frontier has moved to the workspace test profile:
   - `@stratix/ossp` and `@stratix/queue` exit 1 on `No test files found`
   - several other package suites still need individual Vitest 4 triage

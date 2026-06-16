@@ -7,15 +7,15 @@
 **上游输入：** 当前状态分析 | 技术选型  
 **下游输出：** 模块边界 | 实施计划 | 测试计划  
 **关联 ID：** `MOD-001` ~ `MOD-004`  
-**最后更新：** 2026-03-28  
+**最后更新：** 2026-06-16
 
 ## 1. 架构摘要
 
 当前仓库是一个源码级 monorepo，包含：
 
 - 框架核心层：`@stratix/core`, `@stratix/cli`
+- 基础工具层：`@stratix/utils`
 - 能力插件层：`database`, `redis`, `queue`, `tasks`, `ossp`, `was-v7`, `devtools`, `testing`
-- legacy 归档层：`legacy/packages/utils`
 - 样例层：`examples/web-admin-preview`（CLI 生成预览样例，不属于 workspace）
 
 ## 2. 逻辑分层
@@ -34,9 +34,9 @@ flowchart TD
 
 - `@stratix/core` 是运行时和 DI 中心。
 - `@stratix/core` 现在同时承接原 `@stratix/utils` 的公共工具导出面。
+- `@stratix/utils` 已迁回 `packages/utils`，作为独立 workspace 公共工具包保留源码与测试。
 - `@stratix/database`、`@stratix/redis` 等插件依赖 core，并向消费方暴露能力 token。
 - `@stratix/cli` 负责工程化初始化、资源生成和应用启动入口。
-- `legacy/packages/utils` 保留 `@stratix/utils` 老版本源码，不再参与当前 workspace 包图。
 - `examples/web-admin-preview` 是 CLI 生成样例，用于预览模板输出，不属于公共包发布面。
 
 ## 4. 架构层面的主要问题
@@ -56,3 +56,4 @@ flowchart TD
 | 日期 | 变更内容 | 变更人 |
 |---|---|---|
 | 2026-03-28 | 架构基线初版 | Codex |
+| 2026-06-16 | 记录 `@stratix/utils` 重新进入 `packages/*` workspace 包图 | Codex |

@@ -39,11 +39,10 @@
       "@stratix/redis",
       "@stratix/tasks",
       "@stratix/testing",
+      "@stratix/utils",
       "@stratix/was-v7"
     ],
-    "archivedLegacyPackages": [
-      "@stratix/utils -> legacy/packages/utils"
-    ],
+    "archivedLegacyPackages": [],
     "previewSamples": [
       "examples/web-admin-preview"
     ]
@@ -119,7 +118,7 @@
       {
         "command": "pnpm build:all",
         "status": "passed",
-        "reason": "All 10 public workspace packages compile after the Node 24, TypeScript 6, and logger compatibility upgrades"
+        "reason": "Last verified before @stratix/utils was restored to packages/utils; the then-current 10 public workspace packages compiled after the Node 24, TypeScript 6, and logger compatibility upgrades"
       },
       {
         "command": "pnpm --filter @stratix/core build",
