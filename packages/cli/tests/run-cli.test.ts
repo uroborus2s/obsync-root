@@ -526,7 +526,17 @@ describe('@stratix/cli', () => {
       )
     );
 
+    assert.match(
+      source,
+      /import \{ BaseRepository, type DatabaseConnectionProvider \} from '@stratix\/database';/
+    );
     assert.match(source, /extends BaseRepository/);
+    assert.match(
+      source,
+      /constructor\(database: DatabaseConnectionProvider, logger: Logger\) \{/
+    );
+    assert.match(source, /super\(\{ database \}\);/);
+    assert.doesNotMatch(source, /super\(\);/);
     assert.match(source, /claimById/);
     assert.match(source, /compareAndSet/);
     assert.match(source, /workflow_execution_outbox/);

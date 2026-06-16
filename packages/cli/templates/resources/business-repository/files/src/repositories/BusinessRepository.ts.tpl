@@ -1,5 +1,5 @@
 import type { Logger } from '@stratix/core';
-import { BaseRepository } from '@stratix/database';
+import { BaseRepository, type DatabaseConnectionProvider } from '@stratix/database';
 
 export interface I{{pascalName}}UnitRecord {
   id: string;
@@ -33,8 +33,8 @@ export default class {{pascalName}}BusinessRepository extends BaseRepository<
   protected readonly tableName = '{{snakeName}}_units' as const;
   protected readonly logger: Logger;
 
-  constructor(logger: Logger) {
-    super();
+  constructor(database: DatabaseConnectionProvider, logger: Logger) {
+    super({ database });
     this.logger = logger;
   }
 
