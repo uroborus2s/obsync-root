@@ -4,13 +4,6 @@ import fastifyStatic from '@fastify/static';
 // @ts-ignore
 import fastifyWebsocket from '@fastify/websocket';
 import path from 'path';
-import { fileURLToPath } from 'url';
-
-// Shim for __dirname in ESM
-// @ts-ignore
-const __filename = typeof __filename !== 'undefined' ? __filename : fileURLToPath(import.meta.url);
-// @ts-ignore
-const __dirname = typeof __dirname !== 'undefined' ? __dirname : path.dirname(__filename);
 
 export interface DevToolsOptions {
   path?: string;

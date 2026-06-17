@@ -86,7 +86,7 @@ stratix doctor
 
 ## 什么时候加 preset
 
-很多新手会一开始把 `database`、`redis`、`queue`、`tasks` 全加上，这通常不是好习惯。
+很多新手会一开始把 `database`、`redis`、`queue` 这类基础设施全加上，这通常不是好习惯。`tasks` 即将废弃，新项目不要再把它加入默认 preset 组合。
 
 更稳妥的顺序是：
 

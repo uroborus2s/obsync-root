@@ -36,6 +36,8 @@ export interface CreateTableFromDataOptions {
   stringFieldLength?: number;
   /** 是否覆盖已存在的表，默认false */
   overwriteIfExists?: boolean;
+  /** 表存在且不覆盖时是否先清空旧数据，默认false */
+  clearExistingData?: boolean;
   /** 是否启用自动时间戳，默认true */
   enableAutoTimestamps?: boolean;
 }
@@ -170,8 +172,12 @@ export abstract class AutoSaveRepository<
         this.logger.info(`成功创建表: ${this.tableName}`);
       }
 
-      // 🎯 7. 清空表数据（如果表已存在）
-      if (tableExists && !options.overwriteIfExists) {
+      // 🎯 7. 清空表数据必须显式启用，避免默认路径误删历史数据
+      if (
+        tableExists &&
+        !options.overwriteIfExists &&
+        options.clearExistingData === true
+      ) {
         await this.clearTableData();
         this.logger.info(`已清空表 '${this.tableName}' 的数据`);
       }

@@ -6,7 +6,7 @@
   "displayName": "Executor Plugin",
   "description": "Plugin with executor-oriented extension points",
   "runtime": "service",
-  "defaultPresets": ["tasks", "testing"],
+  "defaultPresets": ["testing"],
   "contributes": {
     "files": [
       {

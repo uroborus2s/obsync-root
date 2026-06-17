@@ -7,7 +7,7 @@ function mockStackTrace(fileName: string) {
   
   Error.prepareStackTrace = (_, stack) => [
     {
-      getFileName: () => '/internal/plugin-utils.ts'
+      getFileName: () => '/internal/plugin/utils.ts'
     },
     {
       getFileName: () => fileName

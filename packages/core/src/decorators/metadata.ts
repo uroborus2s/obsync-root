@@ -8,14 +8,15 @@ import 'reflect-metadata';
  * 元数据键定义
  */
 export const METADATA_KEYS = {
-  ROUTE: Symbol('route:metadata'),
-  CONTROLLER: Symbol('controller:metadata'),
-  VALIDATION: Symbol('validation:metadata'),
+    ROUTE: Symbol('route:metadata'),
+    CONTROLLER: Symbol('controller:metadata'),
+    COMPONENT: Symbol('component:metadata'),
+    VALIDATION: Symbol('validation:metadata'),
   PARAM_VALIDATION: Symbol('param-validation:metadata'),
   EXECUTOR: Symbol('executor:metadata')
 } as const;
 
-// 向后兼容的导出
+// 元数据键导出
 export const ROUTE_METADATA_KEY = METADATA_KEYS.ROUTE;
 export const CONTROLLER_METADATA_KEY = METADATA_KEYS.CONTROLLER;
 export const EXECUTOR_METADATA_KEY = METADATA_KEYS.EXECUTOR;
@@ -37,6 +38,24 @@ export interface RouteMetadata {
 export interface ControllerMetadata {
   prefix?: string;
   options?: any;
+}
+
+export type ComponentType = 'service' | 'repository' | 'component';
+export type ComponentLifetime = 'SINGLETON' | 'TRANSIENT' | 'SCOPED';
+export type ComponentInjectionMode = 'CLASSIC' | 'PROXY';
+
+export interface ComponentMetadata {
+  type: ComponentType;
+  lifetime: ComponentLifetime;
+  injectionMode: ComponentInjectionMode;
+  name?: string;
+}
+
+export interface ComponentOptions {
+  type?: ComponentType;
+  lifetime?: ComponentLifetime;
+  injectionMode?: ComponentInjectionMode;
+  name?: string;
 }
 
 /**
@@ -126,7 +145,7 @@ export class MetadataManager {
    * 获取路由元数据
    */
   static getRouteMetadata(target: any): RouteMetadata[] {
-    return Reflect.getMetadata(METADATA_KEYS.ROUTE, target) || [];
+    return Reflect.getOwnMetadata(METADATA_KEYS.ROUTE, target) || [];
   }
 
   /**
@@ -149,7 +168,7 @@ export class MetadataManager {
    * 获取控制器元数据
    */
   static getControllerMetadata(target: any): ControllerMetadata | undefined {
-    return Reflect.getMetadata(METADATA_KEYS.CONTROLLER, target);
+    return Reflect.getOwnMetadata(METADATA_KEYS.CONTROLLER, target);
   }
 
   /**
@@ -166,7 +185,7 @@ export class MetadataManager {
    * 检查是否为控制器类
    */
   static isController(target: any): boolean {
-    return Reflect.hasMetadata(METADATA_KEYS.CONTROLLER, target);
+    return Reflect.hasOwnMetadata(METADATA_KEYS.CONTROLLER, target);
   }
 
   /**
@@ -191,6 +210,18 @@ export class MetadataManager {
   static getControllerOptions(target: any): ControllerOptions {
     const metadata = this.getControllerMetadata(target);
     return metadata?.options || {};
+  }
+
+  static getComponentMetadata(target: any): ComponentMetadata | undefined {
+    return Reflect.getOwnMetadata(METADATA_KEYS.COMPONENT, target);
+  }
+
+  static setComponentMetadata(target: any, metadata: ComponentMetadata): void {
+    Reflect.defineMetadata(METADATA_KEYS.COMPONENT, metadata, target);
+  }
+
+  static isComponent(target: any): boolean {
+    return Reflect.hasOwnMetadata(METADATA_KEYS.COMPONENT, target);
   }
 
   /**
@@ -251,7 +282,7 @@ export class MetadataManager {
    * 获取执行器元数据
    */
   static getExecutorMetadata(target: any): ExecutorMetadata | undefined {
-    return Reflect.getMetadata(METADATA_KEYS.EXECUTOR, target);
+    return Reflect.getOwnMetadata(METADATA_KEYS.EXECUTOR, target);
   }
 
   /**
@@ -265,7 +296,7 @@ export class MetadataManager {
    * 检查是否为执行器类
    */
   static isExecutor(target: any): boolean {
-    return Reflect.hasMetadata(METADATA_KEYS.EXECUTOR, target);
+    return Reflect.hasOwnMetadata(METADATA_KEYS.EXECUTOR, target);
   }
 
   /**
@@ -290,6 +321,7 @@ export class MetadataManager {
   static clearAllMetadata(target: any): void {
     Reflect.deleteMetadata(METADATA_KEYS.ROUTE, target);
     Reflect.deleteMetadata(METADATA_KEYS.CONTROLLER, target);
+    Reflect.deleteMetadata(METADATA_KEYS.COMPONENT, target);
     Reflect.deleteMetadata(METADATA_KEYS.VALIDATION, target);
     Reflect.deleteMetadata(METADATA_KEYS.PARAM_VALIDATION, target);
     Reflect.deleteMetadata(METADATA_KEYS.EXECUTOR, target);

@@ -13,7 +13,13 @@ import { get, getNodeEnv, isProduction } from '../utils/environment/index.js';
 import { asValue, createContainer, InjectionMode } from 'awilix';
 import fs from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { HttpError, StratixError } from '../errors/index.js';
+import {
+  ConfigurationError,
+  HttpError,
+  PluginLoadError,
+  StratixError
+} from '../errors/index.js';
+import { ApplicationDiscoveryPipeline } from '../discovery/application-pipeline.js';
 import type {
   ConfigOptions,
   EnvOptions,
@@ -70,6 +76,15 @@ const DEFAULT_CONFIG_FILENAME = 'stratix.config';
  */
 const CONFIG_FILE_EXTENSIONS = ['.ts', '.js', '.mjs', '.cjs'];
 
+function isDirectConfig(value: unknown): value is StratixConfig {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'server' in value &&
+    'plugins' in value
+  );
+}
+
 type FastifyHandledError = Partial<FastifyError> & {
   validation?: unknown;
   code?: string;
@@ -118,7 +133,7 @@ export class ApplicationBootstrap {
   }
 
   /**
-   * 启动应用 (传统版本 - 保持向后兼容)
+   * 启动应用
    */
   async bootstrap(options?: StratixRunOptions): Promise<StratixApplication> {
     const startTime = Date.now();
@@ -141,10 +156,11 @@ export class ApplicationBootstrap {
       );
 
       // 4. 加载配置（传入敏感配置参数）
-      const config = await this.loadConfiguration(
+      const loadedConfig = await this.loadConfiguration(
         sensitiveConfig,
-        processedOptions.configOptions
+        processedOptions.config ?? processedOptions.configOptions
       );
+      const config = this.applyRuntimeOverrides(loadedConfig, processedOptions);
 
       // 5. 设置容器
       const container = await this.setupContainer(config);
@@ -155,18 +171,21 @@ export class ApplicationBootstrap {
       // 8. 加载插件
       await this.loadPlugins(config, fastifyInstance);
 
-      // 8.1 🎯 执行应用级自动依赖注入（包括路由注册）
-      await this.performApplicationLevelAutoDI(
-        config,
-        container,
-        fastifyInstance
-      );
+      // 8.1 执行应用级发现与注册（包括控制器路由注册）
+      await this.runApplicationDiscovery(config, container, fastifyInstance);
 
       // 9. 启动应用（根据应用类型选择启动方式）
-      await this.startApplication(fastifyInstance, config, appType);
+      await this.startApplication(
+        fastifyInstance,
+        config,
+        appType,
+        processedOptions
+      );
 
       // 10. 设置优雅关闭
-      this.setupGracefulShutdown(processedOptions.shutdownTimeout || 10000);
+      if (processedOptions.gracefulShutdown !== false) {
+        this.setupGracefulShutdown(processedOptions.shutdownTimeout || 10000);
+      }
 
       const duration = Date.now() - startTime;
       this.updateStatus(BootstrapPhase.READY, { duration, appType });
@@ -246,6 +265,10 @@ export class ApplicationBootstrap {
       // 清理已初始化的资源
       await this.safeExecute('cleanup', () => this.cleanup(), undefined);
 
+      if (error instanceof StratixError) {
+        throw error;
+      }
+
       throw this.wrapError(error, 'bootstrap');
     }
   }
@@ -267,6 +290,25 @@ export class ApplicationBootstrap {
       ...options,
       env: {
         ...options?.env
+      }
+    };
+  }
+
+  private applyRuntimeOverrides(
+    config: StratixConfig,
+    options: StratixRunOptions
+  ): StratixConfig {
+    if (!options.server) {
+      return config;
+    }
+
+    const { listen: _listen, ...serverOptions } = options.server;
+
+    return {
+      ...config,
+      server: {
+        ...config.server,
+        ...serverOptions
       }
     };
   }
@@ -355,11 +397,18 @@ export class ApplicationBootstrap {
         this.logger?.info(
           '🔐 Found sensitive configuration environment variable'
         );
+        const decryptedConfig = decryptConfig(sensitiveConfigRaw);
+
+        this.logger?.debug(
+          `✅ Successfully decrypted ${Object.keys(decryptedConfig).length} sensitive config variables`
+        );
+
+        return decryptedConfig;
       } else {
         const {
           rootDir = process.cwd(),
           override = false,
-          strict = true,
+          strict = false,
           path
         } = envOptions || {};
 
@@ -451,16 +500,7 @@ export class ApplicationBootstrap {
         }
       }
 
-      const decryptedConfig = decryptConfig(
-        get(SENSITIVE_CONFIG_ENV) as string
-      );
-
-      this.logger?.debug(
-        `✅ Successfully decrypted ${Object.keys(decryptedConfig).length} sensitive config variables`
-      );
-
-      // 返回解密后的敏感配置，不直接设置到 process.env
-      return decryptedConfig;
+      return {};
     } catch (error) {
       this.logger?.warn(
         `⚠️ Failed to decrypt sensitive config: ${error instanceof Error ? error.message : String(error)}`
@@ -513,9 +553,14 @@ export class ApplicationBootstrap {
    */
   private async loadConfiguration(
     sensitiveConfig: Record<string, string> = {},
-    configOptions?: string | ConfigOptions
+    configOptions?: string | ConfigOptions | StratixConfig
   ): Promise<StratixConfig> {
     this.updateStatus(BootstrapPhase.CONFIG_LOADING);
+
+    if (isDirectConfig(configOptions)) {
+      this.logger?.debug('🔧 Using direct Stratix configuration object...');
+      return this.validateConfiguration(configOptions);
+    }
 
     // 处理字符串选项（直接传入配置文件路径）
     const {
@@ -613,27 +658,37 @@ export class ApplicationBootstrap {
 
       const configFunction = configExport(sensitiveConfig);
       
-      // 验证配置
-      this.logger?.debug('🔍 Validating configuration...');
-      const { StratixConfigSchema } = await import('../config/schema.js');
-      const { ConfigurationError } = await import('../errors/configuration-error.js');
-      
-      const parseResult = StratixConfigSchema.safeParse(configFunction);
-      
-      if (!parseResult.success) {
-        const errorMessages = parseResult.error.issues.map((err: any) => 
-          `- ${err.path.join('.')}: ${err.message}`
-        ).join('\n');
-        
-        this.logger?.error(`❌ Configuration validation failed:\n${errorMessages}`);
-        throw new ConfigurationError(`Configuration validation failed:\n${errorMessages}`, parseResult.error.issues);
-      }
-
-      this.logger?.debug('✅ Configuration validated successfully');
-      return parseResult.data as StratixConfig;
+      return this.validateConfiguration(configFunction);
     } catch (error) {
+      if (error instanceof StratixError) {
+        throw error;
+      }
       throw this.wrapError(error, 'loadConfiguration');
     }
+  }
+
+  private async validateConfiguration(
+    config: StratixConfig
+  ): Promise<StratixConfig> {
+    this.logger?.debug('🔍 Validating configuration...');
+    const { StratixConfigSchema } = await import('../config/schema.js');
+
+    const parseResult = StratixConfigSchema.safeParse(config);
+
+    if (!parseResult.success) {
+      const errorMessages = parseResult.error.issues
+        .map((err: any) => `- ${err.path.join('.')}: ${err.message}`)
+        .join('\n');
+
+      this.logger?.error(`❌ Configuration validation failed:\n${errorMessages}`);
+      throw new ConfigurationError(
+        `Configuration validation failed:\n${errorMessages}`,
+        parseResult.error.issues
+      );
+    }
+
+    this.logger?.debug('✅ Configuration validated successfully');
+    return parseResult.data as StratixConfig;
   }
 
   /**
@@ -658,67 +713,39 @@ export class ApplicationBootstrap {
   }
 
   /**
-   * 执行应用级自动依赖注入
+   * 执行应用级发现管道
    */
-  /**
-   * 执行应用级自动依赖注入
-   */
-  private async performApplicationLevelAutoDI(
+  private async runApplicationDiscovery(
     config: StratixConfig,
     container: AwilixContainer,
     fastifyInstance: FastifyInstance
   ): Promise<void> {
-    // 🎯 执行应用级自动依赖注入
-    if (config.applicationAutoDI?.enabled !== false) {
-      try {
-        this.logger?.debug('🚀 Starting new module discovery pipeline...');
-        
-        // 1. Determine directories to scan
-        let scanDirs: string[] = [];
-        if (config.applicationAutoDI?.directories) {
-          scanDirs = config.applicationAutoDI.directories;
-        } else {
-          // Auto-detect: usually src/controllers, src/services, etc.
-          // For now, let's assume we scan the app root or specific subdirs if convention is followed.
-          // To maintain backward compatibility with `performApplicationAutoDI` which likely scanned `src`,
-          // we need to resolve the app root.
-          const appRoot = this.getEntryModulePath() || process.cwd();
-          scanDirs = [resolve(appRoot, 'src')]; // Default to src
-        }
+    const discoveryConfig = config.discovery || {};
+    if (discoveryConfig.enabled === false) {
+      return;
+    }
 
-        // 2. Initialize Pipeline Components
-        // Dynamic import to avoid circular dependencies if any, and to use the new module
-        const { ModuleScanner, MetadataAnalyzer, StandardRegistrar } = await import('../discovery/index.js');
-        
-        const scanner = new ModuleScanner();
-        const analyzer = new MetadataAnalyzer();
-        const registrar = new StandardRegistrar();
+    try {
+      this.logger?.debug('🚀 Starting application discovery pipeline...');
 
-        // 3. Execute Pipeline
-        // Step 1: Scan
-        const loadedModules = await scanner.scan(scanDirs);
-        this.logger?.debug(`Pipeline: Scanned ${loadedModules.length} modules`);
+      const appRoot = this.getEntryModulePath() || process.cwd();
+      const sourceRoot = fs.existsSync(resolve(appRoot, 'src'))
+        ? resolve(appRoot, 'src')
+        : appRoot;
+      const pipeline = new ApplicationDiscoveryPipeline();
+      const result = await pipeline.discoverAndRegister({
+        rootDir: sourceRoot,
+        ...discoveryConfig,
+        container,
+        fastify: fastifyInstance
+      });
 
-        let registeredCount = 0;
-
-        // Step 2 & 3: Analyze and Register
-        for (const module of loadedModules) {
-          const metadata = analyzer.analyze(module);
-          if (metadata) {
-            await registrar.register(metadata, container, fastifyInstance);
-            registeredCount++;
-          }
-        }
-
-        this.logger?.info(
-          `✅ Application-level auto DI completed (New Pipeline): ${registeredCount} components registered`
-        );
-
-      } catch (error) {
-        this.logger?.error({ err: error }, '❌ Application-level auto DI failed');
-        // 抛出错误，不允许应用继续启动
-        throw error;
-      }
+      this.logger?.info(
+        `✅ Application discovery completed: ${result.registered.length} registrations, ${result.routesRegistered} routes`
+      );
+    } catch (error) {
+      this.logger?.error({ err: error }, '❌ Application discovery failed');
+      throw error;
     }
   }
 
@@ -854,11 +881,18 @@ export class ApplicationBootstrap {
     if (!container) return;
 
     // 为每个请求创建作用域
-    fastify.addHook('onRequest', async (request, _reply) => {
+    fastify.addHook('onRequest', async (request, reply) => {
       const requestId = `req_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 
       // 创建请求作用域
       const requestScope = container.createScope();
+      requestScope.register({
+        request: asValue(request),
+        reply: asValue(reply),
+        requestId: asValue(requestId),
+        logger: asValue(request.log || this.logger),
+        diScope: asValue(requestScope)
+      });
 
       // 将请求作用域附加到请求对象
       (request as any).diScope = requestScope;
@@ -918,7 +952,11 @@ export class ApplicationBootstrap {
           { err: error, pluginName: pluginConfig.name },
           `Failed to load plugin "${pluginConfig.name}"`
         );
-        throw new Error(`Plugin loading failed: ${pluginConfig.name}`);
+        throw new PluginLoadError(
+          `Plugin loading failed: ${pluginConfig.name}`,
+          { pluginName: pluginConfig.name },
+          error
+        );
       }
     }
 
@@ -934,7 +972,8 @@ export class ApplicationBootstrap {
   private async startApplication(
     fastify: FastifyInstance,
     config: StratixConfig,
-    appType: 'web' | 'cli' | 'worker' | 'service'
+    appType: 'web' | 'cli' | 'worker' | 'service',
+    options?: StratixRunOptions
   ): Promise<void> {
     // 触发应用启动前的生命周期钩子
     if (config.hooks?.beforeStart) {
@@ -942,7 +981,7 @@ export class ApplicationBootstrap {
     }
     this.updateStatus(BootstrapPhase.STARTING);
 
-    if (appType === 'web') {
+    if (appType === 'web' && options?.server?.listen !== false) {
       // Web 应用：启动 HTTP 服务器
       await this.startWebServer(fastify, config);
     } else {

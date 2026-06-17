@@ -177,17 +177,22 @@ describe('@stratix/cli', () => {
     });
 
     const projectDir = path.join(cwd, 'demo-api');
-    const manifest = readJson(path.join(projectDir, '.stratix', 'project.json'));
-    const packageJson = readJson(path.join(projectDir, 'package.json'));
+	    const manifest = readJson(path.join(projectDir, '.stratix', 'project.json'));
+	    const packageJson = readJson(path.join(projectDir, 'package.json'));
+	    const generatedConfig = readText(
+	      path.join(projectDir, 'src', 'config', 'stratix.generated.ts')
+	    );
 
-    assert.equal(manifest.kind, 'app');
-    assert.equal(manifest.type, 'api');
-    assert.ok(manifest.presets.includes('testing'));
-    assert.equal(packageJson.dependencies['@stratix/core'], '^1.1.0');
-    assert.equal(packageJson.devDependencies['@stratix/cli'], '^1.1.0');
-    assert.match(
-      readText(path.join(projectDir, 'src', 'index.ts')),
-      /await Stratix\.run\(\)/
+	    assert.equal(manifest.kind, 'app');
+	    assert.equal(manifest.type, 'api');
+	    assert.ok(manifest.presets.includes('testing'));
+	    assert.equal(packageJson.dependencies['@stratix/core'], '^1.1.0');
+	    assert.equal(packageJson.devDependencies['@stratix/cli'], '^1.1.0');
+	    assert.doesNotMatch(generatedConfig, /applicationAutoDI/);
+	    assert.match(generatedConfig, /discovery:\s*\{/);
+	    assert.match(
+	      readText(path.join(projectDir, 'src', 'index.ts')),
+	      /await Stratix\.run\(\)/
     );
     assert.match(
       readText(path.join(projectDir, 'src', 'controllers', 'HealthController.ts')),

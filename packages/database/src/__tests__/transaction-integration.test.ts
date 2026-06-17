@@ -2,20 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { isLeft, isNone } from '@stratix/core/functional';
 import type { Transaction } from 'kysely';
 
-vi.mock('../core/database-manager.js', () => ({
-  getReadConnection: vi.fn(),
-  getWriteConnection: vi.fn()
-}));
-
 import { BaseRepository } from '../config/base-repository.js';
 import {
   getCurrentTransaction,
   getCurrentTransactionId
 } from '../core/transaction-manager.js';
-import {
-  getReadConnection,
-  getWriteConnection
-} from '../core/database-manager.js';
 
 interface TestDatabase {
   users: {
@@ -36,6 +27,13 @@ const mockLogger = {
   error: vi.fn()
 };
 
+const databaseProvider = {
+  getConnection: vi.fn(),
+  getReadConnection: vi.fn(),
+  getWriteConnection: vi.fn(),
+  getConnectionType: vi.fn()
+};
+
 class TestUserRepository extends BaseRepository<
   TestDatabase,
   'users',
@@ -45,6 +43,10 @@ class TestUserRepository extends BaseRepository<
 > {
   protected readonly tableName = 'users' as const;
   protected readonly logger = mockLogger as any;
+
+  constructor() {
+    super({ database: databaseProvider });
+  }
 }
 
 function createSelectChain(result: unknown) {
@@ -111,15 +113,16 @@ describe('BaseRepository 1.1.0 transaction integration', () => {
       }))
     };
 
-    vi.mocked(getReadConnection).mockResolvedValue(readDb as any);
-    vi.mocked(getWriteConnection).mockResolvedValue(writeDb as any);
+    databaseProvider.getReadConnection.mockResolvedValue(readDb as any);
+    databaseProvider.getWriteConnection.mockResolvedValue(writeDb as any);
 
     const repository = new TestUserRepository();
     const result = await repository.tx(async (repo, trx) => {
       expect(getCurrentTransaction()).toBe(trx);
 
       const found = await repo.findById(1);
-      expect(isNone(found)).toBe(false);
+      expect(isLeft(found)).toBe(false);
+      expect(isNone((found as any).right)).toBe(false);
 
       const created = await repo.create({ name: 'Alice' });
       expect(isLeft(created)).toBe(false);
@@ -144,8 +147,8 @@ describe('BaseRepository 1.1.0 transaction integration', () => {
       })
     };
 
-    vi.mocked(getReadConnection).mockResolvedValue(readDb as any);
-    vi.mocked(getWriteConnection).mockResolvedValue({} as any);
+    databaseProvider.getReadConnection.mockResolvedValue(readDb as any);
+    databaseProvider.getWriteConnection.mockResolvedValue({} as any);
 
     const repository = new TestUserRepository();
     const result = await (repository as any).rawQuery(
@@ -181,15 +184,17 @@ describe('BaseRepository 1.1.0 transaction integration', () => {
       }))
     };
 
-    vi.mocked(getReadConnection).mockResolvedValue({} as any);
-    vi.mocked(getWriteConnection).mockResolvedValue(writeDb as any);
+    databaseProvider.getReadConnection.mockResolvedValue({} as any);
+    databaseProvider.getWriteConnection.mockResolvedValue(writeDb as any);
 
     const repository = new TestUserRepository();
     const result = await repository.txBatch(
       [1, 2, 3, 4, 5],
       async (batch, _repo, trx, batchIndex) => {
         expect(getCurrentTransaction()).toBe(trx);
-        seenTransactionIds.push(getCurrentTransactionId() || `missing-${batchIndex}`);
+        seenTransactionIds.push(
+          getCurrentTransactionId() || `missing-${batchIndex}`
+        );
         return batch.reduce((sum, value) => sum + value, 0);
       },
       {

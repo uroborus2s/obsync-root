@@ -6,7 +6,7 @@
   "displayName": "Sync Application",
   "description": "Integration and synchronization application with repository and executor layers",
   "runtime": "web",
-  "defaultPresets": ["database", "redis", "queue", "tasks", "testing"],
+  "defaultPresets": ["database", "redis", "queue", "testing"],
   "contributes": {
     "directories": [
       "src/adapters"

@@ -226,15 +226,20 @@ ${databaseConfig}${redisConfig}${osspConfig}${wasV7Config}  return {
       host: '0.0.0.0',
       port: Number(process.env.PORT || 3000)
     },
-    plugins: [
-${pluginEntries}
-    ],
-    autoLoad: {},
-    applicationAutoDI: {
-      enabled: true
-    }
-  };
-}
+	    plugins: [
+	${pluginEntries}
+	    ],
+	    autoLoad: {},
+	    discovery: {
+	      enabled: true,
+	      rootDir: process.cwd(),
+	      patterns: ['src/**/*.ts'],
+	      routing: {
+	        enabled: true
+	      }
+	    }
+	  };
+	}
 `;
 }
 

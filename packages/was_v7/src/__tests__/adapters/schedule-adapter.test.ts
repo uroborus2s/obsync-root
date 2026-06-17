@@ -36,7 +36,7 @@ describe('WPS V7 日程适配器测试', () => {
   let scheduleAdapter: any;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
 
     // 创建模拟容器
     container = {
@@ -59,14 +59,16 @@ describe('WPS V7 日程适配器测试', () => {
     it('应该包含所有必需的方法', () => {
       expect(typeof scheduleAdapter.createSchedule).toBe('function');
       expect(typeof scheduleAdapter.batchCreateSchedules).toBe('function');
+      expect(typeof scheduleAdapter.updateSchedule).toBe('function');
       expect(typeof scheduleAdapter.deleteSchedule).toBe('function');
       expect(typeof scheduleAdapter.getScheduleList).toBe('function');
       expect(typeof scheduleAdapter.getSchedule).toBe('function');
+      expect(typeof scheduleAdapter.batchCreateAttendees).toBe('function');
     });
 
-    it('应该只包含5个核心方法', () => {
+    it('应该包含7个日程和参与者管理方法', () => {
       const methods = Object.getOwnPropertyNames(scheduleAdapter);
-      expect(methods).toHaveLength(5);
+      expect(methods).toHaveLength(7);
     });
   });
 
@@ -101,7 +103,7 @@ describe('WPS V7 日程适配器测试', () => {
 
       expect(mockHttpClient.ensureAccessToken).toHaveBeenCalled();
       expect(mockHttpClient.post).toHaveBeenCalledWith(
-        '/v7/calendars/calendar-123/events',
+        '/v7/calendars/calendar-123/events/create',
         {
           summary: '测试会议',
           description: '这是一个测试会议',
@@ -158,99 +160,40 @@ describe('WPS V7 日程适配器测试', () => {
 
       expect(mockHttpClient.ensureAccessToken).toHaveBeenCalled();
       expect(mockHttpClient.post).toHaveBeenCalledWith(
-        '/v7/calendars/calendar-123/events/batch',
+        '/v7/calendars/calendar-123/events/batch_create',
         { events: params.events }
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('应该能够自动分批处理超过100个日程', async () => {
-      // 创建150个日程的测试数据
+    it('应该拒绝超过100个日程的批量请求', async () => {
       const events = Array.from({ length: 150 }, (_, i) => ({
         summary: `会议-${i + 1}`,
         start_time: { datetime: '2024-01-01T10:00:00Z' },
         end_time: { datetime: '2024-01-01T11:00:00Z' }
       }));
-
-      // 模拟第一批次响应（100个）
-      const mockResponse1: BatchCreateSchedulesResponse = {
-        events: Array.from({ length: 100 }, (_, i) => ({
-          id: `event-${i + 1}`,
-          calendar_id: 'calendar-123',
-          summary: `会议-${i + 1}`,
-          start_time: { datetime: '2024-01-01T10:00:00Z' },
-          end_time: { datetime: '2024-01-01T11:00:00Z' }
-        }))
-      };
-
-      // 模拟第二批次响应（50个）
-      const mockResponse2: BatchCreateSchedulesResponse = {
-        events: Array.from({ length: 50 }, (_, i) => ({
-          id: `event-${i + 101}`,
-          calendar_id: 'calendar-123',
-          summary: `会议-${i + 101}`,
-          start_time: { datetime: '2024-01-01T10:00:00Z' },
-          end_time: { datetime: '2024-01-01T11:00:00Z' }
-        }))
-      };
-
-      (mockHttpClient.post as any)
-        .mockResolvedValueOnce({ data: mockResponse1 })
-        .mockResolvedValueOnce({ data: mockResponse2 });
 
       const params: BatchCreateSchedulesParams = {
         calendar_id: 'calendar-123',
         events
       };
 
-      const result = await scheduleAdapter.batchCreateSchedules(params);
-
-      // 验证调用了两次API
-      expect(mockHttpClient.post).toHaveBeenCalledTimes(2);
-
-      // 验证第一批次调用
-      expect(mockHttpClient.post).toHaveBeenNthCalledWith(
-        1,
-        '/v7/calendars/calendar-123/events/batch',
-        { events: events.slice(0, 100) }
+      await expect(scheduleAdapter.batchCreateSchedules(params)).rejects.toThrow(
+        '批量创建日程失败：events数量不能超过100个，当前数量: 150'
       );
-
-      // 验证第二批次调用
-      expect(mockHttpClient.post).toHaveBeenNthCalledWith(
-        2,
-        '/v7/calendars/calendar-123/events/batch',
-        { events: events.slice(100, 150) }
-      );
-
-      // 验证结果合并
-      expect(result.events).toHaveLength(150);
-      expect(result.events[0].id).toBe('event-1');
-      expect(result.events[149].id).toBe('event-150');
+      expect(mockHttpClient.post).not.toHaveBeenCalled();
     });
 
-    it('应该在某个批次失败时停止处理并抛出错误', async () => {
-      // 创建150个日程的测试数据
-      const events = Array.from({ length: 150 }, (_, i) => ({
+    it('应该传播批量创建API错误', async () => {
+      const events = Array.from({ length: 2 }, (_, i) => ({
         summary: `会议-${i + 1}`,
         start_time: { datetime: '2024-01-01T10:00:00Z' },
         end_time: { datetime: '2024-01-01T11:00:00Z' }
       }));
 
-      // 第一批次成功
-      const mockResponse1: BatchCreateSchedulesResponse = {
-        events: Array.from({ length: 100 }, (_, i) => ({
-          id: `event-${i + 1}`,
-          calendar_id: 'calendar-123',
-          summary: `会议-${i + 1}`,
-          start_time: { datetime: '2024-01-01T10:00:00Z' },
-          end_time: { datetime: '2024-01-01T11:00:00Z' }
-        }))
-      };
-
-      // 第二批次失败
-      (mockHttpClient.post as any)
-        .mockResolvedValueOnce({ data: mockResponse1 })
-        .mockRejectedValueOnce(new Error('API调用失败'));
+      (mockHttpClient.post as any).mockRejectedValueOnce(
+        new Error('API调用失败')
+      );
 
       const params: BatchCreateSchedulesParams = {
         calendar_id: 'calendar-123',
@@ -259,12 +202,8 @@ describe('WPS V7 日程适配器测试', () => {
 
       await expect(
         scheduleAdapter.batchCreateSchedules(params)
-      ).rejects.toThrow(
-        '批量创建日程失败，已处理 100 个日程，错误: API调用失败'
-      );
-
-      // 验证只调用了两次API（第二次失败）
-      expect(mockHttpClient.post).toHaveBeenCalledTimes(2);
+      ).rejects.toThrow('API调用失败');
+      expect(mockHttpClient.post).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -278,8 +217,8 @@ describe('WPS V7 日程适配器测试', () => {
       await scheduleAdapter.deleteSchedule(params);
 
       expect(mockHttpClient.ensureAccessToken).toHaveBeenCalled();
-      expect(mockHttpClient.delete).toHaveBeenCalledWith(
-        '/v7/calendars/calendar-123/events/event-123'
+      expect(mockHttpClient.post).toHaveBeenCalledWith(
+        '/v7/calendars/calendar-123/events/event-123/delete'
       );
     });
   });
@@ -320,7 +259,8 @@ describe('WPS V7 日程适配器测试', () => {
         {
           start_time: '2024-01-01T00:00:00Z',
           end_time: '2024-01-31T23:59:59Z'
-        }
+        },
+        { 'X-Kso-Id-Type': 'external' }
       );
       expect(result).toEqual(mockListResponse);
     });

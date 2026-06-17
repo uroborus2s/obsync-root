@@ -32,12 +32,13 @@ export const CacheConfigSchema = z.object({
   }).optional(),
 }).optional();
 
-// Application Auto DI Configuration Schema
-export const ApplicationAutoDIConfigSchema = z.object({
+// Application discovery configuration schema
+export const ApplicationDiscoveryConfigSchema = z.object({
   enabled: z.boolean().optional(),
-  appRootPath: z.string().optional(),
+  rootDir: z.string().optional(),
   patterns: z.array(z.string()).optional(),
   directories: z.array(z.string()).optional(),
+  exclude: z.array(z.string()).optional(),
   routing: z.object({
     enabled: z.boolean().optional(),
     prefix: z.string().optional(),
@@ -86,7 +87,7 @@ export const StratixConfigSchema = z.object({
   server: ServerConfigSchema,
   plugins: z.array(PluginConfigSchema).default([]),
   autoLoad: AutoLoadConfigSchema.optional(), // Make optional as it might be populated with defaults later
-  applicationAutoDI: ApplicationAutoDIConfigSchema,
+  discovery: ApplicationDiscoveryConfigSchema,
   cache: CacheConfigSchema,
   logger: LoggerConfigSchema,
   hooks: z.object({
@@ -96,6 +97,6 @@ export const StratixConfigSchema = z.object({
     beforeClose: z.function().optional(),
     afterClose: z.function().optional(),
   }).optional(),
-});
+}).strict();
 
 export type StratixConfigInput = z.input<typeof StratixConfigSchema>;

@@ -26,10 +26,10 @@
 - 组合：`@stratix/core` + `@stratix/redis` + `@stratix/queue`
 - 说明：`queue` 依赖 Redis，注册时先 `redis` 后 `queue`。
 
-### 工作流与调度
+### 长流程与后台执行
 
-- 组合：`@stratix/core` + `@stratix/database` + `@stratix/tasks`
-- 说明：`tasks` 依赖持久化存储执行状态，应用内 executors 在启用 `tasks` 后再注册。
+- 推荐组合：`@stratix/core` + `@stratix/database`，需要异步消费时加 `@stratix/redis` + `@stratix/queue`
+- 说明：状态、checkpoint 和一致性边界放在 repository；队列负责异步消费。`@stratix/tasks` 即将废弃，只作为历史迁移项处理。
 
 ### WPS 集成
 

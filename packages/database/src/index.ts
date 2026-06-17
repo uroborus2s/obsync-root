@@ -8,6 +8,8 @@ export {
   SchemaBuilder,
   TableCreator,
   type AutoTableCreationConfig,
+  type BaseRepositoryOptions,
+  type DatabaseConnectionProvider,
   type DatabaseOperationContext,
   type ColumnConstraints,
   type ColumnDefinition,
@@ -23,8 +25,6 @@ export {
   type RepositoryTransactionOptions,
   type TableSchema
 } from './config/base-repository.js';
-
-export type { DatabaseAPI } from './types/database-api.js';
 
 export {
   AutoSaveRepository,
@@ -64,7 +64,6 @@ import type { FastifyInstance, FastifyPluginAsync } from '@stratix/core';
 import { withRegisterAutoDI } from '@stratix/core';
 import { get, isDevelopment } from '@stratix/core/environment';
 
-// 为了向后兼容，保留原有类型接口
 export type { DatabaseConfig, DatabasePluginOptions } from './types/index.js';
 
 import { deepMerge } from '@stratix/core/data';
@@ -197,18 +196,26 @@ const stratixDatabasePlugin: FastifyPluginAsync<any> = withRegisterAutoDI(
           return false;
         }
 
-        // 验证每个连接配置
-        for (const [name, config] of Object.entries(options.connections)) {
-          const conn = config as any;
+	        // 验证每个连接配置
+	        const supportedConnectionTypes = ['postgresql', 'mysql', 'sqlite'];
+	        for (const [name, config] of Object.entries(options.connections)) {
+	          const conn = config as any;
 
-          if (!conn.type) {
+	          if (!conn.type) {
             console.error(
               `❌ Connection '${name}' must specify a database type`
             );
-            return false;
-          }
+	            return false;
+	          }
 
-          if (!conn.database) {
+	          if (!supportedConnectionTypes.includes(conn.type)) {
+	            console.error(
+	              `❌ Connection '${name}' has unsupported database type '${conn.type}'. Supported types: ${supportedConnectionTypes.join(', ')}`
+	            );
+	            return false;
+	          }
+
+	          if (!conn.database) {
             console.error(
               `❌ Connection '${name}' must specify a database name`
             );
@@ -257,7 +264,7 @@ export default stratixDatabasePlugin;
 /**
  * 插件版本信息
  */
-export const VERSION = '1.0.0';
+export const VERSION = '1.1.0';
 
 /**
  * 插件元数据

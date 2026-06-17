@@ -33,27 +33,23 @@ describe('DBSheet Adapter', () => {
 
   describe('getSchemas', () => {
     it('should fetch DBSheet schemas successfully', async () => {
-      const mockSchemas: WpsDBSheetApiResponse<DBSheetSchemaData> = {
-        code: 0,
-        msg: '',
-        data: {
-          sheets: [
-            {
-              id: 1,
-              name: '数据表',
-              primary_field_id: 'B',
-              fields: [
-                {
-                  id: 'B',
-                  name: '文本',
-                  type: 'MultiLineText',
-                  data: { unique_value: false }
-                }
-              ],
-              views: [{ id: 'B', name: '表格视图', type: 'grid' }]
-            }
-          ]
-        }
+      const mockSchemas: DBSheetSchemaData = {
+        sheets: [
+          {
+            id: 1,
+            name: '数据表',
+            primary_field_id: 'B',
+            fields: [
+              {
+                id: 'B',
+                name: '文本',
+                type: 'MultiLineText',
+                data: { unique_value: false }
+              }
+            ],
+            views: [{ id: 'B', name: '表格视图', type: 'grid' }]
+          }
+        ]
       };
 
       (mockHttpClient.get as any).mockResolvedValue({
@@ -74,24 +70,20 @@ describe('DBSheet Adapter', () => {
 
   describe('createSheet', () => {
     it('should create a new sheet successfully', async () => {
-      const mockResponse: WpsDBSheetApiResponse<DBSheetData> = {
-        code: 0,
-        msg: '',
-        data: {
-          sheet: {
-            id: 2,
-            name: 'FfzR7hGgWq',
-            primary_field_id: 'H',
-            fields: [
-              {
-                id: 'H',
-                name: '货币',
-                type: 'Currency',
-                data: { number_format: '$#,##0.000_ ' }
-              }
-            ],
-            views: [{ id: 'C', name: 'p3KY1', type: 'grid' }]
-          }
+      const mockResponse: DBSheetData = {
+        sheet: {
+          id: 2,
+          name: 'FfzR7hGgWq',
+          primary_field_id: 'H',
+          fields: [
+            {
+              id: 'H',
+              name: '货币',
+              type: 'Currency',
+              data: { number_format: '$#,##0.000_ ' }
+            }
+          ],
+          views: [{ id: 'C', name: 'p3KY1', type: 'grid' }]
         }
       };
 
@@ -104,8 +96,8 @@ describe('DBSheet Adapter', () => {
         name: 'FfzR7hGgWq'
       });
 
-      expect(result.id).toBe(2);
-      expect(result.name).toBe('FfzR7hGgWq');
+      expect(result.sheet.id).toBe(2);
+      expect(result.sheet.name).toBe('FfzR7hGgWq');
       expect(mockHttpClient.post).toHaveBeenCalledWith(
         '/v7/coop/dbsheet/file_id_123/sheets/create',
         { name: 'FfzR7hGgWq' }
@@ -113,7 +105,7 @@ describe('DBSheet Adapter', () => {
     });
   });
 
-  describe('updateSheet', () => {
+  describe('updateSheetName', () => {
     it('should update sheet successfully', async () => {
       const mockResponse: WpsDBSheetApiResponse<DBSheetData> = {
         code: 0,
@@ -147,7 +139,7 @@ describe('DBSheet Adapter', () => {
       });
 
       const adapter = createWpsDBSheetAdapter(mockContainer as AwilixContainer);
-      const result = await adapter.updateSheet('file_id_123', 2, {
+      const result = await adapter.updateSheetName('file_id_123', 2, {
         name: 'BrandNewName'
       });
 
@@ -161,18 +153,32 @@ describe('DBSheet Adapter', () => {
     });
   });
 
-  describe('updateSheetName', () => {
+  describe('updateSheetName minimal payload', () => {
     it('should update sheet name successfully', async () => {
-      (mockHttpClient.put as any).mockResolvedValue({ data: {} });
+      const mockResponse: WpsDBSheetApiResponse<DBSheetData> = {
+        code: 0,
+        msg: '',
+        data: {
+          sheet: {
+            id: 1,
+            name: 'Updated Sheet',
+            primary_field_id: 'B',
+            fields: [],
+            views: []
+          }
+        }
+      };
+
+      (mockHttpClient.post as any).mockResolvedValue({ data: mockResponse });
 
       const adapter = createWpsDBSheetAdapter(mockContainer as AwilixContainer);
-      await adapter.updateSheetName('file_id_123', {
-        sheetId: 1,
+      const result = await adapter.updateSheetName('file_id_123', 1, {
         name: 'Updated Sheet'
       });
 
-      expect(mockHttpClient.put).toHaveBeenCalledWith(
-        '/v7/coop/dbsheet/file_id_123/sheets/1',
+      expect(result.name).toBe('Updated Sheet');
+      expect(mockHttpClient.post).toHaveBeenCalledWith(
+        '/v7/coop/dbsheet/file_id_123/sheets/1/update',
         { name: 'Updated Sheet' }
       );
     });
@@ -185,8 +191,8 @@ describe('DBSheet Adapter', () => {
       const adapter = createWpsDBSheetAdapter(mockContainer as AwilixContainer);
       await adapter.deleteSheet('file_id_123', 1);
 
-      expect(mockHttpClient.delete).toHaveBeenCalledWith(
-        '/v7/coop/dbsheet/file_id_123/sheets/1'
+      expect(mockHttpClient.post).toHaveBeenCalledWith(
+        '/v7/coop/dbsheet/file_id_123/sheets/1/delete'
       );
     });
   });
@@ -212,7 +218,7 @@ describe('DBSheet Adapter', () => {
 
       expect(result.fields).toHaveLength(1);
       expect(mockHttpClient.post).toHaveBeenCalledWith(
-        '/v7/coop/dbsheet/file_id_123/sheets/1/fields/create',
+        '/v7/coop/dbsheet/file_id_123/sheets/1/fields',
         { fields: [{ name: 'Field1', type: 'SingleLineText' }] }
       );
     });
@@ -220,12 +226,8 @@ describe('DBSheet Adapter', () => {
 
   describe('createRecords', () => {
     it('should create records successfully', async () => {
-      const mockResponse: WpsDBSheetApiResponse<any> = {
-        code: 0,
-        msg: '',
-        data: {
-          records: [{ id: 'U', fields: { Name: 'Record1' } }]
-        }
+      const mockResponse = {
+        records: [{ id: 'U', fields: { Name: 'Record1' } }]
       };
 
       (mockHttpClient.post as any).mockResolvedValue({
@@ -247,44 +249,40 @@ describe('DBSheet Adapter', () => {
 
   describe('queryRecords', () => {
     it('should query records successfully with fields_schema', async () => {
-      const mockResponse: WpsDBSheetApiResponse<any> = {
-        code: 0,
-        msg: '',
-        data: {
-          fields_schema: [
-            {
-              id: 'B',
-              name: '文本',
-              type: 'MultiLineText',
-              data: { unique_value: false }
-            },
-            {
-              id: 'C',
-              name: '数字',
-              type: 'Number',
-              data: { number_format: '0.00_ ' }
-            }
-          ],
-          records: [
-            {
-              id: 'B',
-              fields: { 文本: '第一行文本', 数字: '123.00 ' },
-              created_time: '2024/12/20 11:30:32',
-              creator: '280026893',
-              last_modified_by: '280026893',
-              last_modified_time: '2024/12/20 15:47:01'
-            },
-            {
-              id: 'C',
-              fields: { 文本: '第二行文本', 数字: '321.00 ' },
-              created_time: '2024/12/20 11:30:32',
-              creator: '280026893',
-              last_modified_by: '280026893',
-              last_modified_time: '2024/12/20 15:46:52'
-            }
-          ],
-          page_token: ''
-        }
+      const mockResponse = {
+        fields_schema: [
+          {
+            id: 'B',
+            name: '文本',
+            type: 'MultiLineText',
+            data: { unique_value: false }
+          },
+          {
+            id: 'C',
+            name: '数字',
+            type: 'Number',
+            data: { number_format: '0.00_ ' }
+          }
+        ],
+        records: [
+          {
+            id: 'B',
+            fields: { 文本: '第一行文本', 数字: '123.00 ' },
+            created_time: '2024/12/20 11:30:32',
+            creator: '280026893',
+            last_modified_by: '280026893',
+            last_modified_time: '2024/12/20 15:47:01'
+          },
+          {
+            id: 'C',
+            fields: { 文本: '第二行文本', 数字: '321.00 ' },
+            created_time: '2024/12/20 11:30:32',
+            creator: '280026893',
+            last_modified_by: '280026893',
+            last_modified_time: '2024/12/20 15:46:52'
+          }
+        ],
+        page_token: ''
       };
 
       (mockHttpClient.post as any).mockResolvedValue({

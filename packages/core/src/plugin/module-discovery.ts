@@ -163,7 +163,7 @@ export interface ModuleProcessingResult {
 }
 
 /**
- * 模块分类结果接口（向后兼容）
+ * 模块分类结果接口
  */
 export interface ModuleClassificationResult {
   /** 所有模块 */
@@ -538,7 +538,7 @@ export async function discoverAndProcessModules<T>(
               (route) => route.propertyKey
             );
 
-            // 保留配置信息用于统计和向后兼容
+            // 保留配置信息用于统计和后续注册审计
             result.routeConfigs.push({
               controllerName: name,
               controllerInstance: instance,
@@ -601,7 +601,7 @@ export async function discoverAndProcessModules<T>(
               debugEnabled
             );
 
-            // 保留配置信息用于统计和向后兼容
+            // 保留配置信息用于统计和后续注册审计
             result.executorConfigs.push({
               name: executorMetadata?.name || name,
               instance,

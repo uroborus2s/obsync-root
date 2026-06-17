@@ -16,7 +16,7 @@
 - `packages/database`: 数据库插件
 - `packages/redis`: Redis 插件
 - `packages/queue`: 队列插件
-- `packages/tasks`: 任务与工作流插件
+- `packages/tasks`: 即将废弃的任务与工作流插件，当前 1.1.0 质量门不再纳入默认构建、测试或新项目推荐路径
 - `packages/was_v7`: WPS API 集成插件
 - `packages/ossp`: OSS 存储插件
 - `packages/devtools`: 开发工具包

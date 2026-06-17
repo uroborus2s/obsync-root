@@ -74,6 +74,41 @@ function extractAdapterNameFromModuleName(moduleName: string): string {
   return name.replace(/[-_]([a-z])/g, (_, letter) => letter.toUpperCase());
 }
 
+function capitalizeIdentifier(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function alreadyIncludesPluginPrefix(
+  pluginName: string,
+  adapterName: string
+): boolean {
+  if (adapterName === pluginName) {
+    return true;
+  }
+
+  if (!adapterName.startsWith(pluginName)) {
+    return false;
+  }
+
+  const nextCharacter = adapterName.charAt(pluginName.length);
+  return nextCharacter !== '' && nextCharacter === nextCharacter.toUpperCase();
+}
+
+export function buildServiceAdapterToken(
+  pluginName: string | undefined,
+  adapterName: string
+): string {
+  if (!pluginName) {
+    return adapterName;
+  }
+
+  if (alreadyIncludesPluginPrefix(pluginName, adapterName)) {
+    return adapterName;
+  }
+
+  return `${pluginName}${capitalizeIdentifier(adapterName)}`;
+}
+
 /**
  * 验证模块是否为有效的服务适配器
  *
@@ -364,9 +399,10 @@ async function registerSingleServiceAdapter<T>(
   try {
     const { adapterName, factory } = adapter;
     // 构建带命名空间的适配器名称：pluginNameAdapterName (camelCase)
-    const namespacedAdapterName = pluginName
-      ? `${pluginName}${adapterName.charAt(0).toUpperCase() + adapterName.slice(1)}`
-      : adapterName;
+    const namespacedAdapterName = buildServiceAdapterToken(
+      pluginName,
+      adapterName
+    );
 
     // 创建适配器工厂函数，传入插件内部容器
     const adapterFactory = () => factory(internalContainer);

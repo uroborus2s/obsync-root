@@ -12,10 +12,7 @@ import {
   type Maybe,
   tryCatchAsync
 } from '@stratix/core/functional';
-import {
-  CompiledQuery,
-  sql as kyselySql
-} from 'kysely';
+import { CompiledQuery, sql as kyselySql } from 'kysely';
 import type {
   ColumnMetadata,
   Compilable,
@@ -41,11 +38,6 @@ import type {
   UpdateQueryBuilder
 } from 'kysely';
 
-import {
-  getConnectionType,
-  getReadConnection,
-  getWriteConnection
-} from '../core/database-manager.js';
 import {
   executeInTransaction,
   executeTransactionInBatches,
@@ -76,8 +68,7 @@ export interface DatabaseOperationContext {
 
 export interface RepositoryTransactionOptions extends InternalTransactionOptions {}
 
-export interface RepositoryBatchTransactionOptions
-  extends InternalBatchTransactionOptions {}
+export interface RepositoryBatchTransactionOptions extends InternalBatchTransactionOptions {}
 
 export type RepositoryStateGuard<T> = Partial<
   Record<Extract<keyof T, string>, unknown>
@@ -558,11 +549,8 @@ export class TableCreator {
    */
   static getDatabaseType(
     connection: Kysely<any>,
-    connectionName?: string
+    configuredType?: string
   ): DatabaseType {
-    const configuredType = connectionName
-      ? getConnectionType(connectionName)
-      : undefined;
     if (configuredType) {
       return this.mapConfiguredDatabaseType(configuredType);
     }
@@ -596,10 +584,7 @@ export class TableCreator {
     if (dialectName.includes('sqlite')) {
       return DatabaseType.SQLITE;
     }
-    if (
-      dialectName.includes('mssql') ||
-      dialectName.includes('sqlserver')
-    ) {
+    if (dialectName.includes('mssql') || dialectName.includes('sqlserver')) {
       return DatabaseType.MSSQL;
     }
 
@@ -896,6 +881,25 @@ export type RepositoryConnectionOptions =
   | RepositoryConnectionConfig; // 详细的连接配置
 
 /**
+ * 仓储使用的最小数据库连接提供者接口
+ */
+export interface DatabaseConnectionProvider {
+  getConnection(name?: string): Promise<Kysely<any>>;
+  getReadConnection(name?: string): Promise<Kysely<any>>;
+  getWriteConnection(name?: string): Promise<Kysely<any>>;
+  getConnectionType?(name?: string): string | undefined;
+}
+
+/**
+ * 基础仓储构造选项
+ */
+export interface BaseRepositoryOptions {
+  readonly database: DatabaseConnectionProvider;
+  readonly connection?: RepositoryConnectionOptions;
+  readonly autoTableCreation?: Partial<AutoTableCreationConfig>;
+}
+
+/**
  * 解析后的连接配置
  */
 export interface ResolvedConnectionConfig {
@@ -1028,10 +1032,12 @@ export interface QueryBuilderContext<DB, TB extends keyof DB> {
 /**
  * Where 表达式类型 - 强类型版本
  */
-export type WhereExpression<DB, TB extends keyof DB> =
-  SelectWhereExpression<DB, TB> &
-    UpdateWhereExpression<DB, TB> &
-    DeleteWhereExpression<DB, TB>;
+export type WhereExpression<DB, TB extends keyof DB> = SelectWhereExpression<
+  DB,
+  TB
+> &
+  UpdateWhereExpression<DB, TB> &
+  DeleteWhereExpression<DB, TB>;
 
 export type SelectWhereExpression<DB, TB extends keyof DB> = (
   qb: SelectQueryBuilder<DB, TB, any>
@@ -1235,13 +1241,17 @@ export interface IRepository<
   UpdateT = Updateable<DB[TB]>
 > {
   // 基础查询
-  findById(id: string | number): Promise<Maybe<T>>;
-  findOne(criteria: SelectWhereExpression<DB, TB>): Promise<Maybe<T>>;
+  findById(id: string | number): Promise<Either<DatabaseError, Maybe<T>>>;
+  findOne(
+    criteria: SelectWhereExpression<DB, TB>
+  ): Promise<Either<DatabaseError, Maybe<T>>>;
   findMany(
     criteria?: SelectWhereExpression<DB, TB>,
     options?: QueryOptions<DB, TB, T>
-  ): Promise<T[]>;
-  findAll(options?: QueryOptions<DB, TB, T>): Promise<T[]>;
+  ): Promise<Either<DatabaseError, T[]>>;
+  findAll(
+    options?: QueryOptions<DB, TB, T>
+  ): Promise<Either<DatabaseError, T[]>>;
 
   // 基础操作
   create(data: CreateT): Promise<Either<DatabaseError, T>>;
@@ -1257,8 +1267,12 @@ export interface IRepository<
   ): Promise<Either<DatabaseError, number>>;
 
   // 聚合查询
-  count(criteria?: SelectWhereExpression<DB, TB>): Promise<number>;
-  exists(criteria: SelectWhereExpression<DB, TB>): Promise<boolean>;
+  count(
+    criteria?: SelectWhereExpression<DB, TB>
+  ): Promise<Either<DatabaseError, number>>;
+  exists(
+    criteria: SelectWhereExpression<DB, TB>
+  ): Promise<Either<DatabaseError, boolean>>;
 
   // 分页查询
   paginate(
@@ -1306,29 +1320,33 @@ export abstract class BaseRepository<
   T = Selectable<DB[TB]>,
   CreateT = Insertable<DB[TB]>,
   UpdateT = Updateable<DB[TB]>
-> implements IRepository<DB, TB, T, CreateT, UpdateT>
-{
+> implements IRepository<DB, TB, T, CreateT, UpdateT> {
   protected readonly sql = kyselySql;
   protected abstract readonly tableName: TB;
   protected primaryKey: string = 'id';
+  protected readonly database: DatabaseConnectionProvider;
   protected readonly connectionConfig: ResolvedConnectionConfig;
   protected abstract readonly logger: Logger;
 
   protected tableSchema?: TableSchema = undefined;
   protected autoTableCreation: AutoTableCreationConfig = {};
 
-  constructor(
-    connectionOptions?: RepositoryConnectionOptions,
-    autoTableCreation?: Partial<AutoTableCreationConfig>
-  ) {
-    this.connectionConfig = ConnectionConfigResolver.resolve(connectionOptions);
+  constructor(options: BaseRepositoryOptions) {
+    if (!options?.database) {
+      throw new Error('BaseRepository requires a database connection provider');
+    }
+
+    this.database = options.database;
+    this.connectionConfig = ConnectionConfigResolver.resolve(
+      options.connection
+    );
     this.autoTableCreation = {
       enabled: false,
       autoEnableInDevelopment: true,
       forceRecreate: false,
       createIndexes: true,
       timeout: 30000,
-      ...autoTableCreation
+      ...options.autoTableCreation
     };
   }
 
@@ -1339,12 +1357,16 @@ export abstract class BaseRepository<
 
     try {
       const connection = await this.getWriteConnection();
-      const runtimeSchema = await this.refreshTableSchemaFromDatabase(connection);
+      const runtimeSchema =
+        await this.refreshTableSchemaFromDatabase(connection);
 
       if (runtimeSchema) {
-        this.logger?.info(`Loaded live table schema from database: ${this.tableName}`, {
-          columnsCount: runtimeSchema.columns.length
-        });
+        this.logger?.info(
+          `Loaded live table schema from database: ${this.tableName}`,
+          {
+            columnsCount: runtimeSchema.columns.length
+          }
+        );
         return;
       }
 
@@ -1367,7 +1389,9 @@ export abstract class BaseRepository<
 
       const databaseType = TableCreator.getDatabaseType(
         connection,
-        this.connectionConfig.writeConnectionName
+        this.getConfiguredDatabaseType(
+          this.connectionConfig.writeConnectionName
+        )
       );
 
       await TableCreator.createTable(
@@ -1421,7 +1445,7 @@ export abstract class BaseRepository<
       });
       return currentTransaction as unknown as Kysely<DB>;
     }
-    return await getReadConnection(
+    return await this.database.getReadConnection(
       connectionName || this.connectionConfig.readConnectionName
     );
   }
@@ -1435,7 +1459,7 @@ export abstract class BaseRepository<
       });
       return currentTransaction as unknown as Kysely<DB>;
     }
-    return await getWriteConnection(
+    return await this.database.getWriteConnection(
       connectionName || this.connectionConfig.writeConnectionName
     );
   }
@@ -1521,8 +1545,9 @@ export abstract class BaseRepository<
     table: TTable,
     connectionName?: string
   ): Promise<SelectQueryBuilder<DB, any, any>> {
-    return (await this.reader(connectionName)).selectFrom(table) as unknown as
-      SelectQueryBuilder<DB, any, any>;
+    return (await this.reader(connectionName)).selectFrom(
+      table
+    ) as unknown as SelectQueryBuilder<DB, any, any>;
   }
 
   protected async insertIntoTable<TTable extends keyof DB & string>(
@@ -1536,16 +1561,18 @@ export abstract class BaseRepository<
     table: TTable,
     connectionName?: string
   ): Promise<UpdateQueryBuilder<DB, any, any, UpdateResult>> {
-    return (await this.writer(connectionName)).updateTable(table) as unknown as
-      UpdateQueryBuilder<DB, any, any, UpdateResult>;
+    return (await this.writer(connectionName)).updateTable(
+      table
+    ) as unknown as UpdateQueryBuilder<DB, any, any, UpdateResult>;
   }
 
   protected async deleteFromTable<TTable extends keyof DB & string>(
     table: TTable,
     connectionName?: string
   ): Promise<DeleteQueryBuilder<DB, any, DeleteResult>> {
-    return (await this.writer(connectionName)).deleteFrom(table) as unknown as
-      DeleteQueryBuilder<DB, any, DeleteResult>;
+    return (await this.writer(connectionName)).deleteFrom(
+      table
+    ) as unknown as DeleteQueryBuilder<DB, any, DeleteResult>;
   }
 
   protected async compareAndSetWhere(
@@ -1570,7 +1597,9 @@ export abstract class BaseRepository<
         const processedData = this.processJsonFields(dataWithTimestamps);
 
         let updateQuery = criteria(
-          (connection.updateTable(this.tableName) as any).set(processedData as any)
+          (connection.updateTable(this.tableName) as any).set(
+            processedData as any
+          )
         );
         updateQuery = this.applyStateGuard(updateQuery, expected);
 
@@ -1642,74 +1671,94 @@ export abstract class BaseRepository<
     return eitherRight(data);
   }
 
-  async findById(id: string | number): Promise<Maybe<T>> {
-    try {
-      const connection = await this.getQueryConnection();
-      const query: any = connection.selectFrom(this.tableName).selectAll();
+  async findById(
+    id: string | number
+  ): Promise<Either<DatabaseError, Maybe<T>>> {
+    return tryCatchAsync(
+      async () => {
+        const connection = await this.getQueryConnection();
+        const query: any = connection.selectFrom(this.tableName).selectAll();
 
-      const result = await query
-        .where(this.primaryKey as any, '=', id)
-        .executeTakeFirst();
-      return fromNullable(result as T | undefined);
-    } catch (error) {
-      this.logError('findById', error as Error, { id });
-      // For Maybe-returning methods, we return None on error.
-      // The error is logged, and the calling service can decide how to handle the absence of data.
-      return fromNullable<T>(undefined);
-    }
+        const result = await query
+          .where(this.primaryKey as any, '=', id)
+          .executeTakeFirst();
+        return fromNullable(result as T | undefined);
+      },
+      (error) => {
+        this.logError('findById', error as Error, { id });
+        if (isDatabaseError(error)) return error;
+        return ErrorClassifier.classify(error);
+      }
+    );
   }
 
-  async findOne(criteria: SelectWhereExpression<DB, TB>): Promise<Maybe<T>> {
-    try {
-      const connection = await this.getQueryConnection();
-      const baseQuery = connection.selectFrom(this.tableName).selectAll() as
-        SelectQueryBuilder<DB, TB, any>;
-      const query = criteria(baseQuery);
-      const result = await query.executeTakeFirst();
-      return fromNullable(result as T | undefined);
-    } catch (error) {
-      this.logError('findOne', error as Error);
-      return fromNullable<T>(undefined);
-    }
+  async findOne(
+    criteria: SelectWhereExpression<DB, TB>
+  ): Promise<Either<DatabaseError, Maybe<T>>> {
+    return tryCatchAsync(
+      async () => {
+        const connection = await this.getQueryConnection();
+        const baseQuery = connection
+          .selectFrom(this.tableName)
+          .selectAll() as SelectQueryBuilder<DB, TB, any>;
+        const query = criteria(baseQuery);
+        const result = await query.executeTakeFirst();
+        return fromNullable(result as T | undefined);
+      },
+      (error) => {
+        this.logError('findOne', error as Error);
+        if (isDatabaseError(error)) return error;
+        return ErrorClassifier.classify(error);
+      }
+    );
   }
 
   async findMany(
     criteria?: SelectWhereExpression<DB, TB>,
     options?: QueryOptions<DB, TB, T>
-  ): Promise<T[]> {
-    try {
-      const connection = await this.getQueryConnection();
-      let query: any = connection.selectFrom(this.tableName).selectAll();
+  ): Promise<Either<DatabaseError, T[]>> {
+    return tryCatchAsync(
+      async () => {
+        const connection = await this.db({
+          connectionName: options?.connectionName,
+          readonly: options?.readonly ?? true,
+          timeout: options?.timeout
+        });
+        let query: any = connection.selectFrom(this.tableName).selectAll();
 
-      if (criteria) {
-        query = criteria(query as SelectQueryBuilder<DB, TB, any>);
-      }
-
-      if (options?.orderBy) {
-        const orderClauses = Array.isArray(options.orderBy)
-          ? options.orderBy
-          : [options.orderBy];
-        for (const clause of orderClauses) {
-          query = query.orderBy(clause.field, clause.direction);
+        if (criteria) {
+          query = criteria(query as SelectQueryBuilder<DB, TB, any>);
         }
-      }
 
-      if (options?.limit !== undefined) {
-        query = query.limit(options.limit);
-      }
-      if (options?.offset !== undefined) {
-        query = query.offset(options.offset);
-      }
+        if (options?.orderBy) {
+          const orderClauses = Array.isArray(options.orderBy)
+            ? options.orderBy
+            : [options.orderBy];
+          for (const clause of orderClauses) {
+            query = query.orderBy(clause.field, clause.direction);
+          }
+        }
 
-      return (await query.execute()) as T[];
-    } catch (error) {
-      this.logError('findMany', error as Error);
-      // For array-returning methods, we return an empty array on error.
-      return [];
-    }
+        if (options?.limit !== undefined) {
+          query = query.limit(options.limit);
+        }
+        if (options?.offset !== undefined) {
+          query = query.offset(options.offset);
+        }
+
+        return (await query.execute()) as T[];
+      },
+      (error) => {
+        this.logError('findMany', error as Error);
+        if (isDatabaseError(error)) return error;
+        return ErrorClassifier.classify(error);
+      }
+    );
   }
 
-  async findAll(options?: QueryOptions<DB, TB, T>): Promise<T[]> {
+  async findAll(
+    options?: QueryOptions<DB, TB, T>
+  ): Promise<Either<DatabaseError, T[]>> {
     return this.findMany(undefined, options);
   }
 
@@ -1838,7 +1887,10 @@ export abstract class BaseRepository<
           );
         }
 
-        const updatedRecord = await this.findByIdUsingConnection(connection, id);
+        const updatedRecord = await this.findByIdUsingConnection(
+          connection,
+          id
+        );
         if (!updatedRecord) {
           throw ErrorClassifier.classify(
             new Error('Updated record not found after update.')
@@ -1930,8 +1982,9 @@ export abstract class BaseRepository<
     return tryCatchAsync(
       async () => {
         const connection = await this.getWriteConnection();
-        const deleteQuery = connection.deleteFrom(this.tableName) as
-          DeleteQueryBuilder<DB, TB, any>;
+        const deleteQuery = connection.deleteFrom(
+          this.tableName
+        ) as DeleteQueryBuilder<DB, TB, any>;
         const finalQuery = criteria(deleteQuery);
         const result = await finalQuery.executeTakeFirst();
         const numDeletedRows = Number(result.numDeletedRows || 0);
@@ -1945,31 +1998,43 @@ export abstract class BaseRepository<
     );
   }
 
-  async count(criteria?: SelectWhereExpression<DB, TB>): Promise<number> {
-    try {
-      const connection = await this.getQueryConnection();
-      const baseQuery = (
-        connection.selectFrom(this.tableName) as unknown as
-          SelectQueryBuilder<DB, TB, any>
-      ).select(
-        (eb: ExpressionBuilder<DB, TB>) => eb.fn.countAll<string>().as('count')
-      );
+  async count(
+    criteria?: SelectWhereExpression<DB, TB>
+  ): Promise<Either<DatabaseError, number>> {
+    return tryCatchAsync(
+      async () => {
+        const connection = await this.getQueryConnection();
+        const baseQuery = (
+          connection.selectFrom(
+            this.tableName
+          ) as unknown as SelectQueryBuilder<DB, TB, any>
+        ).select((eb: ExpressionBuilder<DB, TB>) =>
+          eb.fn.countAll<string>().as('count')
+        );
 
-      const finalQuery = criteria ? criteria(baseQuery) : baseQuery;
+        const finalQuery = criteria ? criteria(baseQuery) : baseQuery;
 
-      const result = (await finalQuery.executeTakeFirstOrThrow()) as {
-        count: string;
-      };
-      return Number(result.count);
-    } catch (error) {
-      this.logError('count', error as Error);
-      return 0;
-    }
+        const result = (await finalQuery.executeTakeFirstOrThrow()) as {
+          count: string;
+        };
+        return Number(result.count);
+      },
+      (error) => {
+        this.logError('count', error as Error);
+        if (isDatabaseError(error)) return error;
+        return ErrorClassifier.classify(error);
+      }
+    );
   }
 
-  async exists(criteria: SelectWhereExpression<DB, TB>): Promise<boolean> {
+  async exists(
+    criteria: SelectWhereExpression<DB, TB>
+  ): Promise<Either<DatabaseError, boolean>> {
     const count = await this.count(criteria);
-    return count > 0;
+    if (isLeft(count)) {
+      return eitherLeft(count.left);
+    }
+    return eitherRight(count.right > 0);
   }
 
   async paginate(
@@ -1985,11 +2050,20 @@ export abstract class BaseRepository<
         );
         const offset = (page - 1) * pageSize;
 
-        const [total, data] = await Promise.all([
+        const [totalResult, dataResult] = await Promise.all([
           this.count(criteria),
           this.findMany(criteria, { limit: pageSize, offset, readonly: true })
         ]);
 
+        if (isLeft(totalResult)) {
+          throw totalResult.left;
+        }
+        if (isLeft(dataResult)) {
+          throw dataResult.left;
+        }
+
+        const total = totalResult.right;
+        const data = dataResult.right;
         const totalPages = Math.ceil(total / pageSize);
 
         return {
@@ -2174,7 +2248,9 @@ export abstract class BaseRepository<
     return statement.compile();
   }
 
-  private isCompiledQuery<R>(statement: unknown): statement is CompiledQuery<R> {
+  private isCompiledQuery<R>(
+    statement: unknown
+  ): statement is CompiledQuery<R> {
     return !!(
       statement &&
       typeof (statement as any).sql === 'string' &&
@@ -2192,16 +2268,9 @@ export abstract class BaseRepository<
 
   private applyStateGuard<
     Q extends {
-      where(
-        field: string,
-        operator: '=' | 'is',
-        value: unknown
-      ): Q;
+      where(field: string, operator: '=' | 'is', value: unknown): Q;
     }
-  >(
-    query: Q,
-    expected: RepositoryStateGuard<T>
-  ): Q {
+  >(query: Q, expected: RepositoryStateGuard<T>): Q {
     let guardedQuery = query;
 
     for (const [field, value] of Object.entries(expected || {})) {
@@ -2228,9 +2297,12 @@ export abstract class BaseRepository<
       }
       return runtimeSchema;
     } catch (error) {
-      this.logger?.debug?.(`Failed to load live table schema for ${this.tableName}, fallback to declared schema.`, {
-        error
-      });
+      this.logger?.debug?.(
+        `Failed to load live table schema for ${this.tableName}, fallback to declared schema.`,
+        {
+          error
+        }
+      );
       return this.tableSchema;
     }
   }
@@ -2296,20 +2368,18 @@ export abstract class BaseRepository<
       return DataColumnType.UUID;
     }
 
-    if (
-      normalizedType.includes('json')
-    ) {
+    if (normalizedType.includes('json')) {
       return DataColumnType.JSON;
     }
 
-    if (
-      normalizedType.includes('blob') ||
-      normalizedType.includes('bytea')
-    ) {
+    if (normalizedType.includes('blob') || normalizedType.includes('bytea')) {
       return DataColumnType.BLOB;
     }
 
-    if (normalizedType.includes('binary') || normalizedType.includes('varbinary')) {
+    if (
+      normalizedType.includes('binary') ||
+      normalizedType.includes('varbinary')
+    ) {
       return DataColumnType.BINARY;
     }
 
@@ -2342,10 +2412,7 @@ export abstract class BaseRepository<
       return DataColumnType.CHAR;
     }
 
-    if (
-      normalizedType.includes('text') ||
-      normalizedType.includes('clob')
-    ) {
+    if (normalizedType.includes('text') || normalizedType.includes('clob')) {
       return DataColumnType.TEXT;
     }
 
@@ -2448,7 +2515,7 @@ export abstract class BaseRepository<
   }
 
   protected getCurrentTimestamp(): string {
-    return new Date().toLocaleString();
+    return new Date().toISOString();
   }
 
   protected shouldAutoPopulateTimestamp(
@@ -2491,23 +2558,25 @@ export abstract class BaseRepository<
     return result;
   }
 
-  protected addCreateTimestamps<T extends Record<string, any>>(
-    data: T
-  ): T {
+  protected addCreateTimestamps<T extends Record<string, any>>(data: T): T {
     return this.addTimestampsIfExists(data, 'create');
   }
 
-  protected addUpdateTimestamp<T extends Record<string, any>>(
-    data: T
-  ): T {
+  protected addUpdateTimestamp<T extends Record<string, any>>(data: T): T {
     return this.addTimestampsIfExists(data, 'update');
   }
 
   private getConnectionDatabaseType(connection: Kysely<DB>): DatabaseType {
     return TableCreator.getDatabaseType(
       connection as unknown as Kysely<any>,
-      this.connectionConfig.writeConnectionName
+      this.getConfiguredDatabaseType(this.connectionConfig.writeConnectionName)
     );
+  }
+
+  private getConfiguredDatabaseType(
+    connectionName: string
+  ): string | undefined {
+    return this.database.getConnectionType?.(connectionName);
   }
 
   private async findByIdUsingConnection(
@@ -2669,11 +2738,7 @@ export class QueryHelpers {
   /**
    * 创建模糊查询
    */
-  static whereLike<
-    DB,
-    TB extends keyof DB,
-    K extends StringColumnKey<DB, TB>
-  >(
+  static whereLike<DB, TB extends keyof DB, K extends StringColumnKey<DB, TB>>(
     field: K,
     pattern: string
   ): WhereExpression<DB, TB> {
@@ -2691,18 +2756,11 @@ export class QueryHelpers {
     DB,
     TB extends keyof DB,
     K extends TableColumnKey<DB, TB>
-  >(
-    field: K,
-    startDate: Date,
-    endDate: Date
-  ): WhereExpression<DB, TB> {
+  >(field: K, startDate: Date, endDate: Date): WhereExpression<DB, TB> {
     return ((qb: any) =>
       qb
         .where(field as any, '>=' as any, startDate)
-        .where(field as any, '<=' as any, endDate)) as WhereExpression<
-      DB,
-      TB
-    >;
+        .where(field as any, '<=' as any, endDate)) as WhereExpression<DB, TB>;
   }
 
   /**
@@ -2712,17 +2770,17 @@ export class QueryHelpers {
     ...conditions: WhereExpression<DB, TB>[]
   ): WhereExpression<DB, TB> {
     return ((qb: any) =>
-      conditions.reduce((query, condition) => condition(query), qb)) as
-      WhereExpression<DB, TB>;
+      conditions.reduce(
+        (query, condition) => condition(query),
+        qb
+      )) as WhereExpression<DB, TB>;
   }
 
   /**
    * 组合多个条件（OR）
    */
   static or<DB, TB extends keyof DB>(
-    ...conditions: Array<
-      (eb: ExpressionBuilder<DB, TB>) => Expression<SqlBool>
-    >
+    ...conditions: Array<(eb: ExpressionBuilder<DB, TB>) => Expression<SqlBool>>
   ): WhereExpression<DB, TB> {
     return ((qb: any) =>
       qb.where((eb: ExpressionBuilder<DB, TB>) =>

@@ -162,7 +162,7 @@ await Stratix.run();
 
 ### `src/executors/`
 
-只有当你引入 `@stratix/tasks` 时，这个目录才会真正重要。它主要承接可执行任务单元，而不是普通 HTTP 请求。
+这个目录不再是新项目默认路径。`@stratix/tasks` 即将废弃，只有维护历史项目或单独迁移任务引擎时才需要关注 executor 目录。
 
 ### `src/types/`
 

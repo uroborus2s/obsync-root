@@ -3,11 +3,13 @@
 
 import { AwilixContainer } from 'awilix';
 import type { FastifyInstance, FastifyServerOptions } from 'fastify';
-import type { ApplicationAutoDIConfig } from '../bootstrap/application-auto-di.js';
 import { BootstrapStatus } from '../bootstrap/index.js';
+import type { ApplicationDiscoveryConfig } from '../discovery/interfaces.js';
 import type { Logger } from '../logger/index.js';
 import type { AutoLoadConfig } from './auto-load.js';
 import type { PluginConfig } from './plugin.js';
+
+export type { ApplicationDiscoveryConfig };
 
 /**
  * Stratix 运行选项
@@ -186,8 +188,8 @@ export interface StratixConfig {
   /** 自动加载配置 */
   autoLoad: AutoLoadConfig;
 
-  /** 应用级自动依赖注入配置 */
-  applicationAutoDI?: Partial<ApplicationAutoDIConfig>;
+  /** 应用级 discovery 配置 */
+  discovery?: ApplicationDiscoveryConfig;
 
   /** 缓存配置 */
   cache?: CacheConfig;

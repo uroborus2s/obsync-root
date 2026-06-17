@@ -1,5 +1,7 @@
-import type { AwilixContainer } from 'awilix';
-import type { FastifyInstance } from 'fastify';
+import type {
+  ComponentInjectionMode,
+  ComponentLifetime
+} from '../decorators/index.js';
 
 /**
  * Represents a raw module loaded from the file system.
@@ -20,13 +22,13 @@ export interface ComponentMetadata {
   /** The name of the component */
   name: string;
   /** The type of the component */
-  type: 'controller' | 'service' | 'repository' | 'executor' | 'unknown';
+  type: 'controller' | 'service' | 'repository' | 'component' | 'executor' | 'unknown';
   /** The class constructor or function */
   value: any;
   /** Dependency injection options */
   diOptions?: {
-    lifetime?: 'SINGLETON' | 'TRANSIENT' | 'SCOPED';
-    injectionMode?: 'CLASSIC' | 'PROXY';
+    lifetime?: ComponentLifetime;
+    injectionMode?: ComponentInjectionMode;
   };
   /** Route metadata (only for controllers) */
   routes?: RouteMetadata[];
@@ -44,39 +46,30 @@ export interface RouteMetadata {
   options?: any;
 }
 
-/**
- * Scanner: Responsible for traversing directories and loading modules.
- */
-export interface IModuleScanner {
-  /**
-   * Scans the given directories for modules.
-   * @param directories List of absolute paths to scan.
-   * @returns A promise that resolves to a list of loaded modules.
-   */
-  scan(directories: string[]): Promise<LoadedModule[]>;
+export interface ApplicationDiscoveryConfig {
+  enabled?: boolean;
+  rootDir?: string;
+  directories?: string[];
+  patterns?: string[];
+  exclude?: string[];
+  routing?: {
+    enabled?: boolean;
+    prefix?: string;
+    validation?: boolean;
+  };
+  lifecycle?: {
+    enabled?: boolean;
+    errorHandling?: 'throw' | 'warn' | 'ignore';
+  };
+  debug?: boolean;
+  options?: Record<string, unknown>;
 }
 
-/**
- * Analyzer: Responsible for analyzing loaded modules and extracting metadata.
- */
-export interface IModuleAnalyzer {
-  /**
-   * Analyzes a loaded module to determine its type and metadata.
-   * @param module The loaded module to analyze.
-   * @returns The component metadata, or null if the module is not a Stratix component.
-   */
-  analyze(module: LoadedModule): ComponentMetadata | null;
-}
-
-/**
- * Registrar: Responsible for registering components into the DI container and Framework.
- */
-export interface IComponentRegistrar {
-  /**
-   * Registers a component.
-   * @param component The component metadata.
-   * @param container The Awilix DI container.
-   * @param app The Fastify application instance.
-   */
-  register(component: ComponentMetadata, container: AwilixContainer, app: FastifyInstance): Promise<void>;
+export interface ApplicationDiscoveryResult {
+  scanned: number;
+  analyzed: number;
+  registered: string[];
+  routesRegistered: number;
+  skipped: Array<{ name: string; reason: string }>;
+  errors: Array<{ name: string; error: Error }>;
 }

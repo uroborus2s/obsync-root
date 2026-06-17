@@ -25,7 +25,7 @@ Stratix CLI 当前支持 4 类插件模板：
 | Adapter Plugin | `adapter` | 只想暴露一个客户端或适配器能力 | 无 |
 | Data Plugin | `data` | 既有适配器，又有 repository / service | `database`, `testing` |
 | Integration Plugin | `integration` | 对接第三方服务、SDK、HTTP API | `redis`, `testing` |
-| Executor Plugin | `executor` | 想提供 executor / 调度扩展点 | `tasks`, `testing` |
+| Executor Plugin | `executor` | 维护历史 executor / 任务引擎迁移场景 | `testing` |
 
 如果你完全是新手，建议从 `integration` 模板开始。它的结构最平衡，既能练适配器，也能练 service，还自带 `testing` 预设，适合做第一个完整插件。
 

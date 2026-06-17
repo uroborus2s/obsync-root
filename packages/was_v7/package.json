@@ -24,7 +24,8 @@
   },
   "devDependencies": {
     "@stratix/core": "workspace:*",
-    "@stratix/redis": "workspace:*"
+    "@stratix/redis": "workspace:*",
+    "awilix": "^13.0.5"
   },
   "keywords": [
     "stratix",

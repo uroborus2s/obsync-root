@@ -3,14 +3,21 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Logger } from '@stratix/core';
+import { eitherLeft, eitherRight } from '@stratix/core/functional';
 import ConnectionFactory from '../connection-factory.js';
+import { DialectRegistry } from '../dialects/index.js';
 import type { ConnectionConfig } from '../../types/configuration.js';
+import { ConnectionError } from '../../utils/error-handler.js';
 
 describe('ConnectionFactory - 优化后测试', () => {
   let connectionFactory: ConnectionFactory;
   let mockLogger: Logger;
+  let connectionId: number;
 
   beforeEach(() => {
+    DialectRegistry.clear();
+    connectionId = 0;
+
     mockLogger = {
       debug: vi.fn(),
       info: vi.fn(),
@@ -18,24 +25,74 @@ describe('ConnectionFactory - 优化后测试', () => {
       error: vi.fn()
     } as any;
 
-    connectionFactory = new ConnectionFactory({}, mockLogger);
+    const createMockConnection = () => ({
+      id: ++connectionId,
+      destroy: vi.fn().mockResolvedValue(undefined)
+    });
+
+    DialectRegistry.register({
+      type: 'sqlite',
+      defaultPort: 0,
+      createKysely: vi.fn(async () => eitherRight(createMockConnection())),
+      validateConfig: vi.fn(() => eitherRight(true)),
+      getHealthCheckQuery: vi.fn(() => 'select 1'),
+      checkDriverAvailability: vi.fn(async () => eitherRight(true)),
+      testConnection: vi.fn(async () => eitherRight(true))
+    } as any);
+
+    DialectRegistry.register({
+      type: 'postgresql',
+      defaultPort: 5432,
+      createKysely: vi.fn(async () =>
+        eitherLeft(ConnectionError.create('connection failed'))
+      ),
+      validateConfig: vi.fn(() => eitherRight(true)),
+      getHealthCheckQuery: vi.fn(() => 'select 1'),
+      checkDriverAvailability: vi.fn(async () => eitherRight(true)),
+      testConnection: vi.fn(async () =>
+        eitherLeft(ConnectionError.create('connection failed'))
+      )
+    } as any);
+
+    connectionFactory = new ConnectionFactory(
+      { testOnCreate: false },
+      mockLogger
+    );
   });
 
   describe('基础功能测试', () => {
     it('应该正确初始化，不包含缓存', () => {
       expect(connectionFactory).toBeDefined();
       expect(connectionFactory.getSupportedTypes()).toContain('sqlite');
-      
+
       // 验证不再有缓存相关属性
       expect((connectionFactory as any).connectionCache).toBeUndefined();
     });
 
     it('应该支持基本的数据库类型', () => {
       const supportedTypes = connectionFactory.getSupportedTypes();
-      
+
       expect(supportedTypes).toContain('postgresql');
       expect(supportedTypes).toContain('mysql');
       expect(supportedTypes).toContain('sqlite');
+    });
+
+    it('keeps MSSQL advertised support consistent with connection creation capability', async () => {
+      const supportedTypes = connectionFactory.getSupportedTypes();
+      const result = await connectionFactory.createConnection({
+        type: 'mssql',
+        host: 'localhost',
+        database: 'stratix',
+        username: 'sa',
+        password: 'Password123!'
+      });
+
+      if (supportedTypes.includes('mssql')) {
+        expect(result.success).toBe(true);
+      } else {
+        expect(result.success).toBe(false);
+        expect(connectionFactory.isSupported('mssql')).toBe(false);
+      }
     });
 
     it('应该正确验证连接配置', () => {
@@ -66,14 +123,14 @@ describe('ConnectionFactory - 优化后测试', () => {
       // 第一次创建
       const result1 = await connectionFactory.createConnection(config);
       expect(result1.success).toBe(true);
-      
+
       // 第二次创建（应该创建新的连接实例，不从缓存获取）
       const result2 = await connectionFactory.createConnection(config);
       expect(result2.success).toBe(true);
-      
+
       // 验证是不同的连接实例（因为没有缓存）
       expect(result1.data).not.toBe(result2.data);
-      
+
       // 清理连接
       await result1.data.destroy();
       await result2.data.destroy();
@@ -104,9 +161,10 @@ describe('ConnectionFactory - 优化后测试', () => {
       expect(createResult.success).toBe(true);
 
       const connection = createResult.data;
-      
+
       // 销毁连接
-      const destroyResult = await connectionFactory.destroyConnection(connection);
+      const destroyResult =
+        await connectionFactory.destroyConnection(connection);
       expect(destroyResult.success).toBe(true);
     });
   });
@@ -137,7 +195,7 @@ describe('ConnectionFactory - 优化后测试', () => {
       const result = await connectionFactory.testConnections(configs);
       expect(result.success).toBe(true);
       expect(result.data).toHaveLength(2);
-      expect(result.data.every(success => success)).toBe(true);
+      expect(result.data.every((success) => success)).toBe(true);
     });
   });
 
@@ -164,10 +222,10 @@ describe('ConnectionFactory - 优化后测试', () => {
       ]);
 
       // 验证所有连接都创建成功
-      expect(connections.every(result => result.success)).toBe(true);
+      expect(connections.every((result) => result.success)).toBe(true);
 
       // 验证每个连接都是不同的实例
-      const connectionInstances = connections.map(result => result.data);
+      const connectionInstances = connections.map((result) => result.data);
       expect(connectionInstances[0]).not.toBe(connectionInstances[1]);
       expect(connectionInstances[1]).not.toBe(connectionInstances[2]);
       expect(connectionInstances[0]).not.toBe(connectionInstances[2]);
@@ -187,10 +245,10 @@ describe('ConnectionFactory - 优化后测试', () => {
       };
 
       const startTime = Date.now();
-      
+
       // 创建多个连接
       const connections = await Promise.all(
-        Array.from({ length: 5 }, () => 
+        Array.from({ length: 5 }, () =>
           connectionFactory.createConnection(config)
         )
       );
@@ -199,8 +257,8 @@ describe('ConnectionFactory - 优化后测试', () => {
       const duration = endTime - startTime;
 
       // 验证所有连接都创建成功
-      expect(connections.every(result => result.success)).toBe(true);
-      
+      expect(connections.every((result) => result.success)).toBe(true);
+
       // 记录性能（用于对比）
       console.log(`创建 5 个连接耗时: ${duration}ms`);
 

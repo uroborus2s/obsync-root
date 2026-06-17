@@ -53,14 +53,13 @@
 | 关键方法 | `bootstrap(options?)`、`stop()`、`restart(options?)`、`getStatus()` |
 | 适合 | 自定义底层启动流程，不建议普通应用直接依赖 |
 
-### 其他启动相关 API
+### 应用级发现 API
 
 | API | 参数 | 返回值 | 说明 |
 |---|---|---|---|
-| `performApplicationAutoDI(config, container, fastify)` | 应用配置、DI 容器、Fastify 实例 | `Promise<...>` | 应用级 AutoDI 入口 |
-| `discoverAndProcessApplicationModules(...)` | 应用模块处理配置 | `Promise<...>` | 应用级模块发现与处理 |
-| `createApplicationLifecycleManager(...)` | 生命周期配置 | 生命周期管理器 | 创建应用级生命周期管理器 |
-| `safeExecute(...)` | 执行函数与错误处理配置 | `Promise<...>` | 安全执行封装 |
+| `ApplicationDiscoveryPipeline` | `ApplicationDiscoveryConfig & { container, fastify }` | `ApplicationDiscoveryResult` | 应用级扫描、分析、DI 注册和路由绑定入口 |
+| `ApplicationDiscoveryConfig` | `enabled`、`rootDir`、`patterns`、`directories`、`routing`、`lifecycle` | 类型 | 应用级 discovery 配置契约 |
+| `ApplicationDiscoveryResult` | `scanned`、`analyzed`、`registered`、`routesRegistered`、`skipped`、`errors` | 类型 | 应用级 discovery 执行结果 |
 
 <a id="controllers-routes"></a>
 ## 控制器与路由装饰器

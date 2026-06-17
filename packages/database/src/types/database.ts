@@ -4,11 +4,7 @@
 import type { Logger } from '@stratix/core';
 import type { Kysely } from 'kysely';
 import type { DatabaseResult } from '../utils/error-handler.js';
-import type {
-  ConnectionStats,
-  DatabaseType,
-  HealthStatus
-} from './common.js';
+import type { ConnectionStats, DatabaseType, HealthStatus } from './common.js';
 import type { ConnectionConfig } from './configuration.js';
 
 export interface PreCreationStatus {
@@ -48,6 +44,11 @@ export interface IDatabaseManager {
    * 获取写连接（支持读写分离）
    */
   getWriteConnection(name?: string): Promise<Kysely<any>>;
+
+  /**
+   * 获取连接数据库类型
+   */
+  getConnectionType(name?: string): string | undefined;
 
   /**
    * 检查连接是否存在

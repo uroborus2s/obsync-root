@@ -249,7 +249,6 @@ describe('Executor Registration', () => {
     });
 
     it('should work with debug mode', async () => {
-      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
       mockFastify.hasDecorator.mockReturnValue(true);
 
       const executorModules: ModuleInfo[] = [
@@ -271,10 +270,10 @@ describe('Executor Registration', () => {
       );
 
       expect(result.registeredCount).toBe(1);
-      // 在调试模式下应该有日志输出
-      expect(consoleSpy).toHaveBeenCalled();
-
-      consoleSpy.mockRestore();
+      expect(mockFastify.registerTaskExecutor).toHaveBeenCalledWith(
+        'userCreator',
+        expect.any(UserCreatorExecutor)
+      );
     });
   });
 

@@ -6,7 +6,9 @@
 ## 1.1.0 的变化
 
 - `DatabaseAPI` 不再属于公共 API。
-- 公共事务辅助函数已移除。
+- 模块级数据库 manager 和公共连接辅助函数已移除。
+- `BaseRepository` 必须通过构造函数显式接收 `DatabaseConnectionProvider`。
+- `findById()`、`findOne()`、`findMany()`、`findAll()`、`count()`、`exists()` 都返回 `Either`，不会吞掉数据库错误。
 - 应用侧的数据库访问应通过继承 `BaseRepository` 的仓储实现。
 - 多表业务单元应使用专门的业务仓储承载，而不是在 service 中拼装 SQL。
 
@@ -22,7 +24,11 @@ pnpm add @stratix/database
 ## 基础用法
 
 ```ts
-import { BaseRepository } from '@stratix/database';
+import { isLeft, isNone } from '@stratix/core/functional';
+import {
+  BaseRepository,
+  type DatabaseConnectionProvider
+} from '@stratix/database';
 
 interface AppDatabase {
   users: {
@@ -42,11 +48,22 @@ export class UserRepository extends BaseRepository<
   protected readonly tableName = 'users' as const;
   protected readonly logger = console as any;
 
+  constructor(database: DatabaseConnectionProvider) {
+    super({ database });
+  }
+
   async findByEmail(email: string) {
-    return await this.findOne((eb) => eb('email', '=', email));
+    const result = await this.findOne((qb) => qb.where('email', '=', email));
+    if (isLeft(result)) {
+      throw result.left;
+    }
+    return isNone(result.right) ? null : result.right.value;
   }
 }
 ```
+
+在 Stratix 应用里，通常把 DI 容器里的 `databaseManager` 注入到仓储构造函数，
+然后传给 `super({ database })`。不要从 `@stratix/database` 导入全局连接函数。
 
 ## 时间戳约定
 
@@ -68,7 +85,10 @@ export class UserRepository extends BaseRepository<
 `BaseRepository`，但对外暴露的是用例级方法，而不只是单表 CRUD。
 
 ```ts
-import { BaseRepository } from '@stratix/database';
+import {
+  BaseRepository,
+  type DatabaseConnectionProvider
+} from '@stratix/database';
 import { isLeft } from '@stratix/core/functional';
 
 export class CalendarParticipantUnitRepository extends BaseRepository<
@@ -78,18 +98,29 @@ export class CalendarParticipantUnitRepository extends BaseRepository<
   protected readonly tableName = 'calendar_participants' as const;
   protected readonly logger = console as any;
 
+  constructor(database: DatabaseConnectionProvider) {
+    super({ database });
+  }
+
   async loadSyncModel(courseId: string) {
     return await this.query(async (db) => {
       return await db
         .selectFrom('calendar_participants')
-        .innerJoin('calendars', 'calendars.id', 'calendar_participants.calendar_id')
+        .innerJoin(
+          'calendars',
+          'calendars.id',
+          'calendar_participants.calendar_id'
+        )
         .selectAll()
         .where('calendars.course_id', '=', courseId)
         .execute();
     });
   }
 
-  async replaceParticipants(courseId: string, rows: Array<Record<string, unknown>>) {
+  async replaceParticipants(
+    courseId: string,
+    rows: Array<Record<string, unknown>>
+  ) {
     return await this.tx(async (repository) => {
       const db = await repository.db();
       await db
@@ -98,7 +129,10 @@ export class CalendarParticipantUnitRepository extends BaseRepository<
         .execute();
 
       if (rows.length > 0) {
-        await db.insertInto('calendar_participants').values(rows as any).execute();
+        await db
+          .insertInto('calendar_participants')
+          .values(rows as any)
+          .execute();
       }
 
       return rows.length;
@@ -106,7 +140,10 @@ export class CalendarParticipantUnitRepository extends BaseRepository<
   }
 }
 
-async function syncCourse(repo: CalendarParticipantUnitRepository, courseId: string) {
+async function syncCourse(
+  repo: CalendarParticipantUnitRepository,
+  courseId: string
+) {
   const current = await repo.loadSyncModel(courseId);
   if (isLeft(current)) throw current.left;
   return current.right;
@@ -180,6 +217,10 @@ export class WorkflowExecutionRepository extends BaseRepository<
   protected readonly tableName = 'workflow_executions' as const;
   protected readonly logger = console as any;
 
+  constructor(database: DatabaseConnectionProvider) {
+    super({ database });
+  }
+
   async claimExecution(id: number, owner: string) {
     return await this.claimById(
       id,
@@ -207,7 +248,11 @@ export class WorkflowExecutionRepository extends BaseRepository<
     );
   }
 
-  async saveExecutionCheckpoint(id: number, owner: string, checkpointData: unknown) {
+  async saveExecutionCheckpoint(
+    id: number,
+    owner: string,
+    checkpointData: unknown
+  ) {
     return await this.saveCheckpointById(
       id,
       {
@@ -255,13 +300,11 @@ stratix generate business-repository workflow-execution
 ## 公共导出
 
 ```ts
-export {
-  BaseRepository,
-  AutoSaveRepository,
-  sql
-} from '@stratix/database';
+export { BaseRepository, AutoSaveRepository, sql } from '@stratix/database';
 
 export type {
+  BaseRepositoryOptions,
+  DatabaseConnectionProvider,
   DatabaseError,
   DatabaseResult,
   DatabaseOperationContext,

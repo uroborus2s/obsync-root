@@ -8,6 +8,11 @@ export {
   METADATA_KEYS,
   MetadataManager,
   ROUTE_METADATA_KEY,
+  type ComponentInjectionMode,
+  type ComponentLifetime,
+  type ComponentMetadata,
+  type ComponentOptions,
+  type ComponentType,
   type ControllerMetadata,
   type ControllerOptions,
   type ExecutorMetadata,
@@ -22,6 +27,9 @@ export {
 
 // 控制器装饰器
 export { Controller } from './controller.js';
+
+// 组件装饰器
+export { Component, Repository, Service } from './component.js';
 
 // 执行器装饰器
 export {

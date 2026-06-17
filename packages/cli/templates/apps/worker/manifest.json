@@ -6,7 +6,7 @@
   "displayName": "Worker Application",
   "description": "Background worker with executor-oriented project structure",
   "runtime": "worker",
-  "defaultPresets": ["redis", "queue", "tasks", "testing"],
+  "defaultPresets": ["redis", "queue", "testing"],
   "contributes": {
     "files": [
       {

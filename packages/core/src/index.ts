@@ -11,6 +11,7 @@ export * from './bootstrap/index.js';
 // 高级功能模块 - 装饰器
 export {
   CONTROLLER_METADATA_KEY,
+  Component,
   // 装饰器
   Controller,
   Delete,
@@ -28,11 +29,18 @@ export {
   Patch,
   Post,
   Put,
+  Repository,
   ROUTE_METADATA_KEY,
   Required,
+  Service,
   getExecutorMetadata,
   getExecutorName,
   isExecutor,
+  type ComponentInjectionMode,
+  type ComponentLifetime,
+  type ComponentMetadata,
+  type ComponentOptions,
+  type ComponentType,
   type ControllerMetadata,
   type ControllerOptions,
   type ExecutorMetadata,
@@ -85,26 +93,12 @@ export {
   type ServiceConfig
 } from './plugin/index.js';
 
-// 应用级功能模块 - 引导和生命周期
+// 应用级 discovery
 export {
-  // 应用级错误处理
-  ApplicationErrorHandler,
-  ApplicationErrorType,
-  DEFAULT_APPLICATION_AUTO_DI_CONFIG,
-  createApplicationLifecycleManager,
-  // 应用级模块发现和处理
-  discoverAndProcessApplicationModules,
-  // 应用级自动依赖注入
-  performApplicationAutoDI,
-  safeExecute,
-  type ApplicationAutoDIConfig,
-  type ApplicationErrorDetails,
-  type ApplicationModuleProcessingConfig,
-  type ApplicationModuleProcessingResult,
-  type ApplicationModuleRegistrationResult,
-  type ErrorHandlingStrategy
-  // 注意：ConventionBasedLifecycleManager等已在plugin模块中导出
-} from './bootstrap/index.js';
+  ApplicationDiscoveryPipeline,
+  type ApplicationDiscoveryConfig,
+  type ApplicationDiscoveryResult
+} from './discovery/index.js';
 
 // Service 层功能模块
 export * from './service/index.js';

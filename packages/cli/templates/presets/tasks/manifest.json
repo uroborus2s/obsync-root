@@ -1,8 +1,8 @@
 {
   "id": "tasks",
   "version": "1.0.0",
-  "displayName": "Tasks Preset",
-  "description": "Add @stratix/tasks for task executor workflows",
+  "displayName": "Tasks Preset (Deprecated)",
+  "description": "Deprecated: keep only for legacy @stratix/tasks migration; do not use in new projects",
   "appliesTo": [
     { "kind": "app" },
     { "kind": "plugin" }

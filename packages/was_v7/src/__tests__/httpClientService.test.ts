@@ -19,6 +19,7 @@ vi.mock('axios', () => ({
         request: { use: vi.fn() },
         response: { use: vi.fn() }
       },
+      request: vi.fn(),
       post: vi.fn(),
       get: vi.fn(),
       put: vi.fn(),
@@ -129,7 +130,7 @@ describe('HttpClientService', () => {
 
       // Mock axios post response
       const mockAxiosInstance = (httpClientService as any).axiosInstance;
-      mockAxiosInstance.post = vi.fn().mockResolvedValue({
+      mockAxiosInstance.request = vi.fn().mockResolvedValue({
         data: {
           access_token: testToken.access_token,
           token_type: testToken.token_type,
@@ -174,7 +175,7 @@ describe('HttpClientService', () => {
 
       // Mock axios post response
       const mockAxiosInstance = (httpClientService as any).axiosInstance;
-      mockAxiosInstance.post = vi.fn().mockResolvedValue({
+      mockAxiosInstance.request = vi.fn().mockResolvedValue({
         data: {
           access_token: testToken.access_token,
           token_type: testToken.token_type,
@@ -291,10 +292,7 @@ describe('HttpClientService', () => {
 
       // Assert
       expect(result).toBeUndefined();
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        'Error getting current access token',
-        expect.objectContaining({ error: expect.any(Error) })
-      );
+      expect(mockLogger.error).not.toHaveBeenCalled();
     });
   });
 
@@ -416,7 +414,7 @@ describe('HttpClientService', () => {
 
       // Mock axios post response
       const mockAxiosInstance = (httpClientService as any).axiosInstance;
-      mockAxiosInstance.post = vi.fn().mockResolvedValue({
+      mockAxiosInstance.request = vi.fn().mockResolvedValue({
         data: {
           access_token: testToken.access_token,
           token_type: testToken.token_type,

@@ -6,7 +6,8 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist",
+    "test": "vitest run"
   },
   "dependencies": {
     "@fastify/static": "^9.1.3",
@@ -19,7 +20,8 @@
     "@types/node": "^25.9.3",
     "awilix": "^13.0.5",
     "rimraf": "^6.1.3",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
   },
   "publishConfig": {
     "access": "public"

@@ -13,8 +13,6 @@ import { getLogger } from '../logger/index.js';
 
 // 跨插件工作流相关导入
 
-// 导入各个功能模块
-import { fileURLToPath } from 'url';
 import { registerServiceAdapters } from './adapter-registration.js';
 import { ConventionBasedLifecycleManager } from './lifecycle-manager.js';
 import {
@@ -148,8 +146,9 @@ export function withRegisterAutoDI<
         lifecycleManager,
         patterns: mergedConfig.discovery.patterns,
         // 🎯 使用捕获的调用者路径来解析基础路径
-        basePath: fileURLToPath(
-          resolveBasePath(mergedConfig.discovery?.baseDir, callerFilePath)
+        basePath: resolveBasePath(
+          mergedConfig.discovery?.baseDir,
+          callerFilePath
         ),
         autoDIConfig: mergedConfig,
         debugEnabled,

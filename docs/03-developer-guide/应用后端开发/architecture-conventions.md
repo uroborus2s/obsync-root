@@ -57,23 +57,25 @@ HTTP 请求
 
 ## 自动发现
 
-Stratix 会自动扫描应用代码并把合适的类接入容器，所以目录约定非常重要。
+Stratix 会自动扫描应用代码，但只有带 Stratix 元数据的类会接入容器，所以目录约定和装饰器都必须清晰。
 
 - 应用默认扫描 `src`。
-- `src/controllers`、`src/services`、`src/repositories`、`src/executors` 中的 class 会被优先视为可发现对象。
-- 不要把普通工具类随意放进这些扫描目录。
+- `src/controllers`、`src/services`、`src/repositories`、`src/executors` 是推荐组织目录。
+- 只有 `@Controller()`、`@Service()`、`@Repository()`、`@Component()`、`@Executor()` 标记的 class 会被应用级 discovery 注册。
+- 普通工具类可以放在扫描范围内，但不要添加 Stratix 组件装饰器。
 
 对新手来说，最容易踩坑的点是：
 
-- 你在 `src/services` 放了一个“只是想复用一下的工具类”，框架却把它当作 service 注册了
-- 你把真正的业务类放到了其他自定义目录，结果框架根本没扫描到
+- 你写了 service class，但忘记加 `@Service()`
+- 你把真正的业务类放到了自定义目录，却没有把目录加入 `discovery.patterns` 或 `discovery.directories`
 
-最保守的做法是：只有真正要被框架管理的 class，才放进这些扫描目录。
+最保守的做法是：只有真正要被框架管理的 class，才添加 Stratix 组件装饰器。
 
 ## 控制器与路由
 
 - `@Controller()` 不接收前缀。
-- 不要依赖 `applicationAutoDI.routing.prefix` 或插件 `AutoDIConfig.routing.prefix` 来定义业务路由前缀。
+- 应用级统一前缀写在 `discovery.routing.prefix`。
+- 插件内部前缀由插件自己的 AutoDI 配置控制，不能替代应用级 discovery 配置。
 
 正确思路是：
 
@@ -83,7 +85,7 @@ Stratix 会自动扫描应用代码并把合适的类接入容器，所以目录
 也就是说，不要写成你在其他框架里常见的：
 
 ```ts
-@Controller('/users')
+@Controller(/* 不要在这里写路径前缀 */)
 ```
 
 在当前实现里，这种写法不是推荐主路径。
@@ -110,12 +112,9 @@ Stratix 会自动扫描应用代码并把合适的类接入容器，所以目录
 
 ## 配置约束
 
-新手还需要记住一个关键现实：
+`src/stratix.config.ts` 适合正式应用入口；`Stratix.run({ config })` 适合测试、嵌入式运行和工具进程。两种方式都必须使用同一份 `StratixConfig` 契约。
 
-- `src/stratix.config.ts` 应默认导出函数
-- 不要把主要配置建立在 `Stratix.run({ config })` 这种调用方式上
-
-最稳妥的形式是：
+配置文件形式：
 
 ```ts
 import type { StratixConfig } from '@stratix/core';
@@ -129,8 +128,14 @@ export default function createConfig(
       port: Number(process.env.PORT || 3000)
     },
     plugins: [],
-    applicationAutoDI: {
-      enabled: true
+    autoLoad: {},
+    discovery: {
+      enabled: true,
+      patterns: ['**/*.ts'],
+      routing: {
+        enabled: true,
+        prefix: '/api'
+      }
     }
   };
 }
@@ -146,7 +151,8 @@ export default function createConfig(
 
 ## 执行器
 
-- 应用 `src` 下的 executor 依赖 `@stratix/tasks` 先完成注册。
+- `src/executors/` 不再是新项目默认路径。
+- `@stratix/tasks` 即将废弃，1.1.0 新项目不要继续新增 tasks 依赖。
 - 长流程不要长时间持有数据库事务，应使用短事务 + checkpoint 的方式收口状态。
 
 ## 新手最应该死记住的 6 条规则

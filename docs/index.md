@@ -181,6 +181,12 @@ mkdocs:
             - title: 当前状态分析
               path: 04-project-development/02-discovery/current-state-analysis.md
               access: private
+            - title: Core 框架评审与评分报告
+              path: 04-project-development/02-discovery/core-framework-review-report.md
+              access: private
+            - title: Database 插件评审与评分报告
+              path: 04-project-development/02-discovery/database-plugin-review-report.md
+              access: private
         - title: 需求
           children:
             - title: 概览
@@ -194,6 +200,9 @@ mkdocs:
               access: private
             - title: 需求验证
               path: 04-project-development/03-requirements/requirements-verification.md
+              access: private
+            - title: Core 破坏性升级 PRD
+              path: 04-project-development/03-requirements/core-breaking-upgrade-prd.md
               access: private
         - title: 设计文档
           children:
@@ -215,6 +224,12 @@ mkdocs:
             - title: 后端设计
               path: 04-project-development/04-design/backend-design.md
               access: private
+            - title: Core 应用发现管道设计
+              path: 04-project-development/04-design/core-application-discovery-pipeline.md
+              access: private
+            - title: Core 公共 API 边界
+              path: 04-project-development/04-design/core-public-api-surface.md
+              access: private
         - title: 开发过程文档
           children:
             - title: 概览
@@ -222,6 +237,9 @@ mkdocs:
               access: private
             - title: 实施计划
               path: 04-project-development/05-development-process/implementation-plan.md
+              access: private
+            - title: Core 破坏性升级实施计划
+              path: 04-project-development/05-development-process/core-breaking-upgrade-implementation-plan.md
               access: private
         - title: 测试与验证
           children:
@@ -231,6 +249,12 @@ mkdocs:
             - title: 测试计划
               path: 04-project-development/06-testing-verification/test-plan.md
               access: private
+            - title: Core 契约测试计划
+              path: 04-project-development/06-testing-verification/core-contract-test-plan.md
+              access: private
+            - title: Stratix 95+ 质量门
+              path: 04-project-development/06-testing-verification/stratix-95-quality-gate.md
+              access: private
         - title: 发布与交付
           children:
             - title: 概览
@@ -238,6 +262,9 @@ mkdocs:
               access: private
             - title: 发布说明
               path: 04-project-development/07-release-delivery/release-notes.md
+              access: private
+            - title: Core 发布门禁
+              path: 04-project-development/07-release-delivery/core-breaking-upgrade-release-gate.md
               access: private
         - title: 运维与维护
           children:

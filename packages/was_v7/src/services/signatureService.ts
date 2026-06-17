@@ -79,6 +79,22 @@ export class SignatureService {
   }
 
   /**
+   * 生成基础KSO-1签名参数。
+   * @deprecated Prefer generateRequestSignature for request-scoped signing.
+   */
+  generateSignature(): SignatureParams {
+    const timestamp = new Date().toUTCString();
+    const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const signature = this.createSignature(timestamp, nonce);
+
+    return {
+      timestamp,
+      nonce,
+      signature: `KSO-1 ${this.appId}:${signature}`
+    };
+  }
+
+  /**
    * 生成请求签名（支持完整的HTTP请求参数）
    * @param method HTTP方法
    * @param url 完整URL或路径

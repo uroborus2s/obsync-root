@@ -114,10 +114,10 @@ describe('Environment Priority Override', () => {
   it('应该正确处理变量扩展', async () => {
     // 创建包含变量引用的 .env 文件
     const envContent = `
-BASE_URL=https://api.example.com
-API_VERSION=v1
-API_ENDPOINT=\${BASE_URL}/\${API_VERSION}
-DATABASE_URL=postgres://user:pass@localhost:5432/\${API_VERSION}_db
+TEST_BASE_URL=https://api.example.com
+TEST_API_VERSION=v1
+TEST_API_ENDPOINT=\${TEST_BASE_URL}/\${TEST_API_VERSION}
+TEST_DATABASE_URL=postgres://user:pass@localhost:5432/\${TEST_API_VERSION}_db
 `;
     fs.writeFileSync(path.join(testDir, '.env'), envContent.trim());
 
@@ -131,10 +131,10 @@ DATABASE_URL=postgres://user:pass@localhost:5432/\${API_VERSION}_db
     await loadEnvironment(envOptions);
 
     // 验证变量扩展结果
-    expect(process.env.BASE_URL).toBe('https://api.example.com');
-    expect(process.env.API_VERSION).toBe('v1');
-    expect(process.env.API_ENDPOINT).toBe('https://api.example.com/v1');
-    expect(process.env.DATABASE_URL).toBe('postgres://user:pass@localhost:5432/v1_db');
+    expect(process.env.TEST_BASE_URL).toBe('https://api.example.com');
+    expect(process.env.TEST_API_VERSION).toBe('v1');
+    expect(process.env.TEST_API_ENDPOINT).toBe('https://api.example.com/v1');
+    expect(process.env.TEST_DATABASE_URL).toBe('postgres://user:pass@localhost:5432/v1_db');
   });
 
   it('应该正确处理生产环境中排除 .local 文件', async () => {

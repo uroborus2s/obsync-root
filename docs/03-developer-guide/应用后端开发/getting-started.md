@@ -12,7 +12,8 @@
 
 - `@stratix/core` 负责应用启动、自动发现、依赖注入和控制器路由
 - `@stratix/cli` 负责建项目、生成骨架、补 preset、做健康检查
-- `@stratix/database`、`@stratix/redis`、`@stratix/tasks` 等生态插件负责基础设施能力
+- `@stratix/database`、`@stratix/redis`、`@stratix/queue`、`@stratix/ossp`、`@stratix/was-v7` 等生态插件负责基础设施能力
+- `@stratix/tasks` 即将废弃，新项目不要把它作为默认基础设施引入
 
 你现在不需要先理解框架内部原理。第一阶段的目标只有三个：
 

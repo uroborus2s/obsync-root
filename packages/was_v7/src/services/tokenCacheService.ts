@@ -28,13 +28,15 @@ export class TokenCacheService implements ITokenCacheService {
 
   constructor(
     private readonly redisClient: RedisAdapter,
-    private readonly logger: Logger
+    private readonly logger: Logger,
+    config: Partial<TokenCacheConfig> = {}
   ) {
     this.config = {
       keyPrefix: 'wpsV7:token:',
       defaultTtl: 7200, // 2小时
       earlyExpireSeconds: 900, // 15分钟
-      enableFallback: true
+      enableFallback: true,
+      ...config
     };
 
     this.logger.info('TokenCacheService initialized', {

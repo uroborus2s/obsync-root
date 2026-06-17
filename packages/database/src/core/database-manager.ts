@@ -11,7 +11,7 @@ import {
   isRight,
   type Either
 } from '@stratix/core/functional';
-import type { Kysely } from 'kysely';
+import { CompiledQuery, type Kysely } from 'kysely';
 import type {
   ConnectionConfig,
   ConnectionStats,
@@ -48,8 +48,6 @@ interface RecoveryStatus {
   backoffMs: number;
 }
 
-let databaseManager: DatabaseManager;
-
 /**
  * 增强的数据库管理器
  * 使用新的双层生命周期架构，实现数据库连接预创建和智能错误恢复
@@ -75,6 +73,7 @@ export default class DatabaseManager {
   private recoveryStatus: RecoveryStatus;
   private debugEnabled: boolean;
   private isReady: boolean = false;
+  private readConnectionCursor: number = 0;
 
   /**
    * 构造函数 - 使用 Awilix CLASSIC 注入模式
@@ -102,7 +101,6 @@ export default class DatabaseManager {
       maxAttempts: 3,
       backoffMs: 1000
     };
-    databaseManager = this;
   }
 
   /**
@@ -486,44 +484,10 @@ export default class DatabaseManager {
   private expandConnectionsForReadWriteSeparation(
     connections: Record<string, ConnectionConfig>
   ): Array<{ name: string; config: ConnectionConfig }> {
-    const expandedConfigs: Array<{ name: string; config: ConnectionConfig }> =
-      [];
-
-    for (const [name, config] of Object.entries(connections)) {
-      // 添加主连接
-      expandedConfigs.push({ name, config });
-
-      // 检查是否配置了读写分离
-      if (this.config.readWriteSeparation?.enabled) {
-        const rwConfig = this.config.readWriteSeparation;
-
-        // 为读连接创建配置（基于主连接配置）
-        if (rwConfig.readConnections && rwConfig.readConnections.length > 0) {
-          rwConfig.readConnections.forEach((_, index) => {
-            expandedConfigs.push({
-              name: `${name}-read-${index}`,
-              config: { ...config } // 使用主连接配置作为基础
-            });
-          });
-
-          // 创建一个主要的读连接别名
-          expandedConfigs.push({
-            name: `${name}-read`,
-            config: { ...config }
-          });
-        }
-
-        // 为写连接创建配置（基于主连接配置）
-        if (rwConfig.writeConnection) {
-          expandedConfigs.push({
-            name: `${name}-write`,
-            config: { ...config } // 使用主连接配置作为基础
-          });
-        }
-      }
-    }
-
-    return expandedConfigs;
+    return Object.entries(connections).map(([name, config]) => ({
+      name,
+      config
+    }));
   }
 
   /**
@@ -1027,13 +991,32 @@ export default class DatabaseManager {
   public async getReadConnection(
     connectionName: string = 'default'
   ): Promise<Kysely<any>> {
-    // 尝试获取专用的读连接
-    const readConnectionName = `${connectionName}-read`;
-    if (this.hasConnection(readConnectionName)) {
-      return await this.getConnection(readConnectionName);
+    const rwConfig = this.config.readWriteSeparation;
+
+    if (
+      rwConfig?.enabled &&
+      this.isDefaultConnectionName(connectionName) &&
+      rwConfig.readConnections.length > 0
+    ) {
+      const readConnectionName = this.selectReadConnectionName(
+        rwConfig.readConnections
+      );
+
+      try {
+        return await this.getConnection(readConnectionName);
+      } catch (error) {
+        if (rwConfig.failover?.fallbackToWrite) {
+          this.logger.warn(
+            `Read connection '${readConnectionName}' is unavailable, falling back to write connection.`,
+            error
+          );
+          return await this.getWriteConnection(connectionName);
+        }
+
+        throw error;
+      }
     }
 
-    // 回退到默认连接
     return await this.getConnection(connectionName);
   }
 
@@ -1043,14 +1026,64 @@ export default class DatabaseManager {
   public async getWriteConnection(
     connectionName: string = 'default'
   ): Promise<Kysely<any>> {
-    // 尝试获取专用的写连接
-    const writeConnectionName = `${connectionName}-write`;
-    if (this.hasConnection(writeConnectionName)) {
-      return await this.getConnection(writeConnectionName);
+    const rwConfig = this.config.readWriteSeparation;
+
+    if (
+      rwConfig?.enabled &&
+      this.isDefaultConnectionName(connectionName) &&
+      rwConfig.writeConnection
+    ) {
+      return await this.getConnection(rwConfig.writeConnection);
     }
 
-    // 回退到默认连接
     return await this.getConnection(connectionName);
+  }
+
+  private isDefaultConnectionName(connectionName: string): boolean {
+    const configuredDefault = this.config.defaultConnection || 'default';
+    return connectionName === 'default' || connectionName === configuredDefault;
+  }
+
+  private selectReadConnectionName(readConnections: string[]): string {
+    const availableReadConnections = readConnections.filter(Boolean);
+    if (availableReadConnections.length === 0) {
+      return this.config.defaultConnection || 'default';
+    }
+
+    const strategy = this.config.readWriteSeparation?.loadBalancing;
+    if (strategy === 'random') {
+      const index = Math.floor(Math.random() * availableReadConnections.length);
+      return availableReadConnections[index];
+    }
+
+    if (strategy === 'least-connections') {
+      return [...availableReadConnections].sort((left, right) => {
+        const leftStats = this.connectionStats.get(left);
+        const rightStats = this.connectionStats.get(right);
+        return (
+          (leftStats?.activeConnections || 0) -
+          (rightStats?.activeConnections || 0)
+        );
+      })[0];
+    }
+
+    const selected =
+      availableReadConnections[
+        this.readConnectionCursor % availableReadConnections.length
+      ];
+    this.readConnectionCursor =
+      (this.readConnectionCursor + 1) % availableReadConnections.length;
+
+    return selected;
+  }
+
+  /**
+   * 获取指定连接的数据库类型
+   */
+  public getConnectionType(
+    connectionName: string = 'default'
+  ): string | undefined {
+    return this.connectionStats.get(connectionName)?.type;
   }
 
   /**
@@ -1083,11 +1116,9 @@ export default class DatabaseManager {
         async ([name, connection]) => {
           const startTime = Date.now();
           try {
-            // 执行简单的健康检查查询
-            await connection
-              .selectFrom('information_schema.tables' as any)
-              .limit(1)
-              .execute();
+            const healthQuery =
+              this.config.healthCheck?.query || 'SELECT 1 AS health';
+            await connection.executeQuery(CompiledQuery.raw(healthQuery, []));
             const responseTime = Date.now() - startTime;
 
             this.healthStatus.set(name, true);
@@ -1158,57 +1189,4 @@ export default class DatabaseManager {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
   }
-}
-
-// ========== 全局连接访问函数 ==========
-
-let globalDatabaseManager: DatabaseManager | null = null;
-
-/**
- * 设置全局数据库管理器实例
- * 这个函数应该在应用启动时由DI容器调用
- */
-export function setGlobalDatabaseManager(manager: DatabaseManager): void {
-  globalDatabaseManager = manager;
-}
-
-/**
- * 获取指定名称的数据库连接
- * 这是一个全局函数，可以在任何地方调用
- */
-export async function getConnection(
-  connectionName: string = 'default'
-): Promise<Kysely<any>> {
-  return await databaseManager.getConnection(connectionName);
-}
-
-/**
- * 获取读连接（支持读写分离）
- * 这是一个全局函数，可以在任何地方调用
- */
-export async function getReadConnection(
-  connectionName: string = 'default'
-): Promise<Kysely<any>> {
-  return await databaseManager.getReadConnection(connectionName);
-}
-
-/**
- * 获取写连接（支持读写分离）
- * 这是一个全局函数，可以在任何地方调用
- */
-export async function getWriteConnection(
-  connectionName: string = 'default'
-): Promise<Kysely<any>> {
-  return await databaseManager.getWriteConnection(connectionName);
-}
-
-/**
- * 获取指定连接的数据库类型
- */
-export function getConnectionType(
-  connectionName: string = 'default'
-): string | undefined {
-  return databaseManager
-    ?.getConnectionStats()
-    .get(connectionName)?.type;
 }

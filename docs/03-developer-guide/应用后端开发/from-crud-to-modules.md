@@ -11,7 +11,7 @@
 1. 什么时候继续用扁平目录就够了
 2. 什么时候应该升级到 `src/modules/*`
 3. 什么时候该引入 `business-repository`
-4. 什么时候才真的需要 `executor` 和 `@stratix/tasks`
+4. 什么时候才真的需要后台队列、checkpoint 或历史任务引擎迁移
 
 ## 先给你一个结论
 
@@ -20,7 +20,7 @@
 1. 先做出单表 CRUD
 2. 再按业务域拆成模块目录
 3. 再在个别复杂模块里引入 `business-repository`
-4. 最后才在确实需要时引入 `executor` 和 `tasks`
+4. 最后才在确实需要时引入队列消费、checkpoint 或单独的任务引擎迁移方案
 
 不要一开始把这四步同时做完。那样对新手来说复杂度太高，也很难定位问题。
 
@@ -329,7 +329,7 @@ src/modules/orders/repositories/OrderBusinessRepository.ts
 
 如果你只是做管理后台 API，大多数场景里普通 `repository` 就够了。
 
-## 第 10 步：什么时候才需要 `executor` 和 `@stratix/tasks`
+## 第 10 步：什么时候才需要后台队列和 checkpoint
 
 很多人一听“模块化”就会顺手把工作流也一起做了，这是典型过度设计。
 
@@ -340,13 +340,15 @@ src/modules/orders/repositories/OrderBusinessRepository.ts
 - 工作流节点执行
 - 需要执行状态持久化的后台任务
 
-这时再考虑：
+这时先考虑：
 
 ```bash
 stratix add preset database
-stratix add preset tasks
-stratix generate executor order-sync
+stratix add preset queue
+stratix generate business-repository order-sync
 ```
+
+`@stratix/tasks` 即将废弃，不再作为 1.1.0 新项目默认方案。已有项目如果依赖 tasks，应把迁移作为单独工作项，不要在模块化重构时顺手扩散。
 
 同样要知道当前 CLI 的现实行为：
 
@@ -361,9 +363,9 @@ src/modules/orders/executors/OrderSyncExecutor.ts
 
 只要它仍然在 `src` 递归扫描范围里，框架就能发现它。
 
-但一定要先满足前提：
+如果你仍在维护历史 executor 目录，一定要先满足前提：
 
-- `@stratix/tasks` 已经启用
+- 历史任务引擎仍在当前应用中启用
 - 你真的有任务/调度/工作流需求
 
 不要把 `executor` 当成“另一种 service”。
@@ -417,7 +419,7 @@ src/
 4. 再补 service
 5. 最后补 controller
 6. 如果涉及多表一致性，再考虑 `business-repository`
-7. 如果涉及长流程任务，再考虑 `executor + tasks`
+7. 如果涉及长流程任务，先考虑 `business-repository + queue + checkpoint`
 
 这其实还是你前面已经学过的那套顺序，只是“目录边界”从根目录升级成了业务模块。
 
@@ -428,7 +430,7 @@ src/
 - 模块化首先是代码组织升级，不是新的运行时魔法
 - `module` 生成器适合起域，不等于完整模块管理系统
 - `business-repository` 是复杂一致性边界，不是普通 CRUD 标配
-- `executor` 和 `tasks` 是长流程能力，不是模块化的默认下一步
+- 队列和 checkpoint 是长流程能力，不是模块化的默认下一步；`tasks` 仅作为历史迁移项处理
 - 当前 CLI 对模块化项目的支持是“起骨架 + 你手工归位”，不是全自动管理
 
 下一步建议你再看 [`testing-and-debugging.md`](./testing-and-debugging.md) 和 [`development-workflow.md`](./development-workflow.md)，把模块化之后的验证节奏也固定下来。

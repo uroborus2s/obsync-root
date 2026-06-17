@@ -165,7 +165,7 @@ export default class PingExecutor {
 }
 ```
 
-如果你当前还没有 `@stratix/tasks` 使用场景，这一步可以跳过。
+如果你不是在维护历史任务引擎迁移，这一步可以跳过。`@stratix/tasks` 即将废弃，新插件不要为了预留能力而新增 tasks 依赖。
 
 ## 第 8 步：确认插件入口没有挡住自动发现
 

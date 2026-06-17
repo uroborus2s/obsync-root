@@ -4,7 +4,7 @@ import type { FastifyInstance } from 'fastify';
 import { registerControllerRoutes } from '../controller-registration.js';
 import { MetadataManager } from '../../decorators/metadata.js';
 import { Controller } from '../../decorators/controller.js';
-import { Get, Post } from '../../decorators/routes.js';
+import { Get, Post } from '../../decorators/route.js';
 
 // 模拟 Fastify 实例
 const createMockFastify = () => ({
