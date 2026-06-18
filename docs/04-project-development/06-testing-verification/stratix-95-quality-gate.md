@@ -139,4 +139,4 @@ pnpm run test:supported
 - 离线安装和 npm/tag 发布口径仍属于独立 release governance 工作，不阻塞本轮 database/core/create/forge 质量门。
 - Phase 5 supported-scope production baseline 已完成；离线安装和 npm/tag/registry 对齐仍属于独立 release governance 工作。
 - Phase 6 workspace release gate 已能规划发布准备门禁；真实发布仍会被 offline install、exact git tag 和 npm registry 对齐状态阻断。
-- forge 源码树中物理删除旧 app/plugin 模板目录需要明确删除批准；当前 forge 代码路径和发布包已与这些目录解耦。
+- forge 源码树中的旧 app/plugin 模板目录已在获得明确删除批准后物理删除；当前 forge 只保留 resource/preset 模板。

@@ -108,7 +108,7 @@
 - `git diff --check` passes after Phase 2 docs synchronization.
 - Core concept-model evolution docs now record the complete evolution plan: current startup/discovery/DI flow, breaking removal of `executor` from `@stratix/core` without compatibility adapters, frozen/deprecated `@stratix/tasks` status, Module as a code-project governance boundary, `@stratix/testing` as a first-class independent testing platform, and the production-grade roadmap for Contract-first APIs, DI diagnostics, create/forge tooling, observability, security, plugin manifest, production manifest, DevTools, and 95+ quality gates.
 - `@stratix/create` and `@stratix/forge` can build and run their help/list smoke paths on the Node 24 baseline.
-- `pnpm --filter @stratix/forge pack --pack-destination /tmp` passes and the tarball excludes `templates/apps` and `templates/plugins`.
+- `pnpm --filter @stratix/forge pack --pack-destination /tmp` passes; forge now only retains `templates/resources` and `templates/presets`.
 - `@stratix/devtools`, `@stratix/testing`, and `@stratix/was-v7` package manifests/build scripts now satisfy the Phase 6 pack artifact gate.
 - `examples/web-admin-preview` can install independently, build, test, and preview on the upgraded frontend stack.
 - `pnpm --filter @stratix/database build` passes after the database-only clean breaking refactor.
@@ -134,7 +134,7 @@
 1. Create exact release tags on the final Phase 6 release-readiness commit.
 2. Run the full production release gate with `--include-offline-install --include-registry`.
 3. npm publish remains an external release operation requiring maintainer credentials.
-4. Physical deletion of obsolete `packages/forge/templates/apps` and `packages/forge/templates/plugins` is deferred until explicit approval; the directories are not read by forge and are excluded from the published forge package.
+4. Obsolete `packages/forge/templates/apps` and `packages/forge/templates/plugins` were physically deleted after explicit approval; `@stratix/create` owns app/plugin creation templates.
 
 ## Canonical Detailed Report
 

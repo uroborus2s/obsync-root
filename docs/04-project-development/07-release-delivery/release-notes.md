@@ -60,8 +60,8 @@ Phase 6 workspace release gate 覆盖：
 
 ## 5. 遗留决策
 
-- `packages/forge/templates/apps` 与 `packages/forge/templates/plugins` 是 create-only 旧模板残留；forge 源码和 `package.json#files` 均不再读取或发布这些目录。
-- 本轮未物理删除上述目录，因为删除目录需要明确人工批准；Phase 6 判定为“延后物理删除”，但发布 artifact 已通过 `files` 白名单排除它们。
+- `packages/forge/templates/apps` 与 `packages/forge/templates/plugins` 是 create-only 旧模板残留，已在获得人工批准后物理删除。
+- `@stratix/create` 继续拥有 app/plugin 创建模板，包括后台管理平台模板 `packages/create/templates/apps/web-admin`。
 
 ## 6. 发布前置条件
 
