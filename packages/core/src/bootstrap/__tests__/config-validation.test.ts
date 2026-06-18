@@ -58,6 +58,58 @@ describe('configuration validation contract', () => {
     await app.stop();
   });
 
+  it('accepts production observability and security configuration', async () => {
+    const app = await Stratix.run({
+      type: 'cli',
+      gracefulShutdown: false,
+      config: {
+        server: {},
+        plugins: [],
+        autoLoad: {},
+        discovery: { enabled: false },
+        observability: {
+          enabled: true,
+          health: {
+            enabled: true,
+            basePath: '/healthz'
+          },
+          metrics: {
+            enabled: true,
+            path: '/metrics'
+          },
+          traces: {
+            enabled: true,
+            maxEntries: 10
+          }
+        },
+        security: {
+          enabled: true,
+          cors: {
+            enabled: true,
+            origins: ['https://console.example.com']
+          },
+          headers: {
+            enabled: true,
+            contentSecurityPolicy: "default-src 'self'"
+          },
+          rateLimit: {
+            enabled: true,
+            max: 100,
+            windowMs: 60_000
+          },
+          bodyLimit: 1024
+        }
+      }
+    });
+
+    expect(app.config.observability?.health?.basePath).toBe('/healthz');
+    expect(app.config.security?.cors?.origins).toEqual([
+      'https://console.example.com'
+    ]);
+
+    await app.stop();
+  });
+
   it('rejects removed container configuration', async () => {
     await expect(
       Stratix.run({

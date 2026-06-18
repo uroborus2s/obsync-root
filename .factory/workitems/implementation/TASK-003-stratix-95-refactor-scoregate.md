@@ -58,3 +58,15 @@
   - `pnpm --filter @stratix/create test` 通过，3 tests
   - `pnpm --filter @stratix/forge test` 通过，37 tests
   - `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit` 通过
+
+## Phase 5 复核记录
+
+- 复核日期：2026-06-18
+- 复核结论：Phase 5 production baseline 完成后，supported scope 仍达到 95+，并具备生产发布门禁基线。
+- 新增验证：
+  - `pnpm --filter @stratix/core exec vitest run` 通过，27 files / 194 tests
+  - `pnpm --filter @stratix/devtools test` 通过，2 tests
+  - `pnpm --filter @stratix/forge test` 通过，39 tests
+  - `pnpm --filter @stratix/core exec tsc -p tsconfig.json --noEmit` 通过
+  - `pnpm --filter @stratix/devtools exec tsc -p tsconfig.json --noEmit` 通过
+  - `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit` 通过

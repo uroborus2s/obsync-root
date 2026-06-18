@@ -8,6 +8,10 @@
 - Root `CI=true pnpm install --frozen-lockfile`
 - Root `pnpm build` through `build:supported`
 - Root `pnpm test` through `test:supported`
+- `pnpm run build:supported` passed across 10 supported packages
+- `pnpm run test:supported` passed across 12 turbo tasks
+- `uvx --from docs-stratego docs-stratego source validate --repo-path .` passed, 85 pages / 0 contracts
+- Core, forge, and devtools package tarballs can be produced under `/tmp`
 - Preview sample `CI=true pnpm install --ignore-workspace --frozen-lockfile`
 - `@stratix/create` and `@stratix/forge` build/test/typecheck on the Node 24 baseline
 - `@stratix/forge` source is physically under `packages/forge`; the lockfile importer is no longer `packages/cli`
@@ -16,6 +20,10 @@
 - `@stratix/create` writes plugin governance manifests and `@stratix/forge` validates/graphs them through `doctor plugins` and `graph plugins`
 - `@stratix/forge` generates production manifest artifacts with route, DI, module, and runtime plugin-lock evidence through `build-manifest`
 - `@stratix/core` consumes production manifest artifacts through `discovery.productionManifest`, exposes loaded startup evidence, and can skip application-level runtime glob discovery
+- `@stratix/core` registers DI/routes from production manifest source files through `registerFromManifest`
+- `@stratix/core` provides Phase 5 observability/security presets: request/trace ids, health, metrics, traces, CORS, headers, body limit, and rate limit
+- `@stratix/devtools` exposes production views for routes, DI, plugins, redacted config, health, and traces
+- `@stratix/forge` validates release readiness through `stratix release gate --manifest <file>`
 - `@stratix/core` unified error envelope and response schema failure normalization tests pass
 - `@stratix/testing` contract tests validate shared Stratix error envelope responses
 - `@stratix/testing` Phase 4 platform helpers pass test/typecheck/build: test app, DI override, plugin fixture, discovery fixture, module fixture, and rollbackable repository fixture
@@ -32,4 +40,4 @@
 
 1. Restore reproducible installation.
 2. Reconcile release-surface reality and remaining package-test regressions.
-3. Continue Phase 5 observability, security, DevTools, release-gate integration, and deeper manifest-driven registration.
+3. Run Phase 6 production release readiness review and reconcile npm/tag/registry release surface.

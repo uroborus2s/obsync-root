@@ -7,6 +7,7 @@ export interface ProductionManifestDiscoveryConfig {
   enabled?: boolean;
   path?: string;
   skipRuntimeDiscovery?: boolean;
+  registerFromManifest?: boolean;
   strict?: boolean;
 }
 
@@ -184,6 +185,26 @@ export function loadProductionManifest(
     ...parsed.data,
     sourceFile
   };
+}
+
+export function collectProductionManifestSourceFiles(
+  manifest: ProductionManifest
+): string[] {
+  const files = new Set<string>();
+
+  for (const route of manifest.routes) {
+    if (route.sourceFile) {
+      files.add(route.sourceFile);
+    }
+  }
+
+  for (const token of manifest.di.tokens) {
+    if (token.sourceFile) {
+      files.add(token.sourceFile);
+    }
+  }
+
+  return [...files];
 }
 
 function handleInvalidManifest(

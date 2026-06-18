@@ -154,6 +154,48 @@ export interface CacheConfig {
   };
 }
 
+export interface ObservabilityConfig {
+  enabled?: boolean;
+  requestIdHeader?: string;
+  traceIdHeader?: string;
+  health?: {
+    enabled?: boolean;
+    basePath?: string;
+  };
+  metrics?: {
+    enabled?: boolean;
+    path?: string;
+  };
+  traces?: {
+    enabled?: boolean;
+    maxEntries?: number;
+  };
+}
+
+export interface SecurityConfig {
+  enabled?: boolean;
+  bodyLimit?: number;
+  cors?: {
+    enabled?: boolean;
+    origins?: string | string[];
+    credentials?: boolean;
+    methods?: string[];
+  };
+  headers?:
+    | boolean
+    | {
+        enabled?: boolean;
+        contentSecurityPolicy?: string | boolean;
+        frameOptions?: string;
+        referrerPolicy?: string;
+      };
+  rateLimit?: {
+    enabled?: boolean;
+    max?: number;
+    windowMs?: number;
+  };
+}
+
 /**
  * 应用级生命周期钩子
  * 与简化的生命周期阶段保持一致，管理整个应用 bootstrap 过程
@@ -197,6 +239,12 @@ export interface StratixConfig {
 
   /** 日志配置 */
   logger?: LoggerConfig;
+
+  /** 生产可观测性配置 */
+  observability?: ObservabilityConfig;
+
+  /** 生产安全基线配置 */
+  security?: SecurityConfig;
 
   /** 生命周期钩子 */
   hooks?: LifecycleHooks;

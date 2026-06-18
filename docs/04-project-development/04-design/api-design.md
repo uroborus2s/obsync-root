@@ -11,29 +11,31 @@
 
 ## 1. 当前对外接口面
 
-| ID | 接口面 | 形态 | 当前状态 |
-|---|---|---|---|
-| `API-001` | `create-stratix` | 命令行 | 已验证可执行；`@stratix/create` 只负责 app/plugin 创建且保持零运行时依赖 |
-| `API-002` | 公共 npm 包导出 | package exports | 存在，但发布面未统一 |
-| `API-003` | `examples/web-admin-preview` | Web UI sample | 已验证可构建、可预览 |
-| `API-004` | 生态插件 token | 根容器 adapter token | 依赖各插件内部实现与 README |
-| `API-005` | Route contract API | `@stratix/core` public functions | Phase 2 基础能力已实现 |
-| `API-006` | DI diagnostics API | `@stratix/core` public functions + forge | Phase 2 基础能力已实现 |
-| `API-007` | OpenAPI forge command | `stratix openapi generate` | Phase 2 扩展能力已实现 |
-| `API-008` | Typed client generator | `stratix openapi client` | Phase 2 扩展能力已实现；支持 path/query/body/header 参数、auth provider 和 hooks |
-| `API-009` | Contract test DSL | `@stratix/testing` `contractTest()` | Phase 2 扩展能力已实现 |
-| `API-010` | Plugin adapter diagnostics | `@stratix/core` public functions | Phase 2 扩展能力已实现 |
-| `API-011` | Plugin manifest governance | `.stratix/plugin.json` + forge | 已完成基线；`doctor plugins` / `graph plugins` 可用 |
-| `API-012` | Production manifest artifact | `stratix build-manifest` | 已完成基线；生成 route/DI/module/plugin-lock artifact |
-| `API-013` | Runtime production manifest consumption | `discovery.productionManifest` | 已完成最小基线；启动期读取 artifact，并可跳过应用级 runtime glob discovery |
+| ID        | 接口面                                  | 形态                                       | 当前状态                                                                                      |
+| --------- | --------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| `API-001` | `create-stratix`                        | 命令行                                     | 已验证可执行；`@stratix/create` 只负责 app/plugin 创建且保持零运行时依赖                      |
+| `API-002` | 公共 npm 包导出                         | package exports                            | 存在，但发布面未统一                                                                          |
+| `API-003` | `examples/web-admin-preview`            | Web UI sample                              | 已验证可构建、可预览                                                                          |
+| `API-004` | 生态插件 token                          | 根容器 adapter token                       | 依赖各插件内部实现与 README                                                                   |
+| `API-005` | Route contract API                      | `@stratix/core` public functions           | Phase 2 基础能力已实现                                                                        |
+| `API-006` | DI diagnostics API                      | `@stratix/core` public functions + forge   | Phase 2 基础能力已实现                                                                        |
+| `API-007` | OpenAPI forge command                   | `stratix openapi generate`                 | Phase 2 扩展能力已实现                                                                        |
+| `API-008` | Typed client generator                  | `stratix openapi client`                   | Phase 2 扩展能力已实现；支持 path/query/body/header 参数、auth provider 和 hooks              |
+| `API-009` | Contract test DSL                       | `@stratix/testing` `contractTest()`        | Phase 2 扩展能力已实现                                                                        |
+| `API-010` | Plugin adapter diagnostics              | `@stratix/core` public functions           | Phase 2 扩展能力已实现                                                                        |
+| `API-011` | Plugin manifest governance              | `.stratix/plugin.json` + forge             | 已完成基线；`doctor plugins` / `graph plugins` 可用                                           |
+| `API-012` | Production manifest artifact            | `stratix build-manifest`                   | 已完成基线；生成 route/DI/module/plugin-lock artifact                                         |
+| `API-013` | Runtime production manifest consumption | `discovery.productionManifest`             | 已完成；启动期读取 artifact、跳过 runtime glob discovery，并支持 manifest-driven registration |
+| `API-014` | Observability/Security preset           | `config.observability` / `config.security` | 已完成；提供 request/trace id、health、metrics、traces、CORS、headers、rate limit、body limit |
+| `API-015` | DevTools production views               | `@stratix/devtools`                        | 已完成；展示 routes、DI、plugins、redacted config、health、traces                             |
+| `API-016` | Release gate                            | `stratix release gate`                     | 已完成；校验 production manifest 并输出 build/test/docs/security/pack/api/manifest 检查计划   |
 
 ## 2. 当前缺口
 
 - 尚无统一的顶层 API 契约文档
 - 各生态包大多只有各自 README，缺少仓级接口视图
 - 包导出版本与 registry / tag 的外部可见版本不一致
-- Observability preset、Security preset、DevTools、release gate integration 与 manifest-driven registration 仍需进入 Phase 5 后续实现
-- Module governance tooling 已有 `generate module` / `doctor modules` / `graph modules` 基线；Plugin manifest、Production manifest artifact 与 Runtime manifest consumption 已有基线
+- Module governance tooling 已有 `generate module` / `doctor modules` / `graph modules` 基线；Plugin manifest、Production manifest artifact、Runtime manifest consumption、manifest-driven registration、Observability/Security preset、DevTools production views 和 Release gate 已有 Phase 5 基线
 
 ## 3. 当前建议
 
@@ -44,11 +46,12 @@
 
 ## 4. 变更记录
 
-| 日期 | 变更内容 | 变更人 |
-|---|---|---|
-| 2026-03-28 | API 面概览初版 | Codex |
-| 2026-06-18 | 记录 Phase 2 Route contract 与 DI diagnostics 公共 API 面 | Codex |
-| 2026-06-18 | 记录 Phase 2 扩展 API 面：OpenAPI forge command、typed client、contractTest 和 plugin adapter diagnostics | Codex |
-| 2026-06-18 | 将工具接口面拆分为 `@stratix/create` 创建入口与 `@stratix/forge` 项目工程入口 | Codex |
-| 2026-06-18 | 记录 Plugin manifest governance 与 Production manifest artifact API 面 | Codex |
-| 2026-06-18 | 记录 Runtime production manifest consumption 配置面 | Codex |
+| 日期       | 变更内容                                                                                                                   | 变更人 |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 2026-03-28 | API 面概览初版                                                                                                             | Codex  |
+| 2026-06-18 | 记录 Phase 2 Route contract 与 DI diagnostics 公共 API 面                                                                  | Codex  |
+| 2026-06-18 | 记录 Phase 2 扩展 API 面：OpenAPI forge command、typed client、contractTest 和 plugin adapter diagnostics                  | Codex  |
+| 2026-06-18 | 将工具接口面拆分为 `@stratix/create` 创建入口与 `@stratix/forge` 项目工程入口                                              | Codex  |
+| 2026-06-18 | 记录 Plugin manifest governance 与 Production manifest artifact API 面                                                     | Codex  |
+| 2026-06-18 | 记录 Runtime production manifest consumption 配置面                                                                        | Codex  |
+| 2026-06-18 | 记录 Phase 5 Observability/Security preset、DevTools production views、Release gate 与 manifest-driven registration API 面 | Codex  |

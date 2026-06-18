@@ -114,7 +114,10 @@ export class ApplicationDiscoveryPipeline {
           error
         );
         result.errors.push({ name: component.name, error: wrapped });
-        if (config.lifecycle?.errorHandling !== 'warn' && config.lifecycle?.errorHandling !== 'ignore') {
+        if (
+          config.lifecycle?.errorHandling !== 'warn' &&
+          config.lifecycle?.errorHandling !== 'ignore'
+        ) {
           throw wrapped;
         }
       }
@@ -125,24 +128,35 @@ export class ApplicationDiscoveryPipeline {
 
   async scan(config: ApplicationDiscoveryConfig): Promise<LoadedModule[]> {
     const rootDir = config.rootDir || process.cwd();
-    const patterns = config.patterns?.length ? config.patterns : DEFAULT_PATTERNS;
-    const exclude = config.exclude?.length ? config.exclude : DEFAULT_EXCLUDE;
-    const directories = config.directories?.length
-      ? config.directories.map((dir) => (isAbsolute(dir) ? dir : resolve(rootDir, dir)))
-      : [rootDir];
-
     const files = new Set<string>();
-    for (const directory of directories) {
-      for (const pattern of patterns) {
-        const absolutePattern = isAbsolute(pattern)
-          ? pattern
-          : resolve(directory, pattern).replace(/\\/g, '/');
-        const matched = await glob(absolutePattern, {
-          absolute: true,
-          ignore: exclude,
-          windowsPathsNoEscape: true
-        });
-        matched.forEach((file) => files.add(file));
+
+    if (config.files?.length) {
+      for (const file of config.files) {
+        files.add(isAbsolute(file) ? file : resolve(rootDir, file));
+      }
+    } else {
+      const patterns = config.patterns?.length
+        ? config.patterns
+        : DEFAULT_PATTERNS;
+      const exclude = config.exclude?.length ? config.exclude : DEFAULT_EXCLUDE;
+      const directories = config.directories?.length
+        ? config.directories.map((dir) =>
+            isAbsolute(dir) ? dir : resolve(rootDir, dir)
+          )
+        : [rootDir];
+
+      for (const directory of directories) {
+        for (const pattern of patterns) {
+          const absolutePattern = isAbsolute(pattern)
+            ? pattern
+            : resolve(directory, pattern).replace(/\\/g, '/');
+          const matched = await glob(absolutePattern, {
+            absolute: true,
+            ignore: exclude,
+            windowsPathsNoEscape: true
+          });
+          matched.forEach((file) => files.add(file));
+        }
       }
     }
 
@@ -150,7 +164,9 @@ export class ApplicationDiscoveryPipeline {
     for (const file of files) {
       try {
         const raw = await import(pathToFileURL(file).href);
-        const entries = Object.entries(raw).filter(([name]) => name !== 'default');
+        const entries = Object.entries(raw).filter(
+          ([name]) => name !== 'default'
+        );
         if (raw.default) {
           entries.unshift(['default', raw.default]);
         }

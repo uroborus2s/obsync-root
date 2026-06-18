@@ -1265,6 +1265,73 @@ describe('@stratix/forge', () => {
     );
   });
 
+  it('runs the release gate in dry-run mode with production checks', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+
+    await runCreate(
+      ['app', 'api', 'release-gate-app', '--preset', 'redis', '--no-install'],
+      {
+        cwd,
+        output
+      }
+    );
+
+    const projectDir = path.join(cwd, 'release-gate-app');
+    seedProjectTypescript(projectDir);
+    const manifestFile = path.join(
+      projectDir,
+      '.stratix',
+      'production-manifest.json'
+    );
+
+    await runCli(['build-manifest', '--output', manifestFile], {
+      cwd: projectDir,
+      output
+    });
+    await runCli(['release', 'gate', '--dry-run', '--manifest', manifestFile], {
+      cwd: projectDir,
+      output
+    });
+
+    assert.ok(
+      output.messages.some((message) =>
+        message.message.includes('Release gate checks passed.')
+      )
+    );
+    assert.ok(
+      output.messages.some((message) =>
+        message.message.includes('build/test/docs/security/pack/api/manifest')
+      )
+    );
+  });
+
+  it('fails the release gate when the production manifest is missing', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+
+    await runCreate(['app', 'api', 'release-gate-missing', '--no-install'], {
+      cwd,
+      output
+    });
+
+    const projectDir = path.join(cwd, 'release-gate-missing');
+
+    await assert.rejects(
+      runCli(['release', 'gate', '--dry-run'], {
+        cwd: projectDir,
+        output
+      }),
+      CliError
+    );
+
+    assert.ok(
+      output.messages.some((message) =>
+        message.message.includes('Production manifest not found')
+      )
+    );
+  });
+
   it('generates an OpenAPI document from route schemas', async () => {
     const cwd = createTempRoot();
     const output = createMemoryOutput();

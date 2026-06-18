@@ -22,12 +22,14 @@ import {
 import { createErrorEnvelope } from '../contracts/error-envelope.js';
 import { ApplicationDiscoveryPipeline } from '../discovery/application-pipeline.js';
 import {
+  collectProductionManifestSourceFiles,
   loadProductionManifest,
   type LoadedProductionManifest
 } from '../discovery/production-manifest.js';
 import type {
   ConfigOptions,
   EnvOptions,
+  SecurityConfig,
   StratixApplication,
   StratixConfig,
   StratixRunOptions
@@ -97,6 +99,32 @@ type FastifyHandledError = Partial<FastifyError> & {
   message?: string;
   details?: unknown;
 };
+
+interface StratixTraceEntry {
+  requestId?: string;
+  traceId?: string;
+  method: string;
+  url: string;
+  statusCode: number;
+  durationMs: number;
+  timestamp: string;
+}
+
+interface StratixObservabilityState {
+  requests: {
+    total: number;
+    byStatus: Record<string, number>;
+  };
+  traces: StratixTraceEntry[];
+  getSnapshot(): {
+    requests: {
+      total: number;
+      byStatus: Record<string, number>;
+    };
+    traces: StratixTraceEntry[];
+    uptime: number;
+  };
+}
 
 type EagerInitializable = {
   initialize?: () => unknown | Promise<unknown>;
@@ -172,7 +200,11 @@ export class ApplicationBootstrap {
       const container = await this.setupContainer(config);
 
       // 6. 初始化 Fastify（所有应用类型都需要，用于插件系统）
-      const fastifyInstance = await this.initializeFastify(config, container);
+      const fastifyInstance = await this.initializeFastify(
+        config,
+        container,
+        productionManifest
+      );
 
       // 8. 加载插件
       await this.loadPlugins(config, fastifyInstance);
@@ -754,6 +786,36 @@ export class ApplicationBootstrap {
       productionManifest &&
       discoveryConfig.productionManifest?.skipRuntimeDiscovery === true
     ) {
+      if (discoveryConfig.productionManifest.registerFromManifest === true) {
+        const sourceFiles =
+          collectProductionManifestSourceFiles(productionManifest);
+        const manifestRoot =
+          discoveryConfig.rootDir ||
+          resolve(
+            dirname(productionManifest.sourceFile),
+            productionManifest.discovery.rootDir || '.'
+          );
+
+        if (sourceFiles.length > 0) {
+          this.logger?.info(
+            `✅ Registering application components from production manifest: ${productionManifest.sourceFile}`
+          );
+          const pipeline = new ApplicationDiscoveryPipeline();
+          const result = await pipeline.discoverAndRegister({
+            ...discoveryConfig,
+            rootDir: manifestRoot,
+            files: sourceFiles,
+            container,
+            fastify: fastifyInstance
+          });
+
+          this.logger?.info(
+            `✅ Production manifest registration completed: ${result.registered.length} registrations, ${result.routesRegistered} routes`
+          );
+          return;
+        }
+      }
+
       this.logger?.info(
         `✅ Production manifest loaded, skipping runtime application discovery: ${productionManifest.sourceFile}`
       );
@@ -814,12 +876,14 @@ export class ApplicationBootstrap {
    */
   private async initializeFastify(
     config: StratixConfig,
-    container: AwilixContainer
+    container: AwilixContainer,
+    productionManifest?: LoadedProductionManifest
   ): Promise<FastifyInstance> {
     this.updateStatus(BootstrapPhase.FASTIFY_INIT);
     // 构建 Fastify 选项 - 确保使用统一的日志器
     const fastifyOptions: FastifyServerOptions = {
       ...config.server,
+      bodyLimit: config.security?.bodyLimit ?? config.server.bodyLimit,
       loggerInstance: this.logger,
       pluginTimeout: 0 // 统一的日志器实例，确保 app.logger === app.fastify.log
     };
@@ -832,12 +896,18 @@ export class ApplicationBootstrap {
 
     // 🎯 注册应用级 Fastify 钩子
     fastifyInstance.decorate('diContainer', container);
+    fastifyInstance.decorate('stratixConfig', config);
+    fastifyInstance.decorate('stratixProductionManifest', productionManifest);
 
     // 设置错误处理
     this.setupErrorHandling(fastifyInstance);
 
     // 设置请求上下文
     this.setupRequestContext(fastifyInstance, container);
+
+    // 设置生产观测和安全基线
+    this.setupObservability(fastifyInstance, config);
+    this.setupSecurity(fastifyInstance, config);
 
     this.logger?.debug('Fastify initialization completed');
     if (config.hooks?.afterFastifyCreated) {
@@ -922,12 +992,12 @@ export class ApplicationBootstrap {
         requestId: this.getRequestId(request)
       });
 
-      reply.status(statusCode).send(response);
+      return reply.status(statusCode).send(response);
     });
 
     // 404 处理器
     fastify.setNotFoundHandler(async (request, reply) => {
-      reply.status(404).send(
+      return reply.status(404).send(
         createErrorEnvelope({
           code: 'NOT_FOUND',
           message: 'Route not found',
@@ -1007,6 +1077,275 @@ export class ApplicationBootstrap {
         );
       }
     });
+  }
+
+  private setupObservability(
+    fastify: FastifyInstance,
+    config: StratixConfig
+  ): void {
+    const observabilityConfig = config.observability;
+    if (observabilityConfig?.enabled !== true) {
+      return;
+    }
+
+    const startedAt = Date.now();
+    const requestIdHeader = (
+      observabilityConfig.requestIdHeader || 'x-request-id'
+    ).toLowerCase();
+    const traceIdHeader = (
+      observabilityConfig.traceIdHeader || 'x-trace-id'
+    ).toLowerCase();
+    const maxTraceEntries = observabilityConfig.traces?.maxEntries ?? 100;
+    const state: StratixObservabilityState = {
+      requests: {
+        total: 0,
+        byStatus: {}
+      },
+      traces: [],
+      getSnapshot: () => ({
+        requests: {
+          total: state.requests.total,
+          byStatus: { ...state.requests.byStatus }
+        },
+        traces: [...state.traces],
+        uptime: Math.max(0, Date.now() - startedAt)
+      })
+    };
+
+    fastify.decorate('stratixObservability', state);
+
+    fastify.addHook('onRequest', async (request) => {
+      const incomingRequestId = request.headers[requestIdHeader];
+      const incomingTraceId = request.headers[traceIdHeader];
+      const requestId = Array.isArray(incomingRequestId)
+        ? incomingRequestId[0]
+        : incomingRequestId;
+      const traceId = Array.isArray(incomingTraceId)
+        ? incomingTraceId[0]
+        : incomingTraceId;
+
+      if (typeof requestId === 'string' && requestId.length > 0) {
+        (request as any).requestId = requestId;
+      }
+      (request as any).traceId =
+        typeof traceId === 'string' && traceId.length > 0
+          ? traceId
+          : `trace_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+      (request as any).stratixStartedAt = Date.now();
+      state.requests.total += 1;
+    });
+
+    fastify.addHook('onSend', async (request, reply, payload) => {
+      const requestId = this.getRequestId(request);
+      const traceId = (request as any).traceId;
+      if (requestId) {
+        reply.header(requestIdHeader, requestId);
+      }
+      if (typeof traceId === 'string') {
+        reply.header(traceIdHeader, traceId);
+      }
+      return payload;
+    });
+
+    fastify.addHook('onResponse', async (request, reply) => {
+      const statusCode = reply.statusCode;
+      const statusKey = String(statusCode);
+      const started = (request as any).stratixStartedAt;
+      const durationMs =
+        typeof started === 'number' ? Math.max(0, Date.now() - started) : 0;
+
+      state.requests.byStatus[statusKey] =
+        (state.requests.byStatus[statusKey] || 0) + 1;
+
+      if (observabilityConfig.traces?.enabled !== false) {
+        state.traces.push({
+          requestId: this.getRequestId(request),
+          traceId: (request as any).traceId,
+          method: request.method,
+          url: request.url,
+          statusCode,
+          durationMs,
+          timestamp: new Date().toISOString()
+        });
+        while (state.traces.length > maxTraceEntries) {
+          state.traces.shift();
+        }
+      }
+    });
+
+    if (observabilityConfig.health?.enabled !== false) {
+      const healthBasePath = observabilityConfig.health?.basePath || '/health';
+      const healthPayload = () => ({
+        status: 'healthy',
+        uptime: Math.max(0, Date.now() - startedAt),
+        timestamp: new Date().toISOString(),
+        checks: {
+          runtime: 'healthy'
+        }
+      });
+
+      fastify.get(healthBasePath, async () => healthPayload());
+      fastify.get(`${healthBasePath}/ready`, async () => healthPayload());
+      fastify.get(`${healthBasePath}/live`, async () => healthPayload());
+    }
+
+    if (observabilityConfig.metrics?.enabled !== false) {
+      const metricsPath = observabilityConfig.metrics?.path || '/metrics';
+      fastify.get(metricsPath, async () => state.getSnapshot());
+    }
+  }
+
+  private setupSecurity(fastify: FastifyInstance, config: StratixConfig): void {
+    const securityConfig = config.security;
+    if (securityConfig?.enabled !== true) {
+      return;
+    }
+
+    const rateLimitStore = new Map<
+      string,
+      { count: number; resetAt: number }
+    >();
+    const observabilityPaths = this.observabilityPaths(config);
+
+    fastify.addHook('onRequest', async (request, reply) => {
+      if (this.isCorsPreflight(request.method, securityConfig.cors)) {
+        this.applyCorsHeaders(request, reply, securityConfig.cors);
+        reply.status(204).send();
+        return reply;
+      }
+
+      const rateLimit = securityConfig.rateLimit;
+      if (
+        rateLimit?.enabled === true &&
+        !this.isObservabilityPath(request.url, observabilityPaths)
+      ) {
+        const max = rateLimit.max ?? 100;
+        const windowMs = rateLimit.windowMs ?? 60_000;
+        const key = this.rateLimitKey(request);
+        const now = Date.now();
+        const current = rateLimitStore.get(key);
+        const bucket =
+          current && current.resetAt > now
+            ? current
+            : { count: 0, resetAt: now + windowMs };
+
+        if (bucket.count >= max) {
+          reply.header('retry-after', Math.ceil((bucket.resetAt - now) / 1000));
+          reply.status(429).send(
+            createErrorEnvelope({
+              code: 'RATE_LIMITED',
+              message: 'Too Many Requests',
+              statusCode: 429,
+              path: request.url,
+              requestId: this.getRequestId(request)
+            })
+          );
+          return reply;
+        }
+
+        bucket.count += 1;
+        rateLimitStore.set(key, bucket);
+      }
+    });
+
+    fastify.addHook('onSend', async (request, reply, payload) => {
+      this.applySecurityHeaders(reply, securityConfig.headers);
+      this.applyCorsHeaders(request, reply, securityConfig.cors);
+      return payload;
+    });
+  }
+
+  private observabilityPaths(config: StratixConfig): string[] {
+    const paths: string[] = [];
+    if (config.observability?.health?.enabled !== false) {
+      const basePath = config.observability?.health?.basePath || '/health';
+      paths.push(basePath, `${basePath}/ready`, `${basePath}/live`);
+    }
+    if (config.observability?.metrics?.enabled !== false) {
+      paths.push(config.observability?.metrics?.path || '/metrics');
+    }
+    return paths;
+  }
+
+  private isObservabilityPath(url: string, paths: string[]): boolean {
+    const pathname = url.split('?')[0];
+    return paths.includes(pathname);
+  }
+
+  private rateLimitKey(request: any): string {
+    const forwardedFor = request.headers['x-forwarded-for'];
+    if (typeof forwardedFor === 'string' && forwardedFor.length > 0) {
+      return forwardedFor.split(',')[0].trim();
+    }
+    return request.ip || request.socket?.remoteAddress || 'unknown';
+  }
+
+  private isCorsPreflight(
+    method: string,
+    cors: SecurityConfig['cors']
+  ): boolean {
+    return method === 'OPTIONS' && Boolean(cors?.enabled);
+  }
+
+  private applyCorsHeaders(
+    request: any,
+    reply: any,
+    cors: SecurityConfig['cors']
+  ): void {
+    if (!cors?.enabled) {
+      return;
+    }
+
+    const origin = request.headers.origin;
+    const origins = cors.origins ?? '*';
+    const allowedOrigins = Array.isArray(origins) ? origins : [origins];
+    const allowAny = allowedOrigins.includes('*');
+
+    if (
+      typeof origin === 'string' &&
+      (allowAny || allowedOrigins.includes(origin))
+    ) {
+      reply.header('access-control-allow-origin', allowAny ? '*' : origin);
+    }
+    if (cors.credentials === true) {
+      reply.header('access-control-allow-credentials', 'true');
+    }
+    reply.header(
+      'access-control-allow-methods',
+      (
+        cors.methods || ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+      ).join(', ')
+    );
+    reply.header('access-control-allow-headers', 'content-type, authorization');
+  }
+
+  private applySecurityHeaders(
+    reply: any,
+    headers: SecurityConfig['headers']
+  ): void {
+    if (
+      headers === false ||
+      (typeof headers === 'object' && headers.enabled === false)
+    ) {
+      return;
+    }
+
+    const headerOptions = typeof headers === 'object' ? headers : {};
+    reply.header('x-content-type-options', 'nosniff');
+    reply.header('x-frame-options', headerOptions.frameOptions || 'DENY');
+    reply.header(
+      'referrer-policy',
+      headerOptions.referrerPolicy || 'no-referrer'
+    );
+
+    if (headerOptions.contentSecurityPolicy !== false) {
+      reply.header(
+        'content-security-policy',
+        typeof headerOptions.contentSecurityPolicy === 'string'
+          ? headerOptions.contentSecurityPolicy
+          : "default-src 'self'"
+      );
+    }
   }
 
   /**

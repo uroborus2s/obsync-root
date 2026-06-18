@@ -86,7 +86,7 @@ stratix doctor modules
 stratix build-manifest --output .stratix/production-manifest.json
 ```
 
-当前 production manifest 是发布前 artifact，用来固化 routes、DI、modules 和运行时 plugin-lock 证据。生产配置可以通过 `discovery.productionManifest` 启动期读取这个 artifact，并在 `skipRuntimeDiscovery: true` 时跳过应用级 runtime glob discovery。
+当前 production manifest 是发布前 artifact，用来固化 routes、DI、modules 和运行时 plugin-lock 证据。生产配置可以通过 `discovery.productionManifest` 启动期读取这个 artifact，在 `skipRuntimeDiscovery: true` 时跳过应用级 runtime glob discovery，并在 `registerFromManifest: true` 时按 manifest source files 注册 DI 和路由。
 
 对应配置示例：
 
@@ -96,9 +96,36 @@ discovery: {
   productionManifest: {
     enabled: true,
     path: '.stratix/production-manifest.json',
-    skipRuntimeDiscovery: true
+    skipRuntimeDiscovery: true,
+    registerFromManifest: true
   }
 }
+```
+
+### 生产观测和安全基线
+
+生产配置建议显式打开 observability/security preset：
+
+```ts
+observability: {
+  enabled: true,
+  health: { enabled: true, basePath: '/health' },
+  metrics: { enabled: true, path: '/metrics' },
+  traces: { enabled: true, maxEntries: 100 }
+},
+security: {
+  enabled: true,
+  bodyLimit: 1048576,
+  cors: { enabled: true, origins: ['https://console.example.com'] },
+  headers: { enabled: true, contentSecurityPolicy: "default-src 'self'" },
+  rateLimit: { enabled: true, max: 100, windowMs: 60000 }
+}
+```
+
+发布前可以跑 release gate：
+
+```bash
+stratix release gate --dry-run --manifest .stratix/production-manifest.json
 ```
 
 ## 推荐的实现顺序为什么是 repository -> service -> controller

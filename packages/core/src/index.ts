@@ -90,7 +90,10 @@ export {
 export {
   ApplicationDiscoveryPipeline,
   type ApplicationDiscoveryConfig,
-  type ApplicationDiscoveryResult
+  type ApplicationDiscoveryResult,
+  type LoadedProductionManifest,
+  type ProductionManifest,
+  type ProductionManifestDiscoveryConfig
 } from './discovery/index.js';
 
 // Service 层功能模块

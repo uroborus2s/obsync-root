@@ -22,7 +22,9 @@
 - Phase 3 module governance tooling is implemented: `stratix generate module` writes `module.yaml` plus standard module directories, `stratix doctor modules` validates module manifests/layers/boundaries/cycles, and `stratix graph modules` outputs module -> token -> route -> dependency graphs without changing application runtime startup behavior.
 - Phase 4 testing platform baseline is implemented: `@stratix/testing` exposes `createTestApp()`, `createTestContainer()`, `overrideToken()`, `mockPlugin()`, `disablePlugin()`, `createDiscoveryFixture()`, `createRepositoryFixture()`, and `createModuleFixture()` alongside the existing `contractTest()` DSL.
 - Plugin manifest and production manifest baselines are implemented: `@stratix/create` writes `.stratix/plugin.json` for plugin projects; `@stratix/forge` exposes `stratix doctor plugins`, `stratix graph plugins`, and `stratix build-manifest` for manifest validation, plugin topology, and CI production artifact generation.
-- Phase 5 runtime production-manifest consumption baseline is implemented: `@stratix/core` accepts `discovery.productionManifest`, loads and validates `.stratix/production-manifest.json`, exposes the loaded artifact on the application instance, and can skip application-level runtime glob discovery when `skipRuntimeDiscovery` is true.
+- Phase 5 production baseline is implemented: `@stratix/core` accepts `discovery.productionManifest`, loads and validates `.stratix/production-manifest.json`, exposes the loaded artifact on the application instance, can skip application-level runtime glob discovery when `skipRuntimeDiscovery` is true, can register DI/routes from manifest source files when `registerFromManifest` is true, and provides `observability` / `security` presets.
+- `@stratix/devtools` exposes Phase 5 production views for routes, DI, plugins, redacted config, health, and traces.
+- `@stratix/forge` exposes `stratix release gate` for production manifest release checks.
 - The toolchain split is implemented: `@stratix/create` owns app/plugin creation, `@stratix/forge` owns project-local generate/doctor/di/openapi/start/config workflows, and neither package depends on `@stratix/core`.
 - The physical source directory for `@stratix/forge` is now `packages/forge`; `packages/cli` is not retained as a compatibility directory.
 - `.stratix/project.json` is now the create/forge handoff contract at `schemaVersion: 2`; create writes the template contribution snapshot, allowed presets, and managed files mode, while forge reads the manifest/presets/resource templates instead of app/plugin creation templates.
@@ -46,19 +48,23 @@
   - 12 successful turbo tasks
 - `pnpm --filter @stratix/core build` passes after the breaking application discovery refactor and unified error envelope work.
 - `pnpm --filter @stratix/core exec tsc -p tsconfig.json --noEmit` passes.
-- `CI=true pnpm --filter @stratix/core exec vitest run` passes after Phase 5 runtime production-manifest consumption work:
+- `CI=true pnpm --filter @stratix/core exec vitest run` passes after Phase 5 production baseline work:
   - 27 test files
-  - 191 tests
+  - 194 tests
 - `@stratix/core` now exports `ERROR_ENVELOPE_SCHEMA` and `createErrorEnvelope()`; bootstrap error handling uses the shared envelope for `HttpError`, validation errors, 404, and response schema serialization failures.
-- `@stratix/core` now accepts `discovery.productionManifest`; bootstrap can load/validate `.stratix/production-manifest.json`, expose the loaded artifact, fail fast on invalid strict manifests, and skip application-level runtime glob discovery when configured.
+- `@stratix/core` now accepts `discovery.productionManifest`; bootstrap can load/validate `.stratix/production-manifest.json`, expose the loaded artifact, fail fast on invalid strict manifests, skip application-level runtime glob discovery, and register DI/routes from manifest source files when configured.
+- `@stratix/core` now accepts `observability` and `security`; bootstrap can expose request/trace ids, health, metrics, traces, CORS, security headers, body limit, and rate limit.
 - `pnpm --filter @stratix/create test` passes:
   - 3 tests
 - `pnpm --filter @stratix/create exec tsc -p tsconfig.json --noEmit` passes.
 - `pnpm --filter @stratix/create run build` passes.
 - `pnpm --filter @stratix/forge test` passes:
-  - 37 tests
+  - 39 tests
 - `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit` passes.
 - `pnpm --filter @stratix/forge run build` passes after advanced typed client generation support.
+- `pnpm --filter @stratix/devtools test` passes:
+  - 2 tests
+- `pnpm --filter @stratix/devtools exec tsc -p tsconfig.json --noEmit` passes.
 - `pnpm --filter @stratix/testing test` passes:
   - 3 test files
   - 12 tests
@@ -76,6 +82,7 @@
   - `stratix doctor plugins`
   - `stratix graph plugins --format json|mermaid`
   - `stratix build-manifest --output <file>`
+  - `stratix release gate --manifest <file>`
 - `node packages/forge/dist/bin/stratix.js openapi generate --help` passes.
 - `node packages/forge/dist/bin/stratix.js openapi client --help` passes.
 - `rg -n "generateOpenApiDocument|from '@stratix/core'|from \"@stratix/core\"|@stratix/core" packages/forge/src/commands/openapi packages/forge/tests/stubs/stratix-core.stub.ts packages/forge/package.json` returns no matches; the OpenAPI forge command path is not coupled to core.
@@ -111,7 +118,7 @@
 
 ## Immediate Priorities
 
-1. Continue Phase 5 production hardening: observability preset, security preset, DevTools routes/DI/plugin/config/health/traces views, release gate integration, and deeper manifest-driven registration.
+1. Run Phase 6 production release readiness review across supported build/test/docs/pack/API/release-gate checks.
 2. Restore reproducible offline installation.
 3. Reconcile manifest versions, git tags, and npm registry reality.
 4. Decide whether `@stratix/tasks` remains permanently deprecated or is removed from the workspace surface.

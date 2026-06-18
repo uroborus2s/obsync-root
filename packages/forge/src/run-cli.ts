@@ -32,6 +32,7 @@ function parseArgs(args: string[]): ParsedArgs {
       'required',
       'output',
       'input',
+      'manifest',
       'length',
       'title',
       'version'
@@ -56,6 +57,7 @@ Commands:
   graph     Inspect Stratix module and plugin graphs
   openapi   Generate OpenAPI artifacts from Stratix route schemas
   build-manifest  Generate a production manifest artifact
+  release   Run production release gates
   start     Start a Stratix application
   config    Manage encrypted Stratix configuration
   list      List templates and presets
@@ -116,6 +118,11 @@ export async function runCli(
       case 'build-manifest':
         await import('./commands/build-manifest/index.js').then(
           ({ buildManifestCommand }) => buildManifestCommand(argv, output)
+        );
+        break;
+      case 'release':
+        await import('./commands/release/index.js').then(({ releaseCommand }) =>
+          releaseCommand(argv, output)
         );
         break;
       case 'start':

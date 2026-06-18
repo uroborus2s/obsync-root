@@ -83,6 +83,12 @@
   - Startup reads and validates the production manifest artifact before plugin loading.
   - `skipRuntimeDiscovery: true` skips application-level runtime glob discovery after the manifest is loaded.
   - The loaded manifest is exposed on `StratixApplication.productionManifest` for startup evidence and future DevTools reuse.
+- Completed the Phase 5 production baseline:
+  - `registerFromManifest: true` registers DI/routes from production manifest source files without runtime glob discovery.
+  - `config.observability` adds request/trace ids, health, metrics, traces, and response headers.
+  - `config.security` adds body limit, CORS, security headers, and rate limit with the shared error envelope.
+  - `@stratix/devtools` exposes production routes, DI, plugins, redacted config, health, and traces views.
+  - `@stratix/forge` exposes `stratix release gate` for build/test/docs/security/pack/api/manifest release checks.
 - Verified focused manifest checks:
   - `pnpm --filter @stratix/create test` passed, 3 tests.
   - `pnpm --filter @stratix/forge test` passed, 37 tests.
@@ -95,6 +101,13 @@
   - `pnpm --filter @stratix/core exec vitest run src/bootstrap/__tests__/config-validation.test.ts` passed, 4 tests.
   - `pnpm --filter @stratix/core exec tsc -p tsconfig.json --noEmit` passed.
   - `pnpm --filter @stratix/core test` passed, 27 files / 191 tests.
+- Verified focused Phase 5 production baseline checks:
+  - `pnpm --filter @stratix/core exec vitest run src/bootstrap/__tests__/application-discovery-bootstrap.test.ts src/bootstrap/__tests__/config-validation.test.ts` passed, 13 tests.
+  - `pnpm --filter @stratix/devtools test` passed, 2 tests.
+  - `pnpm --filter @stratix/forge test` passed, 39 tests.
+  - `pnpm --filter @stratix/core exec tsc -p tsconfig.json --noEmit` passed.
+  - `pnpm --filter @stratix/devtools exec tsc -p tsconfig.json --noEmit` passed.
+  - `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit` passed.
 - Verified final runtime manifest quality gates:
   - `pnpm exec prettier --check <affected core/docs/factory files>` passed.
   - `pnpm --filter @stratix/core build` passed.
@@ -102,3 +115,10 @@
   - `pnpm run test:supported` passed, 12/12 turbo tasks.
   - `uvx --from docs-stratego docs-stratego source validate --repo-path .` passed, 85 pages / 0 contracts.
   - `git diff --check` passed.
+- Verified final Phase 5 production release baseline gates:
+  - `pnpm run build:supported` passed, 10/10 supported packages.
+  - `pnpm run test:supported` passed, 12/12 turbo tasks.
+  - `uvx --from docs-stratego docs-stratego source validate --repo-path .` passed, 85 pages / 0 contracts.
+  - `pnpm --filter @stratix/core pack --pack-destination /tmp` passed, `/tmp/stratix-core-1.1.0.tgz`.
+  - `pnpm --filter @stratix/forge pack --pack-destination /tmp` passed, `/tmp/stratix-forge-1.1.0.tgz`.
+  - `pnpm --filter @stratix/devtools pack --pack-destination /tmp` passed, `/tmp/stratix-devtools-1.0.0-beta.1.tgz`.

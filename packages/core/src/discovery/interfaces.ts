@@ -50,6 +50,7 @@ export interface RouteMetadata {
 export interface ApplicationDiscoveryConfig {
   enabled?: boolean;
   rootDir?: string;
+  files?: string[];
   directories?: string[];
   patterns?: string[];
   exclude?: string[];
