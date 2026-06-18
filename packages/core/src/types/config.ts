@@ -5,6 +5,7 @@ import { AwilixContainer } from 'awilix';
 import type { FastifyInstance, FastifyServerOptions } from 'fastify';
 import { BootstrapStatus } from '../bootstrap/index.js';
 import type { ApplicationDiscoveryConfig } from '../discovery/interfaces.js';
+import type { LoadedProductionManifest } from '../discovery/production-manifest.js';
 import type { Logger } from '../logger/index.js';
 import type { AutoLoadConfig } from './auto-load.js';
 import type { PluginConfig } from './plugin.js';
@@ -213,6 +214,9 @@ export interface StratixApplication {
 
   /** 配置对象 */
   config: StratixConfig;
+
+  /** 已加载的生产 manifest artifact */
+  productionManifest?: LoadedProductionManifest;
 
   /** 日志器 */
   logger: Logger;

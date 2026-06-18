@@ -25,14 +25,15 @@
 | `API-010` | Plugin adapter diagnostics | `@stratix/core` public functions | Phase 2 扩展能力已实现 |
 | `API-011` | Plugin manifest governance | `.stratix/plugin.json` + forge | 已完成基线；`doctor plugins` / `graph plugins` 可用 |
 | `API-012` | Production manifest artifact | `stratix build-manifest` | 已完成基线；生成 route/DI/module/plugin-lock artifact |
+| `API-013` | Runtime production manifest consumption | `discovery.productionManifest` | 已完成最小基线；启动期读取 artifact，并可跳过应用级 runtime glob discovery |
 
 ## 2. 当前缺口
 
 - 尚无统一的顶层 API 契约文档
 - 各生态包大多只有各自 README，缺少仓级接口视图
 - 包导出版本与 registry / tag 的外部可见版本不一致
-- Runtime production-manifest consumption、Observability preset、Security preset、DevTools 与 release gate integration 仍需进入 Phase 5 后续实现
-- Module governance tooling 已有 `generate module` / `doctor modules` / `graph modules` 基线；Plugin manifest 与 Production manifest artifact 已有 create/forge 基线
+- Observability preset、Security preset、DevTools、release gate integration 与 manifest-driven registration 仍需进入 Phase 5 后续实现
+- Module governance tooling 已有 `generate module` / `doctor modules` / `graph modules` 基线；Plugin manifest、Production manifest artifact 与 Runtime manifest consumption 已有基线
 
 ## 3. 当前建议
 
@@ -50,3 +51,4 @@
 | 2026-06-18 | 记录 Phase 2 扩展 API 面：OpenAPI forge command、typed client、contractTest 和 plugin adapter diagnostics | Codex |
 | 2026-06-18 | 将工具接口面拆分为 `@stratix/create` 创建入口与 `@stratix/forge` 项目工程入口 | Codex |
 | 2026-06-18 | 记录 Plugin manifest governance 与 Production manifest artifact API 面 | Codex |
+| 2026-06-18 | 记录 Runtime production manifest consumption 配置面 | Codex |

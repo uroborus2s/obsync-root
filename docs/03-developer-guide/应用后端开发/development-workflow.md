@@ -86,7 +86,20 @@ stratix doctor modules
 stratix build-manifest --output .stratix/production-manifest.json
 ```
 
-当前 production manifest 是发布前 artifact，用来固化 routes、DI、modules 和运行时 plugin-lock 证据。生产启动直接读取 manifest 跳过运行时扫描，属于 Phase 5 后续 hardening。
+当前 production manifest 是发布前 artifact，用来固化 routes、DI、modules 和运行时 plugin-lock 证据。生产配置可以通过 `discovery.productionManifest` 启动期读取这个 artifact，并在 `skipRuntimeDiscovery: true` 时跳过应用级 runtime glob discovery。
+
+对应配置示例：
+
+```ts
+discovery: {
+  enabled: true,
+  productionManifest: {
+    enabled: true,
+    path: '.stratix/production-manifest.json',
+    skipRuntimeDiscovery: true
+  }
+}
+```
 
 ## 推荐的实现顺序为什么是 repository -> service -> controller
 

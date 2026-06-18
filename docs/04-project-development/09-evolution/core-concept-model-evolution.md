@@ -658,7 +658,7 @@ flowchart TD
 | contract test DSL | `@stratix/testing` `contractTest()` 复用 route contract、diagnostics 和共享错误 envelope schema 验证 app.inject 响应 |
 | plugin adapter diagnostics | `diagnoseServiceAdapterTokens()` 检测重复 adapter name 与根容器 token 冲突 |
 
-Plugin manifest 和 Production manifest artifact 基线已经落地：create 为插件项目生成 `.stratix/plugin.json`，forge 提供 `doctor plugins`、`graph plugins` 和 `build-manifest`。剩余工作不能被扩展能力替代：runtime production-manifest consumption、observability preset、security preset、DevTools 和 release gate integration。Module governance tooling 已有 `generate module` / `doctor modules` / `graph modules` 基线；`@stratix/testing` Phase 4 基线已覆盖 test app、DI override、plugin fixture、discovery fixture、repository fixture 和 module fixture。
+Plugin manifest、Production manifest artifact 和 runtime manifest consumption 最小基线已经落地：create 为插件项目生成 `.stratix/plugin.json`，forge 提供 `doctor plugins`、`graph plugins` 和 `build-manifest`，core 可通过 `discovery.productionManifest` 启动期读取 artifact 并选择跳过应用级 runtime glob discovery。剩余工作不能被扩展能力替代：observability preset、security preset、DevTools、release gate integration 和更深层的 manifest-driven registration。Module governance tooling 已有 `generate module` / `doctor modules` / `graph modules` 基线；`@stratix/testing` Phase 4 基线已覆盖 test app、DI override、plugin fixture、discovery fixture、repository fixture 和 module fixture。
 
 ### 9.3 Create 与 Forge 工具入口
 
@@ -837,7 +837,7 @@ flowchart TD
 - plugin manifest lock
 - build artifact 校验
 
-截至 2026-06-18，production manifest artifact 基线已完成：`stratix build-manifest` 可生成 `.stratix/production-manifest.json`，内容包含 project、discovery、routes、DI tokens/issues、modules/moduleIssues 和 runtime plugin-lock。生产启动读取 manifest 并跳过 runtime glob discovery 仍是 Phase 5 后续 hardening。
+截至 2026-06-18，production manifest artifact 与 runtime consumption 最小基线已完成：`stratix build-manifest` 可生成 `.stratix/production-manifest.json`，内容包含 project、discovery、routes、DI tokens/issues、modules/moduleIssues 和 runtime plugin-lock；`@stratix/core` 可通过 `discovery.productionManifest` 读取并校验该 artifact，并在 `skipRuntimeDiscovery: true` 时跳过应用级 runtime glob discovery。当前基线不从 manifest 反向恢复 DI/路由注册，manifest-driven registration 仍是 Phase 5 后续增强。
 
 ### 9.9 DevTools
 
@@ -1094,7 +1094,7 @@ CI=true pnpm --filter @stratix/testing exec vitest run
 - manifest build 后生产启动不依赖 runtime glob。
 - security preset 可纳入 release gate。
 
-当前状态：Plugin manifest 与 Production manifest artifact 已完成；runtime manifest startup、Observability preset、Security preset、DevTools 和 release gate integration 仍需继续实施。
+当前状态：Plugin manifest、Production manifest artifact 与 runtime manifest consumption 最小基线已完成；Observability preset、Security preset、DevTools、release gate integration 和 manifest-driven registration 仍需继续实施。
 
 ### Phase 6：95+ 质量门复核
 

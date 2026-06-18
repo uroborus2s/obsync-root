@@ -28,6 +28,36 @@ describe('configuration validation contract', () => {
     await app.stop();
   });
 
+  it('accepts production manifest discovery configuration', async () => {
+    const app = await Stratix.run({
+      type: 'cli',
+      gracefulShutdown: false,
+      config: {
+        server: {},
+        plugins: [],
+        autoLoad: {},
+        discovery: {
+          enabled: false,
+          productionManifest: {
+            enabled: true,
+            path: '.stratix/production-manifest.json',
+            skipRuntimeDiscovery: true,
+            strict: true
+          }
+        }
+      }
+    });
+
+    expect(app.config.discovery?.productionManifest).toEqual({
+      enabled: true,
+      path: '.stratix/production-manifest.json',
+      skipRuntimeDiscovery: true,
+      strict: true
+    });
+
+    await app.stop();
+  });
+
   it('rejects removed container configuration', async () => {
     await expect(
       Stratix.run({

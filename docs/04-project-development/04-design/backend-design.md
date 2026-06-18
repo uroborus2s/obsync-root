@@ -33,7 +33,7 @@
 
 ## 4. 当前设计债
 
-- Plugin manifest 与 Production manifest artifact 已有 create/forge 基线；runtime production-manifest consumption、observability preset、security preset、DevTools 和 release gate integration 仍需进入 Phase 5 后续实现。统一错误 envelope、response validation strict gate、testing fixtures 和 Module governance tooling 已有基线。
+- Plugin manifest、Production manifest artifact 与 runtime production-manifest consumption 最小基线已完成；observability preset、security preset、DevTools、release gate integration 和 manifest-driven registration 仍需进入 Phase 5 后续实现。统一错误 envelope、response validation strict gate、testing fixtures 和 Module governance tooling 已有基线。
 - 根 README 不承载瞬时设计状态；当前事实以 `.factory/project.json`、`.factory/memory/current-state.md` 和 `docs/04-project-development/02-discovery/current-state-analysis.md` 为准。
 
 ## 5. 变更记录
@@ -44,3 +44,4 @@
 | 2026-06-18 | 更新破坏性升级后的后端设计基线：core 稳定、工具链零依赖、testing 一等公民、tasks 冻结 | Codex |
 | 2026-06-18 | 将工具链后端边界拆分为 `@stratix/create` 轻量创建入口和 `@stratix/forge` 项目工程入口 | Codex |
 | 2026-06-18 | 记录 Plugin manifest 与 Production manifest artifact 的后端边界 | Codex |
+| 2026-06-18 | 记录 Runtime production manifest consumption 后端边界 | Codex |

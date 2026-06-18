@@ -22,6 +22,7 @@
 - Phase 3 module governance tooling is implemented: `stratix generate module` writes `module.yaml` plus standard module directories, `stratix doctor modules` validates module manifests/layers/boundaries/cycles, and `stratix graph modules` outputs module -> token -> route -> dependency graphs without changing application runtime startup behavior.
 - Phase 4 testing platform baseline is implemented: `@stratix/testing` exposes `createTestApp()`, `createTestContainer()`, `overrideToken()`, `mockPlugin()`, `disablePlugin()`, `createDiscoveryFixture()`, `createRepositoryFixture()`, and `createModuleFixture()` alongside the existing `contractTest()` DSL.
 - Plugin manifest and production manifest baselines are implemented: `@stratix/create` writes `.stratix/plugin.json` for plugin projects; `@stratix/forge` exposes `stratix doctor plugins`, `stratix graph plugins`, and `stratix build-manifest` for manifest validation, plugin topology, and CI production artifact generation.
+- Phase 5 runtime production-manifest consumption baseline is implemented: `@stratix/core` accepts `discovery.productionManifest`, loads and validates `.stratix/production-manifest.json`, exposes the loaded artifact on the application instance, and can skip application-level runtime glob discovery when `skipRuntimeDiscovery` is true.
 - The toolchain split is implemented: `@stratix/create` owns app/plugin creation, `@stratix/forge` owns project-local generate/doctor/di/openapi/start/config workflows, and neither package depends on `@stratix/core`.
 - The physical source directory for `@stratix/forge` is now `packages/forge`; `packages/cli` is not retained as a compatibility directory.
 - `.stratix/project.json` is now the create/forge handoff contract at `schemaVersion: 2`; create writes the template contribution snapshot, allowed presets, and managed files mode, while forge reads the manifest/presets/resource templates instead of app/plugin creation templates.
@@ -45,10 +46,11 @@
   - 12 successful turbo tasks
 - `pnpm --filter @stratix/core build` passes after the breaking application discovery refactor and unified error envelope work.
 - `pnpm --filter @stratix/core exec tsc -p tsconfig.json --noEmit` passes.
-- `CI=true pnpm --filter @stratix/core exec vitest run` passes after Phase 2 extended work:
+- `CI=true pnpm --filter @stratix/core exec vitest run` passes after Phase 5 runtime production-manifest consumption work:
   - 27 test files
-  - 188 tests
+  - 191 tests
 - `@stratix/core` now exports `ERROR_ENVELOPE_SCHEMA` and `createErrorEnvelope()`; bootstrap error handling uses the shared envelope for `HttpError`, validation errors, 404, and response schema serialization failures.
+- `@stratix/core` now accepts `discovery.productionManifest`; bootstrap can load/validate `.stratix/production-manifest.json`, expose the loaded artifact, fail fast on invalid strict manifests, and skip application-level runtime glob discovery when configured.
 - `pnpm --filter @stratix/create test` passes:
   - 3 tests
 - `pnpm --filter @stratix/create exec tsc -p tsconfig.json --noEmit` passes.
@@ -109,7 +111,7 @@
 
 ## Immediate Priorities
 
-1. Continue Phase 5 production hardening: observability preset, security preset, runtime production-manifest consumption, DevTools routes/DI/plugin/config/health/traces views, and release gate integration.
+1. Continue Phase 5 production hardening: observability preset, security preset, DevTools routes/DI/plugin/config/health/traces views, release gate integration, and deeper manifest-driven registration.
 2. Restore reproducible offline installation.
 3. Reconcile manifest versions, git tags, and npm registry reality.
 4. Decide whether `@stratix/tasks` remains permanently deprecated or is removed from the workspace surface.

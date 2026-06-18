@@ -21,6 +21,10 @@ import {
 } from '../errors/index.js';
 import { createErrorEnvelope } from '../contracts/error-envelope.js';
 import { ApplicationDiscoveryPipeline } from '../discovery/application-pipeline.js';
+import {
+  loadProductionManifest,
+  type LoadedProductionManifest
+} from '../discovery/production-manifest.js';
 import type {
   ConfigOptions,
   EnvOptions,
@@ -162,6 +166,7 @@ export class ApplicationBootstrap {
         processedOptions.config ?? processedOptions.configOptions
       );
       const config = this.applyRuntimeOverrides(loadedConfig, processedOptions);
+      const productionManifest = this.loadConfiguredProductionManifest(config);
 
       // 5. 设置容器
       const container = await this.setupContainer(config);
@@ -173,7 +178,12 @@ export class ApplicationBootstrap {
       await this.loadPlugins(config, fastifyInstance);
 
       // 8.1 执行应用级发现与注册（包括控制器路由注册）
-      await this.runApplicationDiscovery(config, container, fastifyInstance);
+      await this.runApplicationDiscovery(
+        config,
+        container,
+        fastifyInstance,
+        productionManifest
+      );
 
       // 9. 启动应用（根据应用类型选择启动方式）
       await this.startApplication(
@@ -207,6 +217,7 @@ export class ApplicationBootstrap {
         fastify: fastifyInstance as any,
         diContainer: container,
         config,
+        productionManifest,
         logger: this.logger, // 使用统一的日志器实例（与 Fastify 相同）
         status: this.status,
         type: appType,
@@ -367,7 +378,11 @@ export class ApplicationBootstrap {
 
     // 根据环境变量检测
     if (process.env.STRATIX_APP_TYPE) {
-      return process.env.STRATIX_APP_TYPE as 'web' | 'cli' | 'worker' | 'service';
+      return process.env.STRATIX_APP_TYPE as
+        | 'web'
+        | 'cli'
+        | 'worker'
+        | 'service';
     }
 
     // 根据运行环境检测
@@ -474,7 +489,10 @@ export class ApplicationBootstrap {
             // 这里实现了真正的优先级覆盖机制
             Object.assign(allEnvVars, parsed);
           } catch (error) {
-            this.logger.warn({ err: error }, `解析环境变量文件失败: ${filePath}`);
+            this.logger.warn(
+              { err: error },
+              `解析环境变量文件失败: ${filePath}`
+            );
             // 继续处理其他文件，不中断整个流程
           }
         }
@@ -495,7 +513,10 @@ export class ApplicationBootstrap {
         const expandResult = dotenvExpand.expand({ parsed: allEnvVars });
 
         if (expandResult.error) {
-          this.logger.warn({ err: expandResult.error }, '变量扩展过程中出现错误');
+          this.logger.warn(
+            { err: expandResult.error },
+            '变量扩展过程中出现错误'
+          );
         } else {
           this.logger.debug('变量扩展完成');
         }
@@ -658,7 +679,7 @@ export class ApplicationBootstrap {
       this.logger?.debug('✅ Successfully loaded stratix.config.ts');
 
       const configFunction = configExport(sensitiveConfig);
-      
+
       return this.validateConfiguration(configFunction);
     } catch (error) {
       if (error instanceof StratixError) {
@@ -681,7 +702,9 @@ export class ApplicationBootstrap {
         .map((err: any) => `- ${err.path.join('.')}: ${err.message}`)
         .join('\n');
 
-      this.logger?.error(`❌ Configuration validation failed:\n${errorMessages}`);
+      this.logger?.error(
+        `❌ Configuration validation failed:\n${errorMessages}`
+      );
       throw new ConfigurationError(
         `Configuration validation failed:\n${errorMessages}`,
         parseResult.error.issues
@@ -719,10 +742,21 @@ export class ApplicationBootstrap {
   private async runApplicationDiscovery(
     config: StratixConfig,
     container: AwilixContainer,
-    fastifyInstance: FastifyInstance
+    fastifyInstance: FastifyInstance,
+    productionManifest?: LoadedProductionManifest
   ): Promise<void> {
     const discoveryConfig = config.discovery || {};
     if (discoveryConfig.enabled === false) {
+      return;
+    }
+
+    if (
+      productionManifest &&
+      discoveryConfig.productionManifest?.skipRuntimeDiscovery === true
+    ) {
+      this.logger?.info(
+        `✅ Production manifest loaded, skipping runtime application discovery: ${productionManifest.sourceFile}`
+      );
       return;
     }
 
@@ -748,6 +782,31 @@ export class ApplicationBootstrap {
       this.logger?.error({ err: error }, '❌ Application discovery failed');
       throw error;
     }
+  }
+
+  private loadConfiguredProductionManifest(
+    config: StratixConfig
+  ): LoadedProductionManifest | undefined {
+    const discoveryConfig = config.discovery || {};
+    if (discoveryConfig.enabled === false) {
+      return undefined;
+    }
+
+    const manifestConfig = discoveryConfig.productionManifest;
+    if (manifestConfig?.enabled !== true) {
+      return undefined;
+    }
+
+    const appRoot = this.getEntryModulePath() || process.cwd();
+    const productionManifest = loadProductionManifest(appRoot, manifestConfig);
+
+    if (productionManifest) {
+      this.logger?.info(
+        `✅ Production manifest loaded: ${productionManifest.sourceFile}`
+      );
+    }
+
+    return productionManifest;
   }
 
   /**
@@ -815,7 +874,7 @@ export class ApplicationBootstrap {
         errorCode = error.code;
         message = error.message;
         details = error.details;
-      } 
+      }
       // 2. 处理其他 StratixError
       else if (error instanceof StratixError) {
         statusCode = 500; // 默认 500
@@ -881,9 +940,7 @@ export class ApplicationBootstrap {
   }
 
   private getRequestId(request: unknown): string | undefined {
-    const candidate =
-      (request as any)?.requestId ??
-      (request as any)?.id;
+    const candidate = (request as any)?.requestId ?? (request as any)?.id;
 
     return typeof candidate === 'string' ? candidate : undefined;
   }
@@ -944,7 +1001,10 @@ export class ApplicationBootstrap {
           (request as any).diScope = null;
         }
       } catch (error) {
-        this.logger?.error({ err: error }, 'Failed to dispose request scope container');
+        this.logger?.error(
+          { err: error },
+          'Failed to dispose request scope container'
+        );
       }
     });
   }
@@ -1243,9 +1303,9 @@ export class ApplicationBootstrap {
           for (const serviceName of eagerInitServices) {
             try {
               const startTime = Date.now();
-              const instance = this.rootContainer.resolve(
-                serviceName
-              ) as EagerInitializable | undefined;
+              const instance = this.rootContainer.resolve(serviceName) as
+                | EagerInitializable
+                | undefined;
 
               // 如果实例有initialize方法，调用它
               if (instance && typeof instance.initialize === 'function') {

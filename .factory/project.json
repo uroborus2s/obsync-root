@@ -18,7 +18,7 @@
     "pnpm": ">=10.33.0"
   },
   "currentStage": "ANALYSIS",
-  "recommendedNextStage": "Continue Phase 5 production hardening: observability preset, security preset, runtime production-manifest consumption, DevTools routes/DI/plugin/config/health/traces views, and release gate integration; plugin manifest and production manifest artifact baselines are green",
+  "recommendedNextStage": "Continue Phase 5 production hardening: observability preset, security preset, DevTools routes/DI/plugin/config/health/traces views, release gate integration, and deeper manifest-driven registration; plugin manifest, production manifest artifact, and runtime manifest consumption baselines are green",
   "sourceOfTruth": {
     "stableCollaboration": ["AGENTS.md", "GEMINI.md"],
     "humanDocs": "docs/",
@@ -187,8 +187,8 @@
       {
         "command": "pnpm --filter @stratix/core test",
         "status": "passed",
-        "summary": "27 files / 188 tests",
-        "reason": "Core package tests pass with route contract/OpenAPI helpers, unified error envelope, response schema failure normalization, DI diagnostics, plugin adapter diagnostics, discovery schema validation, and DI graph coverage"
+        "summary": "27 files / 191 tests",
+        "reason": "Core package tests pass with route contract/OpenAPI helpers, unified error envelope, response schema failure normalization, DI diagnostics, plugin adapter diagnostics, discovery schema validation, DI graph coverage, and production manifest startup consumption coverage"
       },
       {
         "command": "pnpm --filter @stratix/create test",

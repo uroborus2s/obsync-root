@@ -214,7 +214,7 @@ flowchart TD
 |---|---|---|---|
 | `TASK-PROD-001` | Observability preset | request id、traces、metrics、health | 示例应用可输出 trace/metric |
 | `TASK-PROD-002` | Security preset | CORS、headers、rate limit、body limit | 安全默认值可测试 |
-| `TASK-PROD-003` | Production manifest | discovery/route/DI/module/plugin-lock manifest | 已完成 artifact 基线；生产启动读取 manifest 后续增强 |
+| `TASK-PROD-003` | Production manifest | discovery/route/DI/module/plugin-lock manifest | 已完成 artifact 与 runtime consumption 最小基线；manifest-driven registration 后续增强 |
 | `TASK-PROD-004` | Build manifest 命令 | `stratix build-manifest` | 已完成；CI 可生成 artifact |
 | `TASK-PROD-005` | DevTools routes/DI/plugin/config/health | 可视化面板 | 能展示真实应用状态 |
 | `TASK-PROD-006` | Release gate | build/test/docs/security/pack/API surface gate | 质量证据齐全 |
@@ -329,11 +329,12 @@ rg --files packages/core/src packages/core/dist packages/forge/templates | rg -i
 | Module governance tooling | 通过 | `stratix generate module` 生成 `module.yaml`；`stratix doctor modules` 校验 manifest/layer/boundary/cycle；`stratix graph modules` 输出 JSON/Mermaid 模块图 |
 | Plugin manifest governance | 通过 | create 为 plugin 项目生成 `.stratix/plugin.json`；`stratix doctor plugins` 校验 capabilities/provides/requires/health；`stratix graph plugins` 输出 JSON/Mermaid |
 | Production manifest artifact | 通过 | `stratix build-manifest` 生成 route、DI、module、plugin-lock 生产 artifact |
+| Runtime manifest consumption | 通过 | `@stratix/core` 读取 `discovery.productionManifest`，启动期校验 artifact，并可在 `skipRuntimeDiscovery` 为 `true` 时跳过应用级 runtime glob discovery |
 | 支持包门禁 | 通过 | `pnpm run build:supported` 10/10；`pnpm run test:supported` 12 个 turbo tasks 全部通过 |
 
 剩余后续工作：
 
-- Phase 5 runtime production-manifest consumption、observability preset、security preset、DevTools、release gate integration。
+- Phase 5 observability preset、security preset、DevTools、release gate integration，以及更深层的 manifest-driven registration。
 
 ### Phase 3：Testing 扩展与 Module PR
 
@@ -365,7 +366,7 @@ rg --files packages/core/src packages/core/dist packages/forge/templates | rg -i
 - Observability preset 输出 trace/metric/health。
 - Security preset 有默认安全配置和测试。
 - `stratix build-manifest` 生成生产 manifest artifact。
-- 后续 production runtime 可读取 manifest 并选择跳过 runtime glob discovery。
+- production runtime 可读取 manifest 并选择跳过 runtime glob discovery。
 - DevTools 可展示 routes、DI、plugin、config、health、traces。
 
 ### Phase 6：95+ 评分复核

@@ -78,6 +78,11 @@
   - `@stratix/create` writes `.stratix/plugin.json` for plugin projects with capabilities, provides, requires, and health metadata.
   - `@stratix/forge` exposes `doctor plugins` and `graph plugins --format json|mermaid`.
   - `@stratix/forge` exposes `build-manifest` to generate `.stratix/production-manifest.json` with route, DI, module, and plugin-lock evidence.
+- Completed the runtime Production manifest consumption baseline:
+  - `@stratix/core` accepts `discovery.productionManifest`.
+  - Startup reads and validates the production manifest artifact before plugin loading.
+  - `skipRuntimeDiscovery: true` skips application-level runtime glob discovery after the manifest is loaded.
+  - The loaded manifest is exposed on `StratixApplication.productionManifest` for startup evidence and future DevTools reuse.
 - Verified focused manifest checks:
   - `pnpm --filter @stratix/create test` passed, 3 tests.
   - `pnpm --filter @stratix/forge test` passed, 37 tests.
@@ -85,3 +90,15 @@
   - `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit` passed.
   - `pnpm --filter @stratix/create build` passed.
   - `pnpm --filter @stratix/forge build` passed.
+- Verified focused runtime manifest checks:
+  - `pnpm --filter @stratix/core exec vitest run src/bootstrap/__tests__/application-discovery-bootstrap.test.ts` passed, 6 tests.
+  - `pnpm --filter @stratix/core exec vitest run src/bootstrap/__tests__/config-validation.test.ts` passed, 4 tests.
+  - `pnpm --filter @stratix/core exec tsc -p tsconfig.json --noEmit` passed.
+  - `pnpm --filter @stratix/core test` passed, 27 files / 191 tests.
+- Verified final runtime manifest quality gates:
+  - `pnpm exec prettier --check <affected core/docs/factory files>` passed.
+  - `pnpm --filter @stratix/core build` passed.
+  - `pnpm run build:supported` passed, 10/10 supported packages.
+  - `pnpm run test:supported` passed, 12/12 turbo tasks.
+  - `uvx --from docs-stratego docs-stratego source validate --repo-path .` passed, 85 pages / 0 contracts.
+  - `git diff --check` passed.

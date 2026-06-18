@@ -2,6 +2,7 @@ import type {
   ComponentInjectionMode,
   ComponentLifetime
 } from '../decorators/index.js';
+import type { ProductionManifestDiscoveryConfig } from './production-manifest.js';
 
 /**
  * Represents a raw module loaded from the file system.
@@ -52,6 +53,7 @@ export interface ApplicationDiscoveryConfig {
   directories?: string[];
   patterns?: string[];
   exclude?: string[];
+  productionManifest?: ProductionManifestDiscoveryConfig;
   routing?: {
     enabled?: boolean;
     prefix?: string;

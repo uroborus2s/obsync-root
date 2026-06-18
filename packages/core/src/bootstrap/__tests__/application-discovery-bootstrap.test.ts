@@ -80,7 +80,9 @@ describe('application discovery bootstrap integration', () => {
   });
 
   it('returns the unified envelope when a route response violates its schema', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'stratix-bootstrap-response-validation-'));
+    const root = await mkdtemp(
+      join(tmpdir(), 'stratix-bootstrap-response-validation-')
+    );
     await writeFile(
       join(root, 'module.mjs'),
       [
@@ -144,7 +146,9 @@ describe('application discovery bootstrap integration', () => {
   });
 
   it('does not scan legacy executors directories during default bootstrap discovery', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'stratix-bootstrap-no-executors-'));
+    const root = await mkdtemp(
+      join(tmpdir(), 'stratix-bootstrap-no-executors-')
+    );
     const executorsDir = join(root, 'executors');
     await mkdir(executorsDir);
     await writeFile(
@@ -172,7 +176,151 @@ describe('application discovery bootstrap integration', () => {
     });
     apps.push(app);
 
-    expect(app.diContainer.hasRegistration('legacyExecutorNamedService')).toBe(false);
+    expect(app.diContainer.hasRegistration('legacyExecutorNamedService')).toBe(
+      false
+    );
+  });
+
+  it('loads a production manifest and skips runtime discovery when configured', async () => {
+    const root = await mkdtemp(
+      join(tmpdir(), 'stratix-bootstrap-production-manifest-')
+    );
+    await writeFile(
+      join(root, 'module.mjs'),
+      [
+        `import { Service } from '${coreImport}';`,
+        'class ManifestSkippedService {}',
+        'Service()(ManifestSkippedService);',
+        'export { ManifestSkippedService };'
+      ].join('\n')
+    );
+    const manifestPath = join(root, 'production-manifest.json');
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          generatedAt: '2026-06-18T00:00:00.000Z',
+          project: {
+            kind: 'app',
+            type: 'api',
+            runtime: 'web',
+            presets: []
+          },
+          discovery: {
+            rootDir: '.',
+            patterns: ['*.mjs'],
+            routing: {
+              enabled: true
+            }
+          },
+          routes: [
+            {
+              method: 'GET',
+              path: '/health',
+              operationId: 'HealthController_check',
+              controllerName: 'HealthController',
+              handlerName: 'check',
+              sourceFile: 'src/controllers/HealthController.ts'
+            }
+          ],
+          di: {
+            tokens: [
+              {
+                token: 'manifestSkippedService',
+                className: 'ManifestSkippedService',
+                dependencies: [],
+                sourceFile: 'module.mjs'
+              }
+            ],
+            issues: []
+          },
+          modules: [],
+          moduleIssues: [],
+          plugins: []
+        },
+        null,
+        2
+      )
+    );
+
+    const app = await Stratix.run({
+      type: 'cli',
+      gracefulShutdown: false,
+      config: {
+        server: {},
+        plugins: [],
+        autoLoad: {},
+        discovery: {
+          enabled: true,
+          rootDir: root,
+          patterns: ['*.mjs'],
+          productionManifest: {
+            enabled: true,
+            path: manifestPath,
+            skipRuntimeDiscovery: true
+          }
+        }
+      }
+    });
+    apps.push(app);
+
+    expect(app.productionManifest?.sourceFile).toBe(manifestPath);
+    expect(app.productionManifest?.routes).toHaveLength(1);
+    expect(app.productionManifest?.di.tokens).toHaveLength(1);
+    expect(app.diContainer.hasRegistration('manifestSkippedService')).toBe(
+      false
+    );
+  });
+
+  it('fails startup when a configured production manifest is invalid', async () => {
+    const root = await mkdtemp(
+      join(tmpdir(), 'stratix-bootstrap-invalid-manifest-')
+    );
+    const manifestPath = join(root, 'production-manifest.json');
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          schemaVersion: 2,
+          project: {
+            kind: 'app'
+          },
+          discovery: {},
+          routes: [],
+          di: {
+            tokens: [],
+            issues: []
+          },
+          modules: [],
+          moduleIssues: [],
+          plugins: []
+        },
+        null,
+        2
+      )
+    );
+
+    await expect(
+      Stratix.run({
+        type: 'cli',
+        gracefulShutdown: false,
+        config: {
+          server: {},
+          plugins: [],
+          autoLoad: {},
+          discovery: {
+            enabled: true,
+            rootDir: root,
+            productionManifest: {
+              enabled: true,
+              path: manifestPath,
+              strict: true
+            }
+          }
+        }
+      })
+    ).rejects.toThrow('Invalid production manifest');
   });
 
   it('throws typed plugin load errors with cause and plugin name', async () => {
