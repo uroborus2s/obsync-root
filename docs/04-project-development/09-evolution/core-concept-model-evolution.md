@@ -654,11 +654,11 @@ flowchart TD
 | Forge doctor | `stratix doctor di` 对应用源码执行零依赖静态 DI 检查 |
 | Forge graph | `stratix di graph --format json\|mermaid` 输出 DI graph |
 | OpenAPI forge command | `stratix openapi generate` 从目标项目源码 route schema 生成 OpenAPI 3.1 JSON；forge 自身不依赖 `@stratix/core` |
-| typed client | `stratix openapi client` 从 OpenAPI JSON 生成 TypeScript fetch client |
+| typed client | `stratix openapi client` 从 OpenAPI JSON 生成 TypeScript fetch client，覆盖 response types、path/query/body/header 参数、auth provider 和 before/after hooks |
 | contract test DSL | `@stratix/testing` `contractTest()` 复用 route contract、diagnostics 和共享错误 envelope schema 验证 app.inject 响应 |
 | plugin adapter diagnostics | `diagnoseServiceAdapterTokens()` 检测重复 adapter name 与根容器 token 冲突 |
 
-剩余工作不能被扩展能力替代：typed client 的 path params/query/body/auth/interceptors、Plugin manifest、Production manifest。Module governance tooling 已有 `generate module` / `doctor modules` / `graph modules` 基线；`@stratix/testing` Phase 4 基线已覆盖 test app、DI override、plugin fixture、discovery fixture、repository fixture 和 module fixture。
+剩余工作不能被扩展能力替代：Plugin manifest、Production manifest。Module governance tooling 已有 `generate module` / `doctor modules` / `graph modules` 基线；`@stratix/testing` Phase 4 基线已覆盖 test app、DI override、plugin fixture、discovery fixture、repository fixture 和 module fixture。
 
 ### 9.3 Create 与 Forge 工具入口
 

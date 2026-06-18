@@ -18,7 +18,7 @@
 - `@stratix/core` has completed a package-level breaking discovery refactor: application discovery is now driven by `config.discovery` and `ApplicationDiscoveryPipeline`, while old application-level discovery entry points were removed from the root export surface.
 - Phase 1 of the Core concept-model evolution is implemented: `executor` has been removed from `@stratix/core` decorators, metadata, discovery, plugin registration, public exports, and from create/forge generator/template surfaces without compatibility adapters.
 - Phase 2 foundation is implemented: `@stratix/core` exposes route contract extraction, route contract validation, OpenAPI document generation, DI graph creation, DI diagnostics, and discovery-time DI metadata recording; `@stratix/forge` exposes `stratix doctor di` and `stratix di graph`.
-- Phase 2 extended contract-first workflow is implemented: `@stratix/forge` exposes dependency-free `stratix openapi generate` and `stratix openapi client`, generated controller templates include explicit route schema/operationId/response schema, `@stratix/testing` exposes runner-neutral `contractTest()`, and `@stratix/core` exposes plugin adapter token diagnostics, unified error envelope schema/factory, and strict response-schema failure normalization.
+- Phase 2 extended contract-first workflow is implemented: `@stratix/forge` exposes dependency-free `stratix openapi generate` and `stratix openapi client` with response types, path/query/body/header parameters, auth provider, and request/response hooks; generated controller templates include explicit route schema/operationId/response schema, `@stratix/testing` exposes runner-neutral `contractTest()`, and `@stratix/core` exposes plugin adapter token diagnostics, unified error envelope schema/factory, and strict response-schema failure normalization.
 - Phase 3 module governance tooling is implemented: `stratix generate module` writes `module.yaml` plus standard module directories, `stratix doctor modules` validates module manifests/layers/boundaries/cycles, and `stratix graph modules` outputs module -> token -> route -> dependency graphs without changing application runtime startup behavior.
 - Phase 4 testing platform baseline is implemented: `@stratix/testing` exposes `createTestApp()`, `createTestContainer()`, `overrideToken()`, `mockPlugin()`, `disablePlugin()`, `createDiscoveryFixture()`, `createRepositoryFixture()`, and `createModuleFixture()` alongside the existing `contractTest()` DSL.
 - The toolchain split is implemented: `@stratix/create` owns app/plugin creation, `@stratix/forge` owns project-local generate/doctor/di/openapi/start/config workflows, and neither package depends on `@stratix/core`.
@@ -53,9 +53,9 @@
 - `pnpm --filter @stratix/create exec tsc -p tsconfig.json --noEmit` passes.
 - `pnpm --filter @stratix/create run build` passes.
 - `pnpm --filter @stratix/forge test` passes:
-  - 33 tests
+  - 34 tests
 - `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit` passes.
-- `pnpm --filter @stratix/forge run build` passes.
+- `pnpm --filter @stratix/forge run build` passes after advanced typed client generation support.
 - `pnpm --filter @stratix/testing test` passes:
   - 3 test files
   - 12 tests
@@ -104,7 +104,7 @@
 
 ## Immediate Priorities
 
-1. Continue with advanced typed client options, Plugin manifest, Production manifest, and Phase 5 production capability design.
+1. Continue with Plugin manifest, Production manifest, and Phase 5 production capability design.
 2. Restore reproducible offline installation.
 3. Reconcile manifest versions, git tags, and npm registry reality.
 4. Decide whether `@stratix/tasks` remains permanently deprecated or is removed from the workspace surface.

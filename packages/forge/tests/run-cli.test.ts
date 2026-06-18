@@ -77,7 +77,9 @@ function createScriptedPrompter(
   return {
     async select(message, choices, options) {
       prompts.push(message);
-      const answer = nextAnswer(options?.defaultValue ?? choices[0]?.value ?? '');
+      const answer = nextAnswer(
+        options?.defaultValue ?? choices[0]?.value ?? ''
+      );
       return answer;
     },
     async text(message, options) {
@@ -90,7 +92,9 @@ function createScriptedPrompter(
     },
     async confirm(message, options) {
       prompts.push(message);
-      const answer = nextAnswer(options?.defaultValue ? 'yes' : 'no').trim().toLowerCase();
+      const answer = nextAnswer(options?.defaultValue ? 'yes' : 'no')
+        .trim()
+        .toLowerCase();
       return ['y', 'yes', 'true', '1'].includes(answer);
     }
   };
@@ -114,7 +118,9 @@ function readText(filePath: string): string {
 }
 
 function seedProjectTypescript(projectDir: string): void {
-  const typescriptRoot = path.dirname(testRequire.resolve('typescript/package.json'));
+  const typescriptRoot = path.dirname(
+    testRequire.resolve('typescript/package.json')
+  );
   const target = path.join(projectDir, 'node_modules', 'typescript');
   fs.mkdirSync(path.dirname(target), { recursive: true });
   if (!fs.existsSync(target)) {
@@ -189,7 +195,9 @@ describe('@stratix/forge', () => {
     });
 
     const projectDir = path.join(cwd, 'demo-api');
-    const manifest = readJson(path.join(projectDir, '.stratix', 'project.json'));
+    const manifest = readJson(
+      path.join(projectDir, '.stratix', 'project.json')
+    );
     const packageJson = readJson(path.join(projectDir, 'package.json'));
     const generatedConfig = readText(
       path.join(projectDir, 'src', 'config', 'stratix.generated.ts')
@@ -199,7 +207,9 @@ describe('@stratix/forge', () => {
     assert.equal(manifest.kind, 'app');
     assert.equal(manifest.type, 'api');
     assert.ok(manifest.presets.includes('testing'));
-    assert.ok(manifest.template.contribution.dependencies.dev['@stratix/forge']);
+    assert.ok(
+      manifest.template.contribution.dependencies.dev['@stratix/forge']
+    );
     assert.equal(packageJson.dependencies['@stratix/core'], '^1.1.0');
     assert.equal(packageJson.devDependencies['@stratix/forge'], '^1.1.0');
     assert.equal(packageJson.devDependencies['@stratix/cli'], undefined);
@@ -210,7 +220,9 @@ describe('@stratix/forge', () => {
       /await Stratix\.run\(\)/
     );
     assert.match(
-      readText(path.join(projectDir, 'src', 'controllers', 'HealthController.ts')),
+      readText(
+        path.join(projectDir, 'src', 'controllers', 'HealthController.ts')
+      ),
       /@Get\('\/health',\s*\{/
     );
     assert.ok(output.messages.some((message) => message.level === 'success'));
@@ -226,7 +238,9 @@ describe('@stratix/forge', () => {
     });
 
     const projectDir = path.join(cwd, 'demo-admin');
-    const manifest = readJson(path.join(projectDir, '.stratix', 'project.json'));
+    const manifest = readJson(
+      path.join(projectDir, '.stratix', 'project.json')
+    );
     const packageJson = readJson(path.join(projectDir, 'package.json'));
 
     assert.equal(manifest.kind, 'app');
@@ -240,14 +254,15 @@ describe('@stratix/forge', () => {
       /createRouter/
     );
     assert.match(
-      readText(
-        path.join(projectDir, 'src', 'layouts', 'admin-layout.tsx')
-      ),
+      readText(path.join(projectDir, 'src', 'layouts', 'admin-layout.tsx')),
       /AppWorkbench/
     );
     assert.match(readText(path.join(projectDir, '.gitignore')), /\.vscode\//);
     assert.match(readText(path.join(projectDir, '.gitignore')), /node_modules/);
-    assert.match(readText(path.join(projectDir, '.gitignore')), /!\.env\.example/);
+    assert.match(
+      readText(path.join(projectDir, '.gitignore')),
+      /!\.env\.example/
+    );
     assert.equal(
       fs.existsSync(path.join(projectDir, 'src', 'stratix.config.ts')),
       false
@@ -269,7 +284,9 @@ describe('@stratix/forge', () => {
     });
 
     const projectDir = path.join(cwd, 'interactive-admin');
-    const manifest = readJson(path.join(projectDir, '.stratix', 'project.json'));
+    const manifest = readJson(
+      path.join(projectDir, '.stratix', 'project.json')
+    );
     const packageJson = readJson(path.join(projectDir, 'package.json'));
 
     assert.equal(manifest.kind, 'app');
@@ -285,7 +302,14 @@ describe('@stratix/forge', () => {
     const output = createMemoryOutput();
 
     await runCreate(
-      ['app', 'web-admin', 'mock-admin', '--preset', 'admin-mock', '--no-install'],
+      [
+        'app',
+        'web-admin',
+        'mock-admin',
+        '--preset',
+        'admin-mock',
+        '--no-install'
+      ],
       {
         cwd,
         output
@@ -293,7 +317,9 @@ describe('@stratix/forge', () => {
     );
 
     const projectDir = path.join(cwd, 'mock-admin');
-    const manifest = readJson(path.join(projectDir, '.stratix', 'project.json'));
+    const manifest = readJson(
+      path.join(projectDir, '.stratix', 'project.json')
+    );
     const packageJson = readJson(path.join(projectDir, 'package.json'));
     const mainSource = readText(path.join(projectDir, 'src', 'main.tsx'));
 
@@ -316,7 +342,9 @@ describe('@stratix/forge', () => {
     });
 
     const projectDir = path.join(cwd, 'data-plugin');
-    const manifest = readJson(path.join(projectDir, '.stratix', 'project.json'));
+    const manifest = readJson(
+      path.join(projectDir, '.stratix', 'project.json')
+    );
     const packageJson = readJson(path.join(projectDir, 'package.json'));
     const pluginIndex = readText(path.join(projectDir, 'src', 'index.ts'));
 
@@ -349,15 +377,21 @@ describe('@stratix/forge', () => {
     });
 
     assert.match(
-      readText(path.join(projectDir, 'src', 'controllers', 'OrderItemController.ts')),
+      readText(
+        path.join(projectDir, 'src', 'controllers', 'OrderItemController.ts')
+      ),
       /OrderItemService/
     );
     assert.match(
-      readText(path.join(projectDir, 'src', 'controllers', 'OrderItemController.ts')),
+      readText(
+        path.join(projectDir, 'src', 'controllers', 'OrderItemController.ts')
+      ),
       /schema:\s*\{/
     );
     assert.match(
-      readText(path.join(projectDir, 'src', 'controllers', 'OrderItemController.ts')),
+      readText(
+        path.join(projectDir, 'src', 'controllers', 'OrderItemController.ts')
+      ),
       /response:\s*\{/
     );
     assert.match(
@@ -396,7 +430,13 @@ describe('@stratix/forge', () => {
 
     assert.match(
       readText(
-        path.join(projectDir, 'src', 'routes', '_authenticated', 'notice-center.tsx')
+        path.join(
+          projectDir,
+          'src',
+          'routes',
+          '_authenticated',
+          'notice-center.tsx'
+        )
       ),
       /createFileRoute\('\/_authenticated\/notice-center'\)/
     );
@@ -534,10 +574,13 @@ describe('@stratix/forge', () => {
     const cwd = createTempRoot();
     const output = createMemoryOutput();
 
-    await runCreate(['plugin', 'data', '@demo/business-plugin', '--no-install'], {
-      cwd,
-      output
-    });
+    await runCreate(
+      ['plugin', 'data', '@demo/business-plugin', '--no-install'],
+      {
+        cwd,
+        output
+      }
+    );
 
     const projectDir = path.join(cwd, 'business-plugin');
 
@@ -607,7 +650,9 @@ describe('@stratix/forge', () => {
       output
     });
 
-    const manifest = readJson(path.join(projectDir, '.stratix', 'project.json'));
+    const manifest = readJson(
+      path.join(projectDir, '.stratix', 'project.json')
+    );
     const packageJson = readJson(path.join(projectDir, 'package.json'));
     const generatedConfig = readText(
       path.join(projectDir, 'src', 'config', 'stratix.generated.ts')
@@ -636,7 +681,9 @@ describe('@stratix/forge', () => {
       output
     });
 
-    const manifest = readJson(path.join(projectDir, '.stratix', 'project.json'));
+    const manifest = readJson(
+      path.join(projectDir, '.stratix', 'project.json')
+    );
 
     assert.deepEqual(manifest.presets, ['testing']);
     assert.equal(
@@ -644,7 +691,9 @@ describe('@stratix/forge', () => {
       false
     );
     assert.equal(
-      fs.existsSync(path.join(projectDir, 'src', '__tests__', 'project.smoke.test.ts')),
+      fs.existsSync(
+        path.join(projectDir, 'src', '__tests__', 'project.smoke.test.ts')
+      ),
       true
     );
   });
@@ -665,7 +714,9 @@ describe('@stratix/forge', () => {
       output
     });
 
-    const manifest = readJson(path.join(projectDir, '.stratix', 'project.json'));
+    const manifest = readJson(
+      path.join(projectDir, '.stratix', 'project.json')
+    );
     const packageJson = readJson(path.join(projectDir, 'package.json'));
 
     assert.ok(manifest.presets.includes('admin-mock'));
@@ -702,7 +753,9 @@ describe('@stratix/forge', () => {
 
     assert.ok(
       output.messages.some((message) =>
-        message.message.includes('Service layer must not access database plugin directly')
+        message.message.includes(
+          'Service layer must not access database plugin directly'
+        )
       )
     );
   });
@@ -711,10 +764,13 @@ describe('@stratix/forge', () => {
     const cwd = createTempRoot();
     const output = createMemoryOutput();
 
-    await runCreate(['plugin', 'data', '@demo/doctor-data-plugin', '--no-install'], {
-      cwd,
-      output
-    });
+    await runCreate(
+      ['plugin', 'data', '@demo/doctor-data-plugin', '--no-install'],
+      {
+        cwd,
+        output
+      }
+    );
 
     const projectDir = path.join(cwd, 'doctor-data-plugin');
     fs.writeFileSync(
@@ -738,12 +794,16 @@ describe('@stratix/forge', () => {
 
     assert.ok(
       output.messages.some((message) =>
-        message.message.includes('DatabaseAPI was removed in @stratix/database 1.1.0')
+        message.message.includes(
+          'DatabaseAPI was removed in @stratix/database 1.1.0'
+        )
       )
     );
     assert.ok(
       output.messages.some((message) =>
-        message.message.includes('Public database transaction helpers were removed in @stratix/database 1.1.0')
+        message.message.includes(
+          'Public database transaction helpers were removed in @stratix/database 1.1.0'
+        )
       )
     );
   });
@@ -851,7 +911,9 @@ describe('@stratix/forge', () => {
         message.message.includes('Usage: stratix doctor [di|modules] [options]')
       )
     );
-    const helpText = output.messages.map((message) => message.message).join('\n');
+    const helpText = output.messages
+      .map((message) => message.message)
+      .join('\n');
     assert.match(helpText, /doctor di\s+Validate Stratix DI tokens/);
     assert.match(helpText, /doctor modules\s+Validate module\.yaml manifests/);
   });
@@ -883,7 +945,9 @@ describe('@stratix/forge', () => {
     );
     assert.ok(
       output.messages.some((message) =>
-        message.message.includes('healthController["healthController"] --> healthService["healthService"]')
+        message.message.includes(
+          'healthController["healthController"] --> healthService["healthService"]'
+        )
       )
     );
   });
@@ -959,7 +1023,9 @@ describe('@stratix/forge', () => {
     );
     assert.ok(
       output.messages.some((message) =>
-        message.message.includes('billingAccount["billing-account"] --> billingAccountController["billingAccountController"]')
+        message.message.includes(
+          'billingAccount["billing-account"] --> billingAccountController["billingAccountController"]'
+        )
       )
     );
   });
@@ -1010,7 +1076,9 @@ describe('@stratix/forge', () => {
     );
     assert.ok(
       output.messages.some((message) =>
-        message.message.includes('Module boundary owns unknown token: payments -> missingPaymentToken')
+        message.message.includes(
+          'Module boundary owns unknown token: payments -> missingPaymentToken'
+        )
       )
     );
   });
@@ -1050,8 +1118,8 @@ describe('@stratix/forge', () => {
     assert.equal(document.info.title, 'OpenAPI App');
     assert.equal(document.info.version, '1.2.3');
     assert.equal(
-      document.paths['/health'].get.responses['200'].content['application/json'].schema
-        .properties.success.type,
+      document.paths['/health'].get.responses['200'].content['application/json']
+        .schema.properties.success.type,
       'boolean'
     );
     assert.ok(
@@ -1124,7 +1192,12 @@ describe('@stratix/forge', () => {
     const projectDir = path.join(cwd, 'typed-client-app');
     seedProjectTypescript(projectDir);
     const openApiFile = path.join(projectDir, 'openapi.json');
-    const clientFile = path.join(projectDir, 'src', 'generated', 'api-client.ts');
+    const clientFile = path.join(
+      projectDir,
+      'src',
+      'generated',
+      'api-client.ts'
+    );
 
     await runCli(
       [
@@ -1173,7 +1246,9 @@ describe('@stratix/forge', () => {
 
     const allMessages = output.messages.map((message) => message.message);
 
-    assert.ok(allMessages.some((message) => message.startsWith('resource:controller')));
+    assert.ok(
+      allMessages.some((message) => message.startsWith('resource:controller'))
+    );
     assert.ok(
       allMessages.includes(
         'database - Add @stratix/database and default database environment keys'
@@ -1186,6 +1261,132 @@ describe('@stratix/forge', () => {
     assert.equal(
       allMessages.some((message) => message.startsWith('app:api')),
       false
+    );
+  });
+
+  it('generates an advanced typed client with params body auth and hooks', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+
+    await runCreate(['app', 'api', 'advanced-client-app', '--no-install'], {
+      cwd,
+      output
+    });
+
+    const projectDir = path.join(cwd, 'advanced-client-app');
+    const openApiFile = path.join(projectDir, 'openapi.json');
+    const clientFile = path.join(
+      projectDir,
+      'src',
+      'generated',
+      'advanced-client.ts'
+    );
+
+    fs.writeFileSync(
+      openApiFile,
+      JSON.stringify(
+        {
+          openapi: '3.1.0',
+          info: { title: 'Advanced API', version: '1.0.0' },
+          paths: {
+            '/users/{id}': {
+              patch: {
+                operationId: 'updateUser',
+                parameters: [
+                  {
+                    name: 'id',
+                    in: 'path',
+                    required: true,
+                    schema: { type: 'string' }
+                  },
+                  {
+                    name: 'includeAudit',
+                    in: 'query',
+                    schema: { type: 'boolean' }
+                  },
+                  {
+                    name: 'x-tenant-id',
+                    in: 'header',
+                    required: true,
+                    schema: { type: 'string' }
+                  }
+                ],
+                requestBody: {
+                  required: true,
+                  content: {
+                    'application/json': {
+                      schema: {
+                        type: 'object',
+                        required: ['name'],
+                        properties: {
+                          name: { type: 'string' }
+                        }
+                      }
+                    }
+                  }
+                },
+                responses: {
+                  200: {
+                    content: {
+                      'application/json': {
+                        schema: {
+                          type: 'object',
+                          required: ['id', 'name'],
+                          properties: {
+                            id: { type: 'string' },
+                            name: { type: 'string' }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        null,
+        2
+      ),
+      'utf8'
+    );
+
+    await runCli(
+      ['openapi', 'client', '--input', openApiFile, '--output', clientFile],
+      {
+        cwd: projectDir,
+        output
+      }
+    );
+
+    const source = readText(clientFile);
+    assert.match(source, /export interface StratixClientOptions/);
+    assert.match(source, /auth\?: StratixClientAuthProvider/);
+    assert.match(source, /beforeRequest\?: StratixClientBeforeRequestHook/);
+    assert.match(source, /afterResponse\?: StratixClientAfterResponseHook/);
+    assert.match(source, /export interface UpdateUserParams/);
+    assert.match(source, /id: string/);
+    assert.match(source, /includeAudit\?: boolean/);
+    assert.match(source, /xTenantId: string/);
+    assert.match(source, /export interface UpdateUserBody/);
+    assert.match(source, /export async function updateUser\(/);
+    assert.match(source, /params: UpdateUserParams/);
+    assert.match(source, /body: UpdateUserBody/);
+    assert.match(source, /encodeURIComponent\(String\(params\.id\)\)/);
+    assert.match(
+      source,
+      /appendQuery\(url, 'includeAudit', params\.includeAudit\)/
+    );
+    assert.match(
+      source,
+      /headers\.set\('x-tenant-id', String\(params\.xTenantId\)\)/
+    );
+    assert.match(source, /JSON\.stringify\(body\)/);
+    assert.match(source, /await resolveAuthHeaders\(options\.auth, request\)/);
+    assert.match(source, /await options\.beforeRequest\?\.\(request\)/);
+    assert.match(
+      source,
+      /await options\.afterResponse\?\.\(response, request\)/
     );
   });
 
@@ -1253,17 +1454,22 @@ describe('@stratix/forge', () => {
     assert.ok(encryptedString.length > 0);
 
     await runCli(
-      ['config', 'decrypt', encryptedString, '--key', 'secret-key', '--output', decryptedFile],
+      [
+        'config',
+        'decrypt',
+        encryptedString,
+        '--key',
+        'secret-key',
+        '--output',
+        decryptedFile
+      ],
       {
         cwd,
         output: decryptOutput
       }
     );
 
-    assert.equal(
-      readJson(decryptedFile).database.host,
-      '127.0.0.1'
-    );
+    assert.equal(readJson(decryptedFile).database.host, '127.0.0.1');
     assert.ok(
       decryptOutput.messages.some((message) =>
         message.message.includes('Decrypted config saved')
@@ -1292,18 +1498,15 @@ describe('@stratix/forge', () => {
       }
     );
 
-    assert.match(keyOutput.messages.at(-1)?.message || '', /^[A-Za-z0-9+/]+={0,2}$/);
+    assert.match(
+      keyOutput.messages.at(-1)?.message || '',
+      /^[A-Za-z0-9+/]+={0,2}$/
+    );
   });
 
   it('keeps config command decoupled from @stratix/core utility exports', () => {
     const source = readText(
-      path.join(
-        process.cwd(),
-        'src',
-        'commands',
-        'config',
-        'index.ts'
-      )
+      path.join(process.cwd(), 'src', 'commands', 'config', 'index.ts')
     );
 
     assert.doesNotMatch(source, /from '@stratix\/core'/);

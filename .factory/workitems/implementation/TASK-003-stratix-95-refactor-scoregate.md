@@ -56,5 +56,5 @@
   - `pnpm run build:supported` 通过，10/10 supported packages
   - `pnpm run test:supported` 通过，12 turbo tasks
   - `pnpm --filter @stratix/create test` 通过，2 tests
-  - `pnpm --filter @stratix/forge test` 通过，33 tests
+  - `pnpm --filter @stratix/forge test` 通过，34 tests
   - `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit` 通过

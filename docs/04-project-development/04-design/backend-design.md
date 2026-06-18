@@ -33,7 +33,7 @@
 
 ## 4. 当前设计债
 
-- 统一错误 envelope、response validation strict gate、testing fixtures、Plugin manifest、Production manifest 仍需进入下一阶段；Module governance tooling 已有 forge 基线。
+- Plugin manifest、Production manifest 仍需进入下一阶段；统一错误 envelope、response validation strict gate、testing fixtures 和 Module governance tooling 已有基线。
 - 根 README 不承载瞬时设计状态；当前事实以 `.factory/project.json`、`.factory/memory/current-state.md` 和 `docs/04-project-development/02-discovery/current-state-analysis.md` 为准。
 
 ## 5. 变更记录

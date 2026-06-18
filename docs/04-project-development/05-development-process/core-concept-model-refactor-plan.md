@@ -103,8 +103,8 @@ flowchart TD
 | `TASK-CONTRACT-002` | runtime validation | Fastify route schema 集成 | 已完成请求校验和 response schema failure 归一化；请求和响应校验行为稳定 |
 | `TASK-CONTRACT-003` | 统一错误 envelope | 错误响应契约 | 已完成；4xx/5xx 契约测试通过 |
 | `TASK-CONTRACT-004` | OpenAPI 生成 | `stratix openapi generate` | 已完成；route schema 可生成 OpenAPI |
-| `TASK-CONTRACT-005` | typed client 生成 | `stratix openapi client` | 已完成最小基线；高级 path params/auth/interceptors 后续增强 |
-| `TASK-CONTRACT-006` | contract tests | `@stratix/testing` `contractTest()` | 已完成最小基线；错误 envelope 后续增强 |
+| `TASK-CONTRACT-005` | typed client 生成 | `stratix openapi client` | 已完成；支持 response types、path params、query/body/header 参数、auth provider 和 before/after hooks |
+| `TASK-CONTRACT-006` | contract tests | `@stratix/testing` `contractTest()` | 已完成；覆盖状态码、成功响应 schema 与共享错误 envelope |
 
 ### 工作流 4：DI 诊断
 
@@ -319,7 +319,7 @@ rg --files packages/core/src packages/core/dist packages/forge/templates | rg -i
 | Forge doctor | 通过 | `stratix doctor di` 可对源码做零依赖静态 DI 检查，缺失依赖非零退出 |
 | Forge graph | 通过 | `stratix di graph --format json\|mermaid` 输出 DI graph |
 | OpenAPI forge command | 通过 | `stratix openapi generate` 通过目标项目 `typescript` AST 解析 route schema，不依赖 `@stratix/core` |
-| Typed client forge command | 通过 | `stratix openapi client` 从 OpenAPI JSON 生成 TypeScript fetch client |
+| Typed client forge command | 通过 | `stratix openapi client` 从 OpenAPI JSON 生成 TypeScript fetch client，覆盖 response types、path/query/body/header 参数、auth provider 和 before/after hooks |
 | Contract test DSL | 通过 | `@stratix/testing` 暴露 runner-neutral `contractTest()`，复用 core route contract、diagnostics 与共享错误 envelope schema |
 | Plugin adapter diagnostics | 通过 | `diagnoseServiceAdapterTokens()` 检查重复 adapter name 和根容器 token 冲突 |
 | Create templates | 通过 | API/plugin 创建模板输出 `@stratix/core` runtime dependency 和 `@stratix/forge` devDependency |
@@ -331,7 +331,6 @@ rg --files packages/core/src packages/core/dist packages/forge/templates | rg -i
 
 剩余后续工作：
 
-- typed client 的 path params、query/body 参数、auth/interceptor 扩展。
 - Plugin manifest、Production manifest。
 
 ### Phase 3：Testing 扩展与 Module PR

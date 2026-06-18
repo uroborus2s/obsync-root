@@ -12,6 +12,7 @@
 - `@stratix/create` and `@stratix/forge` build/test/typecheck on the Node 24 baseline
 - `@stratix/forge` source is physically under `packages/forge`; the lockfile importer is no longer `packages/cli`
 - `@stratix/forge` Module governance tests pass after adding `module.yaml`, `doctor modules`, and `graph modules`
+- `@stratix/forge` advanced typed client tests pass for path/query/body/header parameters, auth provider, and before/after hooks
 - `@stratix/core` unified error envelope and response schema failure normalization tests pass
 - `@stratix/testing` contract tests validate shared Stratix error envelope responses
 - `@stratix/testing` Phase 4 platform helpers pass test/typecheck/build: test app, DI override, plugin fixture, discovery fixture, module fixture, and rollbackable repository fixture
@@ -28,5 +29,5 @@
 
 1. Restore reproducible installation.
 2. Reconcile release-surface reality and remaining package-test regressions.
-3. Continue advanced typed client options, Plugin manifest, and Production manifest.
+3. Continue Plugin manifest and Production manifest.
 4. Enter Phase 5 production capability design once the remaining release-surface risks are accepted or scoped.

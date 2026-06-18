@@ -67,3 +67,10 @@
   - `pnpm --filter @stratix/testing test`
   - `pnpm --filter @stratix/testing exec tsc -p tsconfig.json --noEmit`
   - `pnpm --filter @stratix/testing build`
+- Completed the advanced typed client follow-up for the contract-first workflow:
+  - `stratix openapi client` now generates path/query/header parameters, JSON body types, auth provider support, and before/after request hooks.
+  - The generated client remains dependency-free and uses OpenAPI JSON as its only input.
+- Verified focused forge checks after advanced typed client work:
+  - `pnpm --filter @stratix/forge test` passed, 34 tests.
+  - `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit` passed.
+  - `pnpm --filter @stratix/forge build` passed.

@@ -18,7 +18,7 @@
     "pnpm": ">=10.33.0"
   },
   "currentStage": "ANALYSIS",
-  "recommendedNextStage": "Continue with advanced typed client options, Plugin manifest, Production manifest, and Phase 5 production capability design; create/forge split, module governance tooling, unified error envelope, strict response validation, Phase 2 extended contract-first workflow, and Phase 4 testing platform baseline are green",
+  "recommendedNextStage": "Continue with Plugin manifest, Production manifest, and Phase 5 production capability design; advanced typed client options, create/forge split, module governance tooling, unified error envelope, strict response validation, Phase 2 extended contract-first workflow, and Phase 4 testing platform baseline are green",
   "sourceOfTruth": {
     "stableCollaboration": ["AGENTS.md", "GEMINI.md"],
     "humanDocs": "docs/",
@@ -153,7 +153,7 @@
       {
         "command": "pnpm --filter @stratix/forge build",
         "status": "passed",
-        "reason": "Forge builds from packages/forge after retaining project-local generate/doctor/di/graph/openapi/start/config workflows and removing the old init entry"
+        "reason": "Forge builds from packages/forge after retaining project-local generate/doctor/di/graph/openapi/start/config workflows, advanced typed client generation, and removing the old init entry"
       },
       {
         "command": "pnpm --filter @stratix/testing build",
@@ -199,8 +199,8 @@
       {
         "command": "pnpm --filter @stratix/forge test",
         "status": "passed",
-        "summary": "33 tests",
-        "reason": "Forge tests cover doctor di, di graph JSON/Mermaid output, module manifest/doctor/graph governance, OpenAPI generation, typed client generation, command help, and generated resource DI/schema checks"
+        "summary": "34 tests",
+        "reason": "Forge tests cover doctor di, di graph JSON/Mermaid output, module manifest/doctor/graph governance, OpenAPI generation, advanced typed client generation with path/query/body/header/auth/hooks, command help, and generated resource DI/schema checks"
       },
       {
         "command": "pnpm --filter @stratix/testing test",

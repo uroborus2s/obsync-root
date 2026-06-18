@@ -20,7 +20,7 @@
 | `API-005` | Route contract API | `@stratix/core` public functions | Phase 2 基础能力已实现 |
 | `API-006` | DI diagnostics API | `@stratix/core` public functions + forge | Phase 2 基础能力已实现 |
 | `API-007` | OpenAPI forge command | `stratix openapi generate` | Phase 2 扩展能力已实现 |
-| `API-008` | Typed client generator | `stratix openapi client` | Phase 2 扩展能力已实现 |
+| `API-008` | Typed client generator | `stratix openapi client` | Phase 2 扩展能力已实现；支持 path/query/body/header 参数、auth provider 和 hooks |
 | `API-009` | Contract test DSL | `@stratix/testing` `contractTest()` | Phase 2 扩展能力已实现 |
 | `API-010` | Plugin adapter diagnostics | `@stratix/core` public functions | Phase 2 扩展能力已实现 |
 
@@ -29,7 +29,7 @@
 - 尚无统一的顶层 API 契约文档
 - 各生态包大多只有各自 README，缺少仓级接口视图
 - 包导出版本与 registry / tag 的外部可见版本不一致
-- 统一错误 envelope、response validation strict gate 和 typed client 的 path params/auth/interceptors 仍需进入下一阶段
+- Plugin manifest、Production manifest 仍需进入下一阶段
 - Module governance tooling 已有 `generate module` / `doctor modules` / `graph modules` 基线；Plugin manifest、Production manifest 仍未落地
 
 ## 3. 当前建议
