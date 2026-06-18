@@ -1,0 +1,29 @@
+{
+  "id": "app-cli",
+  "kind": "app",
+  "type": "cli",
+  "version": "1.0.0",
+  "displayName": "CLI Application",
+  "description": "Command-oriented Stratix application",
+  "runtime": "cli",
+  "defaultPresets": ["testing"],
+  "contributes": {
+    "directories": [
+      "src/commands"
+    ],
+    "files": [
+      {
+        "source": "src/commands/MainCommand.ts.tpl",
+        "destination": "src/commands/MainCommand.ts"
+      },
+      {
+        "source": "src/services/CommandRunnerService.ts.tpl",
+        "destination": "src/services/CommandRunnerService.ts"
+      },
+      {
+        "source": "src/types/cli.ts.tpl",
+        "destination": "src/types/cli.ts"
+      }
+    ]
+  }
+}

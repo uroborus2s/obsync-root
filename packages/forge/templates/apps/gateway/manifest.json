@@ -1,0 +1,42 @@
+{
+  "id": "app-gateway",
+  "kind": "app",
+  "type": "gateway",
+  "version": "1.0.0",
+  "displayName": "Gateway Application",
+  "description": "Gateway-style Stratix application with middleware and upstream registry",
+  "runtime": "web",
+  "defaultPresets": ["database", "redis", "gateway-core", "testing"],
+  "contributes": {
+    "directories": [
+      "src/middlewares",
+      "src/plugins"
+    ],
+    "files": [
+      {
+        "source": "src/controllers/HealthController.ts.tpl",
+        "destination": "src/controllers/HealthController.ts"
+      },
+      {
+        "source": "src/config/middlewareConfig.ts.tpl",
+        "destination": "src/config/middlewareConfig.ts"
+      },
+      {
+        "source": "src/hooks.ts.tpl",
+        "destination": "src/hooks.ts"
+      },
+      {
+        "source": "src/middlewares/requestIdMiddleware.ts.tpl",
+        "destination": "src/middlewares/requestIdMiddleware.ts"
+      },
+      {
+        "source": "src/services/ProxyRegistryService.ts.tpl",
+        "destination": "src/services/ProxyRegistryService.ts"
+      },
+      {
+        "source": "src/types/gateway.ts.tpl",
+        "destination": "src/types/gateway.ts"
+      }
+    ]
+  }
+}

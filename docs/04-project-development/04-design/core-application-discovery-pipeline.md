@@ -37,7 +37,6 @@ flowchart LR
 | `@Repository()` | `repository` | `SINGLETON` |
 | `@Component()` | 自定义 component | `SINGLETON` |
 | `@Controller()` | `controller` | `SCOPED` |
-| `@Executor()` | `executor` | `SINGLETON` |
 
 普通 class 不注册。这样可以让代码扫描结果可审计，避免目录命名或导出顺序造成隐式行为。
 
@@ -69,8 +68,13 @@ flowchart LR
 
 | 层级 | 入口 | 配置字段 | 适用场景 |
 |---|---|---|---|
-| 应用级 | `ApplicationDiscoveryPipeline` | `config.discovery` | 应用源码中的 service/controller/repository/executor |
+| 应用级 | `ApplicationDiscoveryPipeline` | `config.discovery` | 应用源码中的 service/controller/repository/component |
 | 插件级 | `withRegisterAutoDI` | 插件自身 `AutoDIConfig` | 生态插件内部模块注册 |
 
 两者不共享配置字段，不互相兜底。插件级能力仍然保留，但它不再承担应用级 discovery 的职责。
 
+## Phase 2 扩展
+
+应用级 discovery 在注册 DI token 时同步记录诊断 metadata，供 `createDIGraph()`、`diagnoseDIGraph()`、`runDIDiagnostics()` 使用。
+
+控制器路由继续把 schema 透传给 Fastify，同时可由 `getControllerRouteContracts()` 提取为 route contract，再用于 contract diagnostics 和 OpenAPI 文档生成。

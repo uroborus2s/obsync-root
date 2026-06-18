@@ -7,7 +7,8 @@
 如果你完全是新手，默认从这套最小组合开始：
 
 - `@stratix/core`
-- `@stratix/cli`
+- `@stratix/create`
+- `@stratix/forge`
 
 只有当业务真的需要时，再继续加其他插件。
 

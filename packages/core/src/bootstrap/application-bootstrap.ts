@@ -19,6 +19,7 @@ import {
   PluginLoadError,
   StratixError
 } from '../errors/index.js';
+import { createErrorEnvelope } from '../contracts/error-envelope.js';
 import { ApplicationDiscoveryPipeline } from '../discovery/application-pipeline.js';
 import type {
   ConfigOptions,
@@ -126,7 +127,7 @@ export class ApplicationBootstrap {
       'ApplicationBootstrap',
       logger
     );
-    this.safeExecute = ErrorUtils.createSafeExecutor(
+    this.safeExecute = ErrorUtils.createSafeRunner(
       'ApplicationBootstrap',
       logger
     );
@@ -791,7 +792,7 @@ export class ApplicationBootstrap {
    */
   private setupErrorHandling(fastify: FastifyInstance): void {
     // 全局错误处理器
-    fastify.setErrorHandler(async (error, _request, reply) => {
+    fastify.setErrorHandler(async (error, request, reply) => {
       const handledError = error as FastifyHandledError;
 
       // 如果响应已经发送，则记录错误但不尝试再次发送
@@ -822,14 +823,24 @@ export class ApplicationBootstrap {
         message = error.message;
         details = error.details;
       }
-      // 3. 处理 Fastify 验证错误
+      // 3. 处理 Fastify 请求验证错误
       else if (handledError.validation) {
         statusCode = 400;
         errorCode = 'VALIDATION_ERROR';
         message = 'Validation Error';
         details = handledError.validation;
       }
-      // 4. 处理 Fastify 自带的 HTTP 错误 (具有 statusCode 属性)
+      // 4. 处理 Fastify 响应序列化/响应校验错误
+      else if (this.isResponseValidationError(handledError)) {
+        statusCode = 500;
+        errorCode = 'RESPONSE_VALIDATION_ERROR';
+        message = 'Response Validation Error';
+        details = {
+          code: handledError.code,
+          message: handledError.message
+        };
+      }
+      // 5. 处理 Fastify 自带的 HTTP 错误 (具有 statusCode 属性)
       else if (handledError.statusCode) {
         statusCode = handledError.statusCode;
         errorCode = handledError.code || 'HTTP_ERROR';
@@ -843,32 +854,57 @@ export class ApplicationBootstrap {
         this.logger?.warn(`Handled error (${statusCode}): ${message}`);
       }
 
-      // 构造标准响应格式
-      const response = {
-        error: {
-          code: errorCode,
-          message: message,
-          statusCode,
-          details,
-          timestamp: new Date().toISOString()
-        }
-      };
+      const response = createErrorEnvelope({
+        code: errorCode,
+        message,
+        statusCode,
+        details,
+        path: request.url,
+        requestId: this.getRequestId(request)
+      });
 
       reply.status(statusCode).send(response);
     });
 
     // 404 处理器
     fastify.setNotFoundHandler(async (request, reply) => {
-      reply.status(404).send({
-        error: {
+      reply.status(404).send(
+        createErrorEnvelope({
           code: 'NOT_FOUND',
           message: 'Route not found',
           statusCode: 404,
           path: request.url,
-          timestamp: new Date().toISOString()
-        }
-      });
+          requestId: this.getRequestId(request)
+        })
+      );
     });
+  }
+
+  private getRequestId(request: unknown): string | undefined {
+    const candidate =
+      (request as any)?.requestId ??
+      (request as any)?.id;
+
+    return typeof candidate === 'string' ? candidate : undefined;
+  }
+
+  private isResponseValidationError(error: FastifyHandledError): boolean {
+    if ((error as any).serialization) {
+      return true;
+    }
+
+    if (
+      error.code === 'FST_ERR_FAILED_ERROR_SERIALIZATION' ||
+      error.code === 'FST_ERR_SCH_SERIALIZATION_BUILD'
+    ) {
+      return true;
+    }
+
+    return (
+      typeof error.message === 'string' &&
+      error.message.toLowerCase().includes('response') &&
+      error.message.toLowerCase().includes('schema')
+    );
   }
 
   /**

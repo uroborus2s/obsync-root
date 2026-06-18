@@ -1,18 +1,19 @@
 # Tech Stack Summary
 
-- Runtime: Node.js 22+
+- Runtime: Node.js 24+
 - Language: TypeScript
 - Workspace: pnpm + turbo
 - Backend core: Fastify + Awilix-based Stratix runtime
-- Testing: Vitest, Node test runner for CLI
+- Testing: Vitest, Node test runner for create/forge
 - Frontend app: React 19 + Vite 8 + TanStack Router
 - Release tooling: Changesets
 
 ## Stratix Version Anchors
 
-- `@stratix/cli@1.1.0`
+- `@stratix/create@1.1.0`
 - `@stratix/core@1.1.0`
 - `@stratix/database@1.1.0`
+- `@stratix/forge@1.1.0`
 
 ## Important Engineering Constraints
 

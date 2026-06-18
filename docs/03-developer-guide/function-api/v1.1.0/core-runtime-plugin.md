@@ -3,12 +3,12 @@
 版本切换：[函数 API 版本索引](../index.md) | [v1.1.0 概览](./index.md)  
 主题切换：[Core 总览](./core.md) | [Service API](./service.md) | [Functional 总览](./functional.md)
 
-这一页覆盖 `@stratix/core` 根出口里与应用启动、控制器、执行器、插件注册、AutoDI 直接相关的函数和类。
+这一页覆盖 `@stratix/core` 根出口里与应用启动、控制器、插件注册、AutoDI、路由契约和 DI 诊断直接相关的函数和类。
 
 <a id="page-summary"></a>
 ## 页面摘要
 
-- 这一页适合查运行时启动、控制器注册、执行器元数据和插件 AutoDI 相关 API。
+- 这一页适合查运行时启动、控制器注册、路由契约、DI 诊断和插件 AutoDI 相关 API。
 - 如果你正在写应用入口或插件主入口，通常会先看这里，再回到 `environment`、`data` 或 `service` 页面补细节。
 - 普通业务函数不应该长期停留在这里；业务逻辑请回到 [Service API](./service.md)。
 
@@ -17,7 +17,8 @@
 
 - [应用启动与生命周期](#runtime-lifecycle)
 - [控制器与路由装饰器](#controllers-routes)
-- [执行器装饰器与元数据函数](#executors)
+- [路由契约与 OpenAPI](#route-contracts)
+- [DI 诊断](#di-diagnostics)
 - [校验装饰器](#validation-decorators)
 - [插件 AutoDI 与注册函数](#plugin-autodi)
 - [注册与处理相关函数](#plugin-registration)
@@ -33,7 +34,7 @@
 | 作用 | 一步完成应用创建、启动和返回应用实例 |
 | 参数 | `options?: StratixRunOptions`，`extraStream?: any` |
 | 返回值 | `Promise<StratixApplication>` |
-| 典型场景 | CLI 生成项目入口、本地开发启动、接口注入测试 |
+| 典型场景 | create 生成项目入口、本地开发启动、接口注入测试 |
 
 ### `new Stratix(options?, extraStream?)`
 
@@ -91,26 +92,50 @@
 - 如果没写前导 `/`，会自动补上
 - 只能装饰方法，不能装饰普通属性
 
-<a id="executors"></a>
-## 执行器装饰器与元数据函数
-
-### `Executor(options?)`
-### `Executor(name, options?)`
-
-| 项 | 说明 |
-|---|---|
-| 作用 | 标记执行器类 |
-| 参数 | `name?: string`，`options?: ExecutorOptions` |
-| 返回值 | `ClassDecorator` |
-| 默认命名规则 | 如果不传 `name`，用类名去掉 `Executor` 后缀后转小写 |
-
-### 执行器辅助函数
+<a id="route-contracts"></a>
+## 路由契约与 OpenAPI
 
 | API | 参数 | 返回值 | 说明 |
 |---|---|---|---|
-| `getExecutorMetadata(target)` | 类或对象 | `ExecutorMetadata \| undefined` | 读取执行器元数据 |
-| `getExecutorName(target)` | 类或对象 | `string \| undefined` | 取执行器名 |
-| `isExecutor(target)` | 类或对象 | `boolean` | 判断是否标记为执行器 |
+| `getControllerRouteContracts(controllerClass)` | 控制器类 | `RouteContract[]` | 从路由装饰器读取 method、path、schema 和 handler 信息 |
+| `validateRouteContracts(contracts, options?)` | 路由契约数组 | `RouteContractDiagnostic[]` | 检查是否缺少 schema、response schema 或 operationId |
+| `generateOpenApiDocument(contracts, options)` | 路由契约数组、标题和版本 | `OpenApiDocument` | 生成 OpenAPI 3.1 文档对象 |
+
+这组 API 以方法装饰器上的 Fastify `schema` 为唯一契约来源。控制器示例：
+
+```ts
+@Get('/users/:id', {
+  schema: {
+    params: {
+      type: 'object',
+      required: ['id'],
+      properties: {
+        id: { type: 'string' }
+      }
+    },
+    response: {
+      200: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' }
+        }
+      }
+    }
+  }
+})
+async getUser() {}
+```
+
+<a id="di-diagnostics"></a>
+## DI 诊断
+
+| API | 参数 | 返回值 | 说明 |
+|---|---|---|---|
+| `recordDIRegistration(container, record)` | Awilix 容器、注册记录 | `void` | 记录应用 discovery 产生的 DI 元数据 |
+| `createDIGraph(container)` | Awilix 容器 | `DIGraph` | 生成 token 和依赖边组成的 DI 图 |
+| `diagnoseDIGraph(graph, options?)` | DI 图 | `DIDiagnostic[]` | 检查重复 token、缺失依赖和循环依赖 |
+| `runDIDiagnostics(container, options?)` | Awilix 容器 | `DIDiagnosticsResult` | 一次性生成图并返回诊断结果 |
+| `extractConstructorDependencies(target)` | class 或 function | `string[]` | 从构造函数参数名提取依赖 token |
 
 <a id="validation-decorators"></a>
 ## 校验装饰器
@@ -134,10 +159,10 @@
 
 | 项 | 说明 |
 |---|---|
-| 作用 | 为 Fastify 插件接入模块发现、路由注册、执行器注册、适配器注册 |
+| 作用 | 为 Fastify 插件接入模块发现、路由注册、服务注册、适配器注册 |
 | 参数 | `plugin: FastifyPluginAsync<T> \| FastifyPluginCallback<T>`，`config?: Partial<AutoDIConfig>` |
 | 返回值 | `FastifyPluginAsync<T>` |
-| 适合 | 应用插件、生态插件、CLI 生成插件模板 |
+| 适合 | 应用插件、生态插件、create 生成插件模板 |
 
 ### `processPluginParameters(options, config, debugEnabled?)`
 
@@ -189,8 +214,6 @@
 | `performAutoRegistration(pluginContext)` | 插件上下文 | `Promise<void>` | 自动注册插件内部对象 |
 | `registerControllerRoutes(...)` | Fastify、控制器信息、路由配置 | 注册结果 | 把控制器路由挂到 Fastify |
 | `registerServiceAdapters(pluginContext)` | 插件上下文 | `Promise<void>` | 注册适配器 |
-| `registerExecutorDomain(...)` | 执行器上下文 | 注册结果 | 注册执行器域 |
-| `processExecutorRegistration(...)` | 执行器处理配置 | 处理结果 | 处理执行器注册过程 |
 | `processModulesUnified(...)` | 模块处理配置 | 处理结果 | 统一处理多种模块 |
 | `processSingleModule(...)` | 单模块处理配置 | 处理结果 | 处理单个模块 |
 

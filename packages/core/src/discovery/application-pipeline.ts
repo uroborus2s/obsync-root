@@ -20,6 +20,7 @@ import {
   DiscoveryError,
   RegistrationError
 } from '../errors/index.js';
+import { recordDIRegistration } from '../diagnostics/index.js';
 import type {
   ApplicationDiscoveryConfig,
   ApplicationDiscoveryResult,
@@ -31,7 +32,7 @@ const DEFAULT_PATTERNS = [
   'controllers/**/*.{ts,js,mjs,cjs}',
   'services/**/*.{ts,js,mjs,cjs}',
   'repositories/**/*.{ts,js,mjs,cjs}',
-  'executors/**/*.{ts,js,mjs,cjs}'
+  'components/**/*.{ts,js,mjs,cjs}'
 ];
 
 const DEFAULT_EXCLUDE = [
@@ -204,18 +205,6 @@ export class ApplicationDiscoveryPipeline {
       };
     }
 
-    if (MetadataManager.isExecutor(value)) {
-      return {
-        name: module.name,
-        type: 'executor',
-        value,
-        diOptions: {
-          lifetime: 'SINGLETON',
-          injectionMode: 'CLASSIC'
-        }
-      };
-    }
-
     const componentMetadata = MetadataManager.getComponentMetadata(value);
     if (componentMetadata) {
       return this.fromComponentMetadata(module, value, componentMetadata);
@@ -263,6 +252,14 @@ export class ApplicationDiscoveryPipeline {
         });
       }
       container.register(token, resolver);
+      recordDIRegistration(container, {
+        token,
+        registrationType: 'class',
+        lifetime: component.diOptions?.lifetime,
+        injectionMode: component.diOptions?.injectionMode,
+        target: component.value,
+        source: component.name
+      });
     }
 
     let routes = 0;
@@ -272,14 +269,6 @@ export class ApplicationDiscoveryPipeline {
       component.routes?.length
     ) {
       routes = await this.registerRoutes(component, fastify, container, config);
-    }
-
-    if (component.type === 'executor' && container.hasRegistration('registerTaskExecutor')) {
-      const registerTaskExecutor = container.resolve('registerTaskExecutor') as (
-        name: string,
-        executor: unknown
-      ) => void;
-      registerTaskExecutor(component.name, container.resolve(tokens[0]));
     }
 
     return { tokens, routes };

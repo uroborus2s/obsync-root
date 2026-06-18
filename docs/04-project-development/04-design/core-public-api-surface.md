@@ -16,9 +16,11 @@
 |---|---|
 | 启动 | `Stratix`、`ApplicationBootstrap`、`BootstrapPhase` |
 | 应用发现 | `ApplicationDiscoveryPipeline`、`ApplicationDiscoveryConfig`、`ApplicationDiscoveryResult` |
-| 装饰器 | `Service`、`Repository`、`Component`、`Controller`、`Get`、`Post`、`Put`、`Delete`、`Patch`、`Executor` |
-| 元数据 | `MetadataManager`、`METADATA_KEYS`、控制器/路由/执行器/组件元数据类型 |
-| 插件级 AutoDI | `withRegisterAutoDI`、`performAutoRegistration`、`processModulesUnified` |
+| 装饰器 | `Service`、`Repository`、`Component`、`Controller`、`Get`、`Post`、`Put`、`Delete`、`Patch` |
+| 元数据 | `MetadataManager`、`METADATA_KEYS`、控制器/路由/组件元数据类型 |
+| 插件级 AutoDI | `withRegisterAutoDI`、`performAutoRegistration`、`processModulesUnified`、`diagnoseServiceAdapterTokens`、`ServiceAdapterDiagnostic` |
+| Contract-first | `getControllerRouteContracts`、`validateRouteContracts`、`generateOpenApiDocument` |
+| DI diagnostics | `createDIGraph`、`diagnoseDIGraph`、`runDIDiagnostics`、`recordDIRegistration` |
 | 错误 | `ConfigurationError`、`DiscoveryError`、`RegistrationError`、`PluginLoadError`、`StratixError` |
 
 ## 不导出的旧表面
@@ -29,8 +31,12 @@
 - `discoverAndProcessApplicationModules`
 - `ApplicationErrorHandler`
 - `safeExecute`
+- `Executor`
+- `EXECUTOR_METADATA_KEY`
+- `getExecutorMetadata`
+- `isExecutor`
 
-对应测试：`packages/core/src/__tests__/public-api-contract.test.ts`。
+新增插件 adapter token 诊断的正向导出同样由 `packages/core/src/__tests__/public-api-contract.test.ts` 锁定。
 
 ## 配置字段
 
@@ -46,4 +52,3 @@ interface StratixConfig {
 ```
 
 `StratixConfigSchema` 使用 `.strict()` 拒绝非契约字段。
-

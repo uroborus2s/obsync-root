@@ -1,0 +1,26 @@
+{
+  "id": "plugin-integration",
+  "kind": "plugin",
+  "type": "integration",
+  "version": "1.0.0",
+  "displayName": "Integration Plugin",
+  "description": "Plugin for integrating upstream services with adapters and services",
+  "runtime": "service",
+  "defaultPresets": ["redis", "testing"],
+  "contributes": {
+    "files": [
+      {
+        "source": "src/adapters/ClientAdapter.ts.tpl",
+        "destination": "src/adapters/ClientAdapter.ts"
+      },
+      {
+        "source": "src/services/AuthService.ts.tpl",
+        "destination": "src/services/AuthService.ts"
+      },
+      {
+        "source": "src/services/IntegrationService.ts.tpl",
+        "destination": "src/services/IntegrationService.ts"
+      }
+    ]
+  }
+}

@@ -18,7 +18,7 @@
     "pnpm": ">=10.33.0"
   },
   "currentStage": "ANALYSIS",
-  "recommendedNextStage": "Continue release-governance cleanup; TASK-003 supported build/test quality gate is green",
+  "recommendedNextStage": "Continue Phase 3 with advanced typed client options, testing fixtures, Plugin manifest, and Production manifest; create/forge split, module governance tooling, unified error envelope, strict response validation, and Phase 2 extended contract-first workflow are green",
   "sourceOfTruth": {
     "stableCollaboration": ["AGENTS.md", "GEMINI.md"],
     "humanDocs": "docs/",
@@ -27,10 +27,11 @@
   },
   "workspace": {
     "publicPackages": [
-      "@stratix/cli",
+      "@stratix/create",
       "@stratix/core",
       "@stratix/database",
       "@stratix/devtools",
+      "@stratix/forge",
       "@stratix/ossp",
       "@stratix/queue",
       "@stratix/redis",
@@ -42,16 +43,16 @@
     "previewSamples": ["examples/web-admin-preview"]
   },
   "qualityGate": {
-    "checkedAt": "2026-06-17",
+    "checkedAt": "2026-06-18",
     "status": "passed",
     "excludedPackages": ["@stratix/tasks"],
     "scores": {
-      "architecture": 96,
-      "implementation": 96,
-      "tests": 96,
-      "documentation": 96,
-      "releaseSurface": 96,
-      "qa": 96
+      "architecture": 98,
+      "implementation": 98,
+      "tests": 98,
+      "documentation": 98,
+      "releaseSurface": 97,
+      "qa": 98
     }
   },
   "releaseSurface": {
@@ -63,9 +64,10 @@
         "modifiedAt": "2026-01-07T12:57:22.097Z"
       },
       "notFound": [
-        "@stratix/cli",
+        "@stratix/create",
         "@stratix/database",
         "@stratix/devtools",
+        "@stratix/forge",
         "@stratix/ossp",
         "@stratix/queue",
         "@stratix/redis",
@@ -84,7 +86,7 @@
     "assessment": "Manifest versions, git tags, and npm registry are not aligned."
   },
   "verification": {
-    "checkedAt": "2026-06-17",
+    "checkedAt": "2026-06-18",
     "install": [
       {
         "command": "CI=true pnpm install --frozen-lockfile --ignore-scripts",
@@ -124,28 +126,39 @@
         "command": "pnpm build",
         "status": "passed",
         "summary": "delegates to build:supported",
-        "reason": "Supported build excludes deprecated @stratix/tasks and passes across 9 supported packages"
+        "reason": "Supported build excludes deprecated @stratix/tasks and passes across 10 supported packages after adding @stratix/create and renaming the local toolchain package to @stratix/forge"
       },
       {
         "command": "pnpm run build:supported",
         "status": "passed",
-        "summary": "9 successful / 9 supported packages",
+        "summary": "10 successful / 10 supported packages",
         "reason": "@stratix/tasks is explicitly excluded from the default quality gate"
       },
       {
         "command": "pnpm build:all",
         "status": "failed",
-        "summary": "9 successful / 10 total packages",
+        "summary": "expected to fail while @stratix/tasks remains deprecated/out of supported scope",
         "reason": "Deprecated @stratix/tasks still imports the removed DatabaseAPI and still calls the old BaseRepository constructor shape; tasks migration was intentionally out of scope"
       },
       {
         "command": "pnpm --filter @stratix/core build",
         "status": "passed",
-        "reason": "Core builds after the breaking application discovery refactor"
+        "reason": "Core builds after adding route contract/OpenAPI helpers, DI graph diagnostics, discovery DI metadata recording, plugin adapter token diagnostics, unified error envelope, and response schema failure normalization"
       },
       {
-        "command": "pnpm --filter @stratix/cli build",
-        "status": "passed"
+        "command": "pnpm --filter @stratix/create build",
+        "status": "passed",
+        "reason": "Create builds as the lightweight app/plugin creation entrypoint with zero runtime dependencies"
+      },
+      {
+        "command": "pnpm --filter @stratix/forge build",
+        "status": "passed",
+        "reason": "Forge builds from packages/forge after retaining project-local generate/doctor/di/graph/openapi/start/config workflows and removing the old init entry"
+      },
+      {
+        "command": "pnpm --filter @stratix/testing build",
+        "status": "passed",
+        "reason": "Testing builds after adding the runner-neutral contractTest DSL"
       },
       {
         "command": "pnpm --filter @stratix/database build",
@@ -168,19 +181,32 @@
       {
         "command": "pnpm run test:supported",
         "status": "passed",
-        "summary": "11 successful turbo tasks",
-        "reason": "Supported package test profile passes after adding smoke tests and aligning was-v7 tests"
+        "summary": "12 successful turbo tasks",
+        "reason": "Supported package test profile passes across 10 packages after adding @stratix/create and keeping @stratix/tasks excluded"
       },
       {
         "command": "pnpm --filter @stratix/core test",
         "status": "passed",
-        "summary": "26 files / 199 tests",
-        "reason": "Core package tests pass after replacing old discovery tests with new contract and bootstrap integration coverage"
+        "summary": "27 files / 188 tests",
+        "reason": "Core package tests pass with route contract/OpenAPI helpers, unified error envelope, response schema failure normalization, DI diagnostics, plugin adapter diagnostics, discovery schema validation, and DI graph coverage"
       },
       {
-        "command": "pnpm --filter @stratix/cli test",
+        "command": "pnpm --filter @stratix/create test",
         "status": "passed",
-        "summary": "21 tests"
+        "summary": "2 tests",
+        "reason": "Create tests cover app/plugin creation boundaries, @stratix/forge devDependency generation, and app/plugin template listing"
+      },
+      {
+        "command": "pnpm --filter @stratix/forge test",
+        "status": "passed",
+        "summary": "33 tests",
+        "reason": "Forge tests cover doctor di, di graph JSON/Mermaid output, module manifest/doctor/graph governance, OpenAPI generation, typed client generation, command help, and generated resource DI/schema checks"
+      },
+      {
+        "command": "pnpm --filter @stratix/testing test",
+        "status": "passed",
+        "summary": "2 files / 6 tests",
+        "reason": "Testing package covers smoke behavior, contractTest response status/schema validation, and shared error envelope schema validation"
       },
       {
         "command": "pnpm --filter @stratix/database exec vitest run",
@@ -204,8 +230,20 @@
       {
         "command": "uvx --from docs-stratego docs-stratego source validate --repo-path .",
         "status": "passed",
-        "summary": "82 pages / 0 contracts",
-        "reason": "Docs navigation validates after adding the core breaking-upgrade report, design, test plan, and release gate"
+        "summary": "84 pages / 0 contracts",
+        "reason": "Docs navigation validates after adding the core breaking-upgrade report, concept-model evolution plan, implementation plan, test plan, release gate, Phase 2 extended status, create/forge split, and developer-guide cleanup"
+      },
+      {
+        "command": "rg -n \"@Executor|EXECUTOR_METADATA_KEY|registerTaskExecutor|registerExecutorDomain|processExecutorRegistration|Executor\\\\b|executors/|plugin-executor|performApplicationAutoDI|applicationAutoDI|discoverAndProcessApplicationModules|generate executor|createSafeExecutor|executor\" docs/03-developer-guide -g '*.md'",
+        "status": "passed",
+        "summary": "no matches",
+        "reason": "Developer guides no longer teach removed executor APIs, generator paths, or old application discovery entry points"
+      },
+      {
+        "command": "git diff --check",
+        "status": "passed",
+        "summary": "no whitespace errors",
+        "reason": "Phase 2 extended and create/forge split code and documentation changes pass the whitespace gate"
       }
     ],
     "pack": [
@@ -213,13 +251,103 @@
         "command": "pnpm --filter @stratix/core pack --pack-destination /tmp",
         "status": "passed",
         "summary": "/tmp/stratix-core-1.1.0.tgz",
-        "reason": "Core package tarball can be produced after the breaking discovery refactor"
+        "reason": "Core package tarball can be produced after executor removal; tarball contains no executor paths"
+      },
+      {
+        "command": "pnpm --filter @stratix/forge pack --pack-destination /tmp",
+        "status": "passed",
+        "summary": "/tmp/stratix-forge-1.1.0.tgz",
+        "reason": "Forge package tarball contains project-local resource/preset templates and excludes app/plugin creation templates"
+      }
+    ],
+    "staticAnalysis": [
+      {
+        "command": "rg -n \"loadTemplateManifest\\('apps'|loadTemplateManifest\\('plugins'|listTemplateManifests\\('apps'|listTemplateManifests\\('plugins'|templates/apps|templates/plugins\" packages/forge/src packages/forge/package.json",
+        "status": "passed",
+        "summary": "no matches",
+        "reason": "Forge source and package manifest no longer depend on app/plugin creation templates"
+      },
+      {
+        "command": "rg -n \"Executor|executor|EXECUTOR|@Executor|registerTaskExecutor|registerExecutorDomain|TaskExecutor|executorModules|executorConfigs\" packages/core/src packages/forge/src packages/forge/templates packages/create/src packages/create/templates -g '!**/__tests__/**' -g '!**/*.test.ts' -g '!**/*.spec.ts'",
+        "status": "passed",
+        "summary": "no production matches",
+        "reason": "Core, create, and forge production source no longer expose executor concepts"
+      },
+      {
+        "command": "rg --files packages/core/src packages/core/dist packages/forge/templates packages/create/templates | rg -i 'executor'",
+        "status": "passed",
+        "summary": "no path matches",
+        "reason": "Executor source and generated-template paths were removed"
+      },
+      {
+        "command": "rg -n \"generateOpenApiDocument|from '@stratix/core'|from \\\"@stratix/core\\\"|@stratix/core\" packages/forge/src/commands/openapi packages/forge/tests/stubs/stratix-core.stub.ts packages/forge/package.json",
+        "status": "passed",
+        "summary": "no matches",
+        "reason": "OpenAPI forge command path and forge package manifest do not depend on @stratix/core"
+      },
+      {
+        "command": "rg -n \"node packages/cli|packages/cli/(dist|src|templates|tests|package.json)|packages/cli:\" .factory docs packages pnpm-lock.yaml package.json pnpm-workspace.yaml turbo.json -g '!project.json'",
+        "status": "passed",
+        "summary": "no matches",
+        "reason": "The physical @stratix/forge source path is packages/forge; no packages/cli compatibility path remains"
+      },
+      {
+        "command": "tar -tf /tmp/stratix-forge-1.1.0.tgz | rg 'templates/(apps|plugins)'",
+        "status": "passed",
+        "summary": "no matches",
+        "reason": "Packed @stratix/forge artifact does not ship create-owned app/plugin templates"
       }
     ],
     "runtime": [
       {
-        "command": "node packages/cli/dist/bin/stratix.js --help",
-        "status": "passed"
+        "command": "node packages/create/dist/bin/create-stratix.js --help",
+        "status": "passed",
+        "reason": "Built create entry exposes app/plugin creation help"
+      },
+      {
+        "command": "node packages/create/dist/bin/create-stratix.js list templates",
+        "status": "passed",
+        "reason": "Built create entry lists only app/plugin creation templates"
+      },
+      {
+        "command": "node packages/forge/dist/bin/stratix.js --help",
+        "status": "passed",
+        "reason": "Built forge entry exposes project-local lifecycle commands and no init command"
+      },
+      {
+        "command": "node packages/forge/dist/bin/stratix.js init",
+        "status": "passed_expected_failure",
+        "reason": "Forge rejects old init command with Unknown command: init and exits without an uncaught stack trace"
+      },
+      {
+        "command": "node packages/forge/dist/bin/stratix.js doctor di --help",
+        "status": "passed",
+        "reason": "Built forge exposes DI doctor subcommand help"
+      },
+      {
+        "command": "node packages/forge/dist/bin/stratix.js di graph --help",
+        "status": "passed",
+        "reason": "Built forge exposes DI graph command help"
+      },
+      {
+        "command": "node packages/forge/dist/bin/stratix.js doctor modules --help",
+        "status": "passed",
+        "reason": "Built forge exposes Module doctor subcommand help"
+      },
+      {
+        "command": "node packages/forge/dist/bin/stratix.js graph modules --help",
+        "status": "passed",
+        "reason": "Built forge exposes Module graph command help"
+      },
+      {
+        "command": "node packages/forge/dist/bin/stratix.js openapi generate --help",
+        "status": "passed",
+        "reason": "Built forge exposes OpenAPI generation help"
+      },
+      {
+        "command": "node packages/forge/dist/bin/stratix.js openapi client --help",
+        "status": "passed",
+        "reason": "Built forge exposes typed client generation help"
       },
       {
         "command": "pnpm preview --host 127.0.0.1 --port 4273",
@@ -235,7 +363,7 @@
       "Current-state evidence collected",
       "docs/ and .factory/ bootstrapped",
       "Stable collaboration rules separated from transient state",
-      "CLI preview sample moved out of workspace"
+      "Template preview sample moved out of workspace"
     ],
     "exitBlockedBy": ["BUG-002", "BUG-003", "BUG-004", "CR-001"]
   },

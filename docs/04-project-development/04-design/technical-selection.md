@@ -11,7 +11,7 @@
 
 - 技术栈：Node.js、TypeScript、pnpm、turbo、Fastify、Vitest、Vite、Changesets
 - 选型目标：维护 Stratix 源码 monorepo、公共生态包和私有管理端应用
-- 适用范围：框架源码、生态插件、CLI、前端管理端
+- 适用范围：框架源码、生态插件、create/forge 工具链、前端管理端
 
 ## 2. 必装/必选模块
 
@@ -25,10 +25,11 @@
 ## 3. Stratix 专项工程规则
 
 - 以本地真实版本为准：
-  - `@stratix/cli@1.1.0`
+  - `@stratix/create@1.1.0`
   - `@stratix/core@1.1.0`
   - `@stratix/database@1.1.0`
-- CLI 已从 core 中独立，工程化动作优先通过 `@stratix/cli`。
+  - `@stratix/forge@1.1.0`
+- 工具链已从 core 中独立：创建 app/plugin 优先通过 `@stratix/create`，项目内生成、诊断、OpenAPI、配置等工程化动作优先通过 `@stratix/forge`。
 - `@stratix/database@1.1.0` 采用 repository-first 模型，应用侧数据库访问优先 `BaseRepository`。
 - Stratix 应用与插件默认遵守 `controller -> service -> repository` 分层。
 - 服务层不直接越过 repository 访问数据库插件。
@@ -56,3 +57,4 @@
 | 日期 | 变更内容 | 变更人 |
 |---|---|---|
 | 2026-03-28 | 建立历史项目技术画像与工程规则 | Codex |
+| 2026-06-18 | 将技术选型中的工具链锚点从单一工具链更新为 `@stratix/create` + `@stratix/forge` | Codex |

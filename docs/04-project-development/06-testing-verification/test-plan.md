@@ -21,7 +21,7 @@
 | 安装验证 | 锁文件、依赖恢复、环境可重复性 | Dev | `pnpm install` 变体验证 |
 | 构建验证 | 根脚本与包级脚本一致性 | Dev | `pnpm build`, `pnpm build:all`, targeted builds |
 | 单元/集成测试 | 包级稳定性 | Dev / QA | `pnpm test`, targeted package tests |
-| 运行入口验证 | CLI 与前端启动可用性 | Dev | `stratix --help`, admin preview |
+| 运行入口验证 | create/forge 与前端启动可用性 | Dev | `create-stratix --help`, `stratix --help`, admin preview |
 
 ## 3. 测试入口与出口
 
@@ -41,13 +41,13 @@
 | 需求/风险 | 关键场景 | 验证方式 |
 |---|---|---|
 | `REQ-002` | 根 install/build/test 是否可信 | 仓级命令验证 |
-| `REQ-003` | CLI 与管理端入口是否真实可用 | targeted build/test/run |
+| `REQ-003` | create/forge 与管理端入口是否真实可用 | targeted build/test/run |
 | `NFR-001` | 结论是否可追溯到命令结果 | 写入 discovery 与 memory |
 | `RISK-004` | core 层是否阻塞整体验证 | `@stratix/core` build/test |
 
 ## 5. 测试环境与数据
 
-- 环境说明：Node.js 22.x、pnpm 10.x、本地 workspace
+- 环境说明：Node.js 24.x、pnpm 10.x、本地 workspace
 - 账号/权限：运行 preview 时需要本地端口监听权限
 - 测试数据：以仓库现有测试和 mock 数据为主
 

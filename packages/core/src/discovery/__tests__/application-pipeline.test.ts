@@ -1,11 +1,12 @@
 import 'reflect-metadata';
 import { asValue, createContainer } from 'awilix';
 import fastify from 'fastify';
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
+import { runDIDiagnostics } from '../../diagnostics/index.js';
 import { ApplicationDiscoveryPipeline } from '../application-pipeline.js';
 
 describe('ApplicationDiscoveryPipeline', () => {
@@ -60,7 +61,25 @@ describe('ApplicationDiscoveryPipeline', () => {
         "  health() { return { ok: true }; }",
         '}',
         'Controller()(HealthController);',
-        'Get("/health")(',
+        'Get("/health", {',
+        '  schema: {',
+        '    querystring: {',
+        "      type: 'object',",
+        "      required: ['page'],",
+        '      properties: {',
+        "        page: { type: 'integer' }",
+        '      }',
+        '    },',
+        '    response: {',
+        '      200: {',
+        "        type: 'object',",
+        '        properties: {',
+        "          ok: { type: 'boolean' }",
+        '        }',
+        '      }',
+        '    }',
+        '  }',
+        '})(',
         '  HealthController.prototype,',
         "  'health',",
         "  Object.getOwnPropertyDescriptor(HealthController.prototype, 'health')",
@@ -87,9 +106,88 @@ describe('ApplicationDiscoveryPipeline', () => {
     });
 
     await app.ready();
-    const response = await app.inject('/api/health');
+    const response = await app.inject('/api/health?page=1');
+    const invalidResponse = await app.inject('/api/health?page=bad');
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ ok: true });
+    expect(invalidResponse.statusCode).toBe(400);
+  });
+
+  it('records DI graph metadata for discovered components', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'stratix-di-graph-'));
+    await writeFile(
+      join(root, 'services.mjs'),
+      [
+        `import { Repository, Service } from '${coreImport}';`,
+        'class UserRepository {}',
+        'Repository()(UserRepository);',
+        'class UserService {',
+        '  constructor(userRepository, logger) {',
+        '    this.userRepository = userRepository;',
+        '    this.logger = logger;',
+        '  }',
+        '}',
+        'Service()(UserService);',
+        'export { UserRepository, UserService };'
+      ].join('\n')
+    );
+
+    const app = fastify();
+    createdApps.push(app);
+    const container = createContainer();
+    container.register('logger', asValue(app.log));
+
+    const pipeline = new ApplicationDiscoveryPipeline();
+    await pipeline.discoverAndRegister({
+      container,
+      fastify: app,
+      rootDir: root,
+      patterns: ['*.mjs']
+    });
+
+    const result = runDIDiagnostics(container);
+
+    expect(result.graph.nodes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          token: 'userService',
+          dependencies: ['userRepository', 'logger'],
+          registrationType: 'class'
+        })
+      ])
+    );
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  it('does not scan legacy executors directories by default', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'stratix-no-executors-'));
+    const executorsDir = join(root, 'executors');
+    await mkdir(executorsDir);
+    await writeFile(
+      join(executorsDir, 'legacy.mjs'),
+      [
+        `import { Service } from '${coreImport}';`,
+        'class LegacyExecutorNamedService {}',
+        'Service()(LegacyExecutorNamedService);',
+        'export { LegacyExecutorNamedService };'
+      ].join('\n')
+    );
+
+    const app = fastify();
+    createdApps.push(app);
+    const container = createContainer();
+    container.register('logger', asValue(app.log));
+
+    const pipeline = new ApplicationDiscoveryPipeline();
+    const result = await pipeline.discoverAndRegister({
+      container,
+      fastify: app,
+      rootDir: root
+    });
+
+    expect(result.scanned).toBe(0);
+    expect(result.registered).toEqual([]);
+    expect(container.hasRegistration('legacyExecutorNamedService')).toBe(false);
   });
 });

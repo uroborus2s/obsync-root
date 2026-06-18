@@ -12,15 +12,47 @@
 - Migrated transient top-level status out of `README.md`.
 - Created first batch of `BUG / CR / TASK` workitems.
 - Removed `apps/admin-dashboard` from the workspace.
-- Generated `examples/web-admin-preview` via `@stratix/cli` as a non-workspace preview sample.
+- Generated `examples/web-admin-preview` via the then-current local toolchain as a non-workspace preview sample.
 
 ## 2026-03-29
 
 - Upgraded root, workspace, preview-sample, template, and nested package manifests to the latest dependency baseline.
-- Standardized the repository on Node `24.14.1` / pnpm `10.33.0`, including `.nvmrc`, `engines`, and CLI template baselines.
+- Standardized the repository on Node `24.14.1` / pnpm `10.33.0`, including `.nvmrc`, `engines`, and toolchain template baselines.
 - Refreshed root and preview-sample lockfiles and verified frozen installs.
-- Restored `@stratix/cli` build compatibility by adding Node type coverage and TypeScript 6 deprecation handling in shared config.
+- Restored the then-current local toolchain build compatibility by adding Node type coverage and TypeScript 6 deprecation handling in shared config.
 - Verified `examples/web-admin-preview` build, test, and preview on the upgraded frontend stack.
 - Restored `@stratix/core` and the public workspace package graph to a green build state on the upgraded dependency stack.
 - Repaired the root `pnpm build` entry so it now maps to a stable build target.
 - Confirmed that the remaining root verification blocker has shifted from build to test-profile instability (`No test files found` plus unresolved package-suite failures).
+
+## 2026-06-18
+
+- Completed the breaking Core concept-model cleanup through Phase 2 extended workflow: executor removal, contract-first APIs, DI diagnostics, OpenAPI generation/client generation, and runner-neutral contract tests.
+- Split the former CLI surface into `@stratix/create` and `@stratix/forge`:
+  - `@stratix/create` owns app/plugin creation.
+  - `@stratix/forge` owns project-local generate/add/doctor/di/graph/openapi/start/config/list commands.
+  - Both packages keep empty runtime dependencies and do not depend on `@stratix/core`.
+- Renamed the physical project directory from `packages/cli` to `packages/forge` without keeping a compatibility directory.
+- Added `.stratix/project.json` `schemaVersion: 2` as the create/forge handoff contract.
+- Implemented Phase 3 Module governance tooling:
+  - `stratix generate module` writes `module.yaml` and standard module directories.
+  - `stratix doctor modules` validates module manifest, layer paths, boundary ownership, cross-module imports, and module cycles.
+  - `stratix graph modules` outputs JSON/Mermaid module -> token -> route -> dependency graphs.
+- Verified focused forge checks after Module governance work:
+  - `pnpm --filter @stratix/forge test`
+  - `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit`
+- Continued the Core contract-first work by adding the shared error envelope and strict response validation gate:
+  - `@stratix/core` exports `ERROR_ENVELOPE_SCHEMA` and `createErrorEnvelope()`.
+  - Bootstrap maps request validation, not-found, and response schema serialization failures to the same envelope.
+  - `@stratix/testing` `contractTest()` can validate error responses against the shared schema.
+- Verified focused checks:
+  - `pnpm --filter @stratix/core exec tsc -p tsconfig.json --noEmit`
+  - `CI=true pnpm --filter @stratix/core exec vitest run`
+  - `pnpm --filter @stratix/core build`
+  - `pnpm --filter @stratix/testing exec tsc -p tsconfig.json --noEmit`
+  - `pnpm --filter @stratix/testing test`
+  - `pnpm --filter @stratix/testing build`
+- Verified default supported gates:
+  - `pnpm run build:supported`
+  - `pnpm run test:supported`
+  - `uvx --from docs-stratego docs-stratego source validate --repo-path .`

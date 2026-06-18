@@ -28,16 +28,17 @@ export {
 
 // 适配器注册
 export {
+  diagnoseServiceAdapterTokens,
   registerServiceAdapters,
   type ServiceAdapter,
   type ServiceAdapterClass,
+  type ServiceAdapterDiagnostic,
   type ServiceConfig
 } from './adapter-registration.js';
 
 // 模块发现和分类
 export {
   discoverAndProcessModules,
-  type ExecutorConfig as ExecutorConfigNew,
   type LifecycleConfig,
   type ModuleClassificationResult,
   type ModuleInfo,
@@ -45,13 +46,6 @@ export {
   type ModuleProcessingResult as ModuleProcessingResultNew,
   type RouteConfig as RouteConfigNew
 } from './module-discovery.js';
-
-// 执行器注册
-export {
-  processExecutorRegistration,
-  registerExecutorDomain,
-  type ExecutorRegistrationResult
-} from './executor-registration.js';
 
 // 统一模块处理器
 export {

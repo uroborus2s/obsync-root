@@ -4,7 +4,7 @@
 
 ## 先看一个最小目录
 
-一个刚通过 `stratix init app api my-app` 创建出来的后端项目，核心结构通常长这样：
+一个刚通过 `create-stratix app api my-app` 创建出来的后端项目，核心结构通常长这样：
 
 ```text
 my-app/
@@ -19,7 +19,6 @@ my-app/
       HealthService.ts
     repositories/
       interfaces/
-    executors/
     types/
     index.ts
     stratix.config.ts
@@ -76,7 +75,7 @@ src/
 
 ### `.stratix/project.json`
 
-这是 CLI 识别项目类型和 preset 的元数据文件。`stratix generate`、`stratix add preset`、`stratix doctor` 都会依赖它。
+这是 forge 识别项目类型和 preset 的元数据文件。`stratix generate`、`stratix add preset`、`stratix doctor` 都会依赖它。
 
 你通常不需要手工修改这个文件，除非你非常明确知道自己在修什么元数据问题。
 
@@ -159,10 +158,6 @@ await Stratix.run();
 
 - 让你一眼看清 repository 对外承诺了什么方法
 - 让 service 不需要猜 repository 返回什么数据
-
-### `src/executors/`
-
-这个目录不再是新项目默认路径。`@stratix/tasks` 即将废弃，只有维护历史项目或单独迁移任务引擎时才需要关注 executor 目录。
 
 ### `src/types/`
 

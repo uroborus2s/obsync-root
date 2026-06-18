@@ -22,7 +22,7 @@
 ## 3. 范围
 
 - Stratix 核心与生态包
-- 非 workspace 的 CLI 预览样例 `examples/web-admin-preview`
+- 非 workspace 的模板预览样例 `examples/web-admin-preview`
 - 根级协作协议、文档、memory 和 workitems
 
 ## 4. 功能需求
@@ -41,7 +41,7 @@
 |---|---|
 | `NFR-001` | 所有阶段性结论必须能追溯到实际代码、配置、文档或命令结果。 |
 | `NFR-002` | 协作文档必须区分稳定规则与瞬时状态，不得混写。 |
-| `NFR-003` | 维护者需要在 Node.js 22+、pnpm 10+ 环境下完成主要验证动作。 |
+| `NFR-003` | 维护者需要在 Node.js 24+、pnpm 10+ 环境下完成主要验证动作。 |
 | `NFR-004` | 变更后必须同步代码、文档、测试和 `.factory/`。 |
 
 ## 6. 非目标

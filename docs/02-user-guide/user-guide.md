@@ -26,7 +26,7 @@
 ## 3. 当前最重要的事实
 
 - 仓库结构真实存在，且并非整体不可用。
-- CLI 和 `examples/web-admin-preview` 已有可验证入口。
+- create/forge 和 `examples/web-admin-preview` 已有可验证入口。
 - 根 build/test 与 core build/test 当前仍是主要阻塞。
 
 ## 4. 后续接手方式

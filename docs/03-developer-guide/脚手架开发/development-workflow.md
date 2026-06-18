@@ -82,10 +82,10 @@ pnpm test
 pnpm preview --host 127.0.0.1 --port 4273
 ```
 
-如果你验证的是 CLI 模板本身，而不是某个业务项目，还应该同时检查这三处是否一致：
+如果你验证的是 create 模板本身，而不是某个业务项目，还应该同时检查这三处是否一致：
 
-- `packages/cli/templates/apps/web-admin/manifest.json`
-- `packages/cli/templates/apps/web-admin/files/`
+- `packages/create/templates/apps/web-admin/manifest.json`
+- `packages/create/templates/apps/web-admin/files/`
 - `examples/web-admin-preview/`
 
 ## 8. 下一步建议

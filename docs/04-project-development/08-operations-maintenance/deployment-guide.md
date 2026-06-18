@@ -7,7 +7,7 @@
 **上游输入：** 当前状态分析 | 技术选型  
 **下游输出：** 运行验证 | 交接说明  
 **关联 ID：** `OPS-001`, `OPS-002`  
-**最后更新：** 2026-03-28  
+**最后更新：** 2026-06-18
 
 ## 1. 环境前提
 
@@ -17,10 +17,13 @@
 
 ## 2. 当前已验证入口
 
-- CLI：
-  - 先构建 `@stratix/cli`
-  - 再执行 `node packages/cli/dist/bin/stratix.js --help`
-- CLI 预览样例：
+- create：
+  - 先构建 `@stratix/create`
+  - 再执行 `node packages/create/dist/bin/create-stratix.js --help`
+- forge：
+  - 先构建 `@stratix/forge`
+  - 再执行 `node packages/forge/dist/bin/stratix.js --help`
+- 模板预览样例：
   - 在 `examples/web-admin-preview` 内执行 `pnpm install --ignore-workspace`
   - 再执行 `pnpm build`
   - 预览启动 `pnpm preview --host 127.0.0.1 --port 4273`
@@ -41,3 +44,4 @@
 | 日期 | 变更内容 | 变更人 |
 |---|---|---|
 | 2026-03-28 | 部署与运行说明初版 | Codex |
+| 2026-06-18 | 将运行入口拆分为 `@stratix/create` 与 `@stratix/forge`，不再以旧工具链包名描述 | Codex |

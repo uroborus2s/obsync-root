@@ -15,7 +15,7 @@
 
 - 你主要写的是 `controller`、`service`、`repository`
 - 你主要配置的是 `src/stratix.config.ts`
-- 你主要通过 CLI 创建和扩展项目
+- 你通过 create 创建项目，通过 forge 扩展和诊断项目
 
 ## 启动时到底发生了什么
 
@@ -27,10 +27,10 @@
 4. 创建根容器和 Fastify 实例
 5. 按顺序加载配置里的插件
 6. 扫描应用 `src` 下可发现的类
-7. 注册控制器、服务、执行器
+7. 注册控制器、服务、仓储和组件
 8. 启动 HTTP 服务或其他运行时
 
-这就是为什么你不应该跳过 CLI、乱放目录，或者随便修改配置导出形式。很多“莫名其妙发现不了类”的问题，本质上都是启动链路没接上。
+这就是为什么你不应该跳过 create/forge、乱放目录，或者随便修改配置导出形式。很多“莫名其妙发现不了类”的问题，本质上都是启动链路没接上。
 
 ## 分层规则
 
@@ -60,8 +60,8 @@ HTTP 请求
 Stratix 会自动扫描应用代码，但只有带 Stratix 元数据的类会接入容器，所以目录约定和装饰器都必须清晰。
 
 - 应用默认扫描 `src`。
-- `src/controllers`、`src/services`、`src/repositories`、`src/executors` 是推荐组织目录。
-- 只有 `@Controller()`、`@Service()`、`@Repository()`、`@Component()`、`@Executor()` 标记的 class 会被应用级 discovery 注册。
+- `src/controllers`、`src/services`、`src/repositories`、`src/components` 是推荐组织目录。
+- 只有 `@Controller()`、`@Service()`、`@Repository()`、`@Component()` 标记的 class 会被应用级 discovery 注册。
 - 普通工具类可以放在扫描范围内，但不要添加 Stratix 组件装饰器。
 
 对新手来说，最容易踩坑的点是：
@@ -149,17 +149,17 @@ export default function createConfig(
 
 如果你当前只是开发业务应用，这一段先知道即可，不用立刻掌握。
 
-## 执行器
+## 后台流程
 
-- `src/executors/` 不再是新项目默认路径。
-- `@stratix/tasks` 即将废弃，1.1.0 新项目不要继续新增 tasks 依赖。
+- 后台流程优先通过 service 编排、repository 持久化状态、queue 消费来表达。
+- `@stratix/tasks` 不再作为 1.1.0 新项目默认方案。
 - 长流程不要长时间持有数据库事务，应使用短事务 + checkpoint 的方式收口状态。
 
 ## 新手最应该死记住的 6 条规则
 
-1. 先用 CLI 建项目、生成资源，不要先手写目录。
+1. 先用 create 建项目、用 forge 生成资源，不要先手写目录。
 2. `src/index.ts` 负责启动，`src/stratix.config.ts` 负责配置。
 3. `@Controller()` 不带前缀，路由直接写在方法装饰器上。
 4. service 不直接碰数据库。
 5. repository 是唯一默认允许承接数据库访问的应用层。
-6. 不要把普通工具类随便塞进 `controllers/`、`services/`、`repositories/`、`executors/`。
+6. 不要把普通工具类随便塞进 `controllers/`、`services/`、`repositories/`、`components/`。

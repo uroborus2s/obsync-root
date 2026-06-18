@@ -1,0 +1,44 @@
+{
+  "id": "database",
+  "version": "1.0.0",
+  "displayName": "Database Preset",
+  "description": "Add @stratix/database and default database environment keys",
+  "appliesTo": [
+    { "kind": "app" },
+    { "kind": "plugin" }
+  ],
+  "contributes": {
+    "dependencies": {
+      "runtime": {
+        "@stratix/database": "^1.1.0"
+      }
+    },
+    "env": [
+      {
+        "key": "DB_HOST",
+        "default": "localhost",
+        "description": "Database host"
+      },
+      {
+        "key": "DB_PORT",
+        "default": "3306",
+        "description": "Database port"
+      },
+      {
+        "key": "DB_NAME",
+        "default": "app",
+        "description": "Database name"
+      },
+      {
+        "key": "DB_USERNAME",
+        "default": "root",
+        "description": "Database username"
+      },
+      {
+        "key": "DB_PASSWORD",
+        "default": "",
+        "description": "Database password"
+      }
+    ]
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "id": "plugin-data",
+  "kind": "plugin",
+  "type": "data",
+  "version": "1.0.0",
+  "displayName": "Data Plugin",
+  "description": "Plugin with adapters, repository layer, and services for data access",
+  "runtime": "service",
+  "defaultPresets": ["database", "testing"],
+  "contributes": {
+    "files": [
+      {
+        "source": "src/adapters/ApiAdapter.ts.tpl",
+        "destination": "src/adapters/ApiAdapter.ts"
+      },
+      {
+        "source": "src/repositories/DataRepository.ts.tpl",
+        "destination": "src/repositories/DataRepository.ts"
+      },
+      {
+        "source": "src/services/DataService.ts.tpl",
+        "destination": "src/services/DataService.ts"
+      }
+    ]
+  }
+}

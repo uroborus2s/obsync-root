@@ -80,7 +80,7 @@ const result = await app.inject({
 
 适合：
 
-- CLI 生成项目的入口文件
+- create 生成项目的入口文件
 - 本地开发和测试环境启动应用
 - 需要用 `inject()` 做接口级验证
 
@@ -133,7 +133,7 @@ const app = await bootstrap.bootstrap({ type: 'web' });
 ### `withRegisterAutoDI(plugin, config?)`
 
 插件开发最重要的入口。  
-它会自动扫描并注册插件目录下的控制器、服务、仓储、执行器和适配器。
+它会自动扫描并注册插件目录下的控制器、服务、仓储、组件和适配器。
 
 ```ts
 import { withRegisterAutoDI } from '@stratix/core';
@@ -148,7 +148,7 @@ export default withRegisterAutoDI(redisPlugin, {
       'controllers/*.{ts,js}',
       'services/*.{ts,js}',
       'repositories/*.{ts,js}',
-      'executors/*.{ts,js}'
+      'components/*.{ts,js}'
     ]
   },
   routing: {
@@ -190,7 +190,7 @@ export default withRegisterAutoDI(redisPlugin, {
 
 使用建议：
 
-- 插件项目尽量保持 CLI 模板默认目录结构。
+- 插件项目尽量保持 create 模板默认目录结构。
 - 控制器前缀放在 `routing.prefix`，不要放在 `@Controller()` 里。
 - 如果插件参数复杂，优先使用 `parameterProcessor` 和 `parameterValidator` 做统一入口处理。
 
@@ -246,44 +246,39 @@ class UserController {
 - `path` 必须是字符串。
 - 同一个控制器里重复声明相同 HTTP 方法和 path，会触发重复警告。
 
-### 执行器装饰器
+### 路由契约与 OpenAPI
 
-#### `@Executor(options?)`
-#### `@Executor(name, options?)`
-
-把类标记成执行器。
-
-```ts
-import { Executor } from '@stratix/core';
-
-@Executor('userCreator', {
-  description: '创建用户',
-  version: '1.1.0',
-  tags: ['user'],
-  category: 'business'
-})
-class UserCreatorExecutor {}
-```
-
-参数：
-
-| 参数 | 类型 | 说明 |
-|---|---|---|
-| `name` | `string` | 可选，执行器名称 |
-| `options` | `ExecutorOptions` | 描述、版本、标签、类别、配置 schema 等元数据 |
-
-配套 API：
+路由方法装饰器上的 `schema` 是当前 API 契约的唯一来源。Core 提供契约提取、校验和 OpenAPI 生成能力：
 
 | API | 作用 |
 |---|---|
-| `getExecutorMetadata(target)` | 获取执行器元数据 |
-| `getExecutorName(target)` | 获取执行器名称 |
-| `isExecutor(target)` | 判断目标是否是执行器 |
+| `getControllerRouteContracts(controllerClass)` | 从控制器类提取路由契约 |
+| `validateRouteContracts(contracts, options?)` | 检查是否缺少 schema、response schema 或 operationId |
+| `generateOpenApiDocument(contracts, options)` | 生成 OpenAPI 3.1 文档对象 |
 
-行为说明：
+```ts
+const contracts = getControllerRouteContracts(UserController);
+const diagnostics = validateRouteContracts(contracts, {
+  requireSchema: true,
+  requireResponseSchema: true
+});
+const document = generateOpenApiDocument(contracts, {
+  title: 'User API',
+  version: '1.0.0'
+});
+```
 
-- 不传 `name` 时，默认取类名去掉 `Executor` 后缀后转小写。
-- 执行器会在 AutoDI 扫描执行器目录时自动参与注册。
+### DI 诊断
+
+应用级 discovery 会记录 DI 注册元数据。Core 提供图谱和诊断函数，用于发现重复 token、缺失依赖和循环依赖：
+
+| API | 作用 |
+|---|---|
+| `recordDIRegistration(container, record)` | 记录 DI 注册元数据 |
+| `createDIGraph(container)` | 生成 DI 图 |
+| `diagnoseDIGraph(graph, options?)` | 诊断 DI 图 |
+| `runDIDiagnostics(container, options?)` | 一次性生成图并返回诊断结果 |
+| `extractConstructorDependencies(target)` | 从构造函数参数名提取依赖 token |
 
 ### 校验装饰器
 
@@ -629,7 +624,7 @@ const taskId = await queue.add(
 | `safeExecute(fn, options)` | 失败时返回默认值 |
 | `safeExecuteSync(fn, options)` | 同步版本安全执行 |
 | `createErrorWrapper(context, logger?)` | 创建预绑定上下文的包装器 |
-| `createSafeExecutor(component, logger?, defaultLogLevel?)` | 创建预绑定组件名的安全执行器 |
+| `createSafeRunner(component, logger?, defaultLogLevel?)` | 创建预绑定组件名的安全运行函数 |
 | `formatForLogging(error, context?)` | 生成结构化日志对象 |
 
 #### `withErrorHandling(fn, context, logger?)`
@@ -673,7 +668,6 @@ const taskId = await queue.add(
 - `Patch`
 - `Head`
 - `Options`
-- `Executor`
 - `Required`
 - `IsString`
 - `IsNumber`
@@ -681,11 +675,15 @@ const taskId = await queue.add(
 - `METADATA_KEYS`
 - `ROUTE_METADATA_KEY`
 - `CONTROLLER_METADATA_KEY`
-- `EXECUTOR_METADATA_KEY`
 - `MetadataManager`
-- `getExecutorMetadata`
-- `getExecutorName`
-- `isExecutor`
+- `getControllerRouteContracts`
+- `validateRouteContracts`
+- `generateOpenApiDocument`
+- `recordDIRegistration`
+- `createDIGraph`
+- `diagnoseDIGraph`
+- `runDIDiagnostics`
+- `extractConstructorDependencies`
 - `withRegisterAutoDI`
 - `ConventionBasedLifecycleManager`
 - `FASTIFY_LIFECYCLE_METHODS`
@@ -693,8 +691,6 @@ const taskId = await queue.add(
 - `performAutoRegistration`
 - `registerControllerRoutes`
 - `registerServiceAdapters`
-- `registerExecutorDomain`
-- `processExecutorRegistration`
 - `processModulesUnified`
 - `processSingleModule`
 - `processPluginParameters`

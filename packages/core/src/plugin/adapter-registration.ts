@@ -47,6 +47,13 @@ export interface ServiceConfig {
   baseDir?: string;
 }
 
+export interface ServiceAdapterDiagnostic {
+  code: 'ADAPTER_DUPLICATE_NAME' | 'ADAPTER_TOKEN_CONFLICT';
+  adapterName: string;
+  token: string;
+  message: string;
+}
+
 /**
  * 从类名提取适配器名称
  * 例如：UserAdapter -> userAdapter, DatabaseAPIAdapter -> databaseAPIAdapter
@@ -107,6 +114,42 @@ export function buildServiceAdapterToken(
   }
 
   return `${pluginName}${capitalizeIdentifier(adapterName)}`;
+}
+
+export function diagnoseServiceAdapterTokens(
+  pluginName: string | undefined,
+  adapters: ServiceAdapter[],
+  existingTokens: Iterable<string> = []
+): ServiceAdapterDiagnostic[] {
+  const diagnostics: ServiceAdapterDiagnostic[] = [];
+  const seenAdapterNames = new Set<string>();
+  const rootTokens = new Set(existingTokens);
+
+  for (const adapter of adapters) {
+    const token = buildServiceAdapterToken(pluginName, adapter.adapterName);
+
+    if (seenAdapterNames.has(adapter.adapterName)) {
+      diagnostics.push({
+        code: 'ADAPTER_DUPLICATE_NAME',
+        adapterName: adapter.adapterName,
+        token,
+        message: `Duplicate service adapter name: ${adapter.adapterName}`
+      });
+    } else {
+      seenAdapterNames.add(adapter.adapterName);
+    }
+
+    if (rootTokens.has(token)) {
+      diagnostics.push({
+        code: 'ADAPTER_TOKEN_CONFLICT',
+        adapterName: adapter.adapterName,
+        token,
+        message: `Service adapter token already exists in root container: ${token}`
+      });
+    }
+  }
+
+  return diagnostics;
 }
 
 /**
@@ -404,6 +447,12 @@ async function registerSingleServiceAdapter<T>(
       adapterName
     );
 
+    if (namespacedAdapterName in rootContainer.registrations) {
+      throw new Error(
+        `Service adapter token already exists in root container: ${namespacedAdapterName}`
+      );
+    }
+
     // 创建适配器工厂函数，传入插件内部容器
     const adapterFactory = () => factory(internalContainer);
 
@@ -481,6 +530,18 @@ export async function registerServiceAdapters<T>(
     }
 
     // 去重处理（基于适配器名称）
+    const diagnostics = diagnoseServiceAdapterTokens(
+      pluginContext.pluginName,
+      discoveredAdapters,
+      Object.keys(pluginContext.rootContainer.registrations)
+    );
+    for (const diagnostic of diagnostics) {
+      if (debugEnabled) {
+        const logger = getLogger();
+        logger.error(`❌ ${diagnostic.message}`);
+      }
+    }
+
     const uniqueAdapters = new Map<string, ServiceAdapter>();
     for (const adapter of discoveredAdapters) {
       if (uniqueAdapters.has(adapter.adapterName)) {

@@ -4,7 +4,7 @@
 
 ## 1. 你会得到什么
 
-`web-admin` 是 `@stratix/cli` 提供的后台管理前端脚手架。它不是一个“空白 React 项目”，而是一个已经带好后台常见骨架的起点，包括：
+`web-admin` 是 `@stratix/create` 提供的后台管理前端脚手架。它不是一个“空白 React 项目”，而是一个已经带好后台常见骨架的起点，包括：
 
 - 登录页
 - 管理后台主布局
@@ -14,21 +14,21 @@
 
 模板清单位于：
 
-- `packages/cli/templates/apps/web-admin/manifest.json`
+- `packages/create/templates/apps/web-admin/manifest.json`
 
 模板源码位于：
 
-- `packages/cli/templates/apps/web-admin/files/`
+- `packages/create/templates/apps/web-admin/files/`
 
 ## 2. 当前推荐的使用方式
 
-当前这套文档默认你在本仓库里工作，并使用仓库内本地 CLI。
+当前这套文档默认你在本仓库里工作，并使用仓库内本地 create。
 
 原因很简单：
 
 - 本地模板源码是真实来源
 - 仓库里已有可运行参考样例
-- 当前 npm 发布面还没有稳定到可以把“远程安装 CLI”当成文档主路径
+- 当前 npm 发布面还没有稳定到可以把“远程安装 create”当成文档主路径
 
 ## 3. 前置条件
 
@@ -40,10 +40,10 @@
 
 ## 4. 生成一个新应用
 
-先构建 CLI：
+先构建 create：
 
 ```bash
-pnpm --filter @stratix/cli build
+pnpm --filter @stratix/create build
 ```
 
 然后在仓库里生成一个新样例：
@@ -51,7 +51,7 @@ pnpm --filter @stratix/cli build
 ```bash
 mkdir -p examples
 cd examples
-node ../packages/cli/dist/bin/stratix.js init app web-admin my-admin --no-install
+node ../packages/create/dist/bin/create-stratix.js app web-admin my-admin --no-install
 cd my-admin
 ```
 

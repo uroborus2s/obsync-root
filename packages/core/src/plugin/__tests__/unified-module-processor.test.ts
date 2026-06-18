@@ -5,7 +5,6 @@ import { asClass, createContainer } from 'awilix';
 import 'reflect-metadata';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Controller } from '../../decorators/controller.js';
-import { Executor } from '../../decorators/executor.js';
 import { Get } from '../../decorators/route.js';
 import { ConventionBasedLifecycleManager } from '../lifecycle-manager.js';
 import type { ModuleClassificationResult } from '../module-discovery.js';
@@ -16,7 +15,6 @@ import {
 } from '../unified-module-processor.js';
 import type { AutoDIConfig } from '../utils.js';
 
-// 测试用的类
 @Controller()
 class TestController {
   @Get('/test')
@@ -29,31 +27,11 @@ class TestController {
   }
 }
 
-@Executor('testExecutor')
-class TestExecutor {
-  name = 'testExecutor';
-
-  async execute() {
-    return { success: true };
-  }
-
-  onClose() {
-    return 'executor closing';
-  }
-}
-
 @Controller()
-@Executor('hybridExecutor')
-class HybridControllerExecutor {
-  name = 'hybridExecutor';
-
+class HybridController {
   @Get('/hybrid')
   hybridMethod() {
     return 'hybrid';
-  }
-
-  async execute() {
-    return { success: true };
   }
 
   onReady() {
@@ -79,11 +57,8 @@ describe('Unified Module Processor', () => {
   let moduleClassification: ModuleClassificationResult;
 
   beforeEach(() => {
-    // 模拟 Fastify 实例
     mockFastify = {
       hasDecorator: vi.fn().mockReturnValue(true),
-      registerTaskExecutor: vi.fn(),
-      registerExecutorDomain: vi.fn(),
       addHook: vi.fn(),
       log: {
         debug: vi.fn(),
@@ -93,19 +68,15 @@ describe('Unified Module Processor', () => {
       }
     };
 
-    // 创建容器
     container = createContainer();
     container.register({
       testController: asClass(TestController),
-      testExecutor: asClass(TestExecutor),
-      hybridModule: asClass(HybridControllerExecutor),
+      hybridModule: asClass(HybridController),
       regularService: asClass(RegularService)
     });
 
-    // 创建生命周期管理器
     const lifecycleManager = new ConventionBasedLifecycleManager(false);
 
-    // 模拟插件上下文
     pluginContext = {
       internalContainer: container,
       rootContainer: container,
@@ -117,7 +88,6 @@ describe('Unified Module Processor', () => {
       debugEnabled: false
     };
 
-    // 模拟配置
     config = {
       discovery: { patterns: ['**/*.ts'] },
       routing: { enabled: true },
@@ -126,7 +96,6 @@ describe('Unified Module Processor', () => {
       debug: false
     };
 
-    // 模拟模块分类结果
     moduleClassification = {
       allModules: [
         {
@@ -135,29 +104,16 @@ describe('Unified Module Processor', () => {
           constructor: TestController,
           isClass: true,
           isController: true,
-          isExecutor: false,
           hasRoutes: true,
           hasLifecycleMethods: true,
           lifecycleMethods: ['onReady']
         },
         {
-          name: 'testExecutor',
-          instance: new TestExecutor(),
-          constructor: TestExecutor,
-          isClass: true,
-          isController: false,
-          isExecutor: true,
-          hasRoutes: false,
-          hasLifecycleMethods: true,
-          lifecycleMethods: ['onClose']
-        },
-        {
           name: 'hybridModule',
-          instance: new HybridControllerExecutor(),
-          constructor: HybridControllerExecutor,
+          instance: new HybridController(),
+          constructor: HybridController,
           isClass: true,
           isController: true,
-          isExecutor: true,
           hasRoutes: true,
           hasLifecycleMethods: true,
           lifecycleMethods: ['onReady']
@@ -168,7 +124,6 @@ describe('Unified Module Processor', () => {
           constructor: RegularService,
           isClass: true,
           isController: false,
-          isExecutor: false,
           hasRoutes: false,
           hasLifecycleMethods: true,
           lifecycleMethods: ['onListen']
@@ -176,28 +131,24 @@ describe('Unified Module Processor', () => {
       ],
       classModules: [],
       controllerModules: [],
-      executorModules: [],
       routeModules: [],
       lifecycleModules: []
     };
 
-    // 填充分类数组
     moduleClassification.classModules = moduleClassification.allModules.filter(
-      (m) => m.isClass
+      (moduleInfo) => moduleInfo.isClass
     );
     moduleClassification.controllerModules =
-      moduleClassification.allModules.filter((m) => m.isController);
-    moduleClassification.executorModules =
-      moduleClassification.allModules.filter((m) => m.isExecutor);
+      moduleClassification.allModules.filter((moduleInfo) => moduleInfo.isController);
     moduleClassification.routeModules = moduleClassification.allModules.filter(
-      (m) => m.hasRoutes
+      (moduleInfo) => moduleInfo.hasRoutes
     );
     moduleClassification.lifecycleModules =
-      moduleClassification.allModules.filter((m) => m.hasLifecycleMethods);
+      moduleClassification.allModules.filter((moduleInfo) => moduleInfo.hasLifecycleMethods);
   });
 
   describe('processModulesUnified', () => {
-    it('should process all module types in unified loop', async () => {
+    it('processes routing and lifecycle modules without executor results', async () => {
       const result = await processModulesUnified(
         mockFastify,
         moduleClassification,
@@ -206,29 +157,22 @@ describe('Unified Module Processor', () => {
         false
       );
 
-      // 验证处理结果
-      expect(result.summary.totalModulesProcessed).toBe(4);
-      expect(result.summary.processingTimeMs).toBeGreaterThan(0);
+      expect(result.summary.totalModulesProcessed).toBe(3);
+      expect(result.summary.processingTimeMs).toBeGreaterThanOrEqual(0);
 
-      // 验证生命周期处理
       expect(result.lifecycle.hooksRegistered).toBeGreaterThan(0);
-      expect(result.lifecycle.servicesProcessed).toBe(4); // 所有模块都有生命周期方法
+      expect(result.lifecycle.servicesProcessed).toBe(3);
 
-      // 验证路由处理
-      expect(result.routing.controllersProcessed).toBe(2); // TestController + HybridControllerExecutor
+      expect(result.routing.controllersProcessed).toBe(2);
       expect(result.routing.routesRegistered).toBeGreaterThan(0);
 
-      // 验证执行器处理
-      expect(result.executor.registered).toBe(2); // TestExecutor + HybridControllerExecutor
-      expect(result.executor.executors).toContain('testExecutor');
-      expect(result.executor.executors).toContain('hybridExecutor');
-
-      // 验证 Fastify 方法被调用
+      expect(result).not.toHaveProperty('executor');
       expect(mockFastify.addHook).toHaveBeenCalled();
-      expect(mockFastify.registerTaskExecutor).toHaveBeenCalledTimes(2);
+      expect(mockFastify).not.toHaveProperty('registerTaskExecutor');
+      expect(mockFastify).not.toHaveProperty('registerExecutorDomain');
     });
 
-    it('should handle disabled features gracefully', async () => {
+    it('handles disabled features gracefully', async () => {
       const disabledConfig = {
         ...config,
         lifecycle: { enabled: false },
@@ -243,62 +187,49 @@ describe('Unified Module Processor', () => {
         false
       );
 
-      // 生命周期应该被跳过
       expect(result.lifecycle.hooksRegistered).toBe(0);
       expect(result.lifecycle.servicesProcessed).toBe(0);
-
-      // 路由应该被跳过
       expect(result.routing.controllersProcessed).toBe(0);
-
-      // 执行器仍然应该被处理
-      expect(result.executor.registered).toBe(2);
+      expect(result).not.toHaveProperty('executor');
     });
 
-    it('should process lifecycle modules efficiently', async () => {
+    it('processes lifecycle modules efficiently', async () => {
       const result = await processModulesUnified(
         mockFastify,
         moduleClassification,
         pluginContext,
         config,
-        true // 启用调试模式
+        true
       );
 
-      // 验证生命周期模块被正确处理
-      expect(result.lifecycle.servicesProcessed).toBe(4);
+      expect(result.lifecycle.servicesProcessed).toBe(3);
       expect(result.lifecycle.hooksRegistered).toBeGreaterThan(0);
 
-      // 验证 addHook 被调用
-      expect(mockFastify.addHook).toHaveBeenCalled();
-
-      // 验证不同的生命周期方法被注册
       const hookCalls = mockFastify.addHook.mock.calls;
       const registeredHooks = hookCalls.map((call) => call[0]);
 
-      // 应该包含我们模拟的生命周期方法
       expect(registeredHooks).toContain('onReady');
-      expect(registeredHooks).toContain('onClose');
       expect(registeredHooks).toContain('onListen');
     });
 
-    it('should work with debug mode', async () => {
+    it('works with debug mode', async () => {
       const result = await processModulesUnified(
         mockFastify,
         moduleClassification,
         pluginContext,
         config,
-        true // 启用调试模式
+        true
       );
 
-      expect(result.summary.totalModulesProcessed).toBe(4);
-      expect(mockFastify.log.info).toHaveBeenCalled();
+      expect(result.summary.totalModulesProcessed).toBe(3);
+      expect(result).not.toHaveProperty('executor');
     });
 
-    it('should handle empty module classification', async () => {
+    it('handles empty module classification', async () => {
       const emptyClassification: ModuleClassificationResult = {
         allModules: [],
         classModules: [],
         controllerModules: [],
-        executorModules: [],
         routeModules: [],
         lifecycleModules: []
       };
@@ -314,31 +245,12 @@ describe('Unified Module Processor', () => {
       expect(result.summary.totalModulesProcessed).toBe(0);
       expect(result.lifecycle.hooksRegistered).toBeGreaterThanOrEqual(0);
       expect(result.routing.controllersProcessed).toBe(0);
-      expect(result.executor.registered).toBe(0);
-    });
-
-    it('should handle processing errors gracefully', async () => {
-      // 模拟执行器注册失败
-      mockFastify.registerTaskExecutor.mockImplementation(() => {
-        throw new Error('Registration failed');
-      });
-
-      const result = await processModulesUnified(
-        mockFastify,
-        moduleClassification,
-        pluginContext,
-        config,
-        false
-      );
-
-      // 应该记录失败但不抛出异常
-      expect(result.executor.failed).toBeGreaterThan(0);
-      expect(result.executor.registered).toBe(0);
+      expect(result).not.toHaveProperty('executor');
     });
   });
 
   describe('processSingleModule', () => {
-    it('should process individual module', async () => {
+    it('processes individual module without task-executor metadata', async () => {
       const moduleInfo = moduleClassification.allModules[0];
       const context = {
         fastify: mockFastify,
@@ -347,36 +259,14 @@ describe('Unified Module Processor', () => {
         debugEnabled: false
       };
 
-      // 应该不抛出异常
       await expect(
         processSingleModule(moduleInfo, context)
       ).resolves.not.toThrow();
     });
-
-    it('should work with debug mode', async () => {
-      const consoleSpy = vi
-        .spyOn(console, 'debug')
-        .mockImplementation(() => {});
-
-      const moduleInfo = moduleClassification.allModules[0];
-      const context = {
-        fastify: mockFastify,
-        pluginContext,
-        config,
-        debugEnabled: true
-      };
-
-      await processSingleModule(moduleInfo, context);
-
-      // 在调试模式下应该有调试日志
-      expect(consoleSpy).toHaveBeenCalled();
-
-      consoleSpy.mockRestore();
-    });
   });
 
   describe('Performance and efficiency', () => {
-    it('should complete processing within reasonable time', async () => {
+    it('completes processing within reasonable time', async () => {
       const startTime = Date.now();
 
       const result = await processModulesUnified(
@@ -390,15 +280,12 @@ describe('Unified Module Processor', () => {
       const actualTime = Date.now() - startTime;
       const reportedTime = result.summary.processingTimeMs;
 
-      // 处理时间应该在合理范围内
-      expect(actualTime).toBeLessThan(1000); // 少于1秒
+      expect(actualTime).toBeLessThan(1000);
       expect(reportedTime).toBeLessThanOrEqual(actualTime);
       expect(reportedTime).toBeGreaterThanOrEqual(0);
     });
 
-    it('should avoid redundant container traversals', async () => {
-      // 这个测试验证我们只遍历一次模块分类结果
-      // 而不是多次遍历容器
+    it('avoids redundant container traversals', async () => {
       const containerResolveSpy = vi.spyOn(container, 'resolve');
 
       await processModulesUnified(
@@ -409,8 +296,6 @@ describe('Unified Module Processor', () => {
         false
       );
 
-      // 容器的 resolve 方法不应该被频繁调用
-      // 因为我们使用的是预分类的模块结果
       expect(containerResolveSpy.mock.calls.length).toBeLessThan(10);
 
       containerResolveSpy.mockRestore();

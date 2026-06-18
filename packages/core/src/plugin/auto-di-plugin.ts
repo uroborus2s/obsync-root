@@ -42,7 +42,7 @@ const DEFAULT_AUTO_DI_CONFIG: AutoDIConfig = {
       'controllers/*.{ts,js}',
       'services/*.{ts,js}',
       'repositories/*.{ts,js}',
-      'executors/*.{ts,js}'
+      'components/*.{ts,js}'
     ]
   },
   routing: {
@@ -171,7 +171,6 @@ export function withRegisterAutoDI<
           {
             ...moduleProcessingResult.statistics,
             routeConfigs: moduleProcessingResult.routeConfigs.length,
-            executorConfigs: moduleProcessingResult.executorConfigs.length,
             lifecycleConfigs: moduleProcessingResult.lifecycleConfigs.length,
             errors: moduleProcessingResult.errors.length
           }
@@ -200,13 +199,6 @@ export function withRegisterAutoDI<
             controllers: processingResult.routing.controllersProcessed,
             routes: processingResult.routing.routesRegistered,
             note: 'Routes registered immediately during discovery'
-          },
-          executors: {
-            registered: processingResult.executor.registered,
-            skipped: processingResult.executor.skipped,
-            failed: processingResult.executor.failed,
-            names: processingResult.executor.executors,
-            note: 'Executors registered immediately during discovery'
           },
           performance:
             'Optimized with immediate registration - no batch processing delays'
@@ -316,12 +308,6 @@ async function registerProcessedModules<T>(
 ): Promise<{
   lifecycle: { hooksRegistered: number; servicesProcessed: number };
   routing: { controllersProcessed: number; routesRegistered: number };
-  executor: {
-    registered: number;
-    skipped: number;
-    failed: number;
-    executors: string[];
-  };
   summary: { totalModulesProcessed: number; processingTimeMs: number };
 }> {
   const startTime = Date.now();
@@ -329,12 +315,6 @@ async function registerProcessedModules<T>(
   const result = {
     lifecycle: { hooksRegistered: 0, servicesProcessed: 0 },
     routing: { controllersProcessed: 0, routesRegistered: 0 },
-    executor: {
-      registered: 0,
-      skipped: 0,
-      failed: 0,
-      executors: [] as string[]
-    },
     summary: { totalModulesProcessed: 0, processingTimeMs: 0 }
   };
 
@@ -342,7 +322,6 @@ async function registerProcessedModules<T>(
     const logger = getLogger();
     logger.info('🚀 Starting direct registration of processed modules...', {
       routeConfigs: moduleProcessingResult.routeConfigs.length,
-      executorConfigs: moduleProcessingResult.executorConfigs.length,
       lifecycleConfigs: moduleProcessingResult.lifecycleConfigs.length
     });
   }
@@ -392,26 +371,6 @@ async function registerProcessedModules<T>(
     }
   }
 
-  // 3. 执行器统计（执行器已在发现阶段立即注册）
-  if (moduleProcessingResult.executorConfigs.length > 0) {
-    // 统计执行器注册结果
-    result.executor = {
-      registered: moduleProcessingResult.executorConfigs.length,
-      skipped: 0,
-      failed: 0,
-      executors: moduleProcessingResult.executorConfigs.map(
-        (config) => config.name
-      )
-    };
-
-    if (debugEnabled) {
-      const logger = getLogger();
-      logger.info(
-        `✅ Executors already registered during discovery: ${result.executor.registered} executors`
-      );
-    }
-  }
-
   const processingTime = Date.now() - startTime;
   result.summary.totalModulesProcessed =
     moduleProcessingResult.statistics.totalModules;
@@ -423,11 +382,7 @@ async function registerProcessedModules<T>(
       processingTimeMs: processingTime,
       lifecycle: result.lifecycle,
       routing: result.routing,
-      executor: {
-        registered: result.executor.registered,
-        failed: result.executor.failed
-      },
-      note: 'Routes and executors were registered immediately during discovery phase'
+      note: 'Routes were registered immediately during discovery phase'
     });
   }
 

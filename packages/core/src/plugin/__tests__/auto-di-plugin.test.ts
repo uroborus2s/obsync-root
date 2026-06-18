@@ -1,4 +1,4 @@
-import { asValue, createContainer } from 'awilix';
+import { createContainer } from 'awilix';
 import fastify, { type FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { withRegisterAutoDI } from '../auto-di-plugin.js';
@@ -29,7 +29,6 @@ describe('withRegisterAutoDI', () => {
 
   it('runs the wrapped plugin with a scoped AutoDI container', async () => {
     const rootContainer = createContainer();
-    rootContainer.register('registerTaskExecutor', asValue(vi.fn()));
     app.decorate('diContainer', rootContainer);
 
     const wrappedPlugin = withRegisterAutoDI(

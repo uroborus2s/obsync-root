@@ -1,7 +1,7 @@
 # Core 契约测试计划
 
 - 文档编号：`TEST-CORE-CONTRACT-20260617`
-- 范围：`packages/core`
+- 范围：`packages/core`、`packages/testing`
 
 ## 测试策略
 
@@ -10,8 +10,11 @@
 | 层级 | 代表测试 | 验证内容 |
 |---|---|---|
 | 装饰器单元 | `component.test.ts`、`route.test.ts` | 元数据写入、读取、继承隔离 |
-| discovery 管道 | `application-pipeline.test.ts` | 扫描、显式组件注册、路由前缀 |
-| 启动集成 | `application-discovery-bootstrap.test.ts` | `Stratix.run()` 到 DI、请求 scope、路由响应 |
+| route contract | `route-contract.test.ts`、`error-envelope.test.ts` | route schema 提取、contract diagnostics、OpenAPI 文档生成、统一错误 envelope schema/factory |
+| testing contract DSL | `contract-test.test.ts` | 基于 route contract 验证 app.inject 响应状态、response schema 和错误 envelope schema |
+| DI diagnostics | `di-diagnostics.test.ts` | DI graph、缺失依赖、重复 token、循环依赖 |
+| discovery 管道 | `application-pipeline.test.ts` | 扫描、显式组件注册、路由前缀、Fastify schema validation、DI metadata recording |
+| 启动集成 | `application-discovery-bootstrap.test.ts` | `Stratix.run()` 到 DI、请求 scope、路由响应和 response schema failure envelope |
 | 公共 API | `public-api-contract.test.ts` | 新导出存在，旧根导出不存在 |
 
 ## 必跑命令
@@ -19,8 +22,11 @@
 | 命令 | 当前结果 |
 |---|---|
 | `pnpm --filter @stratix/core exec tsc -p tsconfig.json --noEmit` | 通过 |
-| `CI=true pnpm --filter @stratix/core exec vitest run` | 通过，25 files / 196 tests |
+| `CI=true pnpm --filter @stratix/core exec vitest run` | 通过，27 files / 188 tests |
 | `pnpm --filter @stratix/core run build` | 通过 |
+| `pnpm --filter @stratix/testing exec tsc -p tsconfig.json --noEmit` | 通过 |
+| `pnpm --filter @stratix/testing test` | 通过，2 files / 6 tests |
+| `pnpm --filter @stratix/testing build` | 通过 |
 
 ## 覆盖重点
 
@@ -31,6 +37,11 @@
 | `RISK-CORE-003` | 请求作用域 token 不可注入 | 启动集成测试必须从 controller 读取 `requestId` |
 | `RISK-CORE-004` | 配置字段漂移 | 配置验证测试必须拒绝非契约字段 |
 | `RISK-CORE-005` | 插件失败丢失上下文 | 插件加载测试必须断言 `PluginLoadError` 和 `pluginName` |
+| `RISK-CORE-006` | route schema 只保存但不进入 Fastify | discovery 集成测试必须验证非法 query 返回 400 |
+| `RISK-CORE-007` | OpenAPI 从非契约源反推导致信息丢失 | OpenAPI 纯函数测试必须从 route contracts 生成 paths |
+| `RISK-CORE-008` | DI doctor 无法解释缺失/重复/循环 | DI diagnostics 测试必须覆盖 duplicate、missing、cycle |
+| `RISK-CORE-009` | contract tests 与 runtime route contract 脱节 | `@stratix/testing` `contractTest()` 必须复用 core route contract 与 diagnostics |
+| `RISK-CORE-010` | 错误响应与契约文档脱节 | core 必须导出共享错误 envelope schema/factory，bootstrap 和 `contractTest()` 必须复用 |
 
 ## 准入门槛
 
@@ -40,5 +51,6 @@
 pnpm --filter @stratix/core exec tsc -p tsconfig.json --noEmit
 CI=true pnpm --filter @stratix/core exec vitest run
 pnpm --filter @stratix/core run build
+pnpm --filter @stratix/testing exec tsc -p tsconfig.json --noEmit
+pnpm --filter @stratix/testing test
 ```
-

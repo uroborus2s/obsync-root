@@ -1,0 +1,22 @@
+{
+  "id": "app-service",
+  "kind": "app",
+  "type": "service",
+  "version": "1.0.0",
+  "displayName": "Service Application",
+  "description": "Long-running non-web Stratix service",
+  "runtime": "service",
+  "defaultPresets": ["database", "redis", "testing"],
+  "contributes": {
+    "files": [
+      {
+        "source": "src/services/AppService.ts.tpl",
+        "destination": "src/services/AppService.ts"
+      },
+      {
+        "source": "src/types/service.ts.tpl",
+        "destination": "src/types/service.ts"
+      }
+    ]
+  }
+}

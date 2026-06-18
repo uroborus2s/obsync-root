@@ -15,7 +15,7 @@
 ## 第 1 步：初始化插件项目
 
 ```bash
-stratix init plugin integration @acme/ping-plugin --pm pnpm
+create-stratix plugin integration @acme/ping-plugin --pm pnpm
 cd ping-plugin
 ```
 
@@ -35,18 +35,11 @@ stratix generate plugin-service ping
 stratix generate plugin-controller ping
 ```
 
-如果你还想让这个插件暴露一个执行器，再加：
-
-```bash
-stratix generate plugin-executor ping
-```
-
 执行后你至少会得到：
 
 - `src/adapters/PingAdapter.ts`
 - `src/services/PingService.ts`
 - `src/controllers/PingController.ts`
-- `src/executors/PingExecutor.ts`（如果你执行了上面的命令）
 
 ## 第 3 步：先定义插件配置
 
@@ -137,37 +130,7 @@ export default class PingController {
 
 到这里，你已经有了一个可以通过 HTTP 暴露出去的插件能力。
 
-## 第 7 步：实现可选 executor
-
-如果你已经生成了 `plugin-executor`，可以把 `src/executors/PingExecutor.ts` 改成这样：
-
-```ts
-import { Executor } from '@stratix/core';
-import type PingService from '../services/PingService.js';
-
-@Executor({
-  name: 'ping',
-  description: 'Simple ping executor exposed by ping plugin'
-})
-export default class PingExecutor {
-  constructor(private readonly pingService: PingService) {}
-
-  async execute(payload: { input?: string } = {}): Promise<{
-    success: boolean;
-    data: { ok: boolean; message: string };
-  }> {
-    const data = await this.pingService.run(payload.input || 'executor');
-    return {
-      success: true,
-      data
-    };
-  }
-}
-```
-
-如果你不是在维护历史任务引擎迁移，这一步可以跳过。`@stratix/tasks` 即将废弃，新插件不要为了预留能力而新增 tasks 依赖。
-
-## 第 8 步：确认插件入口没有挡住自动发现
+## 第 7 步：确认插件入口没有挡住自动发现
 
 检查 `src/index.ts`，确认它仍然保留这些目录扫描配置：
 
@@ -177,8 +140,7 @@ export default withRegisterAutoDI<IntegrationPluginOptions>(pingPlugin, {
     patterns: [
       'controllers/*.{ts,js}',
       'services/*.{ts,js}',
-      'repositories/*.{ts,js}',
-      'executors/*.{ts,js}'
+      'repositories/*.{ts,js}'
     ]
   },
   services: {
@@ -190,12 +152,12 @@ export default withRegisterAutoDI<IntegrationPluginOptions>(pingPlugin, {
 
 这段配置的意义是：
 
-- controller / service / repository / executor 走 `discovery`
+- controller / service / repository 走 `discovery`
 - adapter 走 `services`
 
 如果这些目录没被扫描到，类就不会被自动注册，你会看到“路由不存在”或“依赖注入失败”。
 
-## 第 9 步：构建插件
+## 第 8 步：构建插件
 
 ```bash
 pnpm build
@@ -212,7 +174,7 @@ pnpm test
 - TypeScript 类型已经打通
 - 插件入口、controller、service、adapter 至少在静态层面能协同
 
-## 第 10 步：把插件接进一个应用
+## 第 9 步：把插件接进一个应用
 
 在应用项目里安装并注册它：
 
@@ -237,7 +199,7 @@ export default function createConfig(): StratixConfig {
 }
 ```
 
-## 第 11 步：做最小验证
+## 第 10 步：做最小验证
 
 启动应用后，先验证路由：
 
@@ -257,9 +219,9 @@ curl http://127.0.0.1:3000/plugins/pings
 }
 ```
 
-如果你还接了 executor，再验证执行链路是否被发现。
+如果你还接了 queue 或其他后台能力，再验证对应消费入口是否由应用启动流程明确注册。
 
-## 第 12 步：什么时候算你真的“做完了一个插件”
+## 第 11 步：什么时候算你真的“做完了一个插件”
 
 下面这些条件都满足时，才算真正完成：
 
@@ -267,7 +229,7 @@ curl http://127.0.0.1:3000/plugins/pings
 - 插件入口通过 `withRegisterAutoDI` 正常注册
 - adapter / service / controller 至少有一条可运行链路
 - 应用里能把插件注册进 `plugins`
-- HTTP 或 executor 至少有一条真实可验证入口
+- HTTP 或 service 至少有一条真实可验证入口
 
 ## 新手最常见的失败点
 

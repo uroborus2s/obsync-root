@@ -22,7 +22,7 @@ export interface ComponentMetadata {
   /** The name of the component */
   name: string;
   /** The type of the component */
-  type: 'controller' | 'service' | 'repository' | 'component' | 'executor' | 'unknown';
+  type: 'controller' | 'service' | 'repository' | 'component' | 'unknown';
   /** The class constructor or function */
   value: any;
   /** Dependency injection options */

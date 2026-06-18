@@ -7,6 +7,8 @@ export * from './types/index.js';
 
 // Bootstrap 功能
 export * from './bootstrap/index.js';
+export * from './contracts/index.js';
+export * from './diagnostics/index.js';
 
 // 高级功能模块 - 装饰器
 export {
@@ -15,8 +17,6 @@ export {
   // 装饰器
   Controller,
   Delete,
-  EXECUTOR_METADATA_KEY,
-  Executor,
   Get,
   Head,
   IsEmail,
@@ -33,9 +33,6 @@ export {
   ROUTE_METADATA_KEY,
   Required,
   Service,
-  getExecutorMetadata,
-  getExecutorName,
-  isExecutor,
   type ComponentInjectionMode,
   type ComponentLifetime,
   type ComponentMetadata,
@@ -43,8 +40,6 @@ export {
   type ComponentType,
   type ControllerMetadata,
   type ControllerOptions,
-  type ExecutorMetadata,
-  type ExecutorOptions,
   type ParamValidationMetadata,
   type PropertyValidationMetadata, // 类型导出
   type RouteMetadata,
@@ -57,21 +52,19 @@ export {
   ConventionBasedLifecycleManager,
   FASTIFY_LIFECYCLE_METHODS,
   // 模块发现和分类
+  diagnoseServiceAdapterTokens,
   ensureAwilixPlugin,
   getCallerFilePath,
   getPluginName,
   isAsyncPlugin,
   // 服务发现和注册
   performAutoRegistration,
-  // 执行器注册
-  processExecutorRegistration,
   // 统一模块处理器
   processModulesUnified,
   processPluginParameters,
   processSingleModule,
   // 控制器注册
   registerControllerRoutes,
-  registerExecutorDomain,
   // 适配器注册
   registerServiceAdapters,
   resolveBasePath,
@@ -79,7 +72,6 @@ export {
   withRegisterAutoDI,
   // 工具函数和类型
   type AutoDIConfig,
-  type ExecutorRegistrationResult,
   type FastifyLifecycleMethod,
   type LifecycleMethodResult,
   type LifecyclePhaseResult,
@@ -90,6 +82,7 @@ export {
   type RouteConfig,
   type ServiceAdapter,
   type ServiceAdapterClass,
+  type ServiceAdapterDiagnostic,
   type ServiceConfig
 } from './plugin/index.js';
 

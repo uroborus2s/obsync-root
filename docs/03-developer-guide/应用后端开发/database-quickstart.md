@@ -186,7 +186,7 @@ STRATIX_SENSITIVE_CONFIG="..."
 
 ## 第 5 步：先准备一张最小可用的 `users` 表
 
-因为 CLI 默认生成的是 MySQL 数据库配置，这里先给一个 MySQL 版本的最小 SQL：
+因为当前 create 模板默认生成的是 MySQL 数据库配置，这里先给一个 MySQL 版本的最小 SQL：
 
 ```sql
 CREATE TABLE users (

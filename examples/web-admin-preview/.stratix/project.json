@@ -1,10 +1,82 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "kind": "app",
   "type": "web-admin",
   "runtime": "web",
   "templateId": "app:web-admin",
   "templateVersion": "1.0.0",
+  "template": {
+    "allowedPresets": [
+      "admin-mock",
+      "testing"
+    ],
+    "managedFilesMode": "project-only",
+    "contribution": {
+      "directories": [
+        "src"
+      ],
+      "files": [
+        {
+          "source": ".gitignore.tpl",
+          "destination": ".gitignore"
+        },
+        {
+          "source": "eslint.config.mjs.tpl",
+          "destination": "eslint.config.mjs"
+        },
+        {
+          "source": "package.json.tpl",
+          "destination": "package.json"
+        },
+        {
+          "source": "components.json.tpl",
+          "destination": "components.json"
+        },
+        {
+          "source": "index.html.tpl",
+          "destination": "index.html"
+        },
+        {
+          "source": "vite.config.ts.tpl",
+          "destination": "vite.config.ts"
+        },
+        {
+          "source": "vitest.config.ts.tpl",
+          "destination": "vitest.config.ts"
+        },
+        {
+          "source": "tsconfig.json.tpl",
+          "destination": "tsconfig.json"
+        },
+        {
+          "source": "tsconfig.app.json.tpl",
+          "destination": "tsconfig.app.json"
+        },
+        {
+          "source": "tsconfig.node.json.tpl",
+          "destination": "tsconfig.node.json"
+        },
+        {
+          "source": "src",
+          "destination": "src",
+          "directory": true
+        }
+      ],
+      "dependencies": {
+        "runtime": {},
+        "dev": {}
+      },
+      "scripts": {},
+      "env": [],
+      "policies": {
+        "layering": [],
+        "forbidServiceDatabasePlugin": false,
+        "forbidControllerDatabaseAccess": false,
+        "controllerDecoratorPrefix": false,
+        "pluginTokenFromFunctionName": false
+      }
+    }
+  },
   "packageManager": "pnpm",
   "presets": [],
   "policies": {

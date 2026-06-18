@@ -1,0 +1,39 @@
+{
+  "id": "redis",
+  "version": "1.0.0",
+  "displayName": "Redis Preset",
+  "description": "Add @stratix/redis and default Redis environment keys",
+  "appliesTo": [
+    { "kind": "app" },
+    { "kind": "plugin" }
+  ],
+  "contributes": {
+    "dependencies": {
+      "runtime": {
+        "@stratix/redis": "^1.0.0-beta.2"
+      }
+    },
+    "env": [
+      {
+        "key": "REDIS_HOST",
+        "default": "localhost",
+        "description": "Redis host"
+      },
+      {
+        "key": "REDIS_PORT",
+        "default": "6379",
+        "description": "Redis port"
+      },
+      {
+        "key": "REDIS_PASSWORD",
+        "default": "",
+        "description": "Redis password"
+      },
+      {
+        "key": "REDIS_DB",
+        "default": "0",
+        "description": "Redis database index"
+      }
+    ]
+  }
+}

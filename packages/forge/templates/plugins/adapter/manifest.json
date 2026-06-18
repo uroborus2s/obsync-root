@@ -1,0 +1,18 @@
+{
+  "id": "plugin-adapter",
+  "kind": "plugin",
+  "type": "adapter",
+  "version": "1.0.0",
+  "displayName": "Adapter Plugin",
+  "description": "Plugin focused on exposing adapter capabilities",
+  "runtime": "service",
+  "defaultPresets": ["testing"],
+  "contributes": {
+    "files": [
+      {
+        "source": "src/adapters/ClientAdapter.ts.tpl",
+        "destination": "src/adapters/ClientAdapter.ts"
+      }
+    ]
+  }
+}

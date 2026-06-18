@@ -1,0 +1,22 @@
+{
+  "id": "app-api",
+  "kind": "app",
+  "type": "api",
+  "version": "1.0.0",
+  "displayName": "API Application",
+  "description": "HTTP API application with controller-service-repository layering",
+  "runtime": "web",
+  "defaultPresets": ["testing"],
+  "contributes": {
+    "files": [
+      {
+        "source": "src/controllers/HealthController.ts.tpl",
+        "destination": "src/controllers/HealthController.ts"
+      },
+      {
+        "source": "src/services/HealthService.ts.tpl",
+        "destination": "src/services/HealthService.ts"
+      }
+    ]
+  }
+}

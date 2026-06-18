@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { afterEach, describe, expect, it } from 'vitest';
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -77,6 +77,102 @@ describe('application discovery bootstrap integration', () => {
       service: 'stratix',
       requestScoped: true
     });
+  });
+
+  it('returns the unified envelope when a route response violates its schema', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'stratix-bootstrap-response-validation-'));
+    await writeFile(
+      join(root, 'module.mjs'),
+      [
+        `import { Controller, Get } from '${coreImport}';`,
+        'class BrokenController {',
+        '  broken() {',
+        '    return {};',
+        '  }',
+        '}',
+        'Controller()(BrokenController);',
+        'Get("/broken", {',
+        '  schema: {',
+        '    response: {',
+        '      200: {',
+        "        type: 'object',",
+        "        required: ['ok'],",
+        '        properties: {',
+        "          ok: { type: 'boolean' }",
+        '        }',
+        '      }',
+        '    }',
+        '  }',
+        '})(',
+        '  BrokenController.prototype,',
+        "  'broken',",
+        "  Object.getOwnPropertyDescriptor(BrokenController.prototype, 'broken')",
+        ');',
+        'export { BrokenController };'
+      ].join('\n')
+    );
+
+    const app = await Stratix.run({
+      type: 'cli',
+      gracefulShutdown: false,
+      config: {
+        server: {},
+        plugins: [],
+        autoLoad: {},
+        discovery: {
+          enabled: true,
+          rootDir: root,
+          patterns: ['*.mjs'],
+          routing: {
+            enabled: true,
+            prefix: '/api'
+          }
+        }
+      }
+    });
+    apps.push(app);
+
+    const response = await app.inject({ method: 'GET', url: '/api/broken' });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json().error).toMatchObject({
+      code: 'RESPONSE_VALIDATION_ERROR',
+      message: 'Response Validation Error',
+      statusCode: 500,
+      path: '/api/broken'
+    });
+  });
+
+  it('does not scan legacy executors directories during default bootstrap discovery', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'stratix-bootstrap-no-executors-'));
+    const executorsDir = join(root, 'executors');
+    await mkdir(executorsDir);
+    await writeFile(
+      join(executorsDir, 'legacy.mjs'),
+      [
+        `import { Service } from '${coreImport}';`,
+        'class LegacyExecutorNamedService {}',
+        'Service()(LegacyExecutorNamedService);',
+        'export { LegacyExecutorNamedService };'
+      ].join('\n')
+    );
+
+    const app = await Stratix.run({
+      type: 'cli',
+      gracefulShutdown: false,
+      config: {
+        server: {},
+        plugins: [],
+        autoLoad: {},
+        discovery: {
+          enabled: true,
+          rootDir: root
+        }
+      }
+    });
+    apps.push(app);
+
+    expect(app.diContainer.hasRegistration('legacyExecutorNamedService')).toBe(false);
   });
 
   it('throws typed plugin load errors with cause and plugin name', async () => {

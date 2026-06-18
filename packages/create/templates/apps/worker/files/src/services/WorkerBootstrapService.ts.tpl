@@ -1,0 +1,10 @@
+import { Service, type Logger } from '@stratix/core';
+
+@Service()
+export default class WorkerBootstrapService {
+  constructor(private readonly logger: Logger) {}
+
+  async warmup(): Promise<void> {
+    this.logger.info('Worker bootstrap completed.');
+  }
+}

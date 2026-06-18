@@ -2,16 +2,18 @@
 
 ## 适用版本
 
-- `@stratix/cli@1.1.0`
+- `@stratix/create@1.1.0`
 - `@stratix/core@1.1.0`
 - `@stratix/database@1.1.0`
+- `@stratix/forge@1.1.0`
 
 ## 先知道你要做什么
 
 如果你是第一次接触 Stratix，可以把它理解成一套“已经帮你约定好分层和启动方式”的 Node.js 后端框架组合：
 
 - `@stratix/core` 负责应用启动、自动发现、依赖注入和控制器路由
-- `@stratix/cli` 负责建项目、生成骨架、补 preset、做健康检查
+- `@stratix/create` 负责创建应用和插件项目
+- `@stratix/forge` 负责项目内生成骨架、补 preset、做健康检查和生成 OpenAPI
 - `@stratix/database`、`@stratix/redis`、`@stratix/queue`、`@stratix/ossp`、`@stratix/was-v7` 等生态插件负责基础设施能力
 - `@stratix/tasks` 即将废弃，新项目不要把它作为默认基础设施引入
 
@@ -21,23 +23,23 @@
 2. 把项目跑起来
 3. 看懂生成出来的目录和文件
 
-## 第 1 步：确认 CLI 可用
+## 第 1 步：确认 create 可用
 
-后端应用开发优先使用 CLI，而不是手工创建目录和样板。至少先确认下面两个命令能执行：
+后端应用创建优先使用 create，而不是手工创建目录和样板。至少先确认下面两个命令能执行：
 
 ```bash
-stratix list templates
-stratix list presets
+create-stratix --help
+create-stratix list templates
 ```
 
-如果你已经装好了 `@stratix/cli`，上面的命令会列出可用模板和预设。后续文档默认你可以直接使用 `stratix` 命令。
+如果你已经装好了 `@stratix/create`，上面的命令会列出可用创建模板。项目生成并安装依赖后，后续文档默认你可以直接使用 `stratix` 命令；这个命令来自目标项目的 `@stratix/forge` devDependency。
 
 ## 第 2 步：初始化一个 API 项目
 
 创建一个最简单的后端 API 项目：
 
 ```bash
-stratix init app api my-app
+create-stratix app api my-app
 cd my-app
 pnpm install
 ```

@@ -13,7 +13,7 @@
 ## 页面摘要
 
 - 这一页覆盖日志、加密配置、错误处理和文件扫描等偏基础设施的 API。
-- 如果你在写应用入口、配置工具、诊断脚本或 CLI，通常会比业务模块更频繁地用到这里的能力。
+- 如果你在写应用入口、配置工具、诊断脚本或命令行工具，通常会比业务模块更频繁地用到这里的能力。
 - `@stratix/core/utils` 只是聚合出口；真正按职责理解时，应优先按 logger、crypto、error、scanner 这些主题来查。
 
 <a id="page-nav"></a>
@@ -192,7 +192,7 @@
 | `safeExecute(fn, options)` | 异步安全执行，失败回默认值 |
 | `safeExecuteSync(fn, options)` | 同步安全执行 |
 | `createErrorWrapper(context, logger?)` | 生成预绑定上下文的包装器 |
-| `createSafeExecutor(component, logger?, defaultLogLevel?)` | 生成预绑定组件名的安全执行器 |
+| `createSafeRunner(component, logger?, defaultLogLevel?)` | 生成预绑定组件名的安全运行函数 |
 | `isError(value)` | 判断是否 `Error` |
 | `isErrorOfType(error, errorClass)` | 判断指定错误类型 |
 | `extractErrorCode(error)` | 提取错误码 |

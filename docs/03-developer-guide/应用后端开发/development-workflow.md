@@ -7,7 +7,7 @@
 对大多数业务需求，推荐按下面的顺序工作：
 
 1. 先明确这次改动属于哪个业务资源
-2. 能用 CLI 生成的骨架，先生成
+2. 能用 create/forge 生成的骨架，先生成
 3. 先补 repository，再补 service，再补 controller
 4. 本地跑 `stratix doctor`
 5. 本地跑 `pnpm build`
@@ -15,17 +15,18 @@
 
 如果你总是不知道从哪里下手，这就是默认顺序。
 
-## 常用 CLI 命令怎么用
+## 常用工具命令怎么用
 
 ### 初始化项目
 
 ```bash
-stratix init app api my-app
+create-stratix app api my-app
 ```
 
 ### 查看模板和预设
 
 ```bash
+create-stratix list templates
 stratix list templates
 stratix list presets
 ```
@@ -57,7 +58,7 @@ stratix generate business-repository order
 
 适合做复杂耐久化业务单元，不适合拿来替代普通 CRUD。
 
-### 新增模块目录骨架
+### 新增模块目录和治理清单
 
 ```bash
 stratix generate module billing
@@ -65,12 +66,15 @@ stratix generate module billing
 
 适合你想按模块拆目录，而不是所有 controller / service / repository 全堆在根目录时使用。
 
-但要注意一个现实限制：当前 CLI 的 `module` 生成器只会给你一个起始骨架，后续新增的 `business-repository`、`executor` 等文件不会自动落到现有模块目录里。怎么从单表 CRUD 平稳演进到模块化结构，建议直接看 [`from-crud-to-modules.md`](./from-crud-to-modules.md)。
+生成结果会包含 `module.yaml`，可以继续用 `stratix doctor modules` 做模块边界诊断，用 `stratix graph modules --format mermaid` 输出模块图。
+
+但要注意一个现实限制：当前 forge 的 `module` 生成器负责创建新模块，不会把后续新增的 `business-repository` 自动落到现有模块目录里。怎么从单表 CRUD 平稳演进到模块化结构，建议直接看 [`from-crud-to-modules.md`](./from-crud-to-modules.md)。
 
 ### 健康检查
 
 ```bash
 stratix doctor
+stratix doctor modules
 ```
 
 这是每次做完结构调整后都值得跑一遍的命令。
@@ -116,7 +120,7 @@ pnpm test
 2. 把敏感信息放进加密配置或部署环境
 3. 通过 `src/stratix.config.ts` 映射到插件配置
 
-CLI 自带的配置工具命令：
+forge 自带的配置工具命令：
 
 ```bash
 stratix config generate-key

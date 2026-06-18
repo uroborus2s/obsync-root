@@ -1,0 +1,64 @@
+{
+  "id": "app-web-admin",
+  "kind": "app",
+  "type": "web-admin",
+  "version": "1.0.0",
+  "displayName": "Web Admin Application",
+  "description": "Admin dashboard starter with shadcn/ui, TanStack Router, assistant workbench and reusable data table foundations",
+  "runtime": "web",
+  "useBaseTemplate": false,
+  "managedFilesMode": "project-only",
+  "allowedPresets": ["admin-mock", "testing"],
+  "contributes": {
+    "directories": [
+      "src"
+    ],
+    "files": [
+      {
+        "source": ".gitignore.tpl",
+        "destination": ".gitignore"
+      },
+      {
+        "source": "eslint.config.mjs.tpl",
+        "destination": "eslint.config.mjs"
+      },
+      {
+        "source": "package.json.tpl",
+        "destination": "package.json"
+      },
+      {
+        "source": "components.json.tpl",
+        "destination": "components.json"
+      },
+      {
+        "source": "index.html.tpl",
+        "destination": "index.html"
+      },
+      {
+        "source": "vite.config.ts.tpl",
+        "destination": "vite.config.ts"
+      },
+      {
+        "source": "vitest.config.ts.tpl",
+        "destination": "vitest.config.ts"
+      },
+      {
+        "source": "tsconfig.json.tpl",
+        "destination": "tsconfig.json"
+      },
+      {
+        "source": "tsconfig.app.json.tpl",
+        "destination": "tsconfig.app.json"
+      },
+      {
+        "source": "tsconfig.node.json.tpl",
+        "destination": "tsconfig.node.json"
+      },
+      {
+        "source": "src",
+        "destination": "src",
+        "directory": true
+      }
+    ]
+  }
+}

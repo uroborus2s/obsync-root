@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { buildServiceAdapterToken } from '../adapter-registration.js';
+import {
+  buildServiceAdapterToken,
+  diagnoseServiceAdapterTokens
+} from '../adapter-registration.js';
 
 describe('service adapter token naming', () => {
   it('keeps existing plugin-prefixed adapter names stable', () => {
@@ -18,5 +21,38 @@ describe('service adapter token naming', () => {
 
   it('uses the adapter name directly when no plugin name is available', () => {
     expect(buildServiceAdapterToken(undefined, 'client')).toBe('client');
+  });
+
+  it('diagnoses duplicate adapter names before registration', () => {
+    const diagnostics = diagnoseServiceAdapterTokens('queue', [
+      { adapterName: 'client', factory: () => ({}) },
+      { adapterName: 'client', factory: () => ({}) }
+    ]);
+
+    expect(diagnostics).toEqual([
+      {
+        code: 'ADAPTER_DUPLICATE_NAME',
+        adapterName: 'client',
+        token: 'queueClient',
+        message: 'Duplicate service adapter name: client'
+      }
+    ]);
+  });
+
+  it('diagnoses adapter token conflicts with existing root registrations', () => {
+    const diagnostics = diagnoseServiceAdapterTokens(
+      'queue',
+      [{ adapterName: 'client', factory: () => ({}) }],
+      ['queueClient']
+    );
+
+    expect(diagnostics).toEqual([
+      {
+        code: 'ADAPTER_TOKEN_CONFLICT',
+        adapterName: 'client',
+        token: 'queueClient',
+        message: 'Service adapter token already exists in root container: queueClient'
+      }
+    ]);
   });
 });

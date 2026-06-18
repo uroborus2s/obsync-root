@@ -170,10 +170,10 @@ export const ErrorUtils = {
   },
 
   /**
-   * 创建带有上下文的安全执行器
+   * 创建带有上下文的安全运行函数
    * 返回一个预配置的安全执行函数
    */
-  createSafeExecutor: <T>(
+  createSafeRunner: <T>(
     component: string,
     logger?: Logger,
     defaultLogLevel: 'error' | 'warn' | 'debug' = 'error'

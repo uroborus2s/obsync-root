@@ -1,5 +1,7 @@
 import fastify from 'fastify';
 import { describe, expect, it } from 'vitest';
+import Ajv from 'ajv';
+import { ERROR_ENVELOPE_SCHEMA } from '../../contracts/index.js';
 import { BadRequestError, NotFoundError } from '../../errors/index.js';
 import { getLogger } from '../../logger/index.js';
 import { ApplicationBootstrap } from '../application-bootstrap.js';
@@ -20,6 +22,9 @@ describe('Global Error Handling', () => {
   // if we can't access the private method.
   
   // Actually, we can use `(bootstrap as any).setupErrorHandling(app)` to test it.
+
+  const ajv = new Ajv({ strict: false, validateFormats: false });
+  const validateErrorEnvelope = ajv.compile(ERROR_ENVELOPE_SCHEMA);
   
   it('should handle HttpError correctly', async () => {
     const app = fastify();
@@ -43,6 +48,7 @@ describe('Global Error Handling', () => {
     expect(body.error.code).toBe('BAD_REQUEST');
     expect(body.error.message).toBe('Invalid input');
     expect(body.error.details).toEqual({ field: 'username' });
+    expect(validateErrorEnvelope(body)).toBe(true);
   });
 
   it('should handle NotFoundError correctly', async () => {
@@ -64,6 +70,47 @@ describe('Global Error Handling', () => {
     expect(response.statusCode).toBe(404);
     const body = response.json();
     expect(body.error.code).toBe('NOT_FOUND');
+    expect(validateErrorEnvelope(body)).toBe(true);
+  });
+
+  it('should return the unified error envelope for Fastify validation errors', async () => {
+    const app = fastify();
+    const logger = getLogger();
+    const bootstrap = new ApplicationBootstrap(logger);
+
+    (bootstrap as any).setupErrorHandling(app);
+
+    app.get(
+      '/items',
+      {
+        schema: {
+          querystring: {
+            type: 'object',
+            required: ['page'],
+            properties: {
+              page: { type: 'integer' }
+            }
+          }
+        }
+      },
+      async () => ({ ok: true })
+    );
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/items?page=bad'
+    });
+
+    expect(response.statusCode).toBe(400);
+    const body = response.json();
+    expect(body.error).toMatchObject({
+      code: 'VALIDATION_ERROR',
+      message: 'Validation Error',
+      statusCode: 400,
+      path: '/items?page=bad'
+    });
+    expect(Array.isArray(body.error.details)).toBe(true);
+    expect(validateErrorEnvelope(body)).toBe(true);
   });
 
   it('should handle unknown errors as 500', async () => {
@@ -86,6 +133,7 @@ describe('Global Error Handling', () => {
     const body = response.json();
     expect(body.error.code).toBe('INTERNAL_SERVER_ERROR');
     expect(body.error.message).toBe('Internal Server Error'); // Should hide original message for security in production? 
+    expect(validateErrorEnvelope(body)).toBe(true);
     // In our implementation we used `message = error.message` for generic errors too?
     // Let's check implementation: 
     // `message = error.message;` for `error.statusCode` case.

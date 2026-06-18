@@ -5,7 +5,7 @@
 - 优先级：P0
 - 阶段：ANALYSIS -> IMPLEMENTATION
 - 负责人：技术总监代理
-- 范围：`@stratix/core`、`@stratix/database`、`@stratix/cli`、非废弃生态包、文档与验证链
+- 范围：`@stratix/core`、`@stratix/database`、`@stratix/create`、`@stratix/forge`、非废弃生态包、文档与验证链
 - 排除项：`@stratix/tasks`
 
 ## 目标
@@ -26,7 +26,7 @@
 - 每个代码改动必须有对应的可执行验证，无法验证时必须记录原因。
 - 先补回归测试，再改生产代码；确有困难时必须在评审记录中说明。
 - `BaseRepository` 新代码必须显式接收 `DatabaseConnectionProvider`。
-- CLI 模板必须生成可编译、符合当前公共 API 的代码。
+- create/forge 模板必须生成可编译、符合当前公共 API 的代码。
 - 公共文档不能承诺未实现能力。
 
 ## 完成判定
@@ -47,3 +47,14 @@
   - `pnpm --filter @stratix/core exec vitest run` 通过，26 files / 199 tests
   - `pnpm --filter @stratix/was-v7 test` 通过，11 files / 120 tests
   - `uvx --from docs-stratego docs-stratego source validate --repo-path .` 通过，82 pages / 0 contracts
+
+## 后续复核记录
+
+- 复核日期：2026-06-18
+- 复核结论：create/forge 工具边界拆分与 Phase 3 Module governance 工具落地后质量门仍为 95+。
+- 新增验证：
+  - `pnpm run build:supported` 通过，10/10 supported packages
+  - `pnpm run test:supported` 通过，12 turbo tasks
+  - `pnpm --filter @stratix/create test` 通过，2 tests
+  - `pnpm --filter @stratix/forge test` 通过，33 tests
+  - `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit` 通过

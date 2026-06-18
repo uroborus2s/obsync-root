@@ -241,6 +241,9 @@ mkdocs:
             - title: Core 破坏性升级实施计划
               path: 04-project-development/05-development-process/core-breaking-upgrade-implementation-plan.md
               access: private
+            - title: Core 概念模型重构计划
+              path: 04-project-development/05-development-process/core-concept-model-refactor-plan.md
+              access: private
         - title: 测试与验证
           children:
             - title: 概览
@@ -279,6 +282,9 @@ mkdocs:
             - title: 概览
               path: 04-project-development/09-evolution/index.md
               access: private
+            - title: Core 概念模型演进方案
+              path: 04-project-development/09-evolution/core-concept-model-evolution.md
+              access: private
         - title: 追踪矩阵
           children:
             - title: 概览
@@ -295,7 +301,7 @@ mkdocs:
 ## 面向读者
 
 - 首次接触灵枢枢机仓库的新协作者
-- 基于 `@stratix/cli` 做应用开发与脚手架开发的工程师
+- 基于 `@stratix/create` 创建项目、基于 `@stratix/forge` 维护项目的工程师
 - 维护框架核心与生态插件的贡献者
 
 ## 维护规则

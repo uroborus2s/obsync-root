@@ -9,7 +9,6 @@ import fastify, { type FastifyInstance } from 'fastify';
 import 'reflect-metadata';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Controller } from '../../decorators/controller.js';
-import { Executor } from '../../decorators/executor.js';
 import { Get } from '../../decorators/route.js';
 import type { PluginContainerContext } from '../service-discovery.js';
 import { discoverAndProcessModules } from '../module-discovery.js';
@@ -19,15 +18,6 @@ class TestController {
   @Get('/test')
   testMethod() {
     return { ok: true };
-  }
-}
-
-@Executor('testExecutor')
-class TestExecutor {
-  name = 'testExecutor';
-
-  async execute() {
-    return { success: true };
   }
 }
 
@@ -45,16 +35,11 @@ describe('plugin module discovery', () => {
   let app: FastifyInstance;
   let internalContainer: AwilixContainer;
   let rootContainer: AwilixContainer;
-  let registerTaskExecutor: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     app = fastify();
     internalContainer = createContainer();
     rootContainer = createContainer();
-    registerTaskExecutor = vi.fn();
-    rootContainer.register({
-      registerTaskExecutor: asValue(registerTaskExecutor)
-    });
   });
 
   afterEach(async () => {
@@ -90,22 +75,14 @@ describe('plugin module discovery', () => {
     expect(response.json()).toEqual({ ok: true });
   });
 
-  it('discovers executors and registers them through the root container task hook', async () => {
-    internalContainer.register({
-      testExecutor: asClass(TestExecutor).singleton()
-    });
-
+  it('does not expose executor statistics or task registration results', async () => {
     const result = await discoverAndProcessModules(context(), app);
 
-    expect(result.statistics.executorModules).toBe(1);
-    expect(result.executorConfigs).toHaveLength(1);
-    expect(registerTaskExecutor).toHaveBeenCalledWith(
-      'testExecutor',
-      expect.any(TestExecutor)
-    );
+    expect(result.statistics).not.toHaveProperty('executorModules');
+    expect(result).not.toHaveProperty('executorConfigs');
   });
 
-  it('collects lifecycle services without treating them as controllers or executors', async () => {
+  it('collects lifecycle services without treating them as controllers', async () => {
     const scanAndRegisterService = vi.fn();
     internalContainer.register({
       lifecycleService: asClass(LifecycleService).singleton(),
