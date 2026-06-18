@@ -5,6 +5,9 @@
 ## 一个标准插件项目长什么样
 
 ```text
+.stratix/
+  project.json
+  plugin.json
 src/
   index.ts
   config/
@@ -17,6 +20,17 @@ src/
 ```
 
 ## 最重要的两个入口
+
+### `.stratix/plugin.json`
+
+这是插件的生态治理 manifest。create 会为插件项目生成它，forge 会通过 `stratix doctor plugins` 和 `stratix graph plugins` 读取它。
+
+它至少声明：
+
+- `capabilities`：插件提供的能力分类，例如 `data`、`integration`、`adapter`
+- `provides`：插件向应用根容器暴露的 adapter token
+- `requires`：插件运行时依赖的其他 Stratix 插件包
+- `health`：是否应进入健康检查矩阵
 
 ### `src/index.ts`
 

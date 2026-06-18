@@ -131,8 +131,8 @@
 | `pnpm --filter @stratix/core build`                         | passed | `@stratix/core` 在新增 route contract/OpenAPI helpers、DI diagnostics、discovery DI metadata recording、adapter token diagnostics、统一错误 envelope 和 response schema failure 归一化后可完成单包构建 |
 | `pnpm --filter @stratix/core exec tsc -p tsconfig.json --noEmit` | passed | `@stratix/core` 新 discovery 管道、配置类型和公共导出通过类型检查                                                                      |
 | `pnpm --filter @stratix/core pack --pack-destination /tmp`  | passed | core 发布包可生成，输出 `/tmp/stratix-core-1.1.0.tgz`；tarball 中无 executor 路径                                                       |
-| `pnpm --filter @stratix/create build`                       | passed | create 作为轻量应用/插件创建入口可单独构建，且不依赖 runtime/core/compiler                                                                |
-| `pnpm --filter @stratix/forge build`                        | passed | forge 在 `packages/forge` 下保留项目内 `doctor di`、`di graph`、`doctor modules`、`graph modules`、OpenAPI 生成、高级 typed client、命令级 help routing 和显式 DI/schema 模板后可单独构建             |
+| `pnpm --filter @stratix/create build`                       | passed | create 作为轻量应用/插件创建入口可单独构建，且不依赖 runtime/core/compiler；plugin 项目生成 `.stratix/plugin.json`                                                              |
+| `pnpm --filter @stratix/forge build`                        | passed | forge 在 `packages/forge` 下保留项目内 `doctor di`、`di graph`、`doctor modules`、`graph modules`、`doctor plugins`、`graph plugins`、`build-manifest`、OpenAPI 生成、高级 typed client、命令级 help routing 和显式 DI/schema 模板后可单独构建             |
 | `pnpm --filter @stratix/database build`                     | passed | database-only clean breaking refactor 后，`@stratix/database` 单包 TypeScript 构建通过                                                  |
 | `pnpm build`（`examples/web-admin-preview`）                | passed | 生成样例可单独完成静态构建                                                                                                                |
 
@@ -143,9 +143,9 @@
 | `pnpm test`                                       | passed | 根入口委托 `test:supported`，排除即将废弃的 `@stratix/tasks`                                                                                 |
 | `pnpm run test:supported`                         | passed | supported package test profile 通过，`12` 个 turbo tasks 成功                                                                                |
 | `CI=true pnpm --filter @stratix/core exec vitest run` | passed | Phase 2 扩展能力后，`27` 个测试文件、`188` 个测试全部通过；覆盖 route contract/OpenAPI、统一错误 envelope、response schema failure 归一化、DI diagnostics、plugin adapter diagnostics、discovery schema validation 和 DI graph |
-| `pnpm --filter @stratix/create test`              | passed | `2` 个测试全部通过；覆盖 app/plugin 创建、create 模板清单和目标项目 `@stratix/forge` devDependency 写入 |
-| `pnpm --filter @stratix/forge test`               | passed | `34` 个测试全部通过；覆盖 `doctor di`、`di graph`、`doctor modules`、`graph modules`、`openapi generate`、高级 `openapi client`、命令 help 和生成资源 DI/schema 检查 |
-| `pnpm --filter @stratix/testing test`             | passed | `2` 个测试文件、`6` 个测试全部通过；覆盖 smoke、`contractTest()` 响应契约校验与共享错误 envelope schema 校验 |
+| `pnpm --filter @stratix/create test`              | passed | `3` 个测试全部通过；覆盖 app/plugin 创建、plugin governance manifest、create 模板清单和目标项目 `@stratix/forge` devDependency 写入 |
+| `pnpm --filter @stratix/forge test`               | passed | `37` 个测试全部通过；覆盖 `doctor di`、`di graph`、`doctor modules`、`graph modules`、`doctor plugins`、`graph plugins`、`build-manifest`、`openapi generate`、高级 `openapi client`、命令 help 和生成资源 DI/schema 检查 |
+| `pnpm --filter @stratix/testing test`             | passed | `3` 个测试文件、`12` 个测试全部通过；覆盖 smoke、`contractTest()`、共享错误 envelope schema、test app、DI override、plugin fixture、discovery fixture、repository fixture 和 module fixture |
 | `pnpm --filter @stratix/database exec vitest run` | passed | database quality-gate 回归后，`8` 个测试文件、`48` 个测试全部通过                                                                             |
 | `pnpm --filter @stratix/was-v7 test`              | passed | `11` 个测试文件、`120` 个测试全部通过                                                                                                        |
 | `pnpm test`（`examples/web-admin-preview`）       | passed | `6` 个文件、`18` 个测试全部通过                                                                                                               |
@@ -173,7 +173,7 @@
 | `node packages/forge/dist/bin/stratix.js list templates`                      | passed                  | forge 只列出项目内 resource/module 生成模板，模板清单中不再包含 executor 或 plugin-executor 模板 |
 | `node packages/forge/dist/bin/stratix.js list presets`                        | passed                  | `tasks` preset 明确显示 deprecated，不作为新项目入口 |
 | `rg -n "@Executor\|EXECUTOR_METADATA_KEY\|registerTaskExecutor\|registerExecutorDomain\|processExecutorRegistration\|Executor\\b\|executors/\|plugin-executor\|performApplicationAutoDI\|applicationAutoDI\|discoverAndProcessApplicationModules\|generate executor\|createSafeExecutor\|executor" docs/03-developer-guide -g '*.md'` | passed | 开发者指南不再暴露已删除 executor/API 教程路径 |
-| `uvx --from docs-stratego docs-stratego source validate --repo-path .`       | passed                  | 84 pages / 0 contracts                       |
+| `uvx --from docs-stratego docs-stratego source validate --repo-path .`       | passed                  | 85 pages / 0 contracts                       |
 | `git diff --check`                                                          | passed                  | 本阶段补丁无 whitespace 错误                 |
 | `pnpm preview --host 127.0.0.1 --port 4273`（`examples/web-admin-preview`） | passed after permission | 本地成功启动，监听 `http://127.0.0.1:4273/` |
 
@@ -198,7 +198,7 @@
 - `@stratix/core` 已提供 route contract extraction、contract diagnostics、OpenAPI document generation、DI graph 和 DI diagnostics 的基础 API；应用 discovery 注册时记录 DI metadata。
 - `@stratix/core` 已提供统一错误 envelope 契约，导出 `ERROR_ENVELOPE_SCHEMA` 与 `createErrorEnvelope()`，bootstrap 对请求校验错误、404 和 response schema 序列化失败使用同一 envelope。
 - `@stratix/core` 已提供 plugin adapter token 诊断，能报告重复 adapter name 与根容器 token 冲突。
-- `@stratix/forge` 已提供 `stratix doctor di`、`stratix di graph --format json|mermaid`、`stratix openapi generate` 和支持 response types、path/query/body/header 参数、auth provider、hooks 的 `stratix openapi client`；API/resource 模板开始输出显式 `@Service()`、`@Repository()`、operationId 与 response schema。
+- `@stratix/forge` 已提供 `stratix doctor di`、`stratix di graph --format json|mermaid`、`stratix doctor plugins`、`stratix graph plugins --format json|mermaid`、`stratix build-manifest`、`stratix openapi generate` 和支持 response types、path/query/body/header 参数、auth provider、hooks 的 `stratix openapi client`；API/resource 模板开始输出显式 `@Service()`、`@Repository()`、operationId 与 response schema。
 - `@stratix/create` 与 `@stratix/forge` 自身仍保持零运行时依赖；create 生成出的目标项目依赖 `@stratix/core` 并把 `@stratix/forge` 作为 devDependency，但 create/forge 包不依赖任何项目包。
 - `@stratix/testing` 已提供 `contractTest()` 基线，可基于 route contract 验证 app.inject 响应状态和 schema。
 - `examples/web-admin-preview` 是真实可安装、可构建、可测试、可预览的模板输出样例

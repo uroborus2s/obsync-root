@@ -908,7 +908,9 @@ describe('@stratix/forge', () => {
 
     assert.ok(
       output.messages.some((message) =>
-        message.message.includes('Usage: stratix doctor [di|modules] [options]')
+        message.message.includes(
+          'Usage: stratix doctor [di|modules|plugins] [options]'
+        )
       )
     );
     const helpText = output.messages
@@ -916,6 +918,7 @@ describe('@stratix/forge', () => {
       .join('\n');
     assert.match(helpText, /doctor di\s+Validate Stratix DI tokens/);
     assert.match(helpText, /doctor modules\s+Validate module\.yaml manifests/);
+    assert.match(helpText, /doctor plugins\s+Validate \.stratix\/plugin\.json/);
   });
 
   it('prints DI graph as JSON and Mermaid', async () => {
@@ -1079,6 +1082,185 @@ describe('@stratix/forge', () => {
         message.message.includes(
           'Module boundary owns unknown token: payments -> missingPaymentToken'
         )
+      )
+    );
+  });
+
+  it('generates and validates plugin manifests and topology graphs', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+
+    await runCreate(['plugin', 'data', '@demo/cache-plugin', '--no-install'], {
+      cwd,
+      output
+    });
+
+    const projectDir = path.join(cwd, 'cache-plugin');
+    const pluginManifest = readJson(
+      path.join(projectDir, '.stratix', 'plugin.json')
+    );
+
+    assert.equal(pluginManifest.schemaVersion, 1);
+    assert.equal(pluginManifest.name, '@demo/cache-plugin');
+    assert.equal(pluginManifest.version, '0.1.0');
+    assert.deepEqual(pluginManifest.capabilities, ['data']);
+    assert.deepEqual(pluginManifest.provides, ['cachePluginApi']);
+    assert.deepEqual(pluginManifest.requires, ['@stratix/database']);
+    assert.equal(pluginManifest.health, true);
+
+    await runCli(['doctor', 'plugins'], {
+      cwd: projectDir,
+      output
+    });
+    await runCli(['graph', 'plugins', '--format', 'json'], {
+      cwd: projectDir,
+      output
+    });
+    await runCli(['graph', 'plugins', '--format', 'mermaid'], {
+      cwd: projectDir,
+      output
+    });
+
+    assert.ok(
+      output.messages.some((message) =>
+        message.message.includes('Plugin doctor checks passed.')
+      )
+    );
+    assert.ok(
+      output.messages.some((message) =>
+        message.message.includes('"capability": "data"')
+      )
+    );
+    assert.ok(
+      output.messages.some((message) =>
+        message.message.includes(
+          'cachePlugin["@demo/cache-plugin"] --> cachePluginApi["cachePluginApi"]'
+        )
+      )
+    );
+  });
+
+  it('doctor plugins reports invalid plugin manifests', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+
+    await runCreate(
+      ['plugin', 'adapter', '@demo/broken-plugin', '--no-install'],
+      {
+        cwd,
+        output
+      }
+    );
+
+    const projectDir = path.join(cwd, 'broken-plugin');
+    fs.writeFileSync(
+      path.join(projectDir, '.stratix', 'plugin.json'),
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          name: '@demo/broken-plugin',
+          version: '0.1.0',
+          provides: ['brokenPluginClient'],
+          requires: ['@demo/missing-plugin'],
+          health: true
+        },
+        null,
+        2
+      ),
+      'utf8'
+    );
+
+    await assert.rejects(
+      runCli(['doctor', 'plugins'], {
+        cwd: projectDir,
+        output
+      }),
+      CliError
+    );
+
+    assert.ok(
+      output.messages.some((message) =>
+        message.message.includes(
+          'Plugin manifest is missing required field: capabilities'
+        )
+      )
+    );
+    assert.ok(
+      output.messages.some((message) =>
+        message.message.includes(
+          'Plugin dependency is not installed: @demo/missing-plugin'
+        )
+      )
+    );
+  });
+
+  it('builds a production manifest from project source contracts', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+
+    await runCreate(
+      [
+        'app',
+        'api',
+        'production-manifest-app',
+        '--preset',
+        'redis',
+        '--no-install'
+      ],
+      {
+        cwd,
+        output
+      }
+    );
+
+    const projectDir = path.join(cwd, 'production-manifest-app');
+    seedProjectTypescript(projectDir);
+    const outputFile = path.join(
+      projectDir,
+      '.stratix',
+      'production-manifest.json'
+    );
+
+    await runCli(['generate', 'module', 'billing-account'], {
+      cwd: projectDir,
+      output
+    });
+    await runCli(['build-manifest', '--output', outputFile], {
+      cwd: projectDir,
+      output
+    });
+
+    const manifest = readJson(outputFile);
+    assert.equal(manifest.schemaVersion, 1);
+    assert.equal(manifest.project.kind, 'app');
+    assert.equal(manifest.discovery.routing.enabled, true);
+    assert.ok(
+      manifest.routes.some(
+        (route: { method: string; path: string; operationId: string }) =>
+          route.method === 'GET' &&
+          route.path === '/health' &&
+          route.operationId === 'HealthController_check'
+      )
+    );
+    assert.ok(
+      manifest.di.tokens.some(
+        (token: { token: string }) => token.token === 'healthController'
+      )
+    );
+    assert.ok(
+      manifest.modules.some(
+        (module: { name: string }) => module.name === 'billing-account'
+      )
+    );
+    assert.ok(
+      manifest.plugins.some(
+        (plugin: { name: string; version: string }) =>
+          plugin.name === '@stratix/redis' && plugin.version === '^1.0.0-beta.2'
+      )
+    );
+    assert.ok(
+      output.messages.some((message) =>
+        message.message.includes('Production manifest generated')
       )
     );
   });

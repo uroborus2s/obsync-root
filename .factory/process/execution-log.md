@@ -71,6 +71,17 @@
   - `stratix openapi client` now generates path/query/header parameters, JSON body types, auth provider support, and before/after request hooks.
   - The generated client remains dependency-free and uses OpenAPI JSON as its only input.
 - Verified focused forge checks after advanced typed client work:
-  - `pnpm --filter @stratix/forge test` passed, 34 tests.
+  - `pnpm --filter @stratix/forge test` passed at the pre-manifest checkpoint.
   - `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit` passed.
+  - `pnpm --filter @stratix/forge build` passed.
+- Completed the Plugin manifest and Production manifest artifact baselines:
+  - `@stratix/create` writes `.stratix/plugin.json` for plugin projects with capabilities, provides, requires, and health metadata.
+  - `@stratix/forge` exposes `doctor plugins` and `graph plugins --format json|mermaid`.
+  - `@stratix/forge` exposes `build-manifest` to generate `.stratix/production-manifest.json` with route, DI, module, and plugin-lock evidence.
+- Verified focused manifest checks:
+  - `pnpm --filter @stratix/create test` passed, 3 tests.
+  - `pnpm --filter @stratix/forge test` passed, 37 tests.
+  - `pnpm --filter @stratix/create exec tsc -p tsconfig.json --noEmit` passed.
+  - `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit` passed.
+  - `pnpm --filter @stratix/create build` passed.
   - `pnpm --filter @stratix/forge build` passed.

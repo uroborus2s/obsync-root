@@ -11,10 +11,10 @@
 
 | 维度 | 当前基线 | 95+ 判定 |
 | --- | ---: | --- |
-| 架构边界 | 98 | core、database、create、forge、testing 职责清晰，executor 已从 core 概念面删除，create/forge 保持零运行时依赖，Contract-first、DI diagnostics、Module governance 和 testing platform 有独立 public surface |
-| 代码实现 | 98 | P0/P1 缺陷关闭，route contract/OpenAPI helpers、DI graph/diagnostics、OpenAPI forge command、typed client、contractTest、testing fixtures、adapter diagnostics、module manifest/doctor/graph 均有实现，无 executor 兼容层 |
-| 测试与回归 | 98 | 受影响模块有回归测试，database/create/forge/core/testing 定向验证通过，module governance 有 CLI 回归测试，testing platform 有 fixture 回归测试，supported build/test 通过，废弃 tasks 不计入 |
-| 文档与使用路径 | 98 | README、开发指南、create/forge 模板说明与当前 1.1.x API 一致，Phase 2 扩展、Phase 3 module governance 与 Phase 4 testing platform 证据已同步，开发者指南不再暴露已删除 executor 使用路径 |
+| 架构边界 | 98 | core、database、create、forge、testing 职责清晰，executor 已从 core 概念面删除，create/forge 保持零运行时依赖，Contract-first、DI diagnostics、Module governance、Plugin manifest、Production manifest artifact 和 testing platform 有独立 surface |
+| 代码实现 | 98 | P0/P1 缺陷关闭，route contract/OpenAPI helpers、DI graph/diagnostics、OpenAPI forge command、typed client、contractTest、testing fixtures、adapter diagnostics、module manifest/doctor/graph、plugin manifest doctor/graph、build-manifest 均有实现，无 executor 兼容层 |
+| 测试与回归 | 98 | 受影响模块有回归测试，database/create/forge/core/testing 定向验证通过，module/plugin governance 有 CLI 回归测试，production manifest artifact 有 CLI 回归测试，testing platform 有 fixture 回归测试，supported build/test 通过，废弃 tasks 不计入 |
+| 文档与使用路径 | 98 | README、开发指南、create/forge 模板说明与当前 1.1.x API 一致，Phase 2 扩展、Phase 3 module governance、Plugin/Production manifest artifact 与 Phase 4 testing platform 证据已同步，开发者指南不再暴露已删除 executor 使用路径 |
 | 发布与验证面 | 97 | supported build/test 入口稳定，create/forge 包保持空 dependencies，tasks 从默认质量门排除，changeset 基线对齐 `1.1.0` |
 | QA 风险控制 | 98 | 有明确的排除项、失败项解释、回归测试矩阵、负向 API 断言、create/forge 依赖边界扫描和无残留扫描命令 |
 
@@ -59,7 +59,7 @@ pnpm run test:supported
 
 | 等级 | 项目 | 判定 |
 | --- | --- | --- |
-| P0 | forge `business-repository` 模板必须生成当前 `BaseRepository` 构造方式 | 已关闭；`@stratix/forge` 当前测试 34/34 通过 |
+| P0 | forge `business-repository` 模板必须生成当前 `BaseRepository` 构造方式 | 已关闭；`@stratix/forge` 当前测试 37/37 通过 |
 | P1 | `@stratix/database` 不能把未实现 MSSQL 当成稳定支持能力 | 已关闭；stable supported list 仅保留 PostgreSQL/MySQL/SQLite |
 | P1 | database 读写分离配置必须真实生效，或文档降级为未实现 | 已关闭；读写连接使用显式配置连接名并补回归测试 |
 | P1 | database 健康检查必须跨 SQLite/MySQL/PostgreSQL 成立 | 已关闭；健康检查改为原始 `SELECT 1 AS health` |
@@ -72,10 +72,10 @@ pnpm run test:supported
 | `pnpm --filter @stratix/database exec tsc --noEmit` | 通过 | database 类型门禁 |
 | `pnpm --filter @stratix/database exec vitest run` | 通过 | 8 files / 48 tests |
 | `pnpm --filter @stratix/create exec tsc --noEmit` | 通过 | create 类型门禁 |
-| `pnpm --filter @stratix/create test` | 通过 | 2 tests，覆盖 app/plugin 创建、create 模板清单和目标项目 `@stratix/forge` devDependency 写入 |
+| `pnpm --filter @stratix/create test` | 通过 | 3 tests，覆盖 app/plugin 创建、plugin governance manifest、create 模板清单和目标项目 `@stratix/forge` devDependency 写入 |
 | `pnpm --filter @stratix/create run build` | 通过 | create 构建门禁 |
 | `pnpm --filter @stratix/forge exec tsc --noEmit` | 通过 | forge 类型门禁 |
-| `pnpm --filter @stratix/forge test` | 通过 | 34 tests，覆盖 `doctor di`、`di graph`、`doctor modules`、`graph modules`、`openapi generate`、高级 `openapi client`、命令 help 和生成资源 DI/schema 检查 |
+| `pnpm --filter @stratix/forge test` | 通过 | 37 tests，覆盖 `doctor di`、`di graph`、`doctor modules`、`graph modules`、`doctor plugins`、`graph plugins`、`build-manifest`、`openapi generate`、高级 `openapi client`、命令 help 和生成资源 DI/schema 检查 |
 | project manifest v2 | 通过 | create 生成 `.stratix/project.json` `schemaVersion: 2` 与 template contribution 快照；forge `add/doctor` 只读项目 manifest/presets/resource templates |
 | `pnpm --filter @stratix/core exec tsc --noEmit` | 通过 | core 类型门禁 |
 | `pnpm --filter @stratix/core exec vitest run src/plugin/__tests__/adapter-registration.test.ts` | 通过 | adapter token 契约测试 4 tests |
@@ -110,7 +110,7 @@ pnpm run test:supported
 | `rg --files packages/core/src packages/core/dist packages/forge/templates packages/create/templates \| rg -i 'executor'` | 通过 | 无路径命中 |
 | `tar -tf /tmp/stratix-core-1.1.0.tgz \| rg -i 'executor'` | 通过 | 发布包无 executor 路径 |
 | `rg -n "@Executor\|EXECUTOR_METADATA_KEY\|registerTaskExecutor\|registerExecutorDomain\|processExecutorRegistration\|Executor\\b\|executors/\|plugin-executor\|performApplicationAutoDI\|applicationAutoDI\|discoverAndProcessApplicationModules\|generate executor\|createSafeExecutor\|executor" docs/03-developer-guide -g '*.md'` | 通过 | 开发者指南无旧 executor/API 教程残留 |
-| `uvx --from docs-stratego docs-stratego source validate --repo-path .` | 通过 | 84 pages / 0 contracts |
+| `uvx --from docs-stratego docs-stratego source validate --repo-path .` | 通过 | 85 pages / 0 contracts |
 | `git diff --check` | 通过 | 本阶段代码与文档补丁无 whitespace 错误 |
 
 ## 6. 复评记录
@@ -130,5 +130,5 @@ pnpm run test:supported
 - `@stratix/tasks` 仍是显式排除项；若未来恢复为 supported package，必须单独迁移旧 database API。
 - `build:all` 仍代表全包构建，不等同默认质量门。
 - 离线安装和 npm/tag 发布口径仍属于独立 release governance 工作，不阻塞本轮 database/core/create/forge 质量门。
-- Plugin manifest、Production manifest 仍是后续阶段，不应被 Phase 2/Phase 3/Phase 4 已落地能力替代。
+- Plugin manifest 与 Production manifest artifact 已有基线；runtime production-manifest consumption、observability/security preset、DevTools、release gate integration 仍是 Phase 5 后续阶段。
 - forge 源码树中物理删除旧 app/plugin 模板目录需要明确删除批准；当前 forge 代码路径和发布包已与这些目录解耦。

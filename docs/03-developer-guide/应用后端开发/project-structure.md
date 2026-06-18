@@ -10,6 +10,7 @@
 my-app/
   .stratix/
     project.json
+    production-manifest.json
   src/
     config/
       stratix.generated.ts
@@ -78,6 +79,12 @@ src/
 这是 forge 识别项目类型和 preset 的元数据文件。`stratix generate`、`stratix add preset`、`stratix doctor` 都会依赖它。
 
 你通常不需要手工修改这个文件，除非你非常明确知道自己在修什么元数据问题。
+
+### `.stratix/production-manifest.json`
+
+这是 `stratix build-manifest` 生成的发布 artifact，包含路由、DI、模块和运行时 plugin-lock 证据。
+
+它通常应该由 CI 或发布流程生成，不建议手工编辑。Phase 5 后续会把生产启动直接读取 manifest 作为 hardening 工作推进。
 
 ## `src/` 下最重要的 3 个入口
 

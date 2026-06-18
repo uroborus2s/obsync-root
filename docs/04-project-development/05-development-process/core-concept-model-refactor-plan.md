@@ -199,12 +199,12 @@ flowchart TD
 
 | ID | 任务 | 交付物 | 验收 |
 |---|---|---|---|
-| `TASK-PLUGIN-001` | plugin manifest schema | name/version/capabilities/provides/requires/health | manifest 校验通过 |
-| `TASK-PLUGIN-002` | capability registry | 能力声明注册表 | 文档可生成 |
-| `TASK-PLUGIN-003` | dependency validation | 插件依赖校验 | 缺失依赖启动失败 |
-| `TASK-PLUGIN-004` | token conflict check | adapter token 冲突检查 | 已完成基础诊断；plugin manifest/topology 后续增强 |
-| `TASK-PLUGIN-005` | topology graph | plugin graph | forge 可输出 Mermaid/JSON |
-| `TASK-PLUGIN-006` | version matrix | 版本兼容矩阵 | 发布门禁可引用 |
+| `TASK-PLUGIN-001` | plugin manifest schema | name/version/capabilities/provides/requires/health | 已完成基线；`.stratix/plugin.json` 校验通过 |
+| `TASK-PLUGIN-002` | capability registry | 能力声明注册表 | 已完成基线；`graph plugins` 输出 capability/provides/requires |
+| `TASK-PLUGIN-003` | dependency validation | 插件依赖校验 | 已完成基线；缺失 `requires` 依赖时 `doctor plugins` 非零退出 |
+| `TASK-PLUGIN-004` | token conflict check | adapter token 冲突检查 | 已完成基础诊断；plugin manifest provides 进入治理图 |
+| `TASK-PLUGIN-005` | topology graph | plugin graph | 已完成基线；forge 可输出 Mermaid/JSON |
+| `TASK-PLUGIN-006` | version matrix | 版本兼容矩阵 | 已完成 artifact 基线；production manifest 记录运行时 plugin-lock，跨包兼容矩阵后续进入 release gate |
 
 ### 工作流 10：生产能力与 DevTools
 
@@ -214,8 +214,8 @@ flowchart TD
 |---|---|---|---|
 | `TASK-PROD-001` | Observability preset | request id、traces、metrics、health | 示例应用可输出 trace/metric |
 | `TASK-PROD-002` | Security preset | CORS、headers、rate limit、body limit | 安全默认值可测试 |
-| `TASK-PROD-003` | Production manifest | discovery/route/DI manifest | 生产启动可不依赖 runtime glob |
-| `TASK-PROD-004` | Build manifest 命令 | `stratix build-manifest` | CI 生成 artifact |
+| `TASK-PROD-003` | Production manifest | discovery/route/DI/module/plugin-lock manifest | 已完成 artifact 基线；生产启动读取 manifest 后续增强 |
+| `TASK-PROD-004` | Build manifest 命令 | `stratix build-manifest` | 已完成；CI 可生成 artifact |
 | `TASK-PROD-005` | DevTools routes/DI/plugin/config/health | 可视化面板 | 能展示真实应用状态 |
 | `TASK-PROD-006` | Release gate | build/test/docs/security/pack/API surface gate | 质量证据齐全 |
 
@@ -327,11 +327,13 @@ rg --files packages/core/src packages/core/dist packages/forge/templates | rg -i
 | Forge templates | 通过 | resource 模板补显式 `@Service()`、`@Repository()`、operationId 与 response schema；forge 发布包只携带 `templates/resources` 与 `templates/presets` |
 | Create/forge dependency boundary | 通过 | `@stratix/create` 与 `@stratix/forge` 不依赖 `@stratix/core`；create 不承载 forge 生命周期命令；forge 不暴露 `init` |
 | Module governance tooling | 通过 | `stratix generate module` 生成 `module.yaml`；`stratix doctor modules` 校验 manifest/layer/boundary/cycle；`stratix graph modules` 输出 JSON/Mermaid 模块图 |
+| Plugin manifest governance | 通过 | create 为 plugin 项目生成 `.stratix/plugin.json`；`stratix doctor plugins` 校验 capabilities/provides/requires/health；`stratix graph plugins` 输出 JSON/Mermaid |
+| Production manifest artifact | 通过 | `stratix build-manifest` 生成 route、DI、module、plugin-lock 生产 artifact |
 | 支持包门禁 | 通过 | `pnpm run build:supported` 10/10；`pnpm run test:supported` 12 个 turbo tasks 全部通过 |
 
 剩余后续工作：
 
-- Plugin manifest、Production manifest。
+- Phase 5 runtime production-manifest consumption、observability preset、security preset、DevTools、release gate integration。
 
 ### Phase 3：Testing 扩展与 Module PR
 
@@ -352,6 +354,7 @@ rg --files packages/core/src packages/core/dist packages/forge/templates | rg -i
 - resource/module/schema/test/openapi 生成链路可用。
 - database UnitOfWork、transaction context、repository fixture 有设计和测试。
 - plugin manifest、capability、dependency validation、topology graph 可用。
+- production manifest artifact 可由 CI 生成。
 
 ### Phase 5：生产能力 PR
 
@@ -361,7 +364,8 @@ rg --files packages/core/src packages/core/dist packages/forge/templates | rg -i
 
 - Observability preset 输出 trace/metric/health。
 - Security preset 有默认安全配置和测试。
-- `stratix build-manifest` 生成生产 manifest。
+- `stratix build-manifest` 生成生产 manifest artifact。
+- 后续 production runtime 可读取 manifest 并选择跳过 runtime glob discovery。
 - DevTools 可展示 routes、DI、plugin、config、health、traces。
 
 ### Phase 6：95+ 评分复核

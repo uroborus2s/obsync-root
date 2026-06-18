@@ -10,6 +10,7 @@ import { loadPresetManifest } from '../../template/load-template.js';
 import { mergeContributions } from '../../template/merge-contributions.js';
 import { fileExists, readJsonFile } from '../../utils/fs.js';
 import { analyzeProjectModules } from '../../modules/module-analysis.js';
+import { analyzeProjectPlugins } from '../../plugins/plugin-analysis.js';
 import { analyzeSourceDI } from './di-source-analysis.js';
 
 function projectTemplateManifest(manifest: ProjectManifest): TemplateManifest {
@@ -92,7 +93,8 @@ function checkLayeringPolicies(rootDir: string, issues: string[]): void {
 
     if (
       normalizedPath.includes('/services/') &&
-      (/^src\/services\//.test(normalizedPath) || /\/services\//.test(normalizedPath)) &&
+      (/^src\/services\//.test(normalizedPath) ||
+        /\/services\//.test(normalizedPath)) &&
       (/@stratix\/database/.test(source) ||
         /\bdatabaseApi\b/.test(source) ||
         /\bBaseRepository\b/.test(source))
@@ -104,7 +106,8 @@ function checkLayeringPolicies(rootDir: string, issues: string[]): void {
 
     if (
       normalizedPath.includes('/controllers/') &&
-      (/^src\/controllers\//.test(normalizedPath) || /\/controllers\//.test(normalizedPath))
+      (/^src\/controllers\//.test(normalizedPath) ||
+        /\/controllers\//.test(normalizedPath))
     ) {
       if (
         /@stratix\/database/.test(source) ||
@@ -126,12 +129,13 @@ function checkLayeringPolicies(rootDir: string, issues: string[]): void {
 }
 
 function printDoctorUsage(output: CliOutput): void {
-  output.log(`Usage: stratix doctor [di|modules] [options]
+  output.log(`Usage: stratix doctor [di|modules|plugins] [options]
 
 Commands:
   doctor          Validate project structure, managed files, dependencies, and layering
   doctor di       Validate Stratix DI tokens, missing dependencies, and cycles
   doctor modules  Validate module.yaml manifests, boundaries, and module cycles
+  doctor plugins  Validate .stratix/plugin.json capabilities, dependencies, and tokens
 
 Options:
   --help     Show this help message`);
@@ -143,7 +147,9 @@ async function doctorDICommand(output: CliOutput): Promise<void> {
 
   if (issues.length > 0) {
     for (const issue of issues) {
-      output.error(`- ${issue.message}${issue.sourceFile ? ` (${issue.sourceFile})` : ''}`);
+      output.error(
+        `- ${issue.message}${issue.sourceFile ? ` (${issue.sourceFile})` : ''}`
+      );
     }
     throw new CliError(`DI doctor found ${issues.length} issue(s).`);
   }
@@ -157,15 +163,44 @@ async function doctorModulesCommand(output: CliOutput): Promise<void> {
 
   if (analysis.issues.length > 0) {
     for (const issue of analysis.issues) {
-      output.error(`- ${issue.message}${issue.sourceFile ? ` (${issue.sourceFile})` : ''}`);
+      output.error(
+        `- ${issue.message}${issue.sourceFile ? ` (${issue.sourceFile})` : ''}`
+      );
     }
-    throw new CliError(`Module doctor found ${analysis.issues.length} issue(s).`);
+    throw new CliError(
+      `Module doctor found ${analysis.issues.length} issue(s).`
+    );
   }
 
   output.success('Module doctor checks passed.');
 }
 
-export async function doctorCommand(argv: ParsedArgs, output: CliOutput): Promise<void> {
+async function doctorPluginsCommand(output: CliOutput): Promise<void> {
+  const { rootDir, manifest } = loadProjectManifest(process.cwd());
+  if (manifest.kind !== 'plugin') {
+    throw new CliError('Plugin doctor requires a Stratix plugin project.');
+  }
+
+  const analysis = analyzeProjectPlugins(rootDir);
+
+  if (analysis.issues.length > 0) {
+    for (const issue of analysis.issues) {
+      output.error(
+        `- ${issue.message}${issue.sourceFile ? ` (${issue.sourceFile})` : ''}`
+      );
+    }
+    throw new CliError(
+      `Plugin doctor found ${analysis.issues.length} issue(s).`
+    );
+  }
+
+  output.success('Plugin doctor checks passed.');
+}
+
+export async function doctorCommand(
+  argv: ParsedArgs,
+  output: CliOutput
+): Promise<void> {
   const subcommand = argv._[1];
   if (argv.help || subcommand === 'help') {
     printDoctorUsage(output);
@@ -179,6 +214,11 @@ export async function doctorCommand(argv: ParsedArgs, output: CliOutput): Promis
 
   if (subcommand === 'modules') {
     await doctorModulesCommand(output);
+    return;
+  }
+
+  if (subcommand === 'plugins') {
+    await doctorPluginsCommand(output);
     return;
   }
 
@@ -202,20 +242,29 @@ export async function doctorCommand(argv: ParsedArgs, output: CliOutput): Promis
   }
 
   if (manifest.kind === 'app') {
-    for (const requiredFile of ['src/index.ts', 'src/stratix.config.ts', 'src/config/stratix.generated.ts']) {
+    for (const requiredFile of [
+      'src/index.ts',
+      'src/stratix.config.ts',
+      'src/config/stratix.generated.ts'
+    ]) {
       if (!fileExists(path.join(rootDir, requiredFile))) {
         issues.push(`Missing managed file: ${requiredFile}`);
       }
     }
   } else {
-    for (const requiredFile of ['src/index.ts', 'src/config/plugin-config.ts']) {
+    for (const requiredFile of [
+      'src/index.ts',
+      'src/config/plugin-config.ts'
+    ]) {
       if (!fileExists(path.join(rootDir, requiredFile))) {
         issues.push(`Missing managed file: ${requiredFile}`);
       }
     }
   }
 
-  for (const [dep, version] of Object.entries(merged.dependencies?.runtime || {})) {
+  for (const [dep, version] of Object.entries(
+    merged.dependencies?.runtime || {}
+  )) {
     if (packageJson.dependencies?.[dep] !== version) {
       issues.push(`Dependency mismatch: ${dep} expected ${version}`);
     }

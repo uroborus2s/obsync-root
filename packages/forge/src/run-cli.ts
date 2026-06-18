@@ -11,7 +11,15 @@ export interface CliRunOptions {
 
 function parseArgs(args: string[]): ParsedArgs {
   return parseCliArgs(args, {
-    boolean: ['help', 'install', 'no-install', 'yes', 'dry-run', 'strict', 'verbose'],
+    boolean: [
+      'help',
+      'install',
+      'no-install',
+      'yes',
+      'dry-run',
+      'strict',
+      'verbose'
+    ],
     string: [
       'preset',
       'pm',
@@ -45,15 +53,19 @@ Commands:
   add       Add a preset to a Stratix project
   doctor    Validate a Stratix project
   di        Inspect Stratix DI graph
-  graph     Inspect Stratix module graph
+  graph     Inspect Stratix module and plugin graphs
   openapi   Generate OpenAPI artifacts from Stratix route schemas
+  build-manifest  Generate a production manifest artifact
   start     Start a Stratix application
   config    Manage encrypted Stratix configuration
   list      List templates and presets
 `);
 }
 
-export async function runCli(args: string[], options: CliRunOptions = {}): Promise<void> {
+export async function runCli(
+  args: string[],
+  options: CliRunOptions = {}
+): Promise<void> {
   const output = options.output || createConsoleOutput();
   const argv = parseArgs(args);
   const command = argv._[0];
@@ -72,8 +84,8 @@ export async function runCli(args: string[], options: CliRunOptions = {}): Promi
     switch (command) {
       case 'generate':
       case 'g':
-        await import('./commands/generate/index.js').then(({ generateCommand }) =>
-          generateCommand(argv, output)
+        await import('./commands/generate/index.js').then(
+          ({ generateCommand }) => generateCommand(argv, output)
         );
         break;
       case 'add':
@@ -99,6 +111,11 @@ export async function runCli(args: string[], options: CliRunOptions = {}): Promi
       case 'openapi':
         await import('./commands/openapi/index.js').then(({ openApiCommand }) =>
           openApiCommand(argv, output)
+        );
+        break;
+      case 'build-manifest':
+        await import('./commands/build-manifest/index.js').then(
+          ({ buildManifestCommand }) => buildManifestCommand(argv, output)
         );
         break;
       case 'start':

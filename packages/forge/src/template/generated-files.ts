@@ -24,14 +24,12 @@ export type ManagedFilesMode = 'full' | 'project-only';
 function stringifyTsObject(value: unknown): string {
   return JSON.stringify(value, null, 2)
     .replace(/"([^"]+)":/g, '$1:')
-    .replace(/"/g, '\'');
+    .replace(/"/g, "'");
 }
 
 function createIndexTs(context: GeneratedProjectContext): string {
   const invocation =
-    context.runtime === 'web'
-      ? '()'
-      : `({ type: '${context.runtime}' })`;
+    context.runtime === 'web' ? '()' : `({ type: '${context.runtime}' })`;
 
   return `import { Stratix } from '@stratix/core';
 
@@ -39,11 +37,97 @@ await Stratix.run${invocation};
 `;
 }
 
-function createPluginIndexTs(context: GeneratedProjectContext): string {
-  const pluginFunctionName = context.projectName
-    .replace(/^@[^/]+\//, '')
+function pluginBaseName(projectName: string): string {
+  return projectName.replace(/^@[^/]+\//, '');
+}
+
+function createPluginFunctionName(projectName: string): string {
+  return pluginBaseName(projectName)
     .replace(/[^a-zA-Z0-9]+(.)/g, (_, char) => char.toUpperCase())
     .replace(/^[A-Z]/, (char) => char.toLowerCase());
+}
+
+function capitalizeIdentifier(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function buildAdapterToken(pluginName: string, adapterName: string): string {
+  if (adapterName === pluginName) {
+    return adapterName;
+  }
+
+  if (adapterName.startsWith(pluginName)) {
+    const nextCharacter = adapterName.charAt(pluginName.length);
+    if (nextCharacter !== '' && nextCharacter === nextCharacter.toUpperCase()) {
+      return adapterName;
+    }
+  }
+
+  return `${pluginName}${capitalizeIdentifier(adapterName)}`;
+}
+
+function adapterNameFromDestination(destination: string): string | undefined {
+  const normalized = destination.split(/[\\/]+/).join('/');
+  if (!normalized.startsWith('src/adapters/')) {
+    return undefined;
+  }
+
+  const fileName = path.basename(normalized, path.extname(normalized));
+  const withoutSuffix = fileName.replace(/Adapter$/, '');
+  const adapterName =
+    withoutSuffix.charAt(0).toLowerCase() + withoutSuffix.slice(1);
+  return adapterName || undefined;
+}
+
+function runtimePresetPackage(preset: string): string | undefined {
+  if (preset === 'testing' || preset === 'admin-mock') {
+    return undefined;
+  }
+
+  if (preset === 'was-v7') {
+    return '@stratix/was-v7';
+  }
+
+  return `@stratix/${preset}`;
+}
+
+function createPluginManifestJson(context: GeneratedProjectContext): string {
+  const pluginName = createPluginFunctionName(context.projectName);
+  const provides = Array.from(
+    new Set(
+      (context.contribution.files || [])
+        .map((file) => adapterNameFromDestination(file.destination))
+        .filter((adapterName): adapterName is string => Boolean(adapterName))
+        .map((adapterName) => buildAdapterToken(pluginName, adapterName))
+    )
+  ).sort();
+  const requires = Array.from(
+    new Set(
+      context.presets
+        .map(runtimePresetPackage)
+        .filter((dependency): dependency is string => Boolean(dependency))
+    )
+  ).sort();
+
+  return (
+    JSON.stringify(
+      {
+        schemaVersion: 1,
+        name: context.packageName,
+        version: '0.1.0',
+        capabilities: [context.type],
+        provides,
+        requires,
+        health: true
+      },
+      null,
+      2
+    ) + '\n'
+  );
+}
+
+function createPluginIndexTs(context: GeneratedProjectContext): string {
+  const pluginFunctionName = createPluginFunctionName(context.projectName);
   const optionsTypeName = `${toPascalCase(context.type)}PluginOptions`;
 
   return `import type { FastifyInstance } from '@stratix/core';
@@ -198,22 +282,18 @@ function presetPluginEntries(presets: string[]): string[] {
 
 function createGeneratedConfigTs(context: GeneratedProjectContext): string {
   const imports = presetImports(context.presets).join('\n');
-  const databaseConfig =
-    context.presets.includes('database')
-      ? `  const databaseConfig = sensitiveConfig.database || {};\n`
-      : '';
-  const redisConfig =
-    context.presets.includes('redis')
-      ? `  const redisConfig = sensitiveConfig.redis || {};\n`
-      : '';
-  const osspConfig =
-    context.presets.includes('ossp')
-      ? `  const osspConfig = sensitiveConfig.ossp || {};\n`
-      : '';
-  const wasV7Config =
-    context.presets.includes('was-v7')
-      ? `  const wasV7Config = sensitiveConfig.wasV7 || {};\n`
-      : '';
+  const databaseConfig = context.presets.includes('database')
+    ? `  const databaseConfig = sensitiveConfig.database || {};\n`
+    : '';
+  const redisConfig = context.presets.includes('redis')
+    ? `  const redisConfig = sensitiveConfig.redis || {};\n`
+    : '';
+  const osspConfig = context.presets.includes('ossp')
+    ? `  const osspConfig = sensitiveConfig.ossp || {};\n`
+    : '';
+  const wasV7Config = context.presets.includes('was-v7')
+    ? `  const wasV7Config = sensitiveConfig.wasV7 || {};\n`
+    : '';
   const pluginEntries = presetPluginEntries(context.presets).join(',\n');
 
   return `import type { StratixConfig } from '@stratix/core';
@@ -277,31 +357,33 @@ function createPackageJson(context: GeneratedProjectContext): string {
 }
 
 function createTsConfig(): string {
-  return JSON.stringify(
-    {
-      extends: '@tsconfig/recommended/tsconfig.json',
-      compilerOptions: {
-        target: 'ESNext',
-        module: 'NodeNext',
-        moduleResolution: 'NodeNext',
-        outDir: './dist',
-        rootDir: './src',
-        strict: true,
-        esModuleInterop: true,
-        skipLibCheck: true,
-        forceConsistentCasingInFileNames: true,
-        types: ['node'],
-        experimentalDecorators: true,
-        emitDecoratorMetadata: true,
-        sourceMap: true,
-        declaration: true,
-        declarationMap: true
+  return (
+    JSON.stringify(
+      {
+        extends: '@tsconfig/recommended/tsconfig.json',
+        compilerOptions: {
+          target: 'ESNext',
+          module: 'NodeNext',
+          moduleResolution: 'NodeNext',
+          outDir: './dist',
+          rootDir: './src',
+          strict: true,
+          esModuleInterop: true,
+          skipLibCheck: true,
+          forceConsistentCasingInFileNames: true,
+          types: ['node'],
+          experimentalDecorators: true,
+          emitDecoratorMetadata: true,
+          sourceMap: true,
+          declaration: true,
+          declarationMap: true
+        },
+        include: ['src/**/*']
       },
-      include: ['src/**/*']
-    },
-    null,
-    2
-  ) + '\n';
+      null,
+      2
+    ) + '\n'
+  );
 }
 
 function createEnvExample(contribution: Contribution): string {
@@ -362,6 +444,10 @@ export function createManagedFiles(
   } else {
     files.push(
       {
+        destination: path.join('.stratix', 'plugin.json'),
+        content: createPluginManifestJson(context)
+      },
+      {
         destination: path.join('src', 'index.ts'),
         content: createPluginIndexTs(context)
       },
@@ -395,7 +481,9 @@ export function mergePackageJsonContent(
   return JSON.stringify(parsed, null, 2) + '\n';
 }
 
-export function createProjectManifestContent(projectManifest: ProjectManifest): string {
+export function createProjectManifestContent(
+  projectManifest: ProjectManifest
+): string {
   return JSON.stringify(projectManifest, null, 2) + '\n';
 }
 
@@ -413,13 +501,12 @@ export function createProjectManifestObject(
     template: context.template,
     packageManager,
     presets: context.presets,
-    policies:
-      context.contribution.policies || {
-        layering: [],
-        forbidServiceDatabasePlugin: false,
-        forbidControllerDatabaseAccess: false,
-        controllerDecoratorPrefix: false,
-        pluginTokenFromFunctionName: false
-      }
+    policies: context.contribution.policies || {
+      layering: [],
+      forbidServiceDatabasePlugin: false,
+      forbidControllerDatabaseAccess: false,
+      controllerDecoratorPrefix: false,
+      pluginTokenFromFunctionName: false
+    }
   };
 }

@@ -45,7 +45,10 @@ describe('@stratix/create', () => {
     const cwd = createTempRoot();
     const output = createMemoryOutput();
 
-    await runCreate(['app', 'api', 'demo-api', '--no-install'], { cwd, output });
+    await runCreate(['app', 'api', 'demo-api', '--no-install'], {
+      cwd,
+      output
+    });
 
     const packageJson = readJson<{
       dependencies: Record<string, string>;
@@ -63,11 +66,16 @@ describe('@stratix/create', () => {
     }>(path.join(cwd, 'demo-api', '.stratix', 'project.json'));
 
     assert.equal(manifest.schemaVersion, 2);
-    assert.equal(manifest.template.contribution.dependencies.dev['@stratix/forge'], '^1.1.0');
+    assert.equal(
+      manifest.template.contribution.dependencies.dev['@stratix/forge'],
+      '^1.1.0'
+    );
     assert.equal(packageJson.dependencies['@stratix/core'], '^1.1.0');
     assert.equal(packageJson.devDependencies['@stratix/forge'], '^1.1.0');
     assert.equal(packageJson.devDependencies['@stratix/cli'], undefined);
-    assert.ok(fs.existsSync(path.join(cwd, 'demo-api', '.stratix', 'project.json')));
+    assert.ok(
+      fs.existsSync(path.join(cwd, 'demo-api', '.stratix', 'project.json'))
+    );
     assert.ok(
       output.messages.some(
         (message) =>
@@ -86,6 +94,37 @@ describe('@stratix/create', () => {
     const lines = output.messages.map((message) => message.message);
     assert.ok(lines.some((line) => line.startsWith('app:api')));
     assert.ok(lines.some((line) => line.startsWith('plugin:')));
-    assert.equal(lines.some((line) => line.startsWith('resource:')), false);
+    assert.equal(
+      lines.some((line) => line.startsWith('resource:')),
+      false
+    );
+  });
+
+  it('creates a plugin project with a governance manifest', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+
+    await runCreate(['plugin', 'data', '@demo/cache-plugin', '--no-install'], {
+      cwd,
+      output
+    });
+
+    const pluginManifest = readJson<{
+      schemaVersion: number;
+      name: string;
+      version: string;
+      capabilities: string[];
+      provides: string[];
+      requires: string[];
+      health: boolean;
+    }>(path.join(cwd, 'cache-plugin', '.stratix', 'plugin.json'));
+
+    assert.equal(pluginManifest.schemaVersion, 1);
+    assert.equal(pluginManifest.name, '@demo/cache-plugin');
+    assert.equal(pluginManifest.version, '0.1.0');
+    assert.deepEqual(pluginManifest.capabilities, ['data']);
+    assert.deepEqual(pluginManifest.provides, ['cachePluginApi']);
+    assert.deepEqual(pluginManifest.requires, ['@stratix/database']);
+    assert.equal(pluginManifest.health, true);
   });
 });

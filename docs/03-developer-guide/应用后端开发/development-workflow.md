@@ -12,6 +12,7 @@
 4. 本地跑 `stratix doctor`
 5. 本地跑 `pnpm build`
 6. 有测试时跑 `pnpm test`
+7. 发布或进 CI 前生成 production manifest
 
 如果你总是不知道从哪里下手，这就是默认顺序。
 
@@ -79,6 +80,14 @@ stratix doctor modules
 
 这是每次做完结构调整后都值得跑一遍的命令。
 
+### 生成生产 manifest
+
+```bash
+stratix build-manifest --output .stratix/production-manifest.json
+```
+
+当前 production manifest 是发布前 artifact，用来固化 routes、DI、modules 和运行时 plugin-lock 证据。生产启动直接读取 manifest 跳过运行时扫描，属于 Phase 5 后续 hardening。
+
 ## 推荐的实现顺序为什么是 repository -> service -> controller
 
 因为绝大多数业务功能，数据结构一旦确定：
@@ -104,6 +113,7 @@ stratix doctor modules
 
 ```bash
 stratix doctor
+stratix build-manifest --output .stratix/production-manifest.json
 pnpm build
 pnpm test
 ```

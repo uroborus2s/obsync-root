@@ -13,6 +13,8 @@
 - `@stratix/forge` source is physically under `packages/forge`; the lockfile importer is no longer `packages/cli`
 - `@stratix/forge` Module governance tests pass after adding `module.yaml`, `doctor modules`, and `graph modules`
 - `@stratix/forge` advanced typed client tests pass for path/query/body/header parameters, auth provider, and before/after hooks
+- `@stratix/create` writes plugin governance manifests and `@stratix/forge` validates/graphs them through `doctor plugins` and `graph plugins`
+- `@stratix/forge` generates production manifest artifacts with route, DI, module, and runtime plugin-lock evidence through `build-manifest`
 - `@stratix/core` unified error envelope and response schema failure normalization tests pass
 - `@stratix/testing` contract tests validate shared Stratix error envelope responses
 - `@stratix/testing` Phase 4 platform helpers pass test/typecheck/build: test app, DI override, plugin fixture, discovery fixture, module fixture, and rollbackable repository fixture
@@ -29,5 +31,4 @@
 
 1. Restore reproducible installation.
 2. Reconcile release-surface reality and remaining package-test regressions.
-3. Continue Plugin manifest and Production manifest.
-4. Enter Phase 5 production capability design once the remaining release-surface risks are accepted or scoped.
+3. Continue Phase 5 observability, security, runtime manifest consumption, DevTools, and release-gate integration.

@@ -8,8 +8,9 @@
 2. 选模板并确认预设
 3. 生成 adapter / service / controller / repository
 4. 先打通最小链路
-5. 在真实应用里注册验证
-6. 补测试、补文档、补 README
+5. 校验插件 manifest 与拓扑
+6. 在真实应用里注册验证
+7. 补测试、补文档、补 README
 
 ## 1. 初始化
 
@@ -62,6 +63,15 @@ pnpm test
 
 把插件注册到一个真实应用里，至少验证一条路由或一个公开 service 能力。
 
+### Manifest 检查
+
+```bash
+stratix doctor plugins
+stratix graph plugins --format mermaid
+```
+
+`doctor plugins` 会校验 `.stratix/plugin.json` 的 capabilities、provides、requires 和 health 字段；`graph plugins` 用于检查插件能力、对外 token 和运行时依赖拓扑。
+
 ## 5. 插件接入时要检查什么
 
 - 插件是否真正进入了应用的 `plugins` 数组
@@ -88,6 +98,7 @@ pnpm test
 ## 8. 发布前检查清单
 
 - `package.json` 名称、版本、导出入口正确
+- `.stratix/plugin.json` 的 capabilities、provides、requires 与实际插件能力一致
 - `src/index.ts` 中 discovery / services 配置正确
 - `plugin-config.ts` 已定义清晰的配置合同
 - 至少一条真实可运行能力已经在应用里验证通过

@@ -18,7 +18,7 @@
     "pnpm": ">=10.33.0"
   },
   "currentStage": "ANALYSIS",
-  "recommendedNextStage": "Continue with Plugin manifest, Production manifest, and Phase 5 production capability design; advanced typed client options, create/forge split, module governance tooling, unified error envelope, strict response validation, Phase 2 extended contract-first workflow, and Phase 4 testing platform baseline are green",
+  "recommendedNextStage": "Continue Phase 5 production hardening: observability preset, security preset, runtime production-manifest consumption, DevTools routes/DI/plugin/config/health/traces views, and release gate integration; plugin manifest and production manifest artifact baselines are green",
   "sourceOfTruth": {
     "stableCollaboration": ["AGENTS.md", "GEMINI.md"],
     "humanDocs": "docs/",
@@ -148,12 +148,12 @@
       {
         "command": "pnpm --filter @stratix/create build",
         "status": "passed",
-        "reason": "Create builds as the lightweight app/plugin creation entrypoint with zero runtime dependencies"
+        "reason": "Create builds as the lightweight app/plugin creation entrypoint with zero runtime dependencies and generated plugin governance manifests"
       },
       {
         "command": "pnpm --filter @stratix/forge build",
         "status": "passed",
-        "reason": "Forge builds from packages/forge after retaining project-local generate/doctor/di/graph/openapi/start/config workflows, advanced typed client generation, and removing the old init entry"
+        "reason": "Forge builds from packages/forge after retaining project-local generate/doctor/di/graph/openapi/start/config/build-manifest workflows, advanced typed client generation, plugin manifest governance, and removing the old init entry"
       },
       {
         "command": "pnpm --filter @stratix/testing build",
@@ -193,14 +193,14 @@
       {
         "command": "pnpm --filter @stratix/create test",
         "status": "passed",
-        "summary": "2 tests",
-        "reason": "Create tests cover app/plugin creation boundaries, @stratix/forge devDependency generation, and app/plugin template listing"
+        "summary": "3 tests",
+        "reason": "Create tests cover app/plugin creation boundaries, generated plugin governance manifests, @stratix/forge devDependency generation, and app/plugin template listing"
       },
       {
         "command": "pnpm --filter @stratix/forge test",
         "status": "passed",
-        "summary": "34 tests",
-        "reason": "Forge tests cover doctor di, di graph JSON/Mermaid output, module manifest/doctor/graph governance, OpenAPI generation, advanced typed client generation with path/query/body/header/auth/hooks, command help, and generated resource DI/schema checks"
+        "summary": "37 tests",
+        "reason": "Forge tests cover doctor di, di graph JSON/Mermaid output, module manifest/doctor/graph governance, plugin manifest doctor/graph governance, production build-manifest generation, OpenAPI generation, advanced typed client generation with path/query/body/header/auth/hooks, command help, and generated resource DI/schema checks"
       },
       {
         "command": "pnpm --filter @stratix/testing test",
@@ -230,7 +230,7 @@
       {
         "command": "uvx --from docs-stratego docs-stratego source validate --repo-path .",
         "status": "passed",
-        "summary": "84 pages / 0 contracts",
+        "summary": "85 pages / 0 contracts",
         "reason": "Docs navigation validates after adding the core breaking-upgrade report, concept-model evolution plan, implementation plan, test plan, release gate, Phase 2 extended status, create/forge split, and developer-guide cleanup"
       },
       {

@@ -21,6 +21,7 @@
 - Phase 2 extended contract-first workflow is implemented: `@stratix/forge` exposes dependency-free `stratix openapi generate` and `stratix openapi client` with response types, path/query/body/header parameters, auth provider, and request/response hooks; generated controller templates include explicit route schema/operationId/response schema, `@stratix/testing` exposes runner-neutral `contractTest()`, and `@stratix/core` exposes plugin adapter token diagnostics, unified error envelope schema/factory, and strict response-schema failure normalization.
 - Phase 3 module governance tooling is implemented: `stratix generate module` writes `module.yaml` plus standard module directories, `stratix doctor modules` validates module manifests/layers/boundaries/cycles, and `stratix graph modules` outputs module -> token -> route -> dependency graphs without changing application runtime startup behavior.
 - Phase 4 testing platform baseline is implemented: `@stratix/testing` exposes `createTestApp()`, `createTestContainer()`, `overrideToken()`, `mockPlugin()`, `disablePlugin()`, `createDiscoveryFixture()`, `createRepositoryFixture()`, and `createModuleFixture()` alongside the existing `contractTest()` DSL.
+- Plugin manifest and production manifest baselines are implemented: `@stratix/create` writes `.stratix/plugin.json` for plugin projects; `@stratix/forge` exposes `stratix doctor plugins`, `stratix graph plugins`, and `stratix build-manifest` for manifest validation, plugin topology, and CI production artifact generation.
 - The toolchain split is implemented: `@stratix/create` owns app/plugin creation, `@stratix/forge` owns project-local generate/doctor/di/openapi/start/config workflows, and neither package depends on `@stratix/core`.
 - The physical source directory for `@stratix/forge` is now `packages/forge`; `packages/cli` is not retained as a compatibility directory.
 - `.stratix/project.json` is now the create/forge handoff contract at `schemaVersion: 2`; create writes the template contribution snapshot, allowed presets, and managed files mode, while forge reads the manifest/presets/resource templates instead of app/plugin creation templates.
@@ -49,11 +50,11 @@
   - 188 tests
 - `@stratix/core` now exports `ERROR_ENVELOPE_SCHEMA` and `createErrorEnvelope()`; bootstrap error handling uses the shared envelope for `HttpError`, validation errors, 404, and response schema serialization failures.
 - `pnpm --filter @stratix/create test` passes:
-  - 2 tests
+  - 3 tests
 - `pnpm --filter @stratix/create exec tsc -p tsconfig.json --noEmit` passes.
 - `pnpm --filter @stratix/create run build` passes.
 - `pnpm --filter @stratix/forge test` passes:
-  - 34 tests
+  - 37 tests
 - `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit` passes.
 - `pnpm --filter @stratix/forge run build` passes after advanced typed client generation support.
 - `pnpm --filter @stratix/testing test` passes:
@@ -69,6 +70,10 @@
 - `node packages/forge/dist/bin/stratix.js di graph --help` passes.
 - `node packages/forge/dist/bin/stratix.js doctor modules --help` passes.
 - `node packages/forge/dist/bin/stratix.js graph modules --help` passes.
+- `@stratix/forge` now exposes plugin manifest governance and production manifest artifact generation through source-tested commands:
+  - `stratix doctor plugins`
+  - `stratix graph plugins --format json|mermaid`
+  - `stratix build-manifest --output <file>`
 - `node packages/forge/dist/bin/stratix.js openapi generate --help` passes.
 - `node packages/forge/dist/bin/stratix.js openapi client --help` passes.
 - `rg -n "generateOpenApiDocument|from '@stratix/core'|from \"@stratix/core\"|@stratix/core" packages/forge/src/commands/openapi packages/forge/tests/stubs/stratix-core.stub.ts packages/forge/package.json` returns no matches; the OpenAPI forge command path is not coupled to core.
@@ -77,7 +82,7 @@
 - `rg --files packages/core/src packages/core/dist packages/forge/templates packages/create/templates | rg -i 'executor'` returns no path matches.
 - `tar -tf /tmp/stratix-core-1.1.0.tgz | rg -i 'executor'` returns no path matches.
 - `uvx --from docs-stratego docs-stratego source validate --repo-path .` passes:
-  - 84 pages
+  - 85 pages
   - 0 contracts
 - `rg -n "@Executor|EXECUTOR_METADATA_KEY|registerTaskExecutor|registerExecutorDomain|processExecutorRegistration|Executor\\b|executors/|plugin-executor|performApplicationAutoDI|applicationAutoDI|discoverAndProcessApplicationModules|generate executor|createSafeExecutor|executor" docs/03-developer-guide -g '*.md'` returns no matches; developer guides no longer teach removed executor APIs or paths.
 - `git diff --check` passes after Phase 2 docs synchronization.
@@ -104,7 +109,7 @@
 
 ## Immediate Priorities
 
-1. Continue with Plugin manifest, Production manifest, and Phase 5 production capability design.
+1. Continue Phase 5 production hardening: observability preset, security preset, runtime production-manifest consumption, DevTools routes/DI/plugin/config/health/traces views, and release gate integration.
 2. Restore reproducible offline installation.
 3. Reconcile manifest versions, git tags, and npm registry reality.
 4. Decide whether `@stratix/tasks` remains permanently deprecated or is removed from the workspace surface.

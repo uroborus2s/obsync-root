@@ -230,6 +230,9 @@ mkdocs:
             - title: Core 公共 API 边界
               path: 04-project-development/04-design/core-public-api-surface.md
               access: private
+            - title: Phase 5 生产能力设计
+              path: 04-project-development/04-design/phase-5-production-capability-design.md
+              access: private
         - title: 开发过程文档
           children:
             - title: 概览
