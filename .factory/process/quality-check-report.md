@@ -6,6 +6,7 @@
 ## Passing Signals
 
 - Root `CI=true pnpm install --frozen-lockfile`
+- Root `CI=true pnpm install --frozen-lockfile --offline`
 - Root `pnpm build` through `build:supported`
 - Root `pnpm test` through `test:supported`
 - `pnpm run build:supported` passed across 10 supported packages
@@ -26,6 +27,9 @@
 - `@stratix/forge` validates release readiness through `stratix release gate --manifest <file>`
 - `@stratix/forge` plans monorepo release readiness through `stratix release gate --scope workspace --dry-run`
 - Built forge CLI workspace release gate dry-runs pass with and without offline/registry optional checks
+- Built forge CLI workspace release gate execution passes build/test/docs/pack/API and fails only at release-surface before final exact tags are created
+- Workspace release gate validates supported package tarballs for package entry files and development-file leakage
+- Workspace release gate can validate public npmjs exact-version availability through `--include-registry`
 - `@stratix/core` unified error envelope and response schema failure normalization tests pass
 - `@stratix/testing` contract tests validate shared Stratix error envelope responses
 - `@stratix/testing` Phase 4 platform helpers pass test/typecheck/build: test app, DI override, plugin fixture, discovery fixture, module fixture, and rollbackable repository fixture
@@ -34,13 +38,17 @@
 
 ## Failing Signals
 
-- Frozen offline install reproducibility
 - Explicit all-package `build:all` still fails at deprecated `@stratix/tasks`
-- Exact git tags and npm registry versions remain unreconciled for the current supported package versions
 - Peer compatibility warnings around TypeScript 6 / ESLint 10
+
+## Release Preconditions
+
+- Create exact git tags for the 10 supported packages on the final Phase 6 release-readiness commit.
+- Run `node packages/forge/dist/bin/stratix.js release gate --scope workspace --include-offline-install --include-registry`.
+- npm publish requires maintainer credentials and is not performed by the repository refactor.
 
 ## Action Focus
 
-1. Execute the real Phase 6 workspace release gate and record which gate blocks release.
-2. Restore reproducible offline installation or document unsupported offline release policy.
-3. Reconcile exact git tags, npm registry reality, and local package manifest versions.
+1. Create final exact release tags after the release-readiness commit.
+2. Run the full Phase 6 release gate with offline and registry checks.
+3. Defer physical deletion of obsolete forge app/plugin template directories until explicit approval; current forge package artifacts already exclude them.

@@ -28,6 +28,7 @@ interface WorkspacePackage {
 type ReleaseGateScope = 'project' | 'workspace';
 
 const DEFAULT_EXCLUDED_WORKSPACE_PACKAGES = new Set(['@stratix/tasks']);
+const PUBLIC_NPM_REGISTRY = 'https://registry.npmjs.org';
 
 function printReleaseUsage(output: CliOutput): void {
   output.log(`Usage: stratix release gate [options]
@@ -242,14 +243,8 @@ function workspaceReleaseGateChecks(
     {
       id: 'pack',
       label: 'pack',
-      commands: supportedPackages.map((workspacePackage) => [
-        'pnpm',
-        '--filter',
-        workspacePackage.name,
-        'pack',
-        '--pack-destination',
-        os.tmpdir()
-      ])
+      validate: (output) =>
+        validateWorkspacePackArtifacts(supportedPackages, output)
     },
     {
       id: 'api',
@@ -266,17 +261,146 @@ function workspaceReleaseGateChecks(
     checks.push({
       id: 'registry',
       label: 'registry',
-      commands: supportedPackages.map((workspacePackage) => [
-        'npm',
-        'view',
-        workspacePackage.name,
-        'version',
-        '--json'
-      ])
+      validate: (output) =>
+        validateWorkspaceRegistrySurface(supportedPackages, output)
     });
   }
 
   return checks;
+}
+
+function normalizePackageFilePath(filePath: string): string {
+  return filePath.replace(/\\/g, '/').replace(/^\.\//, '');
+}
+
+function readPackageEntryFiles(workspacePackage: WorkspacePackage): string[] {
+  const packageJson = readJsonFile<Record<string, unknown>>(
+    workspacePackage.packageJsonPath
+  );
+  const entries = [packageJson.main, packageJson.types]
+    .filter((entry): entry is string => typeof entry === 'string')
+    .map(normalizePackageFilePath);
+
+  if (entries.length === 0) {
+    throw new CliError(
+      `Release gate pack: ${workspacePackage.name} has no main/types package entries`
+    );
+  }
+
+  return Array.from(new Set(entries));
+}
+
+function parsePackOutput(stdout: string, packageName: string): string[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stdout.trim());
+  } catch {
+    throw new CliError(
+      `Release gate pack: cannot parse pnpm pack --json output for ${packageName}`
+    );
+  }
+
+  if (
+    !parsed ||
+    typeof parsed !== 'object' ||
+    !Array.isArray((parsed as { files?: unknown }).files)
+  ) {
+    throw new CliError(
+      `Release gate pack: invalid pnpm pack --json output for ${packageName}`
+    );
+  }
+
+  return (parsed as { files: Array<{ path?: unknown }> }).files
+    .map((file) => file.path)
+    .filter((filePath): filePath is string => typeof filePath === 'string')
+    .map(normalizePackageFilePath);
+}
+
+function isDevelopmentArtifact(filePath: string): boolean {
+  return (
+    filePath.startsWith('.turbo/') ||
+    filePath.startsWith('coverage/') ||
+    filePath.startsWith('src/') ||
+    filePath.startsWith('test/') ||
+    filePath.startsWith('tests/') ||
+    filePath.startsWith('test-fixtures/') ||
+    filePath === 'tsconfig.json' ||
+    filePath === 'vitest.config.ts' ||
+    filePath.endsWith('.tsbuildinfo')
+  );
+}
+
+function validateWorkspacePackArtifacts(
+  packages: WorkspacePackage[],
+  output: CliOutput
+): void {
+  for (const workspacePackage of packages) {
+    const buildCommand = [
+      'pnpm',
+      '--filter',
+      workspacePackage.name,
+      'run',
+      'build'
+    ];
+    output.info(`Release gate pack: ${buildCommand.join(' ')}`);
+    const buildResult = spawnSync(buildCommand[0], buildCommand.slice(1), {
+      cwd: process.cwd(),
+      stdio: 'inherit',
+      shell: false
+    });
+
+    if (buildResult.status !== 0) {
+      throw new CliError(`Release gate failed: pack`);
+    }
+
+    const packCommand = [
+      'pnpm',
+      '--filter',
+      workspacePackage.name,
+      'pack',
+      '--pack-destination',
+      os.tmpdir(),
+      '--json'
+    ];
+    output.info(`Release gate pack: ${packCommand.join(' ')}`);
+    const packResult = spawnSync(packCommand[0], packCommand.slice(1), {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'inherit'],
+      shell: false
+    });
+
+    if (packResult.status !== 0) {
+      throw new CliError(`Release gate failed: pack`);
+    }
+
+    const packedFiles = parsePackOutput(
+      packResult.stdout,
+      workspacePackage.name
+    );
+    const missingEntryFiles = readPackageEntryFiles(workspacePackage).filter(
+      (entryFile) => !packedFiles.includes(entryFile)
+    );
+
+    if (missingEntryFiles.length > 0) {
+      output.error(
+        `Release gate pack: ${workspacePackage.name} missing package entry files: ${missingEntryFiles.join(', ')}`
+      );
+      throw new CliError('Release pack artifact is invalid');
+    }
+
+    const developmentFiles = packedFiles.filter(isDevelopmentArtifact);
+    if (developmentFiles.length > 0) {
+      output.error(
+        `Release gate pack: ${workspacePackage.name} contains development files: ${developmentFiles.join(', ')}`
+      );
+      throw new CliError('Release pack artifact is invalid');
+    }
+
+    output.info(
+      `Release gate pack: ${workspacePackage.name} artifact passed (${packedFiles.length} files).`
+    );
+  }
 }
 
 function validateWorkspaceReleaseSurface(
@@ -315,6 +439,96 @@ function validateWorkspaceReleaseSurface(
   }
 
   output.info('Release gate release-surface: exact package tags present.');
+}
+
+function parseNpmViewVersion(stdout: string, packageRef: string): string {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stdout.trim());
+  } catch {
+    throw new CliError(
+      `Release gate registry: cannot parse npm view output for ${packageRef}`
+    );
+  }
+
+  if (typeof parsed !== 'string') {
+    throw new CliError(
+      `Release gate registry: invalid npm view output for ${packageRef}`
+    );
+  }
+
+  return parsed;
+}
+
+function isNpmNotFound(stderr: string): boolean {
+  const normalized = stderr.toLowerCase();
+  return (
+    normalized.includes('e404') ||
+    normalized.includes('404 not found') ||
+    normalized.includes('not found')
+  );
+}
+
+function npmRegistryEnv(): NodeJS.ProcessEnv {
+  const cache =
+    process.env.npm_config_cache ||
+    process.env.NPM_CONFIG_CACHE ||
+    path.join(os.tmpdir(), 'stratix-npm-cache');
+
+  return {
+    ...process.env,
+    npm_config_cache: cache,
+    NPM_CONFIG_CACHE: cache
+  };
+}
+
+function validateWorkspaceRegistrySurface(
+  packages: WorkspacePackage[],
+  output: CliOutput
+): void {
+  for (const workspacePackage of packages) {
+    const packageRef = `${workspacePackage.name}@${workspacePackage.version}`;
+    const command = [
+      'npm',
+      'view',
+      packageRef,
+      'version',
+      '--json',
+      `--registry=${PUBLIC_NPM_REGISTRY}`,
+      `--@stratix:registry=${PUBLIC_NPM_REGISTRY}`
+    ];
+    output.info(`Release gate registry: ${command.join(' ')}`);
+
+    const result = spawnSync(command[0], command.slice(1), {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      env: npmRegistryEnv(),
+      stdio: ['ignore', 'pipe', 'pipe'],
+      shell: false
+    });
+
+    if (result.status !== 0) {
+      if (isNpmNotFound(result.stderr)) {
+        output.info(
+          `Release gate registry: ${packageRef} is not published; version is available.`
+        );
+        continue;
+      }
+
+      output.error(result.stderr.trim() || `npm view failed for ${packageRef}`);
+      throw new CliError('Release gate failed: registry');
+    }
+
+    const publishedVersion = parseNpmViewVersion(result.stdout, packageRef);
+    if (publishedVersion === workspacePackage.version) {
+      output.error(`Release gate registry: ${packageRef} already exists.`);
+      throw new CliError('Release registry version already exists');
+    }
+
+    throw new CliError(
+      `Release gate registry: unexpected version ${publishedVersion} for ${packageRef}`
+    );
+  }
 }
 
 function printWorkspaceReleaseSummary(

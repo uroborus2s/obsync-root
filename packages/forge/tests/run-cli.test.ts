@@ -142,6 +142,75 @@ function seedWorkspacePackage(
   );
 }
 
+function seedFakeReleaseGateBins(rootDir: string): string {
+  const binDir = path.join(rootDir, 'bin');
+  fs.mkdirSync(binDir, { recursive: true });
+
+  fs.writeFileSync(
+    path.join(binDir, 'pnpm'),
+    [
+      '#!/usr/bin/env node',
+      'const args = process.argv.slice(2);',
+      "if (args.includes('pack')) {",
+      "  const filterIndex = args.indexOf('--filter');",
+      "  const name = filterIndex >= 0 ? args[filterIndex + 1] : '@stratix/core';",
+      "  const files = JSON.parse(process.env.STRATIX_FAKE_PACK_FILES || '[]');",
+      "  console.log(JSON.stringify({ name, version: '1.1.0', filename: `/tmp/${name.replace('@stratix/', 'stratix-')}.tgz`, files: files.map((file) => ({ path: file })) }));",
+      '  process.exit(0);',
+      '}',
+      'process.exit(0);'
+    ].join('\n'),
+    'utf8'
+  );
+  fs.chmodSync(path.join(binDir, 'pnpm'), 0o755);
+
+  fs.writeFileSync(
+    path.join(binDir, 'git'),
+    [
+      '#!/usr/bin/env node',
+      'const args = process.argv.slice(2);',
+      "if (args[0] === 'tag' && args[1] === '--list') {",
+      "  if (process.env.STRATIX_FAKE_GIT_TAGS === 'present') {",
+      '    console.log(args[2]);',
+      '  }',
+      '  process.exit(0);',
+      '}',
+      'process.exit(1);'
+    ].join('\n'),
+    'utf8'
+  );
+  fs.chmodSync(path.join(binDir, 'git'), 0o755);
+
+  fs.writeFileSync(
+    path.join(binDir, 'npm'),
+    [
+      '#!/usr/bin/env node',
+      'const args = process.argv.slice(2);',
+      "if (args[0] === 'view') {",
+      "  if (process.env.STRATIX_FAKE_NPM_VIEW === 'published') {",
+      "    console.log(JSON.stringify(process.env.STRATIX_FAKE_NPM_VERSION || '1.1.0'));",
+      '    process.exit(0);',
+      '  }',
+      "  console.error('npm error code E404');",
+      "  console.error('npm error 404 Not Found');",
+      '  process.exit(1);',
+      '}',
+      'process.exit(1);'
+    ].join('\n'),
+    'utf8'
+  );
+  fs.chmodSync(path.join(binDir, 'npm'), 0o755);
+
+  fs.writeFileSync(
+    path.join(binDir, 'uvx'),
+    ['#!/usr/bin/env node', 'process.exit(0);'].join('\n'),
+    'utf8'
+  );
+  fs.chmodSync(path.join(binDir, 'uvx'), 0o755);
+
+  return binDir;
+}
+
 afterEach(() => {
   for (const root of tempRoots.splice(0, tempRoots.length)) {
     fs.rmSync(root, { recursive: true, force: true });
@@ -1451,6 +1520,286 @@ describe('@stratix/forge', () => {
     );
     assert.ok(
       output.messages.some((message) => message.message.includes('registry'))
+    );
+  });
+
+  it('fails workspace release gate when a package tarball misses entry files', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+    const binDir = seedFakeReleaseGateBins(cwd);
+    const originalPath = process.env.PATH;
+    const originalFiles = process.env.STRATIX_FAKE_PACK_FILES;
+
+    fs.writeFileSync(
+      path.join(cwd, 'package.json'),
+      JSON.stringify(
+        {
+          name: '@stratix/workspace-fixture',
+          private: true,
+          scripts: {
+            'build:supported': 'echo build',
+            'test:supported': 'echo test'
+          }
+        },
+        null,
+        2
+      ),
+      'utf8'
+    );
+    seedWorkspacePackage(cwd, 'core', {
+      name: '@stratix/core',
+      version: '1.1.0',
+      main: 'dist/index.js',
+      types: 'dist/index.d.ts'
+    });
+
+    process.env.PATH = `${binDir}${path.delimiter}${originalPath}`;
+    process.env.STRATIX_FAKE_PACK_FILES = JSON.stringify(['package.json']);
+
+    try {
+      await assert.rejects(
+        runCli(['release', 'gate', '--scope', 'workspace'], {
+          cwd,
+          output
+        }),
+        CliError
+      );
+    } finally {
+      process.env.PATH = originalPath;
+      if (originalFiles === undefined) {
+        delete process.env.STRATIX_FAKE_PACK_FILES;
+      } else {
+        process.env.STRATIX_FAKE_PACK_FILES = originalFiles;
+      }
+    }
+
+    assert.ok(
+      output.messages.some((message) =>
+        message.message.includes('missing package entry files')
+      )
+    );
+  });
+
+  it('fails workspace release gate when a package tarball contains development files', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+    const binDir = seedFakeReleaseGateBins(cwd);
+    const originalPath = process.env.PATH;
+    const originalFiles = process.env.STRATIX_FAKE_PACK_FILES;
+
+    fs.writeFileSync(
+      path.join(cwd, 'package.json'),
+      JSON.stringify(
+        {
+          name: '@stratix/workspace-fixture',
+          private: true,
+          scripts: {
+            'build:supported': 'echo build',
+            'test:supported': 'echo test'
+          }
+        },
+        null,
+        2
+      ),
+      'utf8'
+    );
+    seedWorkspacePackage(cwd, 'core', {
+      name: '@stratix/core',
+      version: '1.1.0',
+      main: 'dist/index.js',
+      types: 'dist/index.d.ts'
+    });
+
+    process.env.PATH = `${binDir}${path.delimiter}${originalPath}`;
+    process.env.STRATIX_FAKE_PACK_FILES = JSON.stringify([
+      'package.json',
+      'dist/index.js',
+      'dist/index.d.ts',
+      'src/index.ts',
+      '.turbo/turbo-build.log'
+    ]);
+
+    try {
+      await assert.rejects(
+        runCli(['release', 'gate', '--scope', 'workspace'], {
+          cwd,
+          output
+        }),
+        CliError
+      );
+    } finally {
+      process.env.PATH = originalPath;
+      if (originalFiles === undefined) {
+        delete process.env.STRATIX_FAKE_PACK_FILES;
+      } else {
+        process.env.STRATIX_FAKE_PACK_FILES = originalFiles;
+      }
+    }
+
+    assert.ok(
+      output.messages.some((message) =>
+        message.message.includes('contains development files')
+      )
+    );
+  });
+
+  it('passes workspace registry reconciliation when the package version is unpublished', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+    const binDir = seedFakeReleaseGateBins(cwd);
+    const originalPath = process.env.PATH;
+    const originalFiles = process.env.STRATIX_FAKE_PACK_FILES;
+    const originalTags = process.env.STRATIX_FAKE_GIT_TAGS;
+    const originalNpmView = process.env.STRATIX_FAKE_NPM_VIEW;
+
+    fs.writeFileSync(
+      path.join(cwd, 'package.json'),
+      JSON.stringify(
+        {
+          name: '@stratix/workspace-fixture',
+          private: true,
+          scripts: {
+            'build:supported': 'echo build',
+            'test:supported': 'echo test'
+          }
+        },
+        null,
+        2
+      ),
+      'utf8'
+    );
+    seedWorkspacePackage(cwd, 'core', {
+      name: '@stratix/core',
+      version: '1.1.0',
+      main: 'dist/index.js',
+      types: 'dist/index.d.ts'
+    });
+
+    process.env.PATH = `${binDir}${path.delimiter}${originalPath}`;
+    process.env.STRATIX_FAKE_PACK_FILES = JSON.stringify([
+      'package.json',
+      'dist/index.js',
+      'dist/index.d.ts'
+    ]);
+    process.env.STRATIX_FAKE_GIT_TAGS = 'present';
+    delete process.env.STRATIX_FAKE_NPM_VIEW;
+
+    try {
+      await runCli(
+        ['release', 'gate', '--scope', 'workspace', '--include-registry'],
+        {
+          cwd,
+          output
+        }
+      );
+    } finally {
+      process.env.PATH = originalPath;
+      if (originalFiles === undefined) {
+        delete process.env.STRATIX_FAKE_PACK_FILES;
+      } else {
+        process.env.STRATIX_FAKE_PACK_FILES = originalFiles;
+      }
+      if (originalTags === undefined) {
+        delete process.env.STRATIX_FAKE_GIT_TAGS;
+      } else {
+        process.env.STRATIX_FAKE_GIT_TAGS = originalTags;
+      }
+      if (originalNpmView === undefined) {
+        delete process.env.STRATIX_FAKE_NPM_VIEW;
+      } else {
+        process.env.STRATIX_FAKE_NPM_VIEW = originalNpmView;
+      }
+    }
+
+    assert.ok(
+      output.messages.some((message) =>
+        message.message.includes('@stratix/core@1.1.0 is not published')
+      )
+    );
+  });
+
+  it('fails workspace registry reconciliation when the package version already exists', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+    const binDir = seedFakeReleaseGateBins(cwd);
+    const originalPath = process.env.PATH;
+    const originalFiles = process.env.STRATIX_FAKE_PACK_FILES;
+    const originalTags = process.env.STRATIX_FAKE_GIT_TAGS;
+    const originalNpmView = process.env.STRATIX_FAKE_NPM_VIEW;
+    const originalNpmVersion = process.env.STRATIX_FAKE_NPM_VERSION;
+
+    fs.writeFileSync(
+      path.join(cwd, 'package.json'),
+      JSON.stringify(
+        {
+          name: '@stratix/workspace-fixture',
+          private: true,
+          scripts: {
+            'build:supported': 'echo build',
+            'test:supported': 'echo test'
+          }
+        },
+        null,
+        2
+      ),
+      'utf8'
+    );
+    seedWorkspacePackage(cwd, 'core', {
+      name: '@stratix/core',
+      version: '1.1.0',
+      main: 'dist/index.js',
+      types: 'dist/index.d.ts'
+    });
+
+    process.env.PATH = `${binDir}${path.delimiter}${originalPath}`;
+    process.env.STRATIX_FAKE_PACK_FILES = JSON.stringify([
+      'package.json',
+      'dist/index.js',
+      'dist/index.d.ts'
+    ]);
+    process.env.STRATIX_FAKE_GIT_TAGS = 'present';
+    process.env.STRATIX_FAKE_NPM_VIEW = 'published';
+    process.env.STRATIX_FAKE_NPM_VERSION = '1.1.0';
+
+    try {
+      await assert.rejects(
+        runCli(
+          ['release', 'gate', '--scope', 'workspace', '--include-registry'],
+          {
+            cwd,
+            output
+          }
+        ),
+        CliError
+      );
+    } finally {
+      process.env.PATH = originalPath;
+      if (originalFiles === undefined) {
+        delete process.env.STRATIX_FAKE_PACK_FILES;
+      } else {
+        process.env.STRATIX_FAKE_PACK_FILES = originalFiles;
+      }
+      if (originalTags === undefined) {
+        delete process.env.STRATIX_FAKE_GIT_TAGS;
+      } else {
+        process.env.STRATIX_FAKE_GIT_TAGS = originalTags;
+      }
+      if (originalNpmView === undefined) {
+        delete process.env.STRATIX_FAKE_NPM_VIEW;
+      } else {
+        process.env.STRATIX_FAKE_NPM_VIEW = originalNpmView;
+      }
+      if (originalNpmVersion === undefined) {
+        delete process.env.STRATIX_FAKE_NPM_VERSION;
+      } else {
+        process.env.STRATIX_FAKE_NPM_VERSION = originalNpmVersion;
+      }
+    }
+
+    assert.ok(
+      output.messages.some((message) =>
+        message.message.includes('@stratix/core@1.1.0 already exists')
+      )
     );
   });
 

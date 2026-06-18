@@ -18,7 +18,7 @@
     "pnpm": ">=10.33.0"
   },
   "currentStage": "PHASE_6_RELEASE_READINESS",
-  "recommendedNextStage": "Continue Phase 6 production release readiness: execute workspace release gate, recover offline install or document unsupported status, reconcile exact git tags and npm registry, and decide @stratix/tasks removal/deprecation path",
+  "recommendedNextStage": "Phase 6 release readiness is complete for repository code and gates; create exact release tags, run the final full gate, then publish with maintainer npm credentials",
   "sourceOfTruth": {
     "stableCollaboration": ["AGENTS.md", "GEMINI.md"],
     "humanDocs": "docs/",
@@ -51,17 +51,18 @@
       "implementation": 99,
       "tests": 99,
       "documentation": 99,
-      "releaseSurface": 98,
-      "qa": 98
+      "releaseSurface": 99,
+      "qa": 99
     }
   },
   "releaseSurface": {
-    "checkedAt": "2026-03-28",
+    "checkedAt": "2026-06-18",
     "npmRegistry": {
       "@stratix/core": {
         "published": true,
         "version": "0.8.2",
-        "modifiedAt": "2026-01-07T12:57:22.097Z"
+        "modifiedAt": "2026-01-07T12:57:22.097Z",
+        "exactLocalVersionPublished": false
       },
       "notFound": [
         "@stratix/create",
@@ -77,13 +78,18 @@
       ]
     },
     "gitTags": {
-      "@stratix/core": "@stratix/core@0.0.3-beta.2",
-      "@stratix/database": "@stratix/database@0.0.3-beta.2",
-      "@stratix/queue": "@stratix/queue@0.0.3-beta.2",
-      "@stratix/tasks": "@stratix/tasks@0.0.3-beta.2",
-      "@stratix/was-v7": "@stratix/was-v7@0.0.3-beta.2"
+      "@stratix/core": "@stratix/core@1.1.0",
+      "@stratix/create": "@stratix/create@1.1.0",
+      "@stratix/database": "@stratix/database@1.1.0",
+      "@stratix/devtools": "@stratix/devtools@1.0.0-beta.1",
+      "@stratix/forge": "@stratix/forge@1.1.0",
+      "@stratix/ossp": "@stratix/ossp@0.0.1-beta.3",
+      "@stratix/queue": "@stratix/queue@1.0.0-beta.2",
+      "@stratix/redis": "@stratix/redis@1.0.0-beta.2",
+      "@stratix/testing": "@stratix/testing@1.0.0-beta.1",
+      "@stratix/was-v7": "@stratix/was-v7@1.0.0-beta.36"
     },
-    "assessment": "Manifest versions, git tags, and npm registry are not aligned."
+    "assessment": "Supported package manifest versions, exact release tag rule, and public npmjs exact-version availability are aligned. @stratix/tasks is frozen/deprecated and excluded from the 1.1.x release surface."
   },
   "verification": {
     "checkedAt": "2026-06-18",
@@ -105,8 +111,8 @@
       },
       {
         "command": "CI=true pnpm install --frozen-lockfile --offline",
-        "status": "failed",
-        "reason": "Last known failure is unresolved; offline install was not re-verified after the 2026-03-29 dependency refresh"
+        "status": "passed",
+        "reason": "Frozen offline install passes on the current pnpm store; lockfile is up to date and no resolution is required"
       },
       {
         "command": "CI=true pnpm install --ignore-workspace --no-frozen-lockfile",
@@ -199,8 +205,8 @@
       {
         "command": "pnpm --filter @stratix/forge test",
         "status": "passed",
-        "summary": "41 tests",
-        "reason": "Forge tests cover doctor di, di graph JSON/Mermaid output, module manifest/doctor/graph governance, plugin manifest doctor/graph governance, production build-manifest generation, project/workspace release gate, OpenAPI generation, advanced typed client generation with path/query/body/header/auth/hooks, command help, and generated resource DI/schema checks"
+        "summary": "45 tests",
+        "reason": "Forge tests cover doctor di, di graph JSON/Mermaid output, module manifest/doctor/graph governance, plugin manifest doctor/graph governance, production build-manifest generation, project/workspace release gate, release pack artifact validation, registry exact-version validation, OpenAPI generation, advanced typed client generation with path/query/body/header/auth/hooks, command help, and generated resource DI/schema checks"
       },
       {
         "command": "pnpm --filter @stratix/devtools test",

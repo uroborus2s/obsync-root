@@ -5,8 +5,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "rimraf dist && tsc -p tsconfig.build.json",
-    "clean": "rimraf dist",
+    "build": "rimraf dist tsconfig.build.tsbuildinfo && tsc -p tsconfig.build.json",
+    "clean": "rimraf dist tsconfig.build.tsbuildinfo tsconfig.tsbuildinfo",
     "test": "vitest run"
   },
   "files": [

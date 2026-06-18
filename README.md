@@ -1,6 +1,6 @@
 # 灵枢枢机（Stratix）框架以及生态
 
-这是一个以 Node.js / TypeScript 为主的 `pnpm` + `turbo` monorepo，当前承载灵枢枢机（Stratix）框架核心包、配套生态包、CLI，以及一个非 workspace 的 CLI 预览样例。
+这是一个以 Node.js / TypeScript 为主的 `pnpm` + `turbo` monorepo，当前承载灵枢枢机（Stratix）框架核心包、配套生态包、`create`/`forge` 工具链，以及一个非 workspace 的模板预览样例。
 
 ## 稳定入口
 
@@ -12,7 +12,8 @@
 ## 仓库布局
 
 - `packages/core`: 灵枢枢机核心框架，包含共享 `utils` 工具模块
-- `packages/cli`: 灵枢枢机 CLI
+- `packages/create`: 轻量应用/插件创建入口
+- `packages/forge`: 项目内工程工具链
 - `packages/database`: 数据库插件
 - `packages/redis`: Redis 插件
 - `packages/queue`: 队列插件
