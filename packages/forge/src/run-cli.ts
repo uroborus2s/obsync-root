@@ -33,6 +33,7 @@ function parseArgs(args: string[]): ParsedArgs {
       'output',
       'input',
       'manifest',
+      'scope',
       'length',
       'title',
       'version'

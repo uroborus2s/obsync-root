@@ -17,8 +17,8 @@
     "node": ">=24.0.0",
     "pnpm": ">=10.33.0"
   },
-  "currentStage": "ANALYSIS",
-  "recommendedNextStage": "Run Phase 6 production release readiness review: supported build/test/docs/pack/API/release-gate verification, offline install recovery, npm/tag/registry release-surface reconciliation, and @stratix/tasks deprecation/removal decision",
+  "currentStage": "PHASE_6_RELEASE_READINESS",
+  "recommendedNextStage": "Continue Phase 6 production release readiness: execute workspace release gate, recover offline install or document unsupported status, reconcile exact git tags and npm registry, and decide @stratix/tasks removal/deprecation path",
   "sourceOfTruth": {
     "stableCollaboration": ["AGENTS.md", "GEMINI.md"],
     "humanDocs": "docs/",
@@ -199,8 +199,8 @@
       {
         "command": "pnpm --filter @stratix/forge test",
         "status": "passed",
-        "summary": "39 tests",
-        "reason": "Forge tests cover doctor di, di graph JSON/Mermaid output, module manifest/doctor/graph governance, plugin manifest doctor/graph governance, production build-manifest generation, release gate, OpenAPI generation, advanced typed client generation with path/query/body/header/auth/hooks, command help, and generated resource DI/schema checks"
+        "summary": "41 tests",
+        "reason": "Forge tests cover doctor di, di graph JSON/Mermaid output, module manifest/doctor/graph governance, plugin manifest doctor/graph governance, production build-manifest generation, project/workspace release gate, OpenAPI generation, advanced typed client generation with path/query/body/header/auth/hooks, command help, and generated resource DI/schema checks"
       },
       {
         "command": "pnpm --filter @stratix/devtools test",
@@ -362,6 +362,18 @@
         "reason": "Built forge exposes typed client generation help"
       },
       {
+        "command": "node packages/forge/dist/bin/stratix.js release gate --scope workspace --dry-run",
+        "status": "passed",
+        "summary": "10 supported packages, @stratix/tasks excluded, 6 checks",
+        "reason": "Built forge can plan Phase 6 workspace release-readiness checks without requiring a production manifest"
+      },
+      {
+        "command": "node packages/forge/dist/bin/stratix.js release gate --scope workspace --dry-run --include-offline-install --include-registry",
+        "status": "passed",
+        "summary": "offline-install/build/test/docs/pack/api/release-surface/registry",
+        "reason": "Built forge can include offline install and npm registry reconciliation in the Phase 6 release plan"
+      },
+      {
         "command": "pnpm preview --host 127.0.0.1 --port 4273",
         "workdir": "examples/web-admin-preview",
         "status": "passed_with_local_port_permission",
@@ -370,14 +382,16 @@
     ]
   },
   "phaseBaseline": {
-    "stage": "ANALYSIS",
+    "stage": "PHASE_6_RELEASE_READINESS",
     "entrySatisfied": [
       "Current-state evidence collected",
       "docs/ and .factory/ bootstrapped",
       "Stable collaboration rules separated from transient state",
-      "Template preview sample moved out of workspace"
+      "Template preview sample moved out of workspace",
+      "Phase 5 production baseline completed",
+      "Workspace release gate dry-run implemented"
     ],
-    "exitBlockedBy": ["BUG-002", "BUG-003", "BUG-004", "CR-001"]
+    "exitBlockedBy": ["BUG-003", "CR-001", "TASK-004"]
   },
   "currentWorkitems": [
     "BUG-002",
@@ -386,6 +400,7 @@
     "CR-001",
     "TASK-001",
     "TASK-002",
-    "TASK-003"
+    "TASK-003",
+    "TASK-004"
   ]
 }

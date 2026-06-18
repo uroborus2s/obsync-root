@@ -3,7 +3,7 @@
 - 类型：CR
 - 状态：OPEN
 - 优先级：P1
-- 阶段：ANALYSIS
+- 阶段：PHASE_6_RELEASE_READINESS
 - 预计工作量：1.5 人/天
 
 ## 描述
@@ -31,3 +31,9 @@
 - 发布策略文件明确哪些包已发布、哪些仅本地存在
 - tag 与版本规则被统一
 - README / release docs 与真实发布面一致
+
+## Phase 6 进展
+
+- `stratix release gate --scope workspace --dry-run` 已可把 release-surface 纳入 monorepo 发布准备计划。
+- 实际执行 workspace release-surface gate 时，supported package 必须存在 exact git tag。
+- npm registry reconciliation 通过 `--include-registry` 显式纳入门禁，仍待真实执行和记录。

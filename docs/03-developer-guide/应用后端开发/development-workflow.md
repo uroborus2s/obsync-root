@@ -128,6 +128,15 @@ security: {
 stratix release gate --dry-run --manifest .stratix/production-manifest.json
 ```
 
+如果是在 Stratix monorepo 根目录做发布准备复核，使用 workspace scope：
+
+```bash
+stratix release gate --scope workspace --dry-run
+stratix release gate --scope workspace --dry-run --include-offline-install --include-registry
+```
+
+project scope 校验单个应用的 production manifest；workspace scope 校验 supported packages 的 build/test/docs/pack/API/release-surface 发布准备计划，并显式排除已冻结的 `@stratix/tasks`。
+
 ## 推荐的实现顺序为什么是 repository -> service -> controller
 
 因为绝大多数业务功能，数据结构一旦确定：

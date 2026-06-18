@@ -122,3 +122,14 @@
   - `pnpm --filter @stratix/core pack --pack-destination /tmp` passed, `/tmp/stratix-core-1.1.0.tgz`.
   - `pnpm --filter @stratix/forge pack --pack-destination /tmp` passed, `/tmp/stratix-forge-1.1.0.tgz`.
   - `pnpm --filter @stratix/devtools pack --pack-destination /tmp` passed, `/tmp/stratix-devtools-1.0.0-beta.1.tgz`.
+- Entered Phase 6 release-readiness development:
+  - `@stratix/forge` release gate now supports `--scope workspace` for monorepo release-readiness planning.
+  - Workspace scope scans `packages/*/package.json`, reports supported package versions, excludes frozen `@stratix/tasks`, and plans build/test/docs/pack/API/release-surface checks.
+  - `--include-offline-install` and `--include-registry` opt into the remaining Phase 6 offline and npm registry governance checks.
+  - Actual workspace release-surface gate checks exact git tags for supported package versions.
+- Verified focused Phase 6 forge checks:
+  - `pnpm --filter @stratix/forge test` passed, 41 tests.
+  - `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit` passed.
+  - `pnpm --filter @stratix/forge build` passed.
+  - `node packages/forge/dist/bin/stratix.js release gate --scope workspace --dry-run` passed and reported 10 supported packages with `@stratix/tasks` excluded.
+  - `node packages/forge/dist/bin/stratix.js release gate --scope workspace --dry-run --include-offline-install --include-registry` passed and reported 8 planned checks.

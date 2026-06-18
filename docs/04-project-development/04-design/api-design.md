@@ -28,14 +28,15 @@
 | `API-013` | Runtime production manifest consumption | `discovery.productionManifest`             | 已完成；启动期读取 artifact、跳过 runtime glob discovery，并支持 manifest-driven registration |
 | `API-014` | Observability/Security preset           | `config.observability` / `config.security` | 已完成；提供 request/trace id、health、metrics、traces、CORS、headers、rate limit、body limit |
 | `API-015` | DevTools production views               | `@stratix/devtools`                        | 已完成；展示 routes、DI、plugins、redacted config、health、traces                             |
-| `API-016` | Release gate                            | `stratix release gate`                     | 已完成；校验 production manifest 并输出 build/test/docs/security/pack/api/manifest 检查计划   |
+| `API-016` | Release gate                            | `stratix release gate`                     | Phase 5 project scope 已完成；Phase 6 workspace scope 已进入开发                              |
 
 ## 2. 当前缺口
 
 - 尚无统一的顶层 API 契约文档
 - 各生态包大多只有各自 README，缺少仓级接口视图
 - 包导出版本与 registry / tag 的外部可见版本不一致
-- Module governance tooling 已有 `generate module` / `doctor modules` / `graph modules` 基线；Plugin manifest、Production manifest artifact、Runtime manifest consumption、manifest-driven registration、Observability/Security preset、DevTools production views 和 Release gate 已有 Phase 5 基线
+- Module governance tooling 已有 `generate module` / `doctor modules` / `graph modules` 基线；Plugin manifest、Production manifest artifact、Runtime manifest consumption、manifest-driven registration、Observability/Security preset、DevTools production views 和 Release gate project scope 已有 Phase 5 基线
+- Phase 6 已开始补 workspace release gate，用于 monorepo supported packages 的 build/test/docs/pack/API/release-surface 发布准备门禁
 
 ## 3. 当前建议
 
@@ -43,6 +44,7 @@
 - 将 route schema 作为接口契约源，通过 `getControllerRouteContracts()`、`validateRouteContracts()` 和 `generateOpenApiDocument()` 逐步驱动 OpenAPI、typed client 与 contract tests。
 - 将 DI token graph 作为架构诊断接口面，通过 `stratix doctor di` 和 `stratix di graph` 进入 forge 质量门。
 - `@stratix/create` 与 `@stratix/forge` 不依赖 `@stratix/core` 或任何项目包。create 创建项目时把 `@stratix/core` 写入目标项目依赖，把 `@stratix/forge` 写入目标项目 devDependency；OpenAPI 源码分析执行时从目标项目解析 `typescript`。
+- 单应用发布前使用 `stratix release gate --manifest <file>`；monorepo 发布准备使用 `stratix release gate --scope workspace`，可按需加入 `--include-offline-install` 和 `--include-registry`。
 
 ## 4. 变更记录
 
@@ -55,3 +57,4 @@
 | 2026-06-18 | 记录 Plugin manifest governance 与 Production manifest artifact API 面                                                     | Codex  |
 | 2026-06-18 | 记录 Runtime production manifest consumption 配置面                                                                        | Codex  |
 | 2026-06-18 | 记录 Phase 5 Observability/Security preset、DevTools production views、Release gate 与 manifest-driven registration API 面 | Codex  |
+| 2026-06-18 | 记录 Phase 6 workspace release gate API 面                                                                                 | Codex  |

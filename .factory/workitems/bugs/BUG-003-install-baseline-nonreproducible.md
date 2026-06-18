@@ -3,7 +3,7 @@
 - 类型：BUG
 - 状态：OPEN
 - 优先级：P1
-- 阶段：ANALYSIS
+- 阶段：PHASE_6_RELEASE_READINESS
 - 预计工作量：1.0 人/天
 
 ## 描述
@@ -24,3 +24,8 @@
 
 - `pnpm install --frozen-lockfile --offline` 在目标环境下可通过，或明确标记“不支持离线安装”
 - 离线策略与所需缓存边界有正式结论
+
+## Phase 6 进展
+
+- `stratix release gate --scope workspace --include-offline-install` 已可把 frozen offline install 纳入发布准备门禁。
+- 当前 BUG 仍为 OPEN；尚未重新验证或修复根工作区离线安装。

@@ -1,7 +1,7 @@
 # Current State
 
 - Snapshot date: 2026-06-18
-- Recommended software-factory stage: `ANALYSIS`
+- Recommended software-factory stage: `PHASE_6_RELEASE_READINESS`
 - Repository type: historical Stratix source monorepo
 - Toolchain baseline:
   - Node `24.14.1`
@@ -24,7 +24,8 @@
 - Plugin manifest and production manifest baselines are implemented: `@stratix/create` writes `.stratix/plugin.json` for plugin projects; `@stratix/forge` exposes `stratix doctor plugins`, `stratix graph plugins`, and `stratix build-manifest` for manifest validation, plugin topology, and CI production artifact generation.
 - Phase 5 production baseline is implemented: `@stratix/core` accepts `discovery.productionManifest`, loads and validates `.stratix/production-manifest.json`, exposes the loaded artifact on the application instance, can skip application-level runtime glob discovery when `skipRuntimeDiscovery` is true, can register DI/routes from manifest source files when `registerFromManifest` is true, and provides `observability` / `security` presets.
 - `@stratix/devtools` exposes Phase 5 production views for routes, DI, plugins, redacted config, health, and traces.
-- `@stratix/forge` exposes `stratix release gate` for production manifest release checks.
+- `@stratix/forge` exposes `stratix release gate` for production manifest release checks and `stratix release gate --scope workspace` for monorepo release-readiness planning.
+- Phase 6 release-readiness work is in progress: workspace release gate dry-run can plan supported build/test/docs/pack/API/release-surface checks, explicitly excludes frozen `@stratix/tasks`, and can include offline install / npm registry reconciliation as opt-in checks.
 - The toolchain split is implemented: `@stratix/create` owns app/plugin creation, `@stratix/forge` owns project-local generate/doctor/di/openapi/start/config workflows, and neither package depends on `@stratix/core`.
 - The physical source directory for `@stratix/forge` is now `packages/forge`; `packages/cli` is not retained as a compatibility directory.
 - `.stratix/project.json` is now the create/forge handoff contract at `schemaVersion: 2`; create writes the template contribution snapshot, allowed presets, and managed files mode, while forge reads the manifest/presets/resource templates instead of app/plugin creation templates.
@@ -59,7 +60,7 @@
 - `pnpm --filter @stratix/create exec tsc -p tsconfig.json --noEmit` passes.
 - `pnpm --filter @stratix/create run build` passes.
 - `pnpm --filter @stratix/forge test` passes:
-  - 39 tests
+  - 41 tests
 - `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit` passes.
 - `pnpm --filter @stratix/forge run build` passes after advanced typed client generation support.
 - `pnpm --filter @stratix/devtools test` passes:
@@ -83,6 +84,10 @@
   - `stratix graph plugins --format json|mermaid`
   - `stratix build-manifest --output <file>`
   - `stratix release gate --manifest <file>`
+  - `stratix release gate --scope workspace`
+- Built `@stratix/forge` CLI workspace release gate dry-runs pass:
+  - `node packages/forge/dist/bin/stratix.js release gate --scope workspace --dry-run`
+  - `node packages/forge/dist/bin/stratix.js release gate --scope workspace --dry-run --include-offline-install --include-registry`
 - `node packages/forge/dist/bin/stratix.js openapi generate --help` passes.
 - `node packages/forge/dist/bin/stratix.js openapi client --help` passes.
 - `rg -n "generateOpenApiDocument|from '@stratix/core'|from \"@stratix/core\"|@stratix/core" packages/forge/src/commands/openapi packages/forge/tests/stubs/stratix-core.stub.ts packages/forge/package.json` returns no matches; the OpenAPI forge command path is not coupled to core.
@@ -118,10 +123,10 @@
 
 ## Immediate Priorities
 
-1. Run Phase 6 production release readiness review across supported build/test/docs/pack/API/release-gate checks.
-2. Restore reproducible offline installation.
-3. Reconcile manifest versions, git tags, and npm registry reality.
-4. Decide whether `@stratix/tasks` remains permanently deprecated or is removed from the workspace surface.
+1. Execute the real Phase 6 workspace release gate and record failures by gate: build/test/docs/pack/API/release-surface/offline/registry.
+2. Restore reproducible offline installation or formally mark offline install unsupported for this release.
+3. Reconcile manifest versions, exact git tags, and npm registry reality.
+4. Decide whether `@stratix/tasks` remains permanently deprecated, is removed from the workspace surface, or is re-opened as a separate migration project.
 5. Explicitly approve or defer physical deletion of obsolete create-only template directories still present under `packages/forge/templates/apps` and `packages/forge/templates/plugins`; they are no longer read by forge code or shipped in the forge package.
 
 ## Canonical Detailed Report

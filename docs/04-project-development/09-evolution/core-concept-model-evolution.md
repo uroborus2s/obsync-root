@@ -695,6 +695,7 @@ Forge 目标命令：
 - `stratix routes`
 - `stratix di graph`
 - `stratix openapi generate`
+- `stratix release gate --scope workspace`
 - `stratix test scaffold`
 
 ```mermaid
@@ -1102,6 +1103,10 @@ CI=true pnpm --filter @stratix/testing exec vitest run
 
 ### Phase 6：95+ 质量门复核
 
+当前状态：Phase 6 已进入开发。`@stratix/forge` 已扩展 `stratix release gate --scope workspace --dry-run`，用于在 monorepo 根目录规划 supported packages 发布准备门禁。project scope 继续校验应用级 production manifest；workspace scope 不要求 production manifest，默认扫描 `packages/*/package.json`，显式排除冻结的 `@stratix/tasks`，并规划 build/test/docs/pack/API/release-surface 检查。
+
+Phase 6 workspace gate 可通过 `--include-offline-install` 和 `--include-registry` 把离线安装与 npm registry reconciliation 纳入发布准备计划。真实执行 workspace release-surface gate 时，supported package 必须存在 exact git tag；因此当前版本/tag/registry 未对齐会继续作为发布治理阻断，而不是被误判为已发布。
+
 目标：用证据支撑所有分项达到 95 分以上。
 
 证据：
@@ -1114,6 +1119,8 @@ CI=true pnpm --filter @stratix/testing exec vitest run
 - OpenAPI/typed client/contract test 示例。
 - DI graph/module graph 示例。
 - security/observability/release gate 记录。
+- workspace release gate 输出。
+- offline install、git tag、npm registry reconciliation 记录。
 
 通过条件：
 
@@ -1122,6 +1129,7 @@ CI=true pnpm --filter @stratix/testing exec vitest run
 - tasks 冻结状态明确。
 - Module 没有进入 runtime DI 模型。
 - testing 独立包能力达到最小可用平台。
+- supported packages 的 workspace release gate 有明确通过或阻断结论。
 
 ## 13. 角色分工
 

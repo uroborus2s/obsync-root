@@ -128,6 +128,20 @@ function seedProjectTypescript(projectDir: string): void {
   }
 }
 
+function seedWorkspacePackage(
+  rootDir: string,
+  packageDir: string,
+  packageJson: Record<string, unknown>
+): void {
+  const targetDir = path.join(rootDir, 'packages', packageDir);
+  fs.mkdirSync(targetDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(targetDir, 'package.json'),
+    JSON.stringify(packageJson, null, 2),
+    'utf8'
+  );
+}
+
 afterEach(() => {
   for (const root of tempRoots.splice(0, tempRoots.length)) {
     fs.rmSync(root, { recursive: true, force: true });
@@ -1329,6 +1343,114 @@ describe('@stratix/forge', () => {
       output.messages.some((message) =>
         message.message.includes('Production manifest not found')
       )
+    );
+  });
+
+  it('plans workspace release readiness without requiring a production manifest', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+
+    fs.writeFileSync(
+      path.join(cwd, 'package.json'),
+      JSON.stringify(
+        {
+          name: '@stratix/workspace-fixture',
+          private: true,
+          scripts: {
+            'build:supported': 'echo build',
+            'test:supported': 'echo test'
+          }
+        },
+        null,
+        2
+      ),
+      'utf8'
+    );
+    seedWorkspacePackage(cwd, 'core', {
+      name: '@stratix/core',
+      version: '1.1.0'
+    });
+    seedWorkspacePackage(cwd, 'tasks', {
+      name: '@stratix/tasks',
+      version: '1.1.0'
+    });
+
+    await runCli(['release', 'gate', '--scope', 'workspace', '--dry-run'], {
+      cwd,
+      output
+    });
+
+    assert.ok(
+      output.messages.some((message) =>
+        message.message.includes('workspace release readiness')
+      )
+    );
+    assert.ok(
+      output.messages.some((message) =>
+        message.message.includes('@stratix/core@1.1.0')
+      )
+    );
+    assert.ok(
+      output.messages.some((message) =>
+        message.message.includes('@stratix/tasks excluded')
+      )
+    );
+    assert.equal(
+      output.messages.some((message) =>
+        message.message.includes('Production manifest not found')
+      ),
+      false
+    );
+  });
+
+  it('includes offline install and registry reconciliation in the workspace release plan', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+
+    fs.writeFileSync(
+      path.join(cwd, 'package.json'),
+      JSON.stringify(
+        {
+          name: '@stratix/workspace-fixture',
+          private: true,
+          scripts: {
+            'build:supported': 'echo build',
+            'test:supported': 'echo test'
+          }
+        },
+        null,
+        2
+      ),
+      'utf8'
+    );
+    seedWorkspacePackage(cwd, 'core', {
+      name: '@stratix/core',
+      version: '1.1.0'
+    });
+
+    await runCli(
+      [
+        'release',
+        'gate',
+        '--scope',
+        'workspace',
+        '--dry-run',
+        '--include-offline-install',
+        '--include-registry'
+      ],
+      {
+        cwd,
+        output
+      }
+    );
+
+    assert.ok(
+      output.messages.some((message) =>
+        message.message.includes('offline-install')
+      )
+    );
+    assert.ok(
+      output.messages.some((message) => message.message.includes('registry'))
     );
   });
 

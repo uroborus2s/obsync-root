@@ -24,6 +24,8 @@
 - `@stratix/core` provides Phase 5 observability/security presets: request/trace ids, health, metrics, traces, CORS, headers, body limit, and rate limit
 - `@stratix/devtools` exposes production views for routes, DI, plugins, redacted config, health, and traces
 - `@stratix/forge` validates release readiness through `stratix release gate --manifest <file>`
+- `@stratix/forge` plans monorepo release readiness through `stratix release gate --scope workspace --dry-run`
+- Built forge CLI workspace release gate dry-runs pass with and without offline/registry optional checks
 - `@stratix/core` unified error envelope and response schema failure normalization tests pass
 - `@stratix/testing` contract tests validate shared Stratix error envelope responses
 - `@stratix/testing` Phase 4 platform helpers pass test/typecheck/build: test app, DI override, plugin fixture, discovery fixture, module fixture, and rollbackable repository fixture
@@ -34,10 +36,11 @@
 
 - Frozen offline install reproducibility
 - Explicit all-package `build:all` still fails at deprecated `@stratix/tasks`
+- Exact git tags and npm registry versions remain unreconciled for the current supported package versions
 - Peer compatibility warnings around TypeScript 6 / ESLint 10
 
 ## Action Focus
 
-1. Restore reproducible installation.
-2. Reconcile release-surface reality and remaining package-test regressions.
-3. Run Phase 6 production release readiness review and reconcile npm/tag/registry release surface.
+1. Execute the real Phase 6 workspace release gate and record which gate blocks release.
+2. Restore reproducible offline installation or document unsupported offline release policy.
+3. Reconcile exact git tags, npm registry reality, and local package manifest versions.

@@ -217,7 +217,7 @@ flowchart TD
 | `TASK-PROD-003` | Production manifest                     | discovery/route/DI/module/plugin-lock manifest | 已完成 artifact、runtime consumption 与 manifest-driven registration |
 | `TASK-PROD-004` | Build manifest 命令                     | `stratix build-manifest`                       | 已完成；CI 可生成 artifact                                           |
 | `TASK-PROD-005` | DevTools routes/DI/plugin/config/health | 可视化面板                                     | 已完成；可展示 routes、DI、plugins、config、health、traces           |
-| `TASK-PROD-006` | Release gate                            | build/test/docs/security/pack/API surface gate | 已完成；`stratix release gate` 可校验 production manifest            |
+| `TASK-PROD-006` | Release gate                            | build/test/docs/security/pack/API surface gate | Phase 5 project gate 已完成；Phase 6 workspace gate 已进入开发       |
 
 ### 工作流 11：文档、API 与发布门禁
 
@@ -333,12 +333,15 @@ rg --files packages/core/src packages/core/dist packages/forge/templates | rg -i
 | Manifest-driven registration     | 通过 | `registerFromManifest: true` 时 core 只导入 manifest `sourceFile` 并恢复 DI/路由注册                                                                             |
 | Observability/Security preset    | 通过 | core 生产配置支持 request/trace id、health、metrics、traces、CORS、headers、rate limit、body limit                                                               |
 | DevTools production views        | 通过 | `@stratix/devtools` 展示 manifest routes、DI tokens、plugins、redacted config、health 和 traces                                                                  |
-| Release gate                     | 通过 | `stratix release gate --dry-run --manifest <file>` 输出 build/test/docs/security/pack/api/manifest 检查计划                                                      |
+| Release gate                     | 通过 | `stratix release gate --dry-run --manifest <file>` 输出 project 检查计划；`--scope workspace --dry-run` 输出 monorepo 发布准备计划                               |
 | 支持包门禁                       | 通过 | `pnpm run build:supported` 10/10；`pnpm run test:supported` 12 个 turbo tasks 全部通过                                                                           |
 
-剩余后续工作：
+Phase 6 后续工作：
 
-- Phase 6 95+ 总评分复核、发布物打包复核、离线安装和 npm/tag/registry 发布口径治理。
+- 真实执行 workspace release gate，并把失败项定位到 offline install、tag、registry 或 pack。
+- 恢复离线安装，或正式声明当前发布形态不支持离线安装。
+- 对齐本地 package manifest、git tags 与 npm registry 版本口径。
+- 决策 `@stratix/tasks` 是永久废弃、移出 workspace，还是重新立项迁移。
 
 ### Phase 3：Testing 扩展与 Module PR
 
@@ -374,7 +377,7 @@ rg --files packages/core/src packages/core/dist packages/forge/templates | rg -i
 - DevTools 可展示 routes、DI、plugin、config、health、traces。（已完成）
 - `stratix release gate` 可执行 production manifest 发布门禁。（已完成）
 
-### Phase 6：95+ 评分复核
+### Phase 6：95+ 评分复核（2026-06-18 已进入开发）
 
 复核材料：
 
@@ -387,6 +390,8 @@ rg --files packages/core/src packages/core/dist packages/forge/templates | rg -i
 - OpenAPI/typed client/contract test 示例
 - DI graph/module graph/plugin graph 示例
 - observability/security/production manifest 示例
+- workspace release gate 输出
+- offline install、git tag、npm registry 发布面对齐记录
 
 通过条件：
 
@@ -394,6 +399,8 @@ rg --files packages/core/src packages/core/dist packages/forge/templates | rg -i
 - 没有 P0/P1 级别缺陷。
 - 没有 executor 兼容层。
 - 没有 tasks 未定设计阻塞 core。
+- `stratix release gate --scope workspace` 能把 supported build/test/docs/pack/API/release-surface 串成可重复门禁。
+- `BUG-003` 和 `CR-001` 有关闭结论或明确发布阻断状态。
 
 ## 5. 统筹检查点
 
