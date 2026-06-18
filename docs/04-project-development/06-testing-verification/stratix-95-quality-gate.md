@@ -1,6 +1,6 @@
 # Stratix 95+ Quality Gate
 
-**状态：** Phase 2 扩展工作流与 Phase 3 Module governance 工具已通过；总体演进继续执行
+**状态：** Phase 2 扩展工作流、Phase 3 Module governance 与 Phase 4 testing 平台基线已通过；总体演进继续执行
 **适用范围：** Stratix 1.1.x 主线重构与 Core 概念模型演进
 **排除范围：** `@stratix/tasks`  
 **关联工作项：** `TASK-003`
@@ -11,10 +11,10 @@
 
 | 维度 | 当前基线 | 95+ 判定 |
 | --- | ---: | --- |
-| 架构边界 | 98 | core、database、create、forge、testing 职责清晰，executor 已从 core 概念面删除，create/forge 保持零运行时依赖，Contract-first、DI diagnostics 和 Module governance 有独立 public surface |
-| 代码实现 | 98 | P0/P1 缺陷关闭，route contract/OpenAPI helpers、DI graph/diagnostics、OpenAPI forge command、typed client、contractTest、adapter diagnostics、module manifest/doctor/graph 均有实现，无 executor 兼容层 |
-| 测试与回归 | 98 | 受影响模块有回归测试，database/create/forge/core/testing 定向验证通过，module governance 有 CLI 回归测试，supported build/test 通过，废弃 tasks 不计入 |
-| 文档与使用路径 | 98 | README、开发指南、create/forge 模板说明与当前 1.1.x API 一致，Phase 2 扩展与 Phase 3 module governance 证据已同步，开发者指南不再暴露已删除 executor 使用路径 |
+| 架构边界 | 98 | core、database、create、forge、testing 职责清晰，executor 已从 core 概念面删除，create/forge 保持零运行时依赖，Contract-first、DI diagnostics、Module governance 和 testing platform 有独立 public surface |
+| 代码实现 | 98 | P0/P1 缺陷关闭，route contract/OpenAPI helpers、DI graph/diagnostics、OpenAPI forge command、typed client、contractTest、testing fixtures、adapter diagnostics、module manifest/doctor/graph 均有实现，无 executor 兼容层 |
+| 测试与回归 | 98 | 受影响模块有回归测试，database/create/forge/core/testing 定向验证通过，module governance 有 CLI 回归测试，testing platform 有 fixture 回归测试，supported build/test 通过，废弃 tasks 不计入 |
+| 文档与使用路径 | 98 | README、开发指南、create/forge 模板说明与当前 1.1.x API 一致，Phase 2 扩展、Phase 3 module governance 与 Phase 4 testing platform 证据已同步，开发者指南不再暴露已删除 executor 使用路径 |
 | 发布与验证面 | 97 | supported build/test 入口稳定，create/forge 包保持空 dependencies，tasks 从默认质量门排除，changeset 基线对齐 `1.1.0` |
 | QA 风险控制 | 98 | 有明确的排除项、失败项解释、回归测试矩阵、负向 API 断言、create/forge 依赖边界扫描和无残留扫描命令 |
 
@@ -80,7 +80,7 @@ pnpm run test:supported
 | `pnpm --filter @stratix/core exec tsc --noEmit` | 通过 | core 类型门禁 |
 | `pnpm --filter @stratix/core exec vitest run src/plugin/__tests__/adapter-registration.test.ts` | 通过 | adapter token 契约测试 4 tests |
 | `pnpm --filter @stratix/core exec vitest run` | 通过 | 27 files / 188 tests，覆盖 route contract/OpenAPI、统一错误 envelope、response schema failure 归一化、DI diagnostics、plugin adapter diagnostics、discovery schema validation 和 DI graph |
-| `pnpm --filter @stratix/testing test` | 通过 | 2 files / 6 tests，覆盖 smoke、`contractTest()` 和共享错误 envelope schema |
+| `pnpm --filter @stratix/testing test` | 通过 | 3 files / 12 tests，覆盖 smoke、`contractTest()`、共享错误 envelope schema、test app、DI override、plugin fixture、discovery fixture、repository fixture、module fixture |
 | `pnpm --filter @stratix/testing exec tsc -p tsconfig.json --noEmit` | 通过 | testing 类型门禁 |
 | `pnpm --filter @stratix/testing build` | 通过 | testing 构建门禁 |
 | `CI=true pnpm --filter @stratix/core exec vitest run src/contracts/__tests__/route-contract.test.ts src/diagnostics/__tests__/di-diagnostics.test.ts src/discovery/__tests__/application-pipeline.test.ts src/__tests__/public-api-contract.test.ts` | 通过 | 4 files / 11 tests，Phase 2 定向门禁 |
@@ -123,11 +123,12 @@ pnpm run test:supported
 | 2026-06-18 | 技术总监/架构/开发/测试/QA/文档 | 98 | 98 | 98 | 98 | 97 | 98 | Phase 2 扩展工作流达到 95+；OpenAPI forge command/typed client/contractTest/plugin diagnostics 已落地，forge 零运行时依赖边界已锁定 |
 | 2026-06-18 | 技术总监/架构/开发/测试/QA/文档 | 98 | 98 | 98 | 98 | 97 | 98 | create/forge 工具边界达到 95+；create 只负责 app/plugin 创建，forge 负责项目内工程命令，supported build 10/10、test 12 tasks 通过 |
 | 2026-06-18 | 技术总监/架构/开发/测试/QA/文档 | 98 | 98 | 98 | 98 | 97 | 98 | Phase 3 Module governance 达到 95+；generate module 写入 module.yaml，doctor/graph modules 可验证，runtime 不读取 module manifest |
+| 2026-06-18 | 技术总监/架构/开发/测试/QA/文档 | 98 | 98 | 98 | 98 | 97 | 98 | Phase 4 testing 平台基线达到 95+；createTestApp/override/plugin/discovery/repository/module fixture 已落地，testing 3 files / 12 tests、typecheck/build 通过 |
 
 ## 7. 残余风险
 
 - `@stratix/tasks` 仍是显式排除项；若未来恢复为 supported package，必须单独迁移旧 database API。
 - `build:all` 仍代表全包构建，不等同默认质量门。
 - 离线安装和 npm/tag 发布口径仍属于独立 release governance 工作，不阻塞本轮 database/core/create/forge 质量门。
-- 统一错误 envelope、response validation strict gate、advanced typed client path params/auth/interceptors、testing fixtures、Plugin manifest、Production manifest 仍是后续阶段，不应被 Phase 2/Phase 3 已落地能力替代。
+- advanced typed client path params/auth/interceptors、Plugin manifest、Production manifest 仍是后续阶段，不应被 Phase 2/Phase 3/Phase 4 已落地能力替代。
 - forge 源码树中物理删除旧 app/plugin 模板目录需要明确删除批准；当前 forge 代码路径和发布包已与这些目录解耦。

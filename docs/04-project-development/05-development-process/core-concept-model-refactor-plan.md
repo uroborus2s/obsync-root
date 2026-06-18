@@ -145,13 +145,26 @@ flowchart TD
 
 | ID | 任务 | 交付物 | 验收 |
 |---|---|---|---|
-| `TASK-TEST-001` | `createTestApp()` | 官方 test app 工厂 | 支持 app.inject，不 listen |
-| `TASK-TEST-002` | DI override | `overrideToken()` / overrides 配置 | 可替换 service/repository/component |
-| `TASK-TEST-003` | Plugin fixture | `mockPlugin()` / disable plugin | 可替换生态插件 |
-| `TASK-TEST-004` | Discovery fixture | 测试专用 discovery root/patterns | fixture app 可隔离加载 |
-| `TASK-TEST-005` | Contract test | route schema/OpenAPI 契约测试 | 可验证状态码、schema、错误响应 |
-| `TASK-TEST-006` | Module fixture | 与 module.yaml 集成 | 可按 module 建立测试边界 |
-| `TASK-TEST-007` | Repository fixture | database repository 测试夹具 | 支持 transaction rollback |
+| `TASK-TEST-001` | `createTestApp()` | 官方 test app 工厂 | 已完成；支持 app.inject，不 listen |
+| `TASK-TEST-002` | DI override | `overrideToken()` / overrides 配置 | 已完成；可替换显式 provider/controller 路径中的 service/repository/component |
+| `TASK-TEST-003` | Plugin fixture | `mockPlugin()` / disable plugin | 已完成；可替换或禁用生态插件 |
+| `TASK-TEST-004` | Discovery fixture | 测试专用 discovery root/patterns | 已完成；fixture app 可隔离加载 |
+| `TASK-TEST-005` | Contract test | route schema/OpenAPI 契约测试 | 已完成；可验证状态码、schema、错误响应 |
+| `TASK-TEST-006` | Module fixture | 与 module.yaml 集成 | 已完成；可按 module.yaml 建立测试边界 |
+| `TASK-TEST-007` | Repository fixture | database repository 测试夹具 | 已完成；支持 transaction rollback |
+
+执行结果：
+
+| 验收项 | 结果 | 证据 |
+|---|---|---|
+| `createTestApp()` | 通过 | 包装真实 `Stratix.run()` 非监听模式，支持 `app.inject` |
+| DI override | 通过 | `createTestContainer()` / `overrideToken()` 可替换显式 provider/controller 依赖 |
+| Plugin fixture | 通过 | `mockPlugin()` 可替换插件并注册 decorator/token；`disablePlugin()` / `disablePlugins` 可禁用插件 |
+| Discovery fixture | 通过 | `createDiscoveryFixture()` 可指定隔离 root/patterns 并触发应用级 discovery |
+| Contract test | 通过 | `contractTest()` 保持 route contract、response schema 和错误 envelope 校验 |
+| Module fixture | 通过 | `createModuleFixture()` 读取 `module.yaml` 的 root/layers/contracts/boundaries |
+| Repository fixture | 通过 | `createRepositoryFixture()` 支持 begin/rollback 和 transaction-bound repository |
+| testing 包门禁 | 通过 | `pnpm --filter @stratix/testing test` 3 files / 12 tests；typecheck/build 通过 |
 
 ### 工作流 7：Create 与 Forge 完整开发体验
 
@@ -319,7 +332,7 @@ rg --files packages/core/src packages/core/dist packages/forge/templates | rg -i
 剩余后续工作：
 
 - typed client 的 path params、query/body 参数、auth/interceptor 扩展。
-- testing fixture、Plugin manifest、Production manifest。
+- Plugin manifest、Production manifest。
 
 ### Phase 3：Testing 扩展与 Module PR
 
@@ -327,7 +340,7 @@ rg --files packages/core/src packages/core/dist packages/forge/templates | rg -i
 
 验收：
 
-- `@stratix/testing` 在已完成 `contractTest()` 基线之上继续提供 test app、override、plugin fixture、module fixture。
+- `@stratix/testing` 在已完成 `contractTest()` 基线之上提供 test app、override、plugin fixture、discovery fixture、repository fixture、module fixture。
 - `stratix generate module`、`stratix doctor modules`、`stratix graph modules` 可用。（2026-06-18 已完成）
 - Module 工具不改变应用启动 runtime 行为。（2026-06-18 已完成）
 

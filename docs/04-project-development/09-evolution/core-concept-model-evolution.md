@@ -658,7 +658,7 @@ flowchart TD
 | contract test DSL | `@stratix/testing` `contractTest()` 复用 route contract、diagnostics 和共享错误 envelope schema 验证 app.inject 响应 |
 | plugin adapter diagnostics | `diagnoseServiceAdapterTokens()` 检测重复 adapter name 与根容器 token 冲突 |
 
-剩余工作不能被扩展能力替代：typed client 的 path params/query/body/auth/interceptors、testing fixtures、Plugin manifest、Production manifest。Module governance tooling 已有 `generate module` / `doctor modules` / `graph modules` 基线。
+剩余工作不能被扩展能力替代：typed client 的 path params/query/body/auth/interceptors、Plugin manifest、Production manifest。Module governance tooling 已有 `generate module` / `doctor modules` / `graph modules` 基线；`@stratix/testing` Phase 4 基线已覆盖 test app、DI override、plugin fixture、discovery fixture、repository fixture 和 module fixture。
 
 ### 9.3 Create 与 Forge 工具入口
 
@@ -1038,12 +1038,31 @@ rg -n "Executor|executor|EXECUTOR" packages/core/src
 - `createRepositoryFixture()`
 - `createModuleFixture()`
 
+截至 2026-06-18，Phase 4 testing 平台基线已经完成：
+
+| 能力 | 状态 | 证据 |
+|---|---|---|
+| `createTestApp()` | 已完成 | 包装真实 `Stratix.run()` 非监听模式，支持 `app.inject` |
+| `createTestContainer()` | 已完成 | 创建 Awilix CLASSIC 测试容器并注册显式 provider |
+| `overrideToken()` | 已完成 | 可替换显式 provider/controller 路径中的 service、repository、component |
+| `mockPlugin()` / `disablePlugin()` | 已完成 | 可替换生态插件、注册 decorator/token，或从测试 app 中禁用插件 |
+| `createDiscoveryFixture()` | 已完成 | 可指定隔离 discovery root/patterns/routing |
+| `contractTest()` | 已完成 | 继续复用 route contract、diagnostics 和共享错误 envelope schema |
+| `createRepositoryFixture()` | 已完成 | 支持 begin/rollback 与 transaction-bound repository |
+| `createModuleFixture()` | 已完成 | 读取 `module.yaml` 的 root/layers/contracts/boundaries，并输出 module discovery 配置 |
+
 验收：
 
 ```bash
 pnpm --filter @stratix/testing exec tsc -p tsconfig.json --noEmit
 CI=true pnpm --filter @stratix/testing exec vitest run
 ```
+
+当前验证结果：
+
+- `pnpm --filter @stratix/testing test` 通过，3 files / 12 tests。
+- `pnpm --filter @stratix/testing exec tsc -p tsconfig.json --noEmit` 通过。
+- `pnpm --filter @stratix/testing build` 通过。
 
 ### Phase 5：生产能力增强
 

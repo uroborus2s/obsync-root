@@ -56,3 +56,14 @@
   - `pnpm run build:supported`
   - `pnpm run test:supported`
   - `uvx --from docs-stratego docs-stratego source validate --repo-path .`
+- Implemented the Phase 4 `@stratix/testing` platform baseline:
+  - `createTestApp()` wraps real `Stratix.run()` in non-listening CLI mode and supports `app.inject`.
+  - `createTestContainer()` and `overrideToken()` provide DI override coverage for explicit providers/controllers.
+  - `mockPlugin()` and `disablePlugin()` provide plugin fixture replacement and exclusion.
+  - `createDiscoveryFixture()` isolates app-level discovery roots/patterns for tests.
+  - `createModuleFixture()` reads `module.yaml` boundaries without changing runtime startup.
+  - `createRepositoryFixture()` supports rollbackable repository transaction fixtures.
+- Verified Phase 4 focused checks:
+  - `pnpm --filter @stratix/testing test`
+  - `pnpm --filter @stratix/testing exec tsc -p tsconfig.json --noEmit`
+  - `pnpm --filter @stratix/testing build`

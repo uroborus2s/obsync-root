@@ -20,6 +20,7 @@
 - Phase 2 foundation is implemented: `@stratix/core` exposes route contract extraction, route contract validation, OpenAPI document generation, DI graph creation, DI diagnostics, and discovery-time DI metadata recording; `@stratix/forge` exposes `stratix doctor di` and `stratix di graph`.
 - Phase 2 extended contract-first workflow is implemented: `@stratix/forge` exposes dependency-free `stratix openapi generate` and `stratix openapi client`, generated controller templates include explicit route schema/operationId/response schema, `@stratix/testing` exposes runner-neutral `contractTest()`, and `@stratix/core` exposes plugin adapter token diagnostics, unified error envelope schema/factory, and strict response-schema failure normalization.
 - Phase 3 module governance tooling is implemented: `stratix generate module` writes `module.yaml` plus standard module directories, `stratix doctor modules` validates module manifests/layers/boundaries/cycles, and `stratix graph modules` outputs module -> token -> route -> dependency graphs without changing application runtime startup behavior.
+- Phase 4 testing platform baseline is implemented: `@stratix/testing` exposes `createTestApp()`, `createTestContainer()`, `overrideToken()`, `mockPlugin()`, `disablePlugin()`, `createDiscoveryFixture()`, `createRepositoryFixture()`, and `createModuleFixture()` alongside the existing `contractTest()` DSL.
 - The toolchain split is implemented: `@stratix/create` owns app/plugin creation, `@stratix/forge` owns project-local generate/doctor/di/openapi/start/config workflows, and neither package depends on `@stratix/core`.
 - The physical source directory for `@stratix/forge` is now `packages/forge`; `packages/cli` is not retained as a compatibility directory.
 - `.stratix/project.json` is now the create/forge handoff contract at `schemaVersion: 2`; create writes the template contribution snapshot, allowed presets, and managed files mode, while forge reads the manifest/presets/resource templates instead of app/plugin creation templates.
@@ -56,10 +57,10 @@
 - `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit` passes.
 - `pnpm --filter @stratix/forge run build` passes.
 - `pnpm --filter @stratix/testing test` passes:
-  - 2 test files
-  - 6 tests
+  - 3 test files
+  - 12 tests
 - `pnpm --filter @stratix/testing exec tsc -p tsconfig.json --noEmit` passes.
-- `pnpm --filter @stratix/testing build` passes.
+- `pnpm --filter @stratix/testing build` passes after Phase 4 testing platform helpers.
 - `node packages/create/dist/bin/create-stratix.js --help` passes.
 - `node packages/create/dist/bin/create-stratix.js list templates` passes.
 - `node packages/forge/dist/bin/stratix.js --help` passes and no longer lists `init`.
@@ -103,7 +104,7 @@
 
 ## Immediate Priorities
 
-1. Continue Phase 3 with advanced typed client options, testing app/override/plugin fixture/module fixture, Plugin manifest, and Production manifest design.
+1. Continue with advanced typed client options, Plugin manifest, Production manifest, and Phase 5 production capability design.
 2. Restore reproducible offline installation.
 3. Reconcile manifest versions, git tags, and npm registry reality.
 4. Decide whether `@stratix/tasks` remains permanently deprecated or is removed from the workspace surface.
