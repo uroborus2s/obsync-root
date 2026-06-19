@@ -19,7 +19,7 @@
 但从后端基础框架的生产级标准看，当前版本仍存在三类关键短板：
 
 1. 发布治理不足：复评时仓库没有 CI 工作流目录，根发布脚本只执行 `build:supported && changeset publish`，覆盖率与安全门禁没有进入发布路径。P0 修复后，根 release 已串联 supported build/typecheck/test、core coverage、docs validation、security audit 和 workspace release gate。
-2. 测试置信度不足：P1 修复后 `@stratix/core` 覆盖率提升为 statements 43.19%、branches 34.62%、functions 38.49%、lines 44.00%，仍明显低于 95+ 目标。
+2. 测试置信度不足：P2 修复后 `@stratix/core` 覆盖率提升为 statements 43.83%、branches 35.27%、functions 39.12%、lines 44.63%，仍明显低于 95+ 目标。
 3. 运行时架构压力偏高：`ApplicationBootstrap` 单文件 1885 行，承担环境加载、配置合并、插件编排、发现、Fastify 生命周期、观测、安全、限流、关闭流程等过多职责，已经成为未来演进瓶颈。
 
 本次闭门评审建议将当前版本定位为“有条件 RC”：可以发布给受控用户和内部生态模块验证，但必须在正式 GA 前补齐发布门禁、安全默认值、覆盖率策略、公开 API 边界和生产 manifest 完整性。
@@ -40,7 +40,7 @@
 | 命令 | 结果 | 说明 |
 | --- | --- | --- |
 | `pnpm --filter @stratix/core exec tsc -p tsconfig.json --noEmit` | 通过 | TypeScript 类型检查通过 |
-| `CI=true pnpm --filter @stratix/core exec vitest run` | 通过 | P1 修复后 29 个测试文件、213 个测试用例通过 |
+| `CI=true pnpm --filter @stratix/core exec vitest run` | 通过 | P2 修复后 31 个测试文件、221 个测试用例通过 |
 | `pnpm run test:coverage:core` | 通过 | 生成覆盖率报告，核心覆盖率仍偏低 |
 | `pnpm --filter @stratix/core run build` | 通过 | `tsdown` 构建通过 |
 | `pnpm run docs:validate` | 通过 | 86 pages / 0 contracts |
@@ -51,10 +51,10 @@
 
 | 指标 | 覆盖率 | 覆盖数量 |
 | --- | ---: | --- |
-| Statements | 43.19% | 2271 / 5257 |
-| Branches | 34.62% | 1020 / 2946 |
-| Functions | 38.49% | 487 / 1265 |
-| Lines | 44.00% | 2232 / 5072 |
+| Statements | 43.83% | 2331 / 5318 |
+| Branches | 35.27% | 1056 / 2994 |
+| Functions | 39.12% | 498 / 1273 |
+| Lines | 44.63% | 2291 / 5133 |
 
 覆盖率呈现“核心路径有测试、公共工具和边缘路径不足”的状态。较好的区域包括 bootstrap、discovery pipeline 和 DI diagnostics；薄弱区域包括 `crypto.ts`、`context.ts`、数组工具、服务装饰器、validation、部分安全与配置分支。
 
@@ -66,7 +66,7 @@
 | CI 缺口 | 复评时仓库未发现 `.github` 工作流目录；P0 修复后新增 `.github/workflows/quality-gate.yml` |
 | Core 导出面 | `packages/core/src/index.ts` 导出大量内部插件、DI、Fastify、Awilix 类型与实现细节 |
 | Bootstrap 复杂度 | `packages/core/src/bootstrap/application-bootstrap.ts` 约 1885 行，职责集中 |
-| 生产 manifest | `packages/core/src/discovery/production-manifest.ts` 支持 strict 问题报告，但 manifest 类型缺少编译产物路径、hash、完整性校验字段 |
+| 生产 manifest | P2 修复后 `packages/core/src/discovery/production-manifest.ts` 支持 v1/v2 union、v2 source/compiled hash 校验和 strict compiled-file registration；forge `build-manifest` 默认生成 v2，release gate 校验 artifact integrity |
 | 应用发现 | `ApplicationDiscoveryPipeline` 只注册 controllers/components，动态 import 源文件；P1 修复后返回 `RegistrationPlan` 并通过 plan token registrar 记录 DI metadata |
 | 插件 AutoDI | `withRegisterAutoDI` 通过插件作用域容器和模块发现注册服务；P1 修复后插件 internal tokens/routes/lifecycle 与 adapter root token 进入统一 `RegistrationPlan` schema |
 | DI 诊断 | P1 修复后 DI graph node 与 missing dependency diagnostic 携带 plan metadata；未显式记录的手工 Awilix 注册仍使用源码推断或 unknown fallback |
@@ -107,7 +107,7 @@
 
 复评时根发布脚本没有串联测试、覆盖率、安全审计或文档校验，仓库也没有发现 `.github` 工作流目录。这意味着本地命令虽然通过，但发布过程本身没有强制复核。
 
-同时，`docs/04-project-development/06-testing-verification/stratix-95-quality-gate.md` 中存在高分质量门禁叙述。P1 修复后 `@stratix/core` 覆盖率实测为 43.19/34.62/38.49/44.00，仍只是 ratchet 事实，不是 95+ 达成。该口径差异会误导发布判断。
+同时，`docs/04-project-development/06-testing-verification/stratix-95-quality-gate.md` 中存在高分质量门禁叙述。P2 修复后 `@stratix/core` 覆盖率实测为 43.83/35.27/39.12/44.63，仍只是 ratchet 事实，不是 95+ 达成。该口径差异会误导发布判断。
 
 建议：
 
@@ -151,7 +151,7 @@ P0 修复状态：
 
 仍未归入 P1 完成范围的后续工作：
 
-- production manifest v2 完整性字段和严格 compiled-file 注册属于 P2。
+- production manifest v2 完整性字段和严格 compiled-file 注册已在 P2 兼容式基线完成；plugin provides 深校验与生产压测仍留作 P2+ 后续增强。
 - 环境、配置、插件编排、HTTP、安全、观测等 bootstrap 进一步拆分属于后续维护批次。
 
 ### P1：Bootstrap 职责过载
@@ -334,14 +334,16 @@ P0 修复状态：
 
 ## 修复推进状态
 
-2026-06-19 已启动 P0 修复线：
+2026-06-19 已完成 P0/P1/P2 兼容式基线修复线：
 
 - 生产安全默认值：生产环境禁止默认加密密钥回退，限流默认不信任 `x-forwarded-for`。
 - 发布门禁：根级 release 增加 supported build/typecheck/test、core coverage、docs validation、security audit 和 workspace release gate。
 - CI 门禁：新增 Quality Gate workflow，在 PR 和 `main` / `1.1.0` push 上执行 RC 质量门。
 - 质量口径：`stratix-95-quality-gate.md` 已改为目标门禁与当前实测分离，不再把当前 core 全包覆盖率写成 95+ 达成。
+- P1 注册模型：应用 discovery 与插件 AutoDI 收敛到统一 `RegistrationPlan` metadata，DI graph/diagnostics 可追溯 plan 来源。
+- P2 生产一致性：forge 默认生成 production manifest v2，release gate 校验 source/compiled hash，core strict 模式按 v2 compiled file 注册并拒绝隐式 glob fallback，新增 runtime stability 测试和 coverage ratchet 上调。
 
-剩余 P1/P2 工作应通过 `.factory/workitems/changes/CR-CORE-20260619-production-hardening-roadmap.md` 继续跟踪，不能用文档分数替代真实架构重构和覆盖率提升。
+剩余增强应通过 `.factory/workitems/changes/CR-CORE-20260619-production-hardening-roadmap.md` 继续跟踪：远端 CI 首跑、95+ 覆盖率计划、生产压测/泄漏证据、provider 插拔化和 plugin provides 深校验仍不能用文档分数替代。
 
 ## 发布建议
 

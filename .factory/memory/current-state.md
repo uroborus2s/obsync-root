@@ -22,13 +22,15 @@
 - Phase 3 module governance tooling is implemented: `stratix generate module` writes `module.yaml` plus standard module directories, `stratix doctor modules` validates module manifests/layers/boundaries/cycles, and `stratix graph modules` outputs module -> token -> route -> dependency graphs without changing application runtime startup behavior.
 - Phase 4 testing platform baseline is implemented: `@stratix/testing` exposes `createTestApp()`, `createTestContainer()`, `overrideToken()`, `mockPlugin()`, `disablePlugin()`, `createDiscoveryFixture()`, `createRepositoryFixture()`, and `createModuleFixture()` alongside the existing `contractTest()` DSL.
 - Plugin manifest and production manifest baselines are implemented: `@stratix/create` writes `.stratix/plugin.json` for plugin projects; `@stratix/forge` exposes `stratix doctor plugins`, `stratix graph plugins`, and `stratix build-manifest` for manifest validation, plugin topology, and CI production artifact generation.
-- Phase 5 production baseline is implemented: `@stratix/core` accepts `discovery.productionManifest`, loads and validates `.stratix/production-manifest.json`, exposes the loaded artifact on the application instance, can skip application-level runtime glob discovery when `skipRuntimeDiscovery` is true, can register DI/routes from manifest source files when `registerFromManifest` is true, and provides `observability` / `security` presets.
+- Phase 5 production baseline is implemented: `@stratix/core` accepts `discovery.productionManifest`, loads and validates `.stratix/production-manifest.json`, exposes the loaded artifact on the application instance, can skip application-level runtime glob discovery when `skipRuntimeDiscovery` is true, can register DI/routes from manifest entries when `registerFromManifest` is true, and provides `observability` / `security` presets. P2 v2 manifests prefer `compiledFile`; v1 manifests remain source-file compatible.
 - `@stratix/devtools` exposes Phase 5 production views for routes, DI, plugins, redacted config, health, and traces.
 - `@stratix/forge` exposes `stratix release gate` for production manifest release checks and `stratix release gate --scope workspace` for monorepo release-readiness planning.
 - Phase 6 workspace release gate exists and has local passing evidence, but the 2026-06-19 closed-door review reset the release posture to RC / controlled release until root release gates, CI enforcement, coverage policy, and GA wording are hardened.
 - Root release gating is now tightened so `release` must pass supported build, supported typecheck, supported test, core coverage ratchet, docs validation, security audit, release gate dry-run, and offline workspace release gate before `changeset publish`.
 - GitHub Actions CI now has a `Quality Gate` workflow for PRs and pushes to `main` / `1.1.0`; it installs with pnpm and runs the supported build/typecheck/test/coverage/docs/security gates plus workspace release gate dry-run.
 - `@stratix/core` P1 registration-model convergence is implemented in a compatible first stage: application discovery and plugin AutoDI now emit a shared `RegistrationPlan` schema, DI graph nodes and missing-dependency diagnostics carry plan metadata, application DI tokens and plugin adapter root tokens use the plan token registrar, plugin internal tokens/routes/lifecycle are recorded into the plugin plan, and new `experimental` root namespace exposes plan helpers without adding stable root-level helper names.
+- `@stratix/core` / `@stratix/forge` P2 production-manifest v2 baseline is implemented: forge `build-manifest` now emits schemaVersion 2 with generator/runtime metadata, app `RegistrationPlan` snapshot, source artifact hashes, optional compiled artifact hashes, and v1-compatible routes/DI projections; forge release gate verifies v2 artifact integrity; core loads v1/v2 manifests, validates v2 hashes in strict mode, and prefers v2 compiled files for manifest-driven registration so strict production startup does not fall back to implicit runtime glob discovery.
+- `@stratix/core` now has minimum runtime stability coverage for concurrent request-scoped route execution, concurrent CLI app start/stop, and repeated lifecycle shutdown handlers; this is a CI-safe regression suite, not a hard latency benchmark.
 - `ApplicationBootstrap` no longer owns the application discovery / production-manifest registration branch directly; `ApplicationDiscoveryRegistrar` owns that orchestration while bootstrap keeps lifecycle ordering.
 - The toolchain split is implemented: `@stratix/create` owns app/plugin creation, `@stratix/forge` owns project-local generate/doctor/di/openapi/start/config workflows, and neither package depends on `@stratix/core`.
 - The physical source directory for `@stratix/forge` is now `packages/forge`; `packages/cli` is not retained as a compatibility directory.
@@ -74,14 +76,14 @@
   - Already up to date
 - `pnpm --filter @stratix/core build` passes after the breaking application discovery refactor and unified error envelope work.
 - `pnpm --filter @stratix/core exec tsc -p tsconfig.json --noEmit` passes.
-- `CI=true pnpm --filter @stratix/core exec vitest run` passes after production manifest strict registration, late controller registration hardening, security default hardening, and P1 RegistrationPlan convergence:
-  - 29 test files
-  - 213 tests
+- `CI=true pnpm --filter @stratix/core exec vitest run` passes after production manifest strict registration, late controller registration hardening, security default hardening, P1 RegistrationPlan convergence, P2 production-manifest v2 integrity/compiled-file registration, and runtime stability coverage:
+  - 31 test files
+  - 221 tests
 - `pnpm run test:coverage:core` passes:
-  - global lines `44.00%`
-  - global functions `38.49%`
-  - global branches `34.62%`
-  - global statements `43.19%`
+  - global lines `44.63%`
+  - global functions `39.12%`
+  - global branches `35.27%`
+  - global statements `43.83%`
   - bootstrap/discovery critical paths use higher targeted thresholds
   - these values are current executable ratchet facts, not 95+ global coverage
 - 2026-06-19 closed-door `@stratix/core` review completed with three-role
@@ -90,14 +92,15 @@
   controlled release until release gates, production security defaults, coverage
   policy, public API boundaries, and production manifest integrity are hardened.
 - `@stratix/core` now exports `ERROR_ENVELOPE_SCHEMA` and `createErrorEnvelope()`; bootstrap error handling uses the shared envelope for `HttpError`, validation errors, 404, and response schema serialization failures.
-- `@stratix/core` now accepts `discovery.productionManifest`; bootstrap can load/validate `.stratix/production-manifest.json`, expose the loaded artifact, fail fast on invalid strict manifests, skip application-level runtime glob discovery, and register DI/routes from manifest source files when configured.
+- `@stratix/core` now accepts `discovery.productionManifest`; bootstrap can load/validate `.stratix/production-manifest.json`, expose the loaded artifact, fail fast on invalid strict manifests, skip application-level runtime glob discovery, and register DI/routes from v2 `compiledFile` manifest entries or v1 source-file entries when configured.
 - `@stratix/core` now accepts `observability` and `security`; bootstrap can expose request/trace ids, health, metrics, traces, CORS, security headers, body limit, and rate limit.
 - `pnpm --filter @stratix/create test` passes:
   - 3 tests
 - `pnpm --filter @stratix/create exec tsc -p tsconfig.json --noEmit` passes.
 - `pnpm --filter @stratix/create run build` passes.
 - `pnpm --filter @stratix/forge test` passes:
-  - 48 tests
+- `pnpm --filter @stratix/forge exec tsx --test tests/run-cli.test.ts` passes:
+  - 49 tests
 - `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit` passes.
 - `pnpm --filter @stratix/forge run build` passes after advanced typed client generation support.
 - `pnpm --filter @stratix/devtools test` passes:
@@ -181,7 +184,7 @@
 ## Immediate Priorities
 
 1. First remote run of `.github/workflows/quality-gate.yml` must pass before treating the CI gate as proven in GitHub Actions.
-2. `@stratix/core` global coverage remains below the 95+ target and needs a follow-up coverage uplift plan before any high-confidence GA claim.
+2. `@stratix/core` global coverage remains below the 95+ target even after the P2 ratchet uplift and needs a follow-up coverage uplift plan before any high-confidence GA claim.
 3. npm publish remains an external release operation requiring maintainer credentials.
 
 ## Canonical Detailed Report

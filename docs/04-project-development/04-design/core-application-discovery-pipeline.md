@@ -87,3 +87,9 @@ flowchart LR
 插件级 `withRegisterAutoDI` 保持原有插件作者 API，但内部也会生成 `RegistrationPlan`：插件 internal container tokens、controller routes、lifecycle hooks 和公开 adapter token 都会进入同一 plan schema。adapter root token 通过 plan token registrar 注册并进入根容器 DI graph，插件内部 token 记录在插件作用域 plan 中。
 
 `ApplicationBootstrap` 的 discovery / production-manifest 编排已抽出到 `ApplicationDiscoveryRegistrar`。启动器继续负责生命周期顺序，registrar 负责应用发现、manifest-driven registration 和 manifest mismatch 校验。
+
+## Phase 6 P2 扩展
+
+production manifest v2 以 P1 `RegistrationPlan` 为生产注册中间表示。`@stratix/forge build-manifest` 默认生成 v2 artifact：包含 generator/runtime metadata、app `registrationPlan`、source hash、可选 compiled file/hash，并继续保留 v1 routes/DI 投影字段。
+
+`ApplicationDiscoveryRegistrar` 在 `skipRuntimeDiscovery: true` + `registerFromManifest: true` 时，把 v2 `registrationPlan` 转换为 `manifestRegistration` selectors，并优先使用 `metadata.compiledFile` 作为 `ApplicationDiscoveryPipeline.files` 输入。严格模式会先校验 artifact hash；注册后继续校验 manifest token/route 与实际导入组件一致，因此生产启动不会回退到隐式源码 glob。

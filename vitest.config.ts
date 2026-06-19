@@ -10,10 +10,10 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
       thresholds: {
-        lines: 42,
-        functions: 36,
-        branches: 32,
-        statements: 41,
+        lines: 43,
+        functions: 38,
+        branches: 34,
+        statements: 42,
         'src/bootstrap/application-bootstrap.ts': {
           lines: 70,
           functions: 75,

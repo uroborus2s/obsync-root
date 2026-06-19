@@ -828,7 +828,10 @@ export class ApplicationBootstrap {
     // 🎯 注册应用级 Fastify 钩子
     fastifyInstance.decorate('diContainer', container);
     fastifyInstance.decorate('stratixConfig', config);
-    fastifyInstance.decorate('stratixProductionManifest', productionManifest);
+    (fastifyInstance as any).decorate(
+      'stratixProductionManifest',
+      productionManifest
+    );
 
     // 设置错误处理
     this.setupErrorHandling(fastifyInstance);

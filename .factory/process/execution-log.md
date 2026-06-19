@@ -84,7 +84,7 @@
   - `skipRuntimeDiscovery: true` skips application-level runtime glob discovery after the manifest is loaded.
   - The loaded manifest is exposed on `StratixApplication.productionManifest` for startup evidence and future DevTools reuse.
 - Completed the Phase 5 production baseline:
-  - `registerFromManifest: true` registers DI/routes from production manifest source files without runtime glob discovery.
+  - `registerFromManifest: true` registers DI/routes from v2 production manifest `compiledFile` entries, with v1 source-file compatibility, without runtime glob discovery.
   - `config.observability` adds request/trace ids, health, metrics, traces, and response headers.
   - `config.security` adds body limit, CORS, security headers, and rate limit with the shared error envelope.
   - `@stratix/devtools` exposes production routes, DI, plugins, redacted config, health, and traces views.

@@ -3,7 +3,8 @@
 
 import type { AwilixContainer } from 'awilix';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import type { StratixApplication } from './config.js';
+import type { LoadedProductionManifest } from '../discovery/production-manifest.js';
+import type { StratixApplication, StratixConfig } from './config.js';
 
 // 使用 declare module 扩展 Fastify 类型
 declare module 'fastify' {
@@ -13,6 +14,12 @@ declare module 'fastify' {
 
     /** DI 容器实例 */
     diContainer: AwilixContainer;
+
+    /** Stratix 配置 */
+    stratixConfig: StratixConfig;
+
+    /** 已加载的生产 manifest artifact */
+    stratixProductionManifest?: LoadedProductionManifest;
   }
 
   interface FastifyRequest {

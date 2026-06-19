@@ -32,22 +32,22 @@
 
 ## P2：生产一致性
 
-- 升级 production manifest v2，基于 `RegistrationPlan` 生成。
-- manifest v2 包含 app/plugin plan、scope、adapter token、lifecycle、source/compiled file、hash、package version、generator version 和 runtime compatibility。
-- 生产模式支持只从 manifest v2 + compiled file 注册，严格模式禁止隐式源码 glob。
-- 新增 manifest verify，校验构建产物缺失、hash 不一致、route/token 漂移、plugin provides 不匹配。
-- 引入 metrics/tracing/rate-limit provider 与 health contributor。
-- 建立性能、并发、泄漏和长生命周期测试。
-- 将 core 全包覆盖率从当前 ratchet 逐步提升到正式门禁目标。
+- 已完成兼容式 production manifest v2 基线，基于 `RegistrationPlan` 生成 app plan 快照，并保留 v1 routes/DI 投影字段。
+- manifest v2 已包含 generator metadata、runtime compatibility、app plan scope、source file hash、可选 compiled file/hash；plugin plan/provides 深校验仍留作后续 P2+ 增强。
+- 生产模式已支持从 manifest v2 compiled file 注册；strict + `skipRuntimeDiscovery` + `registerFromManifest` 不回退到隐式源码 glob。
+- 已新增 manifest verify，校验构建产物缺失、source/compiled hash 不一致、DI/module/plan diagnostics；plugin provides 不匹配仍留作后续增强。
+- observability/security preset 已有 request/trace/health/metrics/traces、CORS/header/body/rate-limit 回归；可插拔 metrics/tracing/rate-limit provider 与 health contributor 仍留作后续增强。
+- 已建立 CI-safe 运行稳定性测试：并发请求、并发启动/停止、重复生命周期 shutdown handler；压力/泄漏/长生命周期基准仍需独立 `STRATIX_STRESS=1` 套件。
+- core 全包 coverage ratchet 已上调到 lines `43`、functions `38`、branches `34`、statements `42`；当前实测 lines `44.63%`、functions `39.12%`、branches `35.27%`、statements `43.83%`，仍非 95+ 全局覆盖率。
 
 ## 完成判定
 
 - P0：本地和 CI release gate 均通过，生产安全默认值测试覆盖，文档口径与覆盖率事实一致。
 - P1：应用和插件注册均能输出同一 plan schema；DI graph、diagnostics、route registration 和 adapter registration 复用统一 plan。当前完成兼容式第一阶段，未做破坏性移除或生产 manifest v2 替换。
-- P2：production manifest v2 可校验构建产物完整性，生产启动不依赖隐式源码 glob，性能/并发/覆盖率门禁达标。
+- P2：production manifest v2 可校验构建产物完整性，生产启动不依赖隐式源码 glob，CI-safe 性能/并发稳定性测试和 coverage ratchet 已达成本次基线；远端 CI 首跑、95+ 覆盖率、provider 插拔化和 plugin provides 深校验仍不视为完成。
 
 ## 评分预期
 
 - 完成 P0 后：生产级评分预计 86-88。
 - 完成 P1 后：生产级评分预计接近 90。
-- 完成 P2 且覆盖率/性能/CI 证据稳定后：生产级评分才有条件接近 95。
+- 完成 P2 兼容式基线后：生产级评分可提升到约 92；只有远端 CI、95+ 覆盖率计划、生产压测/泄漏证据、provider 插拔化和 plugin provides 深校验补齐后，才有条件接近 95。

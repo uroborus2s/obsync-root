@@ -102,6 +102,11 @@ export {
   type ApplicationDiscoveryResult,
   type LoadedProductionManifest,
   type ProductionManifest,
+  type ProductionManifestArtifacts,
+  type ProductionManifestGenerator,
+  type ProductionManifestRuntime,
+  type ProductionManifestV1,
+  type ProductionManifestV2,
   type ProductionManifestDiscoveryConfig
 } from './discovery/index.js';
 

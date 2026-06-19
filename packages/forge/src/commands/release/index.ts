@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -84,7 +85,124 @@ function releaseGateScope(argv: ParsedArgs): ReleaseGateScope {
   throw new CliError(`Unknown release gate scope: ${scope}`);
 }
 
-function validateProductionManifest(manifestPath: string): Record<string, any> {
+function sha256File(filePath: string): string {
+  return `sha256-${createHash('sha256')
+    .update(fs.readFileSync(filePath))
+    .digest('hex')}`;
+}
+
+function validateManifestFileHash(options: {
+  rootDir: string;
+  filePath: string;
+  expectedHash: string;
+  label: string;
+}): void {
+  const absolutePath = path.isAbsolute(options.filePath)
+    ? options.filePath
+    : path.resolve(options.rootDir, options.filePath);
+
+  if (!fs.existsSync(absolutePath)) {
+    throw new CliError(
+      `Production manifest v2 ${options.label} file is missing: ${options.filePath}`
+    );
+  }
+
+  const actualHash = sha256File(absolutePath);
+  if (actualHash !== options.expectedHash) {
+    throw new CliError(
+      `Production manifest v2 ${options.label} hash mismatch: ${options.filePath}`
+    );
+  }
+}
+
+function validateProductionManifestV2(
+  manifest: Record<string, any>,
+  manifestPath: string,
+  rootDir: string
+): void {
+  if (!manifest.registrationPlan || typeof manifest.registrationPlan !== 'object') {
+    throw new CliError(
+      `Production manifest v2 registrationPlan is invalid: ${manifestPath}`
+    );
+  }
+  if (!Array.isArray(manifest.registrationPlan.tokens)) {
+    throw new CliError(
+      `Production manifest v2 registrationPlan.tokens is invalid: ${manifestPath}`
+    );
+  }
+  if (!Array.isArray(manifest.registrationPlan.routes)) {
+    throw new CliError(
+      `Production manifest v2 registrationPlan.routes is invalid: ${manifestPath}`
+    );
+  }
+  if (
+    !manifest.artifacts ||
+    manifest.artifacts.algorithm !== 'sha256' ||
+    !Array.isArray(manifest.artifacts.files)
+  ) {
+    throw new CliError(
+      `Production manifest v2 artifacts section is invalid: ${manifestPath}`
+    );
+  }
+  if (
+    !manifest.generator ||
+    typeof manifest.generator.name !== 'string' ||
+    !manifest.runtime ||
+    manifest.runtime.packageName !== '@stratix/core' ||
+    !Array.isArray(manifest.runtime.compatibleVersions)
+  ) {
+    throw new CliError(
+      `Production manifest v2 runtime/generator section is invalid: ${manifestPath}`
+    );
+  }
+
+  for (const artifact of manifest.artifacts.files) {
+    if (!artifact || typeof artifact !== 'object') {
+      throw new CliError(
+        `Production manifest v2 artifact entry is invalid: ${manifestPath}`
+      );
+    }
+    if (typeof artifact.sourceFile !== 'string') {
+      throw new CliError(
+        `Production manifest v2 artifact is missing sourceFile: ${manifestPath}`
+      );
+    }
+    if (typeof artifact.sourceHash === 'string') {
+      validateManifestFileHash({
+        rootDir,
+        filePath: artifact.sourceFile,
+        expectedHash: artifact.sourceHash,
+        label: 'source'
+      });
+    }
+    if (typeof artifact.compiledHash === 'string') {
+      if (typeof artifact.compiledFile !== 'string') {
+        throw new CliError(
+          `Production manifest v2 compiledHash requires compiledFile: ${manifestPath}`
+        );
+      }
+      validateManifestFileHash({
+        rootDir,
+        filePath: artifact.compiledFile,
+        expectedHash: artifact.compiledHash,
+        label: 'compiled'
+      });
+    }
+    if (
+      typeof artifact.sourceHash !== 'string' &&
+      typeof artifact.compiledHash !== 'string'
+    ) {
+      throw new CliError(
+        `Production manifest v2 artifact has no hash: ${artifact.sourceFile}`
+      );
+    }
+  }
+}
+
+function validateProductionManifest(
+  manifestPath: string,
+  rootDir: string
+): Record<string, any> {
   let manifest: Record<string, any>;
   try {
     manifest = readJsonFile<Record<string, any>>(manifestPath);
@@ -92,7 +210,7 @@ function validateProductionManifest(manifestPath: string): Record<string, any> {
     throw new CliError(`Production manifest not found: ${manifestPath}`);
   }
 
-  if (manifest.schemaVersion !== 1) {
+  if (manifest.schemaVersion !== 1 && manifest.schemaVersion !== 2) {
     throw new CliError(
       `Production manifest has unsupported schemaVersion: ${manifestPath}`
     );
@@ -104,6 +222,9 @@ function validateProductionManifest(manifestPath: string): Record<string, any> {
     throw new CliError(
       `Production manifest DI section is invalid: ${manifestPath}`
     );
+  }
+  if (manifest.schemaVersion === 2) {
+    validateProductionManifestV2(manifest, manifestPath, rootDir);
   }
 
   return manifest;
@@ -242,6 +363,18 @@ function validateManifestGate(
   if (moduleIssues.length > 0) {
     throw new CliError(
       `Release gate manifest: module issues must be fixed before release (${moduleIssues.length})`
+    );
+  }
+  const registrationPlanErrors = Array.isArray(
+    manifest.registrationPlan?.diagnostics
+  )
+    ? manifest.registrationPlan.diagnostics.filter(
+        (diagnostic: any) => diagnostic?.severity === 'error'
+      )
+    : [];
+  if (registrationPlanErrors.length > 0) {
+    throw new CliError(
+      `Release gate manifest: registration plan issues must be fixed before release (${registrationPlanErrors.length})`
     );
   }
 
@@ -910,7 +1043,7 @@ async function releaseGateCommand(
     );
 
     try {
-      const manifest = validateProductionManifest(manifestPath);
+      const manifest = validateProductionManifest(manifestPath, process.cwd());
       checks = projectReleaseGateChecks(process.cwd(), manifestPath, manifest);
     } catch (error) {
       output.error(error instanceof Error ? error.message : String(error));

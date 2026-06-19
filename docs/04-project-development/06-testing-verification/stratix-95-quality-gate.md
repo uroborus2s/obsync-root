@@ -1,6 +1,6 @@
 # Stratix 95+ Quality Gate
 
-**状态：** 2026-06-19 闭门复评 P0 本地门禁与 P1 注册模型收敛已落地；当前发布等级为 RC / controlled release，不能宣称高置信 GA。
+**状态：** 2026-06-19 闭门复评 P0 本地门禁、P1 注册模型收敛与 P2 production manifest v2 兼容式基线已落地；当前发布等级仍为 RC / controlled release，不能宣称高置信 GA。
 **适用范围：** Stratix 1.1.x supported packages 与 `@stratix/core` 质量口径。
 **排除范围：** `@stratix/tasks` 为 1.1.x 冻结/废弃包，不进入默认构建、测试、发布或 CI 门禁。
 **关联工作项：** `TASK-003`
@@ -22,12 +22,12 @@
 
 | 指标       | 当前值 |
 | ---------- | -----: |
-| statements | 43.19% |
-| branches   | 34.62% |
-| functions  | 38.49% |
-| lines      | 44.00% |
+| statements | 43.83% |
+| branches   | 35.27% |
+| functions  | 39.12% |
+| lines      | 44.63% |
 
-这些数值满足当前 executable ratchet，但不满足 95+ 目标覆盖率。`95+` 后续必须拆成可执行的包级/路径级阈值计划，不能用主观评分替代覆盖率事实。
+这些数值满足当前 executable ratchet；P2 已将 global ratchet 上调为 lines `43`、functions `38`、branches `34`、statements `42`。它们仍不满足 95+ 目标覆盖率。`95+` 后续必须拆成可执行的包级/路径级阈值计划，不能用主观评分替代覆盖率事实。
 
 ## 3. 发布前置门禁
 

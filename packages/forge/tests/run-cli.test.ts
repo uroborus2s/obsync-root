@@ -1355,9 +1355,39 @@ describe('@stratix/forge', () => {
     });
 
     const manifest = readJson(outputFile);
-    assert.equal(manifest.schemaVersion, 1);
+    assert.equal(manifest.schemaVersion, 2);
     assert.equal(manifest.project.kind, 'app');
     assert.equal(manifest.discovery.routing.enabled, true);
+    assert.equal(manifest.generator.name, '@stratix/forge');
+    assert.equal(manifest.runtime.packageName, '@stratix/core');
+    assert.equal(manifest.registrationPlan.source, 'production-manifest');
+    assert.ok(
+      manifest.registrationPlan.tokens.some(
+        (token: { token: string; metadata: { sourceFile: string } }) =>
+          token.token === 'healthController' &&
+          token.metadata.sourceFile === 'src/controllers/HealthController.ts'
+      )
+    );
+    assert.ok(
+      manifest.registrationPlan.routes.some(
+        (route: {
+          method: string;
+          path: string;
+          metadata: { operationId: string };
+        }) =>
+          route.method === 'GET' &&
+          route.path === '/health' &&
+          route.metadata.operationId === 'HealthController_check'
+      )
+    );
+    assert.equal(manifest.artifacts.algorithm, 'sha256');
+    assert.ok(
+      manifest.artifacts.files.some(
+        (file: { sourceFile: string; sourceHash: string }) =>
+          file.sourceFile === 'src/controllers/HealthController.ts' &&
+          file.sourceHash.startsWith('sha256-')
+      )
+    );
     assert.ok(
       manifest.routes.some(
         (route: { method: string; path: string; operationId: string }) =>
@@ -1386,6 +1416,60 @@ describe('@stratix/forge', () => {
       output.messages.some((message) =>
         message.message.includes('Production manifest generated')
       )
+    );
+  });
+
+  it('fails release gate dry-run when production manifest v2 source hashes are stale', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+
+    await runCreate(
+      ['app', 'api', 'release-gate-stale-manifest', '--no-install'],
+      {
+        cwd,
+        output
+      }
+    );
+
+    const projectDir = path.join(cwd, 'release-gate-stale-manifest');
+    const packageJsonPath = path.join(projectDir, 'package.json');
+    const packageJson = readJson(packageJsonPath);
+    packageJson.scripts = {
+      ...packageJson.scripts,
+      'security:audit': 'echo security'
+    };
+    fs.writeFileSync(
+      packageJsonPath,
+      JSON.stringify(packageJson, null, 2),
+      'utf8'
+    );
+    seedProjectTypescript(projectDir);
+    const manifestFile = path.join(
+      projectDir,
+      '.stratix',
+      'production-manifest.json'
+    );
+
+    await runCli(['build-manifest', '--output', manifestFile], {
+      cwd: projectDir,
+      output
+    });
+
+    const manifest = readJson(manifestFile);
+    assert.equal(manifest.schemaVersion, 2);
+    assert.ok(Array.isArray(manifest.artifacts.files));
+    assert.ok(manifest.artifacts.files.length > 0);
+    manifest.artifacts.files[0].sourceHash = 'sha256-stale';
+    fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2), 'utf8');
+
+    await assert.rejects(
+      runCli(['release', 'gate', '--dry-run', '--manifest', manifestFile], {
+        cwd: projectDir,
+        output
+      }),
+      (error) =>
+        error instanceof CliError &&
+        error.message.includes('source hash mismatch')
     );
   });
 

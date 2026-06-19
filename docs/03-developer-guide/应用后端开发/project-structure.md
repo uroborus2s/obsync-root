@@ -84,7 +84,7 @@ src/
 
 这是 `stratix build-manifest` 生成的发布 artifact，包含路由、DI、模块和运行时 plugin-lock 证据。
 
-它通常应该由 CI 或发布流程生成，不建议手工编辑。生产配置可通过 `discovery.productionManifest` 读取它；当 `skipRuntimeDiscovery: true` 时，启动会跳过应用级 runtime glob discovery；当 `registerFromManifest: true` 时，启动只导入 manifest 中记录的 source files 来注册 DI 和路由。
+它通常应该由 CI 或发布流程生成，不建议手工编辑。生产配置可通过 `discovery.productionManifest` 读取它；当 `skipRuntimeDiscovery: true` 时，启动会跳过应用级 runtime glob discovery；当 `registerFromManifest: true` 时，启动会优先导入 v2 manifest 中记录的 `compiledFile` 来注册 DI 和路由，v1 manifest 继续按 source files 兼容注册。
 
 ## `src/` 下最重要的 3 个入口
 

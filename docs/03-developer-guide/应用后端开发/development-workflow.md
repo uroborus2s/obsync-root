@@ -86,7 +86,7 @@ stratix doctor modules
 stratix build-manifest --output .stratix/production-manifest.json
 ```
 
-当前 production manifest 是发布前 artifact，用来固化 routes、DI、modules 和运行时 plugin-lock 证据。生产配置可以通过 `discovery.productionManifest` 启动期读取这个 artifact，在 `skipRuntimeDiscovery: true` 时跳过应用级 runtime glob discovery，并在 `registerFromManifest: true` 时按 manifest source files 注册 DI 和路由。
+当前 production manifest 是发布前 artifact，用来固化 routes、DI、modules、运行时 plugin-lock 和构建产物证据。生产配置可以通过 `discovery.productionManifest` 启动期读取这个 artifact，在 `skipRuntimeDiscovery: true` 时跳过应用级 runtime glob discovery，并在 `registerFromManifest: true` 时优先按 v2 manifest 的 `compiledFile` 注册 DI 和路由；v1 manifest 继续按 source files 兼容注册。
 
 对应配置示例：
 

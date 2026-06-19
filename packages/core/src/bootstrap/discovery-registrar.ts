@@ -42,7 +42,7 @@ export class ApplicationDiscoveryRegistrar {
     }
 
     const productionManifest = loadProductionManifest(
-      this.options.getAppRoot(),
+      discoveryConfig.rootDir || this.options.getAppRoot(),
       manifestConfig
     );
 

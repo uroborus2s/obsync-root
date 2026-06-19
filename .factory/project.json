@@ -149,7 +149,7 @@
       {
         "command": "pnpm --filter @stratix/core build",
         "status": "passed",
-        "reason": "Core builds after adding route contract/OpenAPI helpers, DI graph diagnostics, RegistrationPlan-based discovery/plugin metadata recording, plugin adapter token diagnostics, unified error envelope, response schema failure normalization, runtime production manifest consumption, manifest-driven registration, observability/security preset, and ApplicationDiscoveryRegistrar extraction"
+        "reason": "Core builds after adding route contract/OpenAPI helpers, DI graph diagnostics, RegistrationPlan-based discovery/plugin metadata recording, plugin adapter token diagnostics, unified error envelope, response schema failure normalization, runtime production manifest consumption, manifest-driven registration, observability/security preset, ApplicationDiscoveryRegistrar extraction, and production manifest v2 integrity/compiled-file registration"
       },
       {
         "command": "pnpm --filter @stratix/create build",
@@ -201,14 +201,14 @@
       {
         "command": "pnpm --filter @stratix/core test",
         "status": "passed",
-        "summary": "29 files / 213 tests",
-        "reason": "Core package tests pass with route contract/OpenAPI helpers, unified error envelope, response schema failure normalization, plan-first DI diagnostics, plugin adapter RegistrationPlan metadata, discovery schema validation, DI graph coverage, production manifest startup consumption, manifest-driven registration, observability/security preset coverage, and ApplicationDiscoveryRegistrar extraction"
+        "summary": "31 files / 221 tests",
+        "reason": "Core package tests pass with route contract/OpenAPI helpers, unified error envelope, response schema failure normalization, plan-first DI diagnostics, plugin adapter RegistrationPlan metadata, discovery schema validation, DI graph coverage, production manifest startup consumption, manifest-driven registration, production manifest v2 integrity/compiled-file registration, observability/security preset coverage, runtime stability coverage, and ApplicationDiscoveryRegistrar extraction"
       },
       {
         "command": "pnpm --filter @stratix/core run test:coverage",
         "status": "passed",
-        "summary": "global lines 44.00%, functions 38.49%, branches 34.62%, statements 43.19%",
-        "reason": "Coverage gate uses a current executable ratchet plus high thresholds on bootstrap/discovery critical paths instead of an unreachable global threshold"
+        "summary": "global lines 44.63%, functions 39.12%, branches 35.27%, statements 43.83%",
+        "reason": "Coverage gate uses a current executable ratchet plus high thresholds on bootstrap/discovery critical paths instead of an unreachable global threshold; P2 raises the global ratchet to lines 43, functions 38, branches 34, statements 42"
       },
       {
         "command": "pnpm --filter @stratix/create test",
@@ -219,8 +219,8 @@
       {
         "command": "pnpm --filter @stratix/forge test",
         "status": "passed",
-        "summary": "48 tests",
-        "reason": "Forge tests cover doctor di, di graph JSON/Mermaid output, module manifest/doctor/graph governance, plugin manifest doctor/graph governance, production build-manifest generation, project/workspace release gate, release pack artifact validation, registry exact-version validation, OpenAPI generation, advanced typed client generation with path/query/body/header/auth/hooks, command help, and generated resource DI/schema checks"
+        "summary": "49 tests",
+        "reason": "Forge tests cover doctor di, di graph JSON/Mermaid output, module manifest/doctor/graph governance, plugin manifest doctor/graph governance, production build-manifest v2 generation, production manifest artifact-hash release gate validation, project/workspace release gate, release pack artifact validation, registry exact-version validation, OpenAPI generation, advanced typed client generation with path/query/body/header/auth/hooks, command help, and generated resource DI/schema checks"
       },
       {
         "command": "pnpm --filter @stratix/devtools test",

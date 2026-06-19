@@ -21,7 +21,7 @@
 - `@stratix/create` writes plugin governance manifests and `@stratix/forge` validates/graphs them through `doctor plugins` and `graph plugins`
 - `@stratix/forge` generates production manifest artifacts with route, DI, module, and runtime plugin-lock evidence through `build-manifest`
 - `@stratix/core` consumes production manifest artifacts through `discovery.productionManifest`, exposes loaded startup evidence, and can skip application-level runtime glob discovery
-- `@stratix/core` registers DI/routes from production manifest source files through `registerFromManifest`
+- `@stratix/core` registers DI/routes through `registerFromManifest`, preferring v2 production manifest `compiledFile` entries while keeping v1 source-file compatibility
 - `@stratix/core` provides Phase 5 observability/security presets: request/trace ids, health, metrics, traces, CORS, headers, body limit, and rate limit
 - `@stratix/devtools` exposes production views for routes, DI, plugins, redacted config, health, and traces
 - `@stratix/forge` validates release readiness through `stratix release gate --manifest <file>`

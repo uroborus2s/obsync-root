@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { afterEach, describe, expect, it } from 'vitest';
+import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -10,6 +11,8 @@ import { Stratix } from '../../stratix.js';
 describe('application discovery bootstrap integration', () => {
   const apps: Awaited<ReturnType<typeof Stratix.run>>[] = [];
   const coreImport = pathToFileURL(resolve(process.cwd(), 'src/index.ts')).href;
+  const sha256 = (content: string) =>
+    `sha256-${createHash('sha256').update(content).digest('hex')}`;
 
   afterEach(async () => {
     await Promise.all(apps.map((app) => app.stop()));
@@ -422,6 +425,208 @@ describe('application discovery bootstrap integration', () => {
     });
 
     expect(leaked.statusCode).toBe(404);
+  });
+
+  it('registers application components from production manifest v2 compiled files in strict mode', async () => {
+    const root = await mkdtemp(
+      join(tmpdir(), 'stratix-bootstrap-manifest-v2-registration-')
+    );
+    await mkdir(join(root, 'src'), { recursive: true });
+    await mkdir(join(root, 'dist'), { recursive: true });
+    const sourceContent = [
+      'export class ManifestCompiledService {}',
+      'export class ManifestCompiledController {}'
+    ].join('\n');
+    const compiledContent = [
+      `import { Controller, Get, Service } from '${coreImport}';`,
+      'class ManifestCompiledService {',
+      "  status() { return 'manifest-v2'; }",
+      '}',
+      'Service()(ManifestCompiledService);',
+      'class ManifestCompiledController {',
+      '  constructor(manifestCompiledService) {',
+      '    this.manifestCompiledService = manifestCompiledService;',
+      '  }',
+      '  check() {',
+      '    return { ok: true, source: this.manifestCompiledService.status() };',
+      '  }',
+      '}',
+      'Controller()(ManifestCompiledController);',
+      'Get("/manifest-compiled")(',
+      '  ManifestCompiledController.prototype,',
+      "  'check',",
+      "  Object.getOwnPropertyDescriptor(ManifestCompiledController.prototype, 'check')",
+      ');',
+      'export { ManifestCompiledService, ManifestCompiledController };'
+    ].join('\n');
+    await writeFile(join(root, 'src', 'manifest-module.ts'), sourceContent);
+    await writeFile(join(root, 'dist', 'manifest-module.mjs'), compiledContent);
+    await writeFile(
+      join(root, 'dist', 'glob-only.mjs'),
+      [
+        `import { Service } from '${coreImport}';`,
+        'class GlobOnlyService {}',
+        'Service()(GlobOnlyService);',
+        'export { GlobOnlyService };'
+      ].join('\n')
+    );
+
+    const manifestPath = join(root, 'production-manifest.json');
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          schemaVersion: 2,
+          generatedAt: '2026-06-19T00:00:00.000Z',
+          generator: {
+            name: '@stratix/forge',
+            version: '1.1.0',
+            command: 'build-manifest'
+          },
+          runtime: {
+            packageName: '@stratix/core',
+            compatibleVersions: ['1.1.x'],
+            node: '>=24.0.0'
+          },
+          project: {
+            kind: 'app',
+            type: 'api',
+            runtime: 'web',
+            presets: []
+          },
+          discovery: {
+            rootDir: '.',
+            patterns: ['src/**/*.ts'],
+            routing: {
+              enabled: true
+            }
+          },
+          registrationPlan: {
+            id: 'production-manifest:manifest-v2-app',
+            source: 'production-manifest',
+            owner: {
+              type: 'manifest',
+              name: 'manifest-v2-app'
+            },
+            tokens: [
+              {
+                token: 'manifestCompiledService',
+                kind: 'service',
+                registrationType: 'class',
+                scope: 'root',
+                visibility: 'public',
+                lifetime: 'SINGLETON',
+                injectionMode: 'CLASSIC',
+                dependencies: [],
+                source: 'src/manifest-module.ts',
+                metadata: {
+                  className: 'ManifestCompiledService',
+                  sourceFile: 'src/manifest-module.ts',
+                  compiledFile: 'dist/manifest-module.mjs'
+                }
+              }
+            ],
+            routes: [
+              {
+                method: 'GET',
+                path: '/manifest-compiled',
+                controllerName: 'ManifestCompiledController',
+                handlerName: 'check',
+                token: 'manifestCompiledController',
+                scope: 'root',
+                source: 'src/manifest-module.ts',
+                metadata: {
+                  operationId: 'ManifestCompiledController_check',
+                  sourceFile: 'src/manifest-module.ts',
+                  compiledFile: 'dist/manifest-module.mjs'
+                }
+              }
+            ],
+            adapters: [],
+            lifecycle: [],
+            diagnostics: []
+          },
+          artifacts: {
+            algorithm: 'sha256',
+            files: [
+              {
+                sourceFile: 'src/manifest-module.ts',
+                sourceHash: sha256(sourceContent),
+                compiledFile: 'dist/manifest-module.mjs',
+                compiledHash: sha256(compiledContent)
+              }
+            ]
+          },
+          routes: [
+            {
+              method: 'GET',
+              path: '/manifest-compiled',
+              operationId: 'ManifestCompiledController_check',
+              controllerName: 'ManifestCompiledController',
+              handlerName: 'check',
+              sourceFile: 'src/manifest-module.ts',
+              compiledFile: 'dist/manifest-module.mjs'
+            }
+          ],
+          di: {
+            tokens: [
+              {
+                token: 'manifestCompiledService',
+                className: 'ManifestCompiledService',
+                dependencies: [],
+                sourceFile: 'src/manifest-module.ts',
+                compiledFile: 'dist/manifest-module.mjs'
+              }
+            ],
+            issues: []
+          },
+          modules: [],
+          moduleIssues: [],
+          plugins: []
+        },
+        null,
+        2
+      )
+    );
+
+    const app = await Stratix.run({
+      type: 'cli',
+      gracefulShutdown: false,
+      config: {
+        server: {},
+        plugins: [],
+        autoLoad: {},
+        discovery: {
+          enabled: true,
+          rootDir: root,
+          patterns: ['src/**/*.ts'],
+          routing: {
+            enabled: true,
+            prefix: '/api'
+          },
+          productionManifest: {
+            enabled: true,
+            path: manifestPath,
+            strict: true,
+            skipRuntimeDiscovery: true,
+            registerFromManifest: true
+          }
+        }
+      }
+    });
+    apps.push(app);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/manifest-compiled'
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ ok: true, source: 'manifest-v2' });
+    expect(app.diContainer.hasRegistration('manifestCompiledService')).toBe(
+      true
+    );
+    expect(app.diContainer.hasRegistration('globOnlyService')).toBe(false);
   });
 
   it('applies production observability and security presets', async () => {

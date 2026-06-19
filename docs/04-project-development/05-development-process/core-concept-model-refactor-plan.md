@@ -373,7 +373,7 @@ Phase 6 后续工作：
 - Observability preset 输出 trace/metric/health。（已完成）
 - Security preset 有默认安全配置和测试。（已完成）
 - `stratix build-manifest` 生成生产 manifest artifact。（已完成）
-- production runtime 可读取 manifest、选择跳过 runtime glob discovery，并可按 manifest source files 注册 DI/路由。（已完成）
+- production runtime 可读取 manifest、选择跳过 runtime glob discovery，并可优先按 v2 manifest `compiledFile` 注册 DI/路由，v1 manifest 继续按 source files 兼容注册。（已完成）
 - DevTools 可展示 routes、DI、plugin、config、health、traces。（已完成）
 - `stratix release gate` 可执行 production manifest 发布门禁。（已完成）
 

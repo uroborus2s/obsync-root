@@ -61,6 +61,19 @@
 | `ApplicationDiscoveryPipeline` | `ApplicationDiscoveryConfig & { container, fastify }` | `ApplicationDiscoveryResult` | 应用级扫描、分析、DI 注册和路由绑定入口 |
 | `ApplicationDiscoveryConfig` | `enabled`、`rootDir`、`patterns`、`directories`、`routing`、`lifecycle` | 类型 | 应用级 discovery 配置契约 |
 | `ApplicationDiscoveryResult` | `scanned`、`analyzed`、`registered`、`routesRegistered`、`registrationPlan`、`skipped`、`errors` | 类型 | 应用级 discovery 执行结果，包含统一注册计划 |
+| `ProductionManifest` | v1 / v2 union | 类型 | 生产 manifest artifact；v2 包含 `RegistrationPlan` 快照与 artifact integrity |
+| `ProductionManifestV2` | `generator`、`runtime`、`registrationPlan`、`artifacts`、v1 投影字段 | 类型 | P2 生产一致性 manifest，支持 source/compiled hash 校验和 compiled-file registration |
+
+### Production Manifest v2
+
+`stratix build-manifest` 默认生成 `schemaVersion: 2`。v2 manifest 保留 `routes`、`di`、`modules`、`plugins` 等 v1 投影字段，同时新增：
+
+- `generator`：记录 `@stratix/forge` 版本和生成命令。
+- `runtime`：记录 `@stratix/core` 兼容范围和 Node 约束。
+- `registrationPlan`：基于 P1 `RegistrationPlan` 的 app plan 快照。
+- `artifacts.files`：记录 `sourceFile/sourceHash`，存在构建产物时记录 `compiledFile/compiledHash`。
+
+runtime 配置 `strict: true` 时会校验 v2 artifact hash。`skipRuntimeDiscovery: true` + `registerFromManifest: true` 时，core 只导入 manifest 记录的文件；v2 优先使用 `compiledFile`，不会回退到隐式源码 glob。v1 manifest 仍按原 `sourceFile` 语义兼容读取。
 
 <a id="controllers-routes"></a>
 ## 控制器与路由装饰器
