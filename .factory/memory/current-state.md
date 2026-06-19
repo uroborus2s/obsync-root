@@ -64,6 +64,11 @@
   - global branches `32.70%`
   - global statements `41.75%`
   - bootstrap/discovery critical paths use higher targeted thresholds
+- 2026-06-19 closed-door `@stratix/core` review completed with three-role
+  subagent scoring: senior technical manager 87, senior test manager 72,
+  senior framework architect 86, composite 83/100. Recommendation is RC /
+  controlled release until release gates, production security defaults, coverage
+  policy, public API boundaries, and production manifest integrity are hardened.
 - `@stratix/core` now exports `ERROR_ENVELOPE_SCHEMA` and `createErrorEnvelope()`; bootstrap error handling uses the shared envelope for `HttpError`, validation errors, 404, and response schema serialization failures.
 - `@stratix/core` now accepts `discovery.productionManifest`; bootstrap can load/validate `.stratix/production-manifest.json`, expose the loaded artifact, fail fast on invalid strict manifests, skip application-level runtime glob discovery, and register DI/routes from manifest source files when configured.
 - `@stratix/core` now accepts `observability` and `security`; bootstrap can expose request/trace ids, health, metrics, traces, CORS, security headers, body limit, and rate limit.
@@ -162,4 +167,5 @@
 
 - `docs/04-project-development/02-discovery/current-state-analysis.md`
 - `docs/04-project-development/02-discovery/core-framework-review-report.md`
+- `docs/04-project-development/02-discovery/core-closed-door-review-20260619.md`
 - `docs/04-project-development/02-discovery/database-plugin-review-report.md`
