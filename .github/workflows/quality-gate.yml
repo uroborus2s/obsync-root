@@ -1,0 +1,65 @@
+name: Quality Gate
+
+on:
+  pull_request:
+    branches:
+      - main
+      - 1.1.0
+  push:
+    branches:
+      - main
+      - 1.1.0
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-gate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-gate:
+    name: Supported Package Release Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: CI=true pnpm install --frozen-lockfile
+
+      - name: Build supported packages
+        run: pnpm run build:supported
+
+      - name: Typecheck supported packages
+        run: pnpm run typecheck:supported
+
+      - name: Test supported packages
+        run: pnpm run test:supported
+
+      - name: Verify core coverage ratchet
+        run: pnpm run test:coverage:core
+
+      - name: Validate docs
+        run: pnpm run docs:validate
+
+      - name: Security audit
+        run: pnpm run security:audit
+
+      - name: Release gate dry run
+        run: pnpm run release:gate:dry-run

@@ -1,7 +1,7 @@
 # Current State
 
 - Snapshot date: 2026-06-19
-- Recommended software-factory stage: `PHASE_6_RELEASE_READY`
+- Recommended software-factory stage: `PHASE_6_RC_RELEASE_GATE_HARDENING`
 - Repository type: historical Stratix source monorepo
 - Toolchain baseline:
   - Node `24.14.1`
@@ -25,7 +25,9 @@
 - Phase 5 production baseline is implemented: `@stratix/core` accepts `discovery.productionManifest`, loads and validates `.stratix/production-manifest.json`, exposes the loaded artifact on the application instance, can skip application-level runtime glob discovery when `skipRuntimeDiscovery` is true, can register DI/routes from manifest source files when `registerFromManifest` is true, and provides `observability` / `security` presets.
 - `@stratix/devtools` exposes Phase 5 production views for routes, DI, plugins, redacted config, health, and traces.
 - `@stratix/forge` exposes `stratix release gate` for production manifest release checks and `stratix release gate --scope workspace` for monorepo release-readiness planning.
-- Phase 6 release-readiness gate is implemented and locally passing: workspace release gate executes supported build/test/docs/security/pack/API/release-surface checks, explicitly excludes frozen `@stratix/tasks`, can include frozen offline install and public npmjs exact-version reconciliation, and validates supported package tarball contents plus package release metadata.
+- Phase 6 workspace release gate exists and has local passing evidence, but the 2026-06-19 closed-door review reset the release posture to RC / controlled release until root release gates, CI enforcement, coverage policy, and GA wording are hardened.
+- Root release gating is now tightened so `release` must pass supported build, supported typecheck, supported test, core coverage ratchet, docs validation, security audit, release gate dry-run, and offline workspace release gate before `changeset publish`.
+- GitHub Actions CI now has a `Quality Gate` workflow for PRs and pushes to `main` / `1.1.0`; it installs with pnpm and runs the supported build/typecheck/test/coverage/docs/security gates plus workspace release gate dry-run.
 - The toolchain split is implemented: `@stratix/create` owns app/plugin creation, `@stratix/forge` owns project-local generate/doctor/di/openapi/start/config workflows, and neither package depends on `@stratix/core`.
 - The physical source directory for `@stratix/forge` is now `packages/forge`; `packages/cli` is not retained as a compatibility directory.
 - `.stratix/project.json` is now the create/forge handoff contract at `schemaVersion: 2`; create writes the template contribution snapshot, allowed presets, and managed files mode, while forge reads the manifest/presets/resource templates instead of app/plugin creation templates.
@@ -50,20 +52,36 @@
 - Root `pnpm test` delegates to `test:supported` and passes for supported packages with `@stratix/tasks` excluded.
 - Root `pnpm test:supported` passes across supported packages:
   - 12 successful turbo tasks
+- Root `pnpm run typecheck:supported` is the supported package typecheck gate:
+  - explicitly enumerates the 10 supported public packages
+  - intentionally excludes frozen `@stratix/tasks`
+- Root `pnpm run docs:validate` is the docs validation gate:
+  - delegates to `uvx --from docs-stratego docs-stratego source validate --repo-path .`
+- Root `pnpm run quality:release` now requires supported build/typecheck/test, core coverage ratchet, docs validation, security audit, and release gate dry-run.
+- Root `pnpm run release` requires `quality:release`, offline workspace `release:gate`, and then `changeset publish`.
+- `.github/workflows/quality-gate.yml` defines PR and `main` / `1.1.0` push CI for install, supported build, supported typecheck, supported test, core coverage ratchet, docs validation, security audit, and release gate dry-run.
+- Root `pnpm run release:gate:dry-run` passes:
+  - 10 supported packages
+  - `@stratix/tasks` excluded
+  - planned build/test/docs/security/pack/api/release-surface checks
+- Root `pnpm run release:gate` passes with elevated local cache access:
+  - offline install, supported build/test, docs, security audit, pack, API surface, release-surface, and exact tag checks passed
+  - all 10 supported package tarball artifacts validated
 - Root `CI=true pnpm install --frozen-lockfile --offline` passes on the current pnpm store:
   - Lockfile is up to date
   - Already up to date
 - `pnpm --filter @stratix/core build` passes after the breaking application discovery refactor and unified error envelope work.
 - `pnpm --filter @stratix/core exec tsc -p tsconfig.json --noEmit` passes.
-- `CI=true pnpm --filter @stratix/core exec vitest run` passes after production manifest strict registration and late controller registration hardening:
-  - 27 test files
-  - 203 tests
-- `pnpm --filter @stratix/core run test:coverage` passes:
-  - global lines `42.46%`
-  - global functions `36.76%`
-  - global branches `32.70%`
-  - global statements `41.75%`
+- `CI=true pnpm --filter @stratix/core exec vitest run` passes after production manifest strict registration, late controller registration hardening, and security default hardening:
+  - 28 test files
+  - 210 tests
+- `pnpm run test:coverage:core` passes:
+  - global lines `43.12%`
+  - global functions `37.00%`
+  - global branches `33.98%`
+  - global statements `42.39%`
   - bootstrap/discovery critical paths use higher targeted thresholds
+  - these values are current executable ratchet facts, not 95+ global coverage
 - 2026-06-19 closed-door `@stratix/core` review completed with three-role
   subagent scoring: senior technical manager 87, senior test manager 72,
   senior framework architect 86, composite 83/100. Recommendation is RC /
@@ -122,7 +140,7 @@
 - `rg --files packages/core/src packages/core/dist packages/forge/templates packages/create/templates | rg -i 'executor'` returns no path matches.
 - `tar -tf /tmp/stratix-core-1.1.0.tgz | rg -i 'executor'` returns no path matches.
 - `uvx --from docs-stratego docs-stratego source validate --repo-path .` passes:
-  - 85 pages
+  - 86 pages
   - 0 contracts
 - `rg -n "@Executor|EXECUTOR_METADATA_KEY|registerTaskExecutor|registerExecutorDomain|processExecutorRegistration|Executor\\b|executors/|plugin-executor|performApplicationAutoDI|applicationAutoDI|discoverAndProcessApplicationModules|generate executor|createSafeExecutor|executor" docs/03-developer-guide -g '*.md'` returns no matches; developer guides no longer teach removed executor APIs or paths.
 - `git diff --check` passes after Phase 2 docs synchronization.
@@ -160,8 +178,9 @@
 
 ## Immediate Priorities
 
-1. npm publish remains an external release operation requiring maintainer credentials.
-2. Obsolete `packages/forge/templates/apps` and `packages/forge/templates/plugins` were physically deleted after explicit approval; `@stratix/create` owns app/plugin creation templates.
+1. First remote run of `.github/workflows/quality-gate.yml` must pass before treating the CI gate as proven in GitHub Actions.
+2. `@stratix/core` global coverage remains below the 95+ target and needs a follow-up coverage uplift plan before any high-confidence GA claim.
+3. npm publish remains an external release operation requiring maintainer credentials.
 
 ## Canonical Detailed Report
 

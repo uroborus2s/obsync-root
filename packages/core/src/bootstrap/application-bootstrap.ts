@@ -1338,7 +1338,7 @@ export class ApplicationBootstrap {
       ) {
         const max = rateLimit.max ?? 100;
         const windowMs = rateLimit.windowMs ?? 60_000;
-        const key = this.rateLimitKey(request);
+        const key = this.rateLimitKey(request, rateLimit.trustProxy === true);
         const now = Date.now();
         const current = rateLimitStore.get(key);
         const bucket =
@@ -1389,10 +1389,13 @@ export class ApplicationBootstrap {
     return paths.includes(pathname);
   }
 
-  private rateLimitKey(request: any): string {
+  private rateLimitKey(request: any, trustProxy: boolean): string {
     const forwardedFor = request.headers['x-forwarded-for'];
-    if (typeof forwardedFor === 'string' && forwardedFor.length > 0) {
-      return forwardedFor.split(',')[0].trim();
+    if (trustProxy && typeof forwardedFor === 'string') {
+      const forwardedClient = forwardedFor.split(',')[0]?.trim();
+      if (forwardedClient) {
+        return forwardedClient;
+      }
     }
     return request.ip || request.socket?.remoteAddress || 'unknown';
   }

@@ -4,7 +4,7 @@
  * @packageDocumentation
  */
 
-import { get } from './environment/index.js';
+import { get, isProduction } from './environment/index.js';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -42,7 +42,8 @@ export interface EncryptOptions {
   algorithm?: EncryptionAlgorithm;
 
   /**
-   * 加密密钥，如果不提供，将使用环境变量STRATIX_ENCRYPTION_KEY或默认密钥
+   * 加密密钥，如果不提供，将使用环境变量STRATIX_ENCRYPTION_KEY。
+   * 非生产环境允许回退到内置开发密钥。
    */
   key?: string | Buffer;
 
@@ -57,8 +58,8 @@ export interface EncryptOptions {
   outputFormat?: 'base64' | 'hex' | 'buffer';
 
   /**
-   * 是否使用默认密钥，默认为false
-   * 如果为true，将忽略key参数和环境变量，直接使用内置的高强度默认密钥
+   * 是否使用默认密钥，默认为false。
+   * 仅允许非生产环境使用；生产环境必须提供显式密钥。
    */
   useDefaultKey?: boolean;
 
@@ -78,7 +79,8 @@ export interface DecryptOptions {
   algorithm?: EncryptionAlgorithm;
 
   /**
-   * 加密密钥，如果不提供，将使用环境变量STRATIX_ENCRYPTION_KEY或默认密钥
+   * 加密密钥，如果不提供，将使用环境变量STRATIX_ENCRYPTION_KEY。
+   * 非生产环境允许回退到内置开发密钥。
    */
   key?: string | Buffer;
 
@@ -88,8 +90,8 @@ export interface DecryptOptions {
   inputFormat?: 'base64' | 'hex' | 'buffer';
 
   /**
-   * 是否使用默认密钥，默认为false
-   * 如果为true，将忽略key参数和环境变量，直接使用内置的高强度默认密钥
+   * 是否使用默认密钥，默认为false。
+   * 仅允许非生产环境使用；生产环境必须提供显式密钥。
    */
   useDefaultKey?: boolean;
 
@@ -129,6 +131,22 @@ function getEncryptionKey(
   key?: string | Buffer,
   useDefaultKey?: boolean
 ): Buffer {
+  const envKey = get(STRATIX_ENCRYPTION_KEY);
+
+  if (isProduction()) {
+    if (useDefaultKey === true) {
+      throw new Error(
+        'The default encryption key is disabled in production; configure STRATIX_ENCRYPTION_KEY or pass an explicit key.'
+      );
+    }
+
+    if (!key && !envKey) {
+      throw new Error(
+        'STRATIX_ENCRYPTION_KEY is required in production; default encryption key fallback is disabled.'
+      );
+    }
+  }
+
   // 优先使用默认密钥选项
   if (useDefaultKey === true) {
     return Buffer.from(DEFAULT_ENCRYPTION_KEY);
@@ -140,7 +158,6 @@ function getEncryptionKey(
   }
 
   // 从环境变量获取
-  const envKey = get(STRATIX_ENCRYPTION_KEY);
   if (envKey) {
     return Buffer.from(envKey);
   }

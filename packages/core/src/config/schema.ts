@@ -163,7 +163,8 @@ export const SecurityConfigSchema = z
       .object({
         enabled: z.boolean().optional(),
         max: z.number().optional(),
-        windowMs: z.number().optional()
+        windowMs: z.number().optional(),
+        trustProxy: z.boolean().optional()
       })
       .optional()
   })

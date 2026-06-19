@@ -497,6 +497,143 @@ describe('application discovery bootstrap integration', () => {
     });
   });
 
+  it('does not trust x-forwarded-for for rate limiting unless explicitly configured', async () => {
+    const app = await Stratix.run({
+      type: 'cli',
+      gracefulShutdown: false,
+      config: {
+        server: {},
+        plugins: [],
+        autoLoad: {},
+        discovery: { enabled: false },
+        observability: {
+          enabled: false,
+          health: { enabled: false },
+          metrics: { enabled: false }
+        },
+        security: {
+          enabled: true,
+          rateLimit: {
+            enabled: true,
+            max: 1,
+            windowMs: 60_000
+          }
+        }
+      }
+    });
+    apps.push(app);
+
+    const first = await app.inject({
+      method: 'GET',
+      url: '/missing',
+      headers: {
+        'x-forwarded-for': '203.0.113.10'
+      }
+    });
+    const spoofed = await app.inject({
+      method: 'GET',
+      url: '/missing',
+      headers: {
+        'x-forwarded-for': '203.0.113.11'
+      }
+    });
+
+    expect(first.statusCode).toBe(404);
+    expect(spoofed.statusCode).toBe(429);
+  });
+
+  it('can trust x-forwarded-for for rate limiting when explicitly configured', async () => {
+    const app = await Stratix.run({
+      type: 'cli',
+      gracefulShutdown: false,
+      config: {
+        server: {},
+        plugins: [],
+        autoLoad: {},
+        discovery: { enabled: false },
+        observability: {
+          enabled: false,
+          health: { enabled: false },
+          metrics: { enabled: false }
+        },
+        security: {
+          enabled: true,
+          rateLimit: {
+            enabled: true,
+            max: 1,
+            windowMs: 60_000,
+            trustProxy: true
+          }
+        }
+      }
+    });
+    apps.push(app);
+
+    const first = await app.inject({
+      method: 'GET',
+      url: '/missing',
+      headers: {
+        'x-forwarded-for': '203.0.113.10'
+      }
+    });
+    const forwardedClient = await app.inject({
+      method: 'GET',
+      url: '/missing',
+      headers: {
+        'x-forwarded-for': '203.0.113.11'
+      }
+    });
+
+    expect(first.statusCode).toBe(404);
+    expect(forwardedClient.statusCode).toBe(404);
+  });
+
+  it('falls back to request ip when trusted x-forwarded-for has an empty client token', async () => {
+    const app = await Stratix.run({
+      type: 'cli',
+      gracefulShutdown: false,
+      config: {
+        server: {},
+        plugins: [],
+        autoLoad: {},
+        discovery: { enabled: false },
+        observability: {
+          enabled: false,
+          health: { enabled: false },
+          metrics: { enabled: false }
+        },
+        security: {
+          enabled: true,
+          rateLimit: {
+            enabled: true,
+            max: 1,
+            windowMs: 60_000,
+            trustProxy: true
+          }
+        }
+      }
+    });
+    apps.push(app);
+
+    const first = await app.inject({
+      method: 'GET',
+      url: '/missing',
+      headers: {
+        'x-forwarded-for': ' , 203.0.113.10'
+      }
+    });
+    const second = await app.inject({
+      method: 'GET',
+      url: '/missing',
+      headers: {
+        'x-forwarded-for': ' , 203.0.113.11'
+      }
+    });
+
+    expect(first.statusCode).toBe(404);
+    expect(second.statusCode).toBe(429);
+  });
+
   it('fails startup when a configured production manifest is invalid', async () => {
     const root = await mkdtemp(
       join(tmpdir(), 'stratix-bootstrap-invalid-manifest-')

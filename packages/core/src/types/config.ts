@@ -193,6 +193,7 @@ export interface SecurityConfig {
     enabled?: boolean;
     max?: number;
     windowMs?: number;
+    trustProxy?: boolean;
   };
 }
 

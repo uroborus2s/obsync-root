@@ -18,8 +18,8 @@
 
 但从后端基础框架的生产级标准看，当前版本仍存在三类关键短板：
 
-1. 发布治理不足：仓库没有 CI 工作流目录，根发布脚本只执行 `build:supported && changeset publish`，覆盖率与安全门禁没有进入发布路径。
-2. 测试置信度不足：`@stratix/core` 覆盖率为 statements 41.75%、branches 32.70%、functions 36.76%、lines 42.46%，与 95+ 质量门禁文档口径不一致。
+1. 发布治理不足：复评时仓库没有 CI 工作流目录，根发布脚本只执行 `build:supported && changeset publish`，覆盖率与安全门禁没有进入发布路径。P0 修复后，根 release 已串联 supported build/typecheck/test、core coverage、docs validation、security audit 和 workspace release gate。
+2. 测试置信度不足：P0 修复后 `@stratix/core` 覆盖率提升为 statements 42.39%、branches 33.98%、functions 37.00%、lines 43.12%，仍明显低于 95+ 目标。
 3. 运行时架构压力偏高：`ApplicationBootstrap` 单文件 1885 行，承担环境加载、配置合并、插件编排、发现、Fastify 生命周期、观测、安全、限流、关闭流程等过多职责，已经成为未来演进瓶颈。
 
 本次闭门评审建议将当前版本定位为“有条件 RC”：可以发布给受控用户和内部生态模块验证，但必须在正式 GA 前补齐发布门禁、安全默认值、覆盖率策略、公开 API 边界和生产 manifest 完整性。
@@ -40,18 +40,21 @@
 | 命令 | 结果 | 说明 |
 | --- | --- | --- |
 | `pnpm --filter @stratix/core exec tsc -p tsconfig.json --noEmit` | 通过 | TypeScript 类型检查通过 |
-| `CI=true pnpm --filter @stratix/core exec vitest run` | 通过 | 27 个测试文件、203 个测试用例通过 |
-| `pnpm --filter @stratix/core run test:coverage` | 通过 | 生成覆盖率报告，核心覆盖率仍偏低 |
+| `CI=true pnpm --filter @stratix/core exec vitest run` | 通过 | 28 个测试文件、210 个测试用例通过 |
+| `pnpm run test:coverage:core` | 通过 | 生成覆盖率报告，核心覆盖率仍偏低 |
 | `pnpm --filter @stratix/core run build` | 通过 | `tsdown` 构建通过 |
+| `pnpm run docs:validate` | 通过 | 86 pages / 0 contracts |
+| `pnpm run security:audit` | 通过 | No known vulnerabilities found |
+| `pnpm run release:gate:dry-run` | 通过 | 10 个 supported packages，排除 `@stratix/tasks` |
 
 ### 覆盖率证据
 
 | 指标 | 覆盖率 | 覆盖数量 |
 | --- | ---: | --- |
-| Statements | 41.75% | 2151 / 5152 |
-| Branches | 32.70% | 937 / 2865 |
-| Functions | 36.76% | 450 / 1224 |
-| Lines | 42.46% | 2112 / 4974 |
+| Statements | 42.39% | 2187 / 5159 |
+| Branches | 33.98% | 977 / 2875 |
+| Functions | 37.00% | 453 / 1224 |
+| Lines | 43.12% | 2148 / 4981 |
 
 覆盖率呈现“核心路径有测试、公共工具和边缘路径不足”的状态。较好的区域包括 bootstrap、discovery pipeline 和 DI diagnostics；薄弱区域包括 `crypto.ts`、`context.ts`、数组工具、服务装饰器、validation、部分安全与配置分支。
 
@@ -59,8 +62,8 @@
 
 | 主题 | 证据 |
 | --- | --- |
-| 根发布脚本 | `package.json` 中 `release` 为 `pnpm run build:supported && changeset publish`，未包含测试、覆盖率、安全审计 |
-| CI 缺口 | 仓库未发现 `.github` 工作流目录 |
+| 根发布脚本 | 复评时 `release` 只执行 `build:supported && changeset publish`；P0 修复后 `release` 先执行 `quality:release` 和 workspace `release:gate` |
+| CI 缺口 | 复评时仓库未发现 `.github` 工作流目录；P0 修复后新增 `.github/workflows/quality-gate.yml` |
 | Core 导出面 | `packages/core/src/index.ts` 导出大量内部插件、DI、Fastify、Awilix 类型与实现细节 |
 | Bootstrap 复杂度 | `packages/core/src/bootstrap/application-bootstrap.ts` 约 1885 行，职责集中 |
 | 生产 manifest | `packages/core/src/discovery/production-manifest.ts` 支持 strict 问题报告，但 manifest 类型缺少编译产物路径、hash、完整性校验字段 |
@@ -68,7 +71,7 @@
 | 插件 AutoDI | `withRegisterAutoDI` 通过插件作用域容器和模块发现注册服务，与应用侧 metadata 发现模型不完全一致 |
 | DI 诊断 | `diagnostics/di.ts` 依赖注册记录和函数源码提取依赖，插件适配器路径记录不完整 |
 | 配置 schema | `config/schema.ts` 顶层严格，但 `pluginOptions`、`autoLoad` 等区域仍较宽 |
-| 安全默认值 | `utils/crypto.ts` 存在默认开发密钥回退；`application-bootstrap.ts` 的限流 key 默认信任 `x-forwarded-for` |
+| 安全默认值 | 复评时 `utils/crypto.ts` 存在默认开发密钥回退且限流默认信任 `x-forwarded-for`；P0 修复后生产禁用默认 key，限流默认使用 `request.ip` |
 
 ## 分项评分
 
@@ -102,15 +105,21 @@
 
 ### P0：发布门禁与质量口径不一致
 
-当前根发布脚本没有串联测试、覆盖率、安全审计或文档校验，仓库也没有发现 `.github` 工作流目录。这意味着本地命令虽然通过，但发布过程本身没有强制复核。
+复评时根发布脚本没有串联测试、覆盖率、安全审计或文档校验，仓库也没有发现 `.github` 工作流目录。这意味着本地命令虽然通过，但发布过程本身没有强制复核。
 
-同时，`docs/04-project-development/06-testing-verification/stratix-95-quality-gate.md` 中存在高分质量门禁叙述，而本次 `@stratix/core` 覆盖率实测只有 41.75/32.70/36.76/42.46。该口径差异会误导发布判断。
+同时，`docs/04-project-development/06-testing-verification/stratix-95-quality-gate.md` 中存在高分质量门禁叙述。P0 修复后 `@stratix/core` 覆盖率实测为 42.39/33.98/37.00/43.12，仍只是 ratchet 事实，不是 95+ 达成。该口径差异会误导发布判断。
 
 建议：
 
 - 将 release 前置命令升级为 `typecheck`、单测、覆盖率阈值、构建、安全审计和文档校验组合。
 - 新增 CI 工作流并以分支保护执行。
 - 将质量门禁文档改为“目标门禁 + 当前实测 + 豁免清单”的格式。
+
+P0 修复状态：
+
+- 根级 `release` 已改为先执行 `quality:release`，再执行 `release:gate`，最后 `changeset publish`。
+- `quality:release` 已包含 supported build/typecheck/test、core coverage、docs validation、security audit 和 release gate dry-run。
+- 新增 `.github/workflows/quality-gate.yml`，覆盖 PR 与 `main` / `1.1.0` push。
 
 ### P0：安全默认值需生产失效保护
 
@@ -121,6 +130,12 @@
 - 生产环境缺少 `STRATIX_ENCRYPTION_KEY` 时直接拒绝启动。
 - 限流 key 默认使用 `request.ip` 或 Fastify 可信代理配置后的 IP。
 - 对 `x-forwarded-for` 读取增加 `trustProxy` 显式开关和文档约束。
+
+P0 修复状态：
+
+- 生产环境缺少显式 key 或强制 `useDefaultKey: true` 时会失败。
+- 限流默认不再读取 `x-forwarded-for`，只有 `security.rateLimit.trustProxy: true` 时才读取首个非空代理客户端 token。
+- 已新增 crypto 与 rate limit 回归测试。
 
 ### P1：Bootstrap 职责过载
 
@@ -154,6 +169,10 @@
 ### P1：应用发现与插件 AutoDI 模型不统一
 
 应用侧 discovery 基于装饰器 metadata 注册 controllers/components；插件侧 AutoDI 走模块扫描、适配器发现和容器注册。两套模型会带来生命周期、命名、诊断、作用域、manifest 生成的一致性问题。
+
+这里需要明确：`withRegisterAutoDI` 本身不是设计错误。它是插件作者 API，用来包装具名 Fastify 插件函数、创建插件作用域容器、注册插件内部组件、暴露 adapter、挂接生命周期清理。插件需要独立作用域、参数处理和 adapter 桥接，这些能力不能直接由应用 discovery 替代。
+
+真正的问题是应用 discovery 和插件 AutoDI 缺少统一的“注册中间表示”。应用侧现在更像 `LoadedModule -> ComponentMetadata -> container/routes/diagnostics`；插件侧更像 `loadModules -> internal container -> route/lifecycle side effects -> adapter root export`。因此 token 命名、scope、路由注册、diagnostics、manifest 和错误策略无法天然一致。
 
 建议：
 
@@ -295,6 +314,17 @@
 | CR-CORE-20260619-007 | P1 | Manifest v2 | 增加编译产物、hash、版本和运行时兼容信息 |
 | CR-CORE-20260619-008 | P2 | 可插拔观测与限流 | 引入 metrics/tracing/rate-limit provider |
 | CR-CORE-20260619-009 | P2 | 性能与并发测试 | 建立启动、路由、DI、插件加载和长生命周期基准 |
+
+## 修复推进状态
+
+2026-06-19 已启动 P0 修复线：
+
+- 生产安全默认值：生产环境禁止默认加密密钥回退，限流默认不信任 `x-forwarded-for`。
+- 发布门禁：根级 release 增加 supported build/typecheck/test、core coverage、docs validation、security audit 和 workspace release gate。
+- CI 门禁：新增 Quality Gate workflow，在 PR 和 `main` / `1.1.0` push 上执行 RC 质量门。
+- 质量口径：`stratix-95-quality-gate.md` 已改为目标门禁与当前实测分离，不再把当前 core 全包覆盖率写成 95+ 达成。
+
+剩余 P1/P2 工作应通过 `.factory/workitems/changes/CR-CORE-20260619-production-hardening-roadmap.md` 继续跟踪，不能用文档分数替代真实架构重构和覆盖率提升。
 
 ## 发布建议
 
