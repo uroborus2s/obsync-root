@@ -18,7 +18,7 @@
     "pnpm": ">=10.33.0"
   },
   "currentStage": "PHASE_6_RELEASE_READY",
-  "recommendedNextStage": "Repository code and local release gates are ready; run final public registry reconciliation with maintainer release context, then publish with npm credentials",
+  "recommendedNextStage": "Repository code and full release gates are ready; publish with maintainer npm credentials",
   "sourceOfTruth": {
     "stableCollaboration": ["AGENTS.md", "GEMINI.md"],
     "humanDocs": "docs/",
@@ -89,10 +89,10 @@
       "@stratix/testing": "@stratix/testing@1.0.0-beta.1",
       "@stratix/was-v7": "@stratix/was-v7@1.0.0-beta.36"
     },
-    "assessment": "Supported package manifest versions, public package metadata, exact release tags, tarball/API/docs/security gates, and supported workspace release-surface checks are aligned. @stratix/tasks is frozen/deprecated and excluded from the 1.1.x release surface."
+    "assessment": "Supported package manifest versions, public package metadata, exact release tags, tarball/API/docs/security gates, supported workspace release-surface checks, and public npmjs exact-version availability are aligned. @stratix/tasks is frozen/deprecated and excluded from the 1.1.x release surface."
   },
   "verification": {
-    "checkedAt": "2026-06-18",
+    "checkedAt": "2026-06-19",
     "install": [
       {
         "command": "CI=true pnpm install --frozen-lockfile --ignore-scripts",
@@ -404,6 +404,12 @@
         "status": "passed",
         "summary": "offline-install/build/test/docs/security/pack/api/release-surface",
         "reason": "Built forge executes the local workspace release gate end-to-end, validates supported package tarballs, validates package API surface and metadata, and confirms exact package tags are present"
+      },
+      {
+        "command": "node packages/forge/dist/bin/stratix.js release gate --scope workspace --include-offline-install --include-registry",
+        "status": "passed",
+        "summary": "offline-install/build/test/docs/security/pack/api/release-surface/registry",
+        "reason": "Full workspace release gate passes after exact tags are aligned to the release commit; public npmjs reports every supported exact version as unpublished and available"
       },
       {
         "command": "pnpm preview --host 127.0.0.1 --port 4273",

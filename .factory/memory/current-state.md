@@ -103,6 +103,9 @@
 - Built `@stratix/forge` CLI workspace release gate execution passes with offline install:
   - `node packages/forge/dist/bin/stratix.js release gate --scope workspace --include-offline-install`
   - passed offline install, supported build/test, docs, security audit, pack, API surface, package metadata release-surface, and exact tag presence checks
+- Built `@stratix/forge` CLI full workspace release gate passes with registry reconciliation:
+  - `node packages/forge/dist/bin/stratix.js release gate --scope workspace --include-offline-install --include-registry`
+  - public npmjs reports all 10 supported exact versions as unpublished and available
 - Workspace release gate `pack` now validates every supported tarball for package entry files and development-file leakage.
 - Workspace release gate `release-surface` now validates every supported public package for description, keywords, license, `publishConfig.access: public`, and exact release tags.
 - Workspace release gate `registry` checks public npmjs exact package versions with an isolated npm cache; 404 means a version is available for release, while an already published exact version fails the gate.
@@ -136,16 +139,24 @@
 
 ## Release Surface
 
-- Public npmjs verification on 2026-06-18 found `@stratix/core@0.8.2` as the latest published public version; `@stratix/core@1.1.0` is not published.
-- Public npmjs verification returned 404 for `@stratix/create`, `@stratix/database`, `@stratix/devtools`, `@stratix/forge`, `@stratix/ossp`, `@stratix/queue`, `@stratix/redis`, `@stratix/testing`, `@stratix/was-v7`, and `@stratix/tasks`.
+- Public npmjs verification on 2026-06-19 found all 10 supported exact versions are not published and available:
+  - `@stratix/core@1.1.0`
+  - `@stratix/create@1.1.0`
+  - `@stratix/database@1.1.0`
+  - `@stratix/devtools@1.0.0-beta.1`
+  - `@stratix/forge@1.1.0`
+  - `@stratix/ossp@0.0.1-beta.3`
+  - `@stratix/queue@1.0.0-beta.2`
+  - `@stratix/redis@1.0.0-beta.2`
+  - `@stratix/testing@1.0.0-beta.1`
+  - `@stratix/was-v7@1.0.0-beta.36`
 - Phase 6 exact release tags are present for the 10 supported packages and intentionally exclude deprecated `@stratix/tasks`.
 - `@stratix/tasks` is permanently deprecated/frozen for the 1.1.x release line; it remains in source for historical reference but is excluded from supported build/test/release gates and new-project presets.
 
 ## Immediate Priorities
 
-1. Run final public registry reconciliation with `--include-registry` in the maintainer release context.
-2. npm publish remains an external release operation requiring maintainer credentials.
-3. Obsolete `packages/forge/templates/apps` and `packages/forge/templates/plugins` were physically deleted after explicit approval; `@stratix/create` owns app/plugin creation templates.
+1. npm publish remains an external release operation requiring maintainer credentials.
+2. Obsolete `packages/forge/templates/apps` and `packages/forge/templates/plugins` were physically deleted after explicit approval; `@stratix/create` owns app/plugin creation templates.
 
 ## Canonical Detailed Report
 
