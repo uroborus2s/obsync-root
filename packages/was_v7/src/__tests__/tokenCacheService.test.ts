@@ -74,17 +74,13 @@ describe('TokenCacheService', () => {
   beforeEach(() => {
     mockRedisAdapter = createMockRedisAdapter();
     mockLogger = createMockLogger();
-    
-    tokenCacheService = new TokenCacheService(
-      mockRedisAdapter,
-      mockLogger,
-      {
-        keyPrefix: 'test:token:',
-        defaultTtl: 7200,
-        earlyExpireSeconds: 900,
-        enableFallback: true
-      }
-    );
+
+    tokenCacheService = new TokenCacheService(mockRedisAdapter, mockLogger, {
+      keyPrefix: 'test:token:',
+      defaultTtl: 7200,
+      earlyExpireSeconds: 900,
+      enableFallback: true
+    });
   });
 
   describe('setToken', () => {
@@ -108,7 +104,9 @@ describe('TokenCacheService', () => {
 
     it('当 Redis 不可用时应该降级到内存存储', async () => {
       // Arrange
-      (mockRedisAdapter.ping as Mock).mockRejectedValue(new Error('Redis connection failed'));
+      (mockRedisAdapter.ping as Mock).mockRejectedValue(
+        new Error('Redis connection failed')
+      );
 
       // Act
       const result = await tokenCacheService.setToken(testAppId, testToken);
@@ -124,12 +122,12 @@ describe('TokenCacheService', () => {
 
     it('当降级被禁用且 Redis 不可用时应该返回失败', async () => {
       // Arrange
-      tokenCacheService = new TokenCacheService(
-        mockRedisAdapter,
-        mockLogger,
-        { enableFallback: false }
+      tokenCacheService = new TokenCacheService(mockRedisAdapter, mockLogger, {
+        enableFallback: false
+      });
+      (mockRedisAdapter.ping as Mock).mockRejectedValue(
+        new Error('Redis connection failed')
       );
-      (mockRedisAdapter.ping as Mock).mockRejectedValue(new Error('Redis connection failed'));
 
       // Act
       const result = await tokenCacheService.setToken(testAppId, testToken);
@@ -144,7 +142,9 @@ describe('TokenCacheService', () => {
     it('应该从 Redis 成功获取 token', async () => {
       // Arrange
       (mockRedisAdapter.ping as Mock).mockResolvedValue('PONG');
-      (mockRedisAdapter.get as Mock).mockResolvedValue(JSON.stringify(testToken));
+      (mockRedisAdapter.get as Mock).mockResolvedValue(
+        JSON.stringify(testToken)
+      );
 
       // Act
       const result = await tokenCacheService.getToken(testAppId);
@@ -152,7 +152,9 @@ describe('TokenCacheService', () => {
       // Assert
       expect(result.success).toBe(true);
       expect(result.data).toEqual(testToken);
-      expect(mockRedisAdapter.get).toHaveBeenCalledWith('test:token:test-app-id');
+      expect(mockRedisAdapter.get).toHaveBeenCalledWith(
+        'test:token:test-app-id'
+      );
     });
 
     it('当 Redis 中没有 token 时应该返回 null', async () => {
@@ -170,11 +172,13 @@ describe('TokenCacheService', () => {
 
     it('当 Redis 不可用时应该从内存存储获取 token', async () => {
       // Arrange
-      (mockRedisAdapter.ping as Mock).mockRejectedValue(new Error('Redis connection failed'));
-      
+      (mockRedisAdapter.ping as Mock).mockRejectedValue(
+        new Error('Redis connection failed')
+      );
+
       // 先存储到内存
       await tokenCacheService.setToken(testAppId, testToken);
-      
+
       // Act
       const result = await tokenCacheService.getToken(testAppId);
 
@@ -188,7 +192,9 @@ describe('TokenCacheService', () => {
     it('当 token 存在时应该返回 true', async () => {
       // Arrange
       (mockRedisAdapter.ping as Mock).mockResolvedValue('PONG');
-      (mockRedisAdapter.get as Mock).mockResolvedValue(JSON.stringify(testToken));
+      (mockRedisAdapter.get as Mock).mockResolvedValue(
+        JSON.stringify(testToken)
+      );
 
       // Act
       const result = await tokenCacheService.isTokenValid(testAppId);
@@ -224,7 +230,9 @@ describe('TokenCacheService', () => {
       // Assert
       expect(result.success).toBe(true);
       expect(result.data).toBe(true);
-      expect(mockRedisAdapter.del).toHaveBeenCalledWith('test:token:test-app-id');
+      expect(mockRedisAdapter.del).toHaveBeenCalledWith(
+        'test:token:test-app-id'
+      );
     });
   });
 
@@ -232,7 +240,10 @@ describe('TokenCacheService', () => {
     it('应该清除所有 token', async () => {
       // Arrange
       (mockRedisAdapter.ping as Mock).mockResolvedValue('PONG');
-      (mockRedisAdapter.keys as Mock).mockResolvedValue(['test:token:app1', 'test:token:app2']);
+      (mockRedisAdapter.keys as Mock).mockResolvedValue([
+        'test:token:app1',
+        'test:token:app2'
+      ]);
       (mockRedisAdapter.del as Mock).mockResolvedValue(2);
 
       // Act
@@ -242,7 +253,10 @@ describe('TokenCacheService', () => {
       expect(result.success).toBe(true);
       expect(result.data).toBe(true);
       expect(mockRedisAdapter.keys).toHaveBeenCalledWith('test:token:*');
-      expect(mockRedisAdapter.del).toHaveBeenCalledWith('test:token:app1', 'test:token:app2');
+      expect(mockRedisAdapter.del).toHaveBeenCalledWith(
+        'test:token:app1',
+        'test:token:app2'
+      );
     });
   });
 
@@ -258,7 +272,9 @@ describe('TokenCacheService', () => {
       // Assert
       expect(result.success).toBe(true);
       expect(result.data).toBe(3600);
-      expect(mockRedisAdapter.ttl).toHaveBeenCalledWith('test:token:test-app-id');
+      expect(mockRedisAdapter.ttl).toHaveBeenCalledWith(
+        'test:token:test-app-id'
+      );
     });
 
     it('当 token 不存在时应该返回 -1', async () => {
@@ -290,7 +306,9 @@ describe('TokenCacheService', () => {
 
     it('当 Redis 不健康但启用降级时应该返回 true', async () => {
       // Arrange
-      (mockRedisAdapter.ping as Mock).mockRejectedValue(new Error('Redis connection failed'));
+      (mockRedisAdapter.ping as Mock).mockRejectedValue(
+        new Error('Redis connection failed')
+      );
 
       // Act
       const result = await tokenCacheService.healthCheck();
@@ -302,12 +320,12 @@ describe('TokenCacheService', () => {
 
     it('当 Redis 不健康且禁用降级时应该返回 false', async () => {
       // Arrange
-      tokenCacheService = new TokenCacheService(
-        mockRedisAdapter,
-        mockLogger,
-        { enableFallback: false }
+      tokenCacheService = new TokenCacheService(mockRedisAdapter, mockLogger, {
+        enableFallback: false
+      });
+      (mockRedisAdapter.ping as Mock).mockRejectedValue(
+        new Error('Redis connection failed')
       );
-      (mockRedisAdapter.ping as Mock).mockRejectedValue(new Error('Redis connection failed'));
 
       // Act
       const result = await tokenCacheService.healthCheck();

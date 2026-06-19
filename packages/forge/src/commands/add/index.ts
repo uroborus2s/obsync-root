@@ -2,12 +2,23 @@ import path from 'node:path';
 import type { ParsedArgs } from '../../core/args.js';
 import { CliError } from '../../core/errors.js';
 import type { CliOutput } from '../../core/output.js';
-import { installDependencies, type SupportedPackageManager } from '../../package-manager/index.js';
+import {
+  installDependencies,
+  type SupportedPackageManager
+} from '../../package-manager/index.js';
 import { validatePresetSet } from '../../preset/validate-presets.js';
-import { loadProjectManifest, writeProjectManifest } from '../../project/load-project-manifest.js';
+import {
+  loadProjectManifest,
+  writeProjectManifest
+} from '../../project/load-project-manifest.js';
 import type { ProjectManifest } from '../../schemas/project.js';
 import type { TemplateManifest } from '../../schemas/template.js';
-import { createManagedFiles, createProjectManifestObject, mergePackageJsonContent, type GeneratedProjectContext } from '../../template/generated-files.js';
+import {
+  createManagedFiles,
+  createProjectManifestObject,
+  mergePackageJsonContent,
+  type GeneratedProjectContext
+} from '../../template/generated-files.js';
 import {
   loadPresetManifest,
   readTemplateSource,
@@ -15,8 +26,17 @@ import {
 } from '../../template/load-template.js';
 import { mergeContributions } from '../../template/merge-contributions.js';
 import { renderManifestFile } from '../../template/render-files.js';
-import { ensureDirectory, readTextFile, writeTextFile } from '../../utils/fs.js';
-import { toCamelCase, toKebabCase, toPascalCase, toSnakeCase } from '../../utils/case.js';
+import {
+  ensureDirectory,
+  readTextFile,
+  writeTextFile
+} from '../../utils/fs.js';
+import {
+  toCamelCase,
+  toKebabCase,
+  toPascalCase,
+  toSnakeCase
+} from '../../utils/case.js';
 
 function projectTemplateManifest(manifest: ProjectManifest): TemplateManifest {
   return {
@@ -35,12 +55,17 @@ function projectTemplateManifest(manifest: ProjectManifest): TemplateManifest {
   };
 }
 
-export async function addCommand(argv: ParsedArgs, output: CliOutput): Promise<void> {
+export async function addCommand(
+  argv: ParsedArgs,
+  output: CliOutput
+): Promise<void> {
   const target = argv._[1];
   const presetId = argv._[2];
 
   if (target !== 'preset' || !presetId) {
-    throw new CliError('Usage: stratix add preset <preset-id> [--install|--no-install]');
+    throw new CliError(
+      'Usage: stratix add preset <preset-id> [--install|--no-install]'
+    );
   }
 
   const { rootDir, manifest } = loadProjectManifest(process.cwd());
@@ -60,7 +85,9 @@ export async function addCommand(argv: ParsedArgs, output: CliOutput): Promise<v
     presetManifests
   });
   const merged = mergeContributions([templateManifest, ...presetManifests]);
-  const packageName = JSON.parse(readTextFile(path.join(rootDir, 'package.json'))).name;
+  const packageName = JSON.parse(
+    readTextFile(path.join(rootDir, 'package.json'))
+  ).name;
   const variables = templateVariables(packageName, manifest.type);
 
   const context: GeneratedProjectContext = {
@@ -74,11 +101,17 @@ export async function addCommand(argv: ParsedArgs, output: CliOutput): Promise<v
     template: manifest.template
   };
 
-  const nextManifest = createProjectManifestObject(context, manifest.packageManager);
+  const nextManifest = createProjectManifestObject(
+    context,
+    manifest.packageManager
+  );
   writeProjectManifest(rootDir, nextManifest);
 
   const packageJsonPath = path.join(rootDir, 'package.json');
-  writeTextFile(packageJsonPath, mergePackageJsonContent(readTextFile(packageJsonPath), merged));
+  writeTextFile(
+    packageJsonPath,
+    mergePackageJsonContent(readTextFile(packageJsonPath), merged)
+  );
 
   for (const dir of merged.directories || []) {
     ensureDirectory(path.join(rootDir, dir));
@@ -102,11 +135,17 @@ export async function addCommand(argv: ParsedArgs, output: CliOutput): Promise<v
 
   const shouldInstall = argv.install === true || argv['no-install'] !== true;
   if (shouldInstall) {
-    await installDependencies(rootDir, manifest.packageManager as SupportedPackageManager);
+    await installDependencies(
+      rootDir,
+      manifest.packageManager as SupportedPackageManager
+    );
   }
 }
 
-function templateVariables(projectName: string, projectType: string): Record<string, string> {
+function templateVariables(
+  projectName: string,
+  projectType: string
+): Record<string, string> {
   const baseName = projectName.replace(/^@[^/]+\//, '');
   return {
     projectName,
@@ -123,7 +162,12 @@ function templateVariables(projectName: string, projectType: string): Record<str
 function writeTemplateFileSet(
   rootDir: string,
   presetId: string,
-  file: { source: string; destination: string; template?: boolean; directory?: boolean },
+  file: {
+    source: string;
+    destination: string;
+    template?: boolean;
+    directory?: boolean;
+  },
   variables: Record<string, string>
 ): void {
   const entries = file.directory

@@ -20,7 +20,11 @@ export async function installDependencies(
       if (code === 0) {
         resolve();
       } else {
-        reject(new CliError(`${packageManager} install failed with exit code ${code}`));
+        reject(
+          new CliError(
+            `${packageManager} install failed with exit code ${code}`
+          )
+        );
       }
     });
 

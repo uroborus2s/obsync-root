@@ -1067,7 +1067,7 @@ export const combinators = {
   /**
    * K - 常量组合子
    */
-  K: curry2(<T, U>(x: T, y: U): T => x),
+  K: curry2(<T, U>(x: T, _y: U): T => x),
 
   /**
    * S - 替换组合子

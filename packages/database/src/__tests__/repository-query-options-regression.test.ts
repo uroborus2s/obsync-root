@@ -35,10 +35,7 @@ class QueryOptionsRegressionRepository extends BaseRepository<
   protected readonly logger = mockLogger as any;
   protected tableSchema?: TableSchema;
 
-  constructor(
-    database: DatabaseConnectionProvider,
-    tableSchema?: TableSchema
-  ) {
+  constructor(database: DatabaseConnectionProvider, tableSchema?: TableSchema) {
     super({ database });
     this.tableSchema = tableSchema;
   }

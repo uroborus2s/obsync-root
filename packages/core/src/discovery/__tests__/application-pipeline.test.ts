@@ -58,7 +58,7 @@ describe('ApplicationDiscoveryPipeline', () => {
       [
         `import { Controller, Get } from '${coreImport}';`,
         'class HealthController {',
-        "  health() { return { ok: true }; }",
+        '  health() { return { ok: true }; }',
         '}',
         'Controller()(HealthController);',
         'Get("/health", {',

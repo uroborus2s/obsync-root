@@ -27,7 +27,8 @@ function mergePolicies(values: ProjectPolicies[]): ProjectPolicies {
       forbidServiceDatabasePlugin:
         acc.forbidServiceDatabasePlugin || current.forbidServiceDatabasePlugin,
       forbidControllerDatabaseAccess:
-        acc.forbidControllerDatabaseAccess || current.forbidControllerDatabaseAccess,
+        acc.forbidControllerDatabaseAccess ||
+        current.forbidControllerDatabaseAccess,
       controllerDecoratorPrefix:
         acc.controllerDecoratorPrefix || current.controllerDecoratorPrefix,
       pluginTokenFromFunctionName:
@@ -57,8 +58,14 @@ export function mergeContributions(
   for (const manifest of manifests) {
     directories.push(...(manifest.contributes.directories || []));
     files.push(...(manifest.contributes.files || []));
-    Object.assign(runtimeDependencies, manifest.contributes.dependencies?.runtime || {});
-    Object.assign(devDependencies, manifest.contributes.dependencies?.dev || {});
+    Object.assign(
+      runtimeDependencies,
+      manifest.contributes.dependencies?.runtime || {}
+    );
+    Object.assign(
+      devDependencies,
+      manifest.contributes.dependencies?.dev || {}
+    );
     Object.assign(scripts, manifest.contributes.scripts || {});
     env.push(...(manifest.contributes.env || []));
     policies.push(

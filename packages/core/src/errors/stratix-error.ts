@@ -18,7 +18,7 @@ export class StratixError extends Error {
     this.code = code;
     this.details = details;
     this.cause = cause;
-    
+
     // Restore prototype chain for proper instanceof checks
     Object.setPrototypeOf(this, new.target.prototype);
   }

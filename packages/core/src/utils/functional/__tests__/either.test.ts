@@ -13,7 +13,6 @@ import {
   fold,
   filter,
   bimap,
-  ap,
   lift2,
   swap,
   all,
@@ -160,10 +159,10 @@ describe('Either', () => {
     it('应该交换Left和Right', () => {
       const leftEither = left('error');
       const rightEither = right(42);
-      
+
       const swappedLeft = swap(leftEither);
       const swappedRight = swap(rightEither);
-      
+
       expect(isRight(swappedLeft) && swappedLeft.right).toBe('error');
       expect(isLeft(swappedRight) && swappedRight.left).toBe(42);
     });
@@ -201,17 +200,19 @@ describe('Either', () => {
 
   describe('validate', () => {
     it('应该通过所有验证', () => {
-      const isPositive = (x: number) => x > 0 ? right(x) : left('not positive');
-      const isEven = (x: number) => x % 2 === 0 ? right(x) : left('not even');
-      
+      const isPositive = (x: number) =>
+        x > 0 ? right(x) : left('not positive');
+      const isEven = (x: number) => (x % 2 === 0 ? right(x) : left('not even'));
+
       const result = validate(4, isPositive, isEven);
       expect(isRight(result) && result.right).toBe(4);
     });
 
     it('应该在第一个验证失败时停止', () => {
-      const isPositive = (x: number) => x > 0 ? right(x) : left('not positive');
-      const isEven = (x: number) => x % 2 === 0 ? right(x) : left('not even');
-      
+      const isPositive = (x: number) =>
+        x > 0 ? right(x) : left('not positive');
+      const isEven = (x: number) => (x % 2 === 0 ? right(x) : left('not even'));
+
       const result = validate(-2, isPositive, isEven);
       expect(isLeft(result) && result.left).toBe('not positive');
     });

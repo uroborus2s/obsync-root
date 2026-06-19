@@ -1,6 +1,6 @@
 import { createContainer } from 'awilix';
 import fastify, { type FastifyInstance } from 'fastify';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { withRegisterAutoDI } from '../auto-di-plugin.js';
 
 describe('withRegisterAutoDI', () => {

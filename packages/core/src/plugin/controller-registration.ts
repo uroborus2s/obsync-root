@@ -1,7 +1,7 @@
 // @stratix/core 控制器注册模块
 // 负责扫描控制器并注册路由到Fastify
 
-import type { AwilixContainer } from 'awilix';
+import { asClass, type AwilixContainer } from 'awilix';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { MetadataManager } from '../decorators/metadata.js';
 
@@ -48,6 +48,13 @@ class RouteRegistry {
 
     this.routes.add(routeKey);
   }
+}
+
+function tokenNameForController(
+  controllerClass: new (...args: any[]) => any
+): string {
+  const className = controllerClass.name || 'controller';
+  return `${className.charAt(0).toLowerCase()}${className.slice(1)}`;
 }
 
 /**
@@ -222,7 +229,7 @@ async function registerSingleControllerRoutes(
       if (routeRegistry) {
         try {
           routeRegistry.register(method, routePath);
-        } catch (error) {
+        } catch {
           fastify.log.warn(
             `Route conflict detected: ${method.toUpperCase()} ${routePath} in controller ${controllerInfo.name}`
           );
@@ -349,4 +356,63 @@ export async function registerControllerRoutes(
       }
     }
   }
+}
+
+/**
+ * 注册单个控制器类的路由。
+ *
+ * Fastify 在 ready/listen 后不允许继续添加路由；调用方应在启动期使用该
+ * helper，运行期调用会得到 Fastify 的明确错误，而不是静默 no-op。
+ */
+export async function registerControllerClassRoutes(
+  fastify: FastifyInstance,
+  container: AwilixContainer,
+  controllerClass: new (...args: any[]) => any,
+  routeConfig?: RouteConfig
+): Promise<any> {
+  if (!MetadataManager.isController(controllerClass)) {
+    throw new Error(
+      `Controller class ${controllerClass.name || '<anonymous>'} is missing @Controller() metadata`
+    );
+  }
+
+  const tokenName = tokenNameForController(controllerClass);
+  if (!container.hasRegistration(tokenName)) {
+    container.register(tokenName, asClass(controllerClass));
+  }
+
+  const controllerInstance = container.resolve(tokenName);
+  const controllerInfo: ControllerInfo = {
+    name: tokenName,
+    constructor: controllerClass,
+    instance: controllerInstance,
+    hasRoutes: MetadataManager.hasRoutes(controllerClass)
+  };
+
+  const routeRegistry = new RouteRegistry();
+  if (routeConfig?.prefix) {
+    await fastify.register(
+      async (subFastify) => {
+        await registerSingleControllerRoutes(
+          subFastify,
+          controllerInfo,
+          {
+            enabled: routeConfig.enabled,
+            validation: routeConfig.validation
+          },
+          routeRegistry
+        );
+      },
+      { prefix: routeConfig.prefix }
+    );
+  } else {
+    await registerSingleControllerRoutes(
+      fastify,
+      controllerInfo,
+      routeConfig,
+      routeRegistry
+    );
+  }
+
+  return controllerInstance;
 }

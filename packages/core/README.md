@@ -8,10 +8,10 @@
 
 - **基于 Fastify**: 继承了 Fastify 的高性能和丰富的插件生态。
 - **依赖注入 (DI)**: 内置强大的 `awilix` 容器，实现控制反转 (IoC)，轻松管理服务依赖。
-- **装饰器驱动**: 使用 TypeScript 装饰器（如 `@Service`, `@Repository`, `@Controller`, `@Get`, `@Post`, `@Executor`）以声明式的方式定义服务、仓储、路由和任务执行器。
+- **装饰器驱动**: 使用 TypeScript 装饰器（如 `@Service`, `@Repository`, `@Controller`, `@Get`, `@Post`）以声明式的方式定义服务、仓储和路由。
 - **插件化架构**: 每个功能模块都可以作为插件进行组织，拥有独立的 DI 容器和生命周期管理。
 - **统一应用发现管道**: `Stratix.run()` 只通过 `discovery` 配置执行应用级扫描、元数据分析、DI 注册和控制器路由绑定。
-- **强大的命令行工具 (CLI)**: 内置 `stratix` 命令行工具，提供配置文件的加密、解密、验证和密钥生成等安全功能。
+- **清晰的工具链分工**: `@stratix/core` 专注 runtime、DI、discovery 和装饰器；项目创建由 `@stratix/create` 负责，项目内工程命令由 `@stratix/forge` 负责。
 - **环境和配置管理**: 自动加载 `.env` 文件，支持多环境配置优先级覆盖和变量扩展。
 - **统一的错误处理**: 提供集中的错误处理工具和模式，增强应用的健壮性。
 
@@ -122,7 +122,7 @@ npx ts-node src/main.ts
 
 ### 依赖注入 (Dependency Injection)
 
-`@stratix/core` 使用 `awilix` 实现依赖注入。应用级自动发现只注册带有 Stratix 元数据的类：`@Service()`、`@Repository()`、`@Component()`、`@Controller()` 和 `@Executor()`。
+`@stratix/core` 使用 `awilix` 实现依赖注入。应用级自动发现只注册带有 Stratix 元数据的类：`@Service()`、`@Repository()`、`@Component()` 和 `@Controller()`。
 
 ```typescript
 import { Controller, Get, Service } from '@stratix/core';
@@ -168,32 +168,16 @@ class DatabaseService {
 }
 ```
 
-## 命令行工具 (CLI)
+## create/forge 分工
 
-`@stratix/core` 提供了一个强大的 `stratix` 命令行工具。
+`@stratix/core` 不再承载项目创建或项目内工程 CLI。Stratix 工具链分为两个独立包：
 
-### 生成安全密钥
-
-```bash
-npx stratix config generate-key
-```
-
-### 加密配置文件
+- `@stratix/create`: 负责创建应用和插件项目，写入项目依赖、模板快照和 `.stratix/project.json` 交接契约。
+- `@stratix/forge`: 负责已创建项目内的生成、诊断、DI 图、OpenAPI、启动、配置和发布准备等工程命令。
 
 ```bash
-# 创建一个 JSON 配置文件，例如 config.json
-echo '{"database": {"password": "my-secret-password"}}' > config.json
-
-# 加密文件
-npx stratix config encrypt config.json
-```
-
-该命令会输出一个加密后的字符串，您可以将其设置为环境变量 `STRATIX_SENSITIVE_CONFIG`。
-
-### 解密配置
-
-```bash
-npx stratix config decrypt "<encrypted-string>"
+npm create stratix@latest
+npx stratix --help
 ```
 
 ## 贡献

@@ -95,7 +95,11 @@ function validateJsonInput(input: any): { isValid: boolean; error?: string } {
     const jsonString = JSON.stringify(input);
     const parsed = JSON.parse(jsonString);
 
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
       return {
         isValid: false,
         error: 'Input is not a valid JSON object after serialization'
@@ -119,7 +123,8 @@ export function encrypt(
   const key = getEncryptionKey(options.key, options.useDefaultKey);
   const iv = options.iv || crypto.randomBytes(16);
   const outputFormat = options.outputFormat || 'base64';
-  const dataBuffer = typeof data === 'string' ? Buffer.from(data, 'utf8') : data;
+  const dataBuffer =
+    typeof data === 'string' ? Buffer.from(data, 'utf8') : data;
   const cipher = crypto.createCipheriv(algorithm, key, iv);
 
   let encrypted = cipher.update(dataBuffer);
@@ -243,7 +248,9 @@ export function validateConfig(
     );
 
     if (unknownKeys.length > 0) {
-      result.warnings.push(`Unknown configuration keys: ${unknownKeys.join(', ')}`);
+      result.warnings.push(
+        `Unknown configuration keys: ${unknownKeys.join(', ')}`
+      );
     }
   }
 

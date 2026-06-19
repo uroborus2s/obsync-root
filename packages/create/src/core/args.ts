@@ -44,7 +44,8 @@ export function parseArgs(args: string[], options: ParseOptions): ParsedArgs {
       const key = rawKey;
 
       if (booleanKeys.has(key) || key.startsWith('no-')) {
-        parsed[key] = inlineValue === undefined ? true : inlineValue !== 'false';
+        parsed[key] =
+          inlineValue === undefined ? true : inlineValue !== 'false';
         continue;
       }
 

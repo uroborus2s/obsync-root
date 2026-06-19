@@ -64,6 +64,28 @@ export interface LoadedProductionManifest extends ProductionManifest {
   sourceFile: string;
 }
 
+export interface ProductionManifestRegistrationPlan {
+  sourceFiles: string[];
+  tokens: string[];
+  tokenEntries: Array<{
+    token: string;
+    className?: string;
+    sourceFile: string;
+  }>;
+  routes: Array<{
+    method: string;
+    path: string;
+    controllerName: string;
+    handlerName?: string;
+    sourceFile: string;
+  }>;
+  issues: Array<{
+    section: string;
+    message: string;
+    entry: unknown;
+  }>;
+}
+
 const DEFAULT_PRODUCTION_MANIFEST_PATH = '.stratix/production-manifest.json';
 
 const ProductionManifestRouteSchema = z
@@ -181,6 +203,8 @@ export function loadProductionManifest(
     );
   }
 
+  assertManifestHasNoUnresolvedIssues(parsed.data, config, sourceFile);
+
   return {
     ...parsed.data,
     sourceFile
@@ -205,6 +229,93 @@ export function collectProductionManifestSourceFiles(
   }
 
   return [...files];
+}
+
+export function createProductionManifestRegistrationPlan(
+  manifest: ProductionManifest
+): ProductionManifestRegistrationPlan {
+  const sourceFiles = new Set<string>();
+  const tokenEntries: ProductionManifestRegistrationPlan['tokenEntries'] = [];
+  const routes: ProductionManifestRegistrationPlan['routes'] = [];
+  const issues: ProductionManifestRegistrationPlan['issues'] = [];
+
+  for (const token of manifest.di.tokens) {
+    if (!token.sourceFile) {
+      issues.push({
+        section: 'di.tokens',
+        message: `DI token ${token.token} is missing sourceFile`,
+        entry: token
+      });
+      continue;
+    }
+
+    sourceFiles.add(token.sourceFile);
+    tokenEntries.push({
+      token: token.token,
+      className: token.className,
+      sourceFile: token.sourceFile
+    });
+  }
+
+  for (const route of manifest.routes) {
+    if (!route.sourceFile) {
+      issues.push({
+        section: 'routes',
+        message: `Route ${route.method} ${route.path} is missing sourceFile`,
+        entry: route
+      });
+      continue;
+    }
+    if (!route.controllerName) {
+      issues.push({
+        section: 'routes',
+        message: `Route ${route.method} ${route.path} is missing controllerName`,
+        entry: route
+      });
+      continue;
+    }
+
+    sourceFiles.add(route.sourceFile);
+    routes.push({
+      method: route.method,
+      path: route.path,
+      controllerName: route.controllerName,
+      handlerName: route.handlerName,
+      sourceFile: route.sourceFile
+    });
+  }
+
+  return {
+    sourceFiles: [...sourceFiles],
+    tokens: tokenEntries.map((token) => token.token),
+    tokenEntries,
+    routes,
+    issues
+  };
+}
+
+function assertManifestHasNoUnresolvedIssues(
+  manifest: ProductionManifest,
+  config: ProductionManifestDiscoveryConfig,
+  sourceFile: string
+): void {
+  if (config.strict === false) {
+    return;
+  }
+
+  const issueCount = manifest.di.issues.length + manifest.moduleIssues.length;
+  if (issueCount === 0) {
+    return;
+  }
+
+  throw new ConfigurationError(
+    `Production manifest contains unresolved issues: ${sourceFile}`,
+    {
+      sourceFile,
+      diIssues: manifest.di.issues,
+      moduleIssues: manifest.moduleIssues
+    }
+  );
 }
 
 function handleInvalidManifest(

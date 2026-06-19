@@ -6,6 +6,8 @@ import type { Logger } from '@stratix/core';
 import { eitherLeft, eitherRight } from '@stratix/core/functional';
 import ConnectionFactory from '../connection-factory.js';
 import { DialectRegistry } from '../dialects/index.js';
+import { MySQLDialect } from '../dialects/mysql-dialect.js';
+import { PostgreSQLDialect } from '../dialects/postgresql-dialect.js';
 import type { ConnectionConfig } from '../../types/configuration.js';
 import { ConnectionError } from '../../utils/error-handler.js';
 
@@ -75,6 +77,47 @@ describe('ConnectionFactory - 优化后测试', () => {
       expect(supportedTypes).toContain('postgresql');
       expect(supportedTypes).toContain('mysql');
       expect(supportedTypes).toContain('sqlite');
+    });
+
+    it('encodes generated connection strings for URI-sensitive values', () => {
+      const postgresql = new PostgreSQLDialect();
+      const mysql = new MySQLDialect();
+
+      expect(
+        postgresql.buildConnectionString({
+          type: 'postgresql',
+          host: 'db.example.com',
+          port: 5432,
+          database: 'tenant/main',
+          username: 'user@example.com',
+          password: 'p:a/s?s',
+          options: {
+            ssl: {
+              mode: 'require',
+              ca: '/certs/root ca.pem'
+            }
+          }
+        })
+      ).toBe(
+        'postgresql://user%40example.com:p%3Aa%2Fs%3Fs@db.example.com:5432/tenant%2Fmain?sslmode=require&sslrootcert=%2Fcerts%2Froot%20ca.pem'
+      );
+
+      expect(
+        mysql.buildConnectionString({
+          type: 'mysql',
+          host: 'db.example.com',
+          port: 3306,
+          database: 'tenant/main',
+          username: 'user@example.com',
+          password: 'p:a/s?s',
+          options: {
+            charset: 'utf8 mb4',
+            timezone: '+08:00'
+          }
+        })
+      ).toBe(
+        'mysql://user%40example.com:p%3Aa%2Fs%3Fs@db.example.com:3306/tenant%2Fmain?charset=utf8%20mb4&timezone=%2B08%3A00'
+      );
     });
 
     it('keeps MSSQL advertised support consistent with connection creation capability', async () => {

@@ -49,7 +49,7 @@ export interface RedisPluginOptions extends FastifyPluginOptions {
  */
 async function redis(
   fastify: FastifyInstance,
-  options: RedisPluginOptions
+  _options: RedisPluginOptions
 ): Promise<void> {
   fastify.log.info('🚀 @stratix/redis plugin initializing...');
 }

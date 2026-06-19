@@ -11,6 +11,7 @@ import {
   type AwilixContainer
 } from 'awilix';
 import { isAbsolute, resolve } from 'node:path';
+import { ConfigurationError } from '../errors/index.js';
 import { getLogger } from '../logger/index.js';
 import type { PluginContainerContext } from './service-discovery.js';
 
@@ -535,11 +536,14 @@ export async function registerServiceAdapters<T>(
       discoveredAdapters,
       Object.keys(pluginContext.rootContainer.registrations)
     );
-    for (const diagnostic of diagnostics) {
+    if (diagnostics.length > 0) {
       if (debugEnabled) {
         const logger = getLogger();
-        logger.error(`❌ ${diagnostic.message}`);
+        for (const diagnostic of diagnostics) {
+          logger.error(`❌ ${diagnostic.message}`);
+        }
       }
+      throw new ConfigurationError(diagnostics[0].message, { diagnostics });
     }
 
     const uniqueAdapters = new Map<string, ServiceAdapter>();
@@ -573,6 +577,11 @@ export async function registerServiceAdapters<T>(
 
       if (success) {
         totalRegistered++;
+      } else {
+        throw new ConfigurationError(
+          `Service adapter registration failed: ${adapter.adapterName}`,
+          { adapterName: adapter.adapterName }
+        );
       }
     }
 
@@ -587,5 +596,6 @@ export async function registerServiceAdapters<T>(
       const logger = getLogger();
       logger.error('❌ Service adapter registration failed:', error);
     }
+    throw error;
   }
 }

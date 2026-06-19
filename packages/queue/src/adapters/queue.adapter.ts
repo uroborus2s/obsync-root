@@ -72,7 +72,7 @@ export default class ClientAdapter implements IQueueAdapter {
       ...opts
     });
 
-    worker.on('completed', (job: Job, result: any) => {
+    worker.on('completed', (job: Job, _result: any) => {
       this.logger.info(`Job ${job.id} in queue ${queueName} completed.`);
     });
 

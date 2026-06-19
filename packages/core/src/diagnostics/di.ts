@@ -63,9 +63,7 @@ const registrationRecords = new WeakMap<
 >();
 
 function cleanSource(source: string): string {
-  return source
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/\/\/.*$/gm, '');
+  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 }
 
 function splitParameters(parameterList: string): string[] {
@@ -137,13 +135,19 @@ export function recordDIRegistration(
   registrationRecords.set(container, records);
 }
 
-function getKnownRegistrations(container: AwilixContainer): DIRegistrationRecord[] {
+function getKnownRegistrations(
+  container: AwilixContainer
+): DIRegistrationRecord[] {
   return registrationRecords.get(container) || [];
 }
 
-function getContainerRegistrations(container: AwilixContainer): Record<string, any> {
-  return (container as unknown as { registrations?: Record<string, any> })
-    .registrations || {};
+function getContainerRegistrations(
+  container: AwilixContainer
+): Record<string, any> {
+  return (
+    (container as unknown as { registrations?: Record<string, any> })
+      .registrations || {}
+  );
 }
 
 export function createDIGraph(container: AwilixContainer): DIGraph {
@@ -195,7 +199,9 @@ function findCycles(graph: DIGraph): string[][] {
       const cycleStart = path.indexOf(token);
       if (cycleStart >= 0) {
         const cycle = path.slice(cycleStart);
-        cycles.push(cycle[cycle.length - 1] === token ? cycle : [...cycle, token]);
+        cycles.push(
+          cycle[cycle.length - 1] === token ? cycle : [...cycle, token]
+        );
       }
       return;
     }

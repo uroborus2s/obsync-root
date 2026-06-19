@@ -64,6 +64,23 @@ export interface ApplicationDiscoveryConfig {
     enabled?: boolean;
     errorHandling?: 'throw' | 'warn' | 'ignore';
   };
+  manifestRegistration?: {
+    tokens?: Array<
+      | string
+      | {
+          token: string;
+          className?: string;
+          sourceFile?: string;
+        }
+    >;
+    routes?: Array<{
+      method?: string;
+      path?: string;
+      controllerName?: string;
+      handlerName?: string;
+      sourceFile?: string;
+    }>;
+  };
   debug?: boolean;
   options?: Record<string, unknown>;
 }

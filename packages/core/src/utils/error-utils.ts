@@ -61,19 +61,19 @@ export const ErrorUtils = {
   wrapError: (error: unknown, options: WrapErrorOptions): Error => {
     const message = ErrorUtils.extractMessage(error);
     const wrappedMessage = `${options.context}: ${message}`;
-    
+
     const wrappedError = new Error(wrappedMessage);
-    
+
     // 保留原始堆栈信息
     if (options.preserveStack !== false && error instanceof Error) {
       wrappedError.stack = `${wrappedError.stack}\nCaused by: ${error.stack}`;
     }
-    
+
     // 添加元数据
     if (options.metadata) {
       Object.assign(wrappedError, { metadata: options.metadata });
     }
-    
+
     // 记录日志
     if (options.logger) {
       options.logger.error(
@@ -84,7 +84,7 @@ export const ErrorUtils = {
         wrappedMessage
       );
     }
-    
+
     return wrappedError;
   },
 
@@ -102,12 +102,12 @@ export const ErrorUtils = {
     } catch (error) {
       const message = ErrorUtils.extractMessage(error);
       const logLevel = options.logLevel || 'error';
-      
+
       if (options.logger) {
-        const logMessage = options.context 
+        const logMessage = options.context
           ? `Safe execution failed in ${options.context?.component || 'unknown'}.${options.context?.operation || 'unknown'}: ${message}`
           : `Safe execution failed: ${message}`;
-          
+
         options.logger[logLevel](
           {
             error: ErrorUtils.formatForLogging(error),
@@ -117,7 +117,7 @@ export const ErrorUtils = {
           logMessage
         );
       }
-      
+
       return options.defaultValue;
     }
   },
@@ -125,21 +125,18 @@ export const ErrorUtils = {
   /**
    * 同步版本的安全执行
    */
-  safeExecuteSync: <T>(
-    fn: () => T,
-    options: SafeExecuteOptions<T>
-  ): T => {
+  safeExecuteSync: <T>(fn: () => T, options: SafeExecuteOptions<T>): T => {
     try {
       return fn();
     } catch (error) {
       const message = ErrorUtils.extractMessage(error);
       const logLevel = options.logLevel || 'error';
-      
+
       if (options.logger) {
-        const logMessage = options.context 
+        const logMessage = options.context
           ? `Safe execution failed in ${options.context?.component || 'unknown'}.${options.context?.operation || 'unknown'}: ${message}`
           : `Safe execution failed: ${message}`;
-          
+
         options.logger[logLevel](
           {
             error: ErrorUtils.formatForLogging(error),
@@ -149,7 +146,7 @@ export const ErrorUtils = {
           logMessage
         );
       }
-      
+
       return options.defaultValue;
     }
   },
@@ -160,7 +157,9 @@ export const ErrorUtils = {
    */
   createErrorWrapper: (context: string, logger?: Logger) => {
     return (error: unknown, additionalContext?: string): Error => {
-      const fullContext = additionalContext ? `${context}.${additionalContext}` : context;
+      const fullContext = additionalContext
+        ? `${context}.${additionalContext}`
+        : context;
       return ErrorUtils.wrapError(error, {
         context: fullContext,
         logger,
@@ -232,7 +231,10 @@ export const ErrorUtils = {
   /**
    * 格式化错误信息用于日志记录
    */
-  formatForLogging: (error: unknown, context?: ErrorContext): Record<string, any> => {
+  formatForLogging: (
+    error: unknown,
+    context?: ErrorContext
+  ): Record<string, any> => {
     const baseInfo = {
       message: ErrorUtils.extractMessage(error),
       timestamp: new Date().toISOString()
@@ -273,14 +275,14 @@ export const withErrorHandling = <T extends (...args: any[]) => any>(
   return ((...args: Parameters<T>) => {
     try {
       const result = fn(...args);
-      
+
       // 处理异步函数
       if (result && typeof result.then === 'function') {
         return result.catch((error: unknown) => {
           throw ErrorUtils.wrapError(error, { context, logger });
         });
       }
-      
+
       return result;
     } catch (error) {
       throw ErrorUtils.wrapError(error, { context, logger });
@@ -301,24 +303,31 @@ export const withRetry = async <T>(
     context?: string;
   }
 ): Promise<T> => {
-  const { maxRetries, delay = 1000, backoff = 'linear', logger, context } = options;
-  
+  const {
+    maxRetries,
+    delay = 1000,
+    backoff = 'linear',
+    logger,
+    context
+  } = options;
+
   let lastError: unknown;
-  
+
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
     } catch (error) {
       lastError = error;
-      
+
       if (attempt === maxRetries) {
         break;
       }
-      
-      const currentDelay = backoff === 'exponential' 
-        ? delay * Math.pow(2, attempt)
-        : delay * (attempt + 1);
-      
+
+      const currentDelay =
+        backoff === 'exponential'
+          ? delay * Math.pow(2, attempt)
+          : delay * (attempt + 1);
+
       if (logger && context) {
         logger.warn(
           {
@@ -327,13 +336,15 @@ export const withRetry = async <T>(
           `${context} failed, retrying in ${currentDelay}ms (attempt ${attempt + 1}/${maxRetries + 1})`
         );
       }
-      
-      await new Promise(resolve => setTimeout(resolve, currentDelay));
+
+      await new Promise((resolve) => setTimeout(resolve, currentDelay));
     }
   }
-  
+
   throw ErrorUtils.wrapError(lastError, {
-    context: context ? `${context} (after ${maxRetries} retries)` : `Operation failed after ${maxRetries} retries`,
+    context: context
+      ? `${context} (after ${maxRetries} retries)`
+      : `Operation failed after ${maxRetries} retries`,
     logger
   });
 };

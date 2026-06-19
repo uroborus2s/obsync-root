@@ -67,15 +67,22 @@ export interface GetUserInfoResponse {
  */
 export interface WpsUserAuthAdapter {
   // 用户授权
-  getUserAccessToken(params: GetUserAccessTokenParams): Promise<GetUserAccessTokenResponse>;
-  refreshUserAccessToken(params: RefreshUserAccessTokenParams): Promise<RefreshUserAccessTokenResponse>;
-  
+  getUserAccessToken(
+    params: GetUserAccessTokenParams
+  ): Promise<GetUserAccessTokenResponse>;
+  refreshUserAccessToken(
+    params: RefreshUserAccessTokenParams
+  ): Promise<RefreshUserAccessTokenResponse>;
+
   // 用户信息
   getUserInfo(params: GetUserInfoParams): Promise<GetUserInfoResponse>;
   getCurrentUserInfo(accessToken: string): Promise<UserAuthInfo>;
-  
+
   // 便捷方法
-  exchangeCodeForToken(code: string, redirectUri: string): Promise<GetUserAccessTokenResponse>;
+  exchangeCodeForToken(
+    code: string,
+    redirectUri: string
+  ): Promise<GetUserAccessTokenResponse>;
   refreshToken(refreshToken: string): Promise<RefreshUserAccessTokenResponse>;
   validateAccessToken(accessToken: string): Promise<boolean>;
   getUserProfile(accessToken: string): Promise<UserAuthInfo>;
@@ -84,15 +91,20 @@ export interface WpsUserAuthAdapter {
 /**
  * 创建WPS用户认证适配器的工厂函数
  */
-export function createWpsUserAuthAdapter(pluginContainer: AwilixContainer): WpsUserAuthAdapter {
-  const httpClient = pluginContainer.resolve<HttpClientService>('httpClientService');
+export function createWpsUserAuthAdapter(
+  pluginContainer: AwilixContainer
+): WpsUserAuthAdapter {
+  const httpClient =
+    pluginContainer.resolve<HttpClientService>('httpClientService');
   const logger = pluginContainer.resolve<Logger>('logger');
 
   const adapter: WpsUserAuthAdapter = {
     /**
      * 获取用户访问令牌
      */
-    async getUserAccessToken(params: GetUserAccessTokenParams): Promise<GetUserAccessTokenResponse> {
+    async getUserAccessToken(
+      params: GetUserAccessTokenParams
+    ): Promise<GetUserAccessTokenResponse> {
       // 用户授权不需要应用token
       const response = await httpClient.post('/v7/oauth/token', {
         grant_type: 'authorization_code',
@@ -105,7 +117,9 @@ export function createWpsUserAuthAdapter(pluginContainer: AwilixContainer): WpsU
     /**
      * 刷新用户访问令牌
      */
-    async refreshUserAccessToken(params: RefreshUserAccessTokenParams): Promise<RefreshUserAccessTokenResponse> {
+    async refreshUserAccessToken(
+      params: RefreshUserAccessTokenParams
+    ): Promise<RefreshUserAccessTokenResponse> {
       // 刷新token不需要应用token
       const response = await httpClient.post('/v7/oauth/token', {
         grant_type: 'refresh_token',
@@ -119,9 +133,13 @@ export function createWpsUserAuthAdapter(pluginContainer: AwilixContainer): WpsU
      */
     async getUserInfo(params: GetUserInfoParams): Promise<GetUserInfoResponse> {
       // 使用用户token获取用户信息，不需要应用token
-      const response = await httpClient.get('/v7/user/info', {}, {
-        'Authorization': `Bearer ${params.access_token}`
-      });
+      const response = await httpClient.get(
+        '/v7/user/info',
+        {},
+        {
+          Authorization: `Bearer ${params.access_token}`
+        }
+      );
       return response.data;
     },
 
@@ -136,7 +154,10 @@ export function createWpsUserAuthAdapter(pluginContainer: AwilixContainer): WpsU
     /**
      * 通过授权码换取访问令牌
      */
-    async exchangeCodeForToken(code: string, redirectUri: string): Promise<GetUserAccessTokenResponse> {
+    async exchangeCodeForToken(
+      code: string,
+      redirectUri: string
+    ): Promise<GetUserAccessTokenResponse> {
       return adapter.getUserAccessToken({
         code,
         redirect_uri: redirectUri
@@ -146,7 +167,9 @@ export function createWpsUserAuthAdapter(pluginContainer: AwilixContainer): WpsU
     /**
      * 刷新访问令牌
      */
-    async refreshToken(refreshToken: string): Promise<RefreshUserAccessTokenResponse> {
+    async refreshToken(
+      refreshToken: string
+    ): Promise<RefreshUserAccessTokenResponse> {
       return adapter.refreshUserAccessToken({
         refresh_token: refreshToken
       });

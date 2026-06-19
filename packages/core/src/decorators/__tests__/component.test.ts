@@ -1,11 +1,6 @@
 import 'reflect-metadata';
 import { describe, expect, it } from 'vitest';
-import {
-  Component,
-  MetadataManager,
-  Repository,
-  Service
-} from '../index.js';
+import { Component, MetadataManager, Repository, Service } from '../index.js';
 
 describe('component decorators', () => {
   it('marks service classes with explicit component metadata', () => {

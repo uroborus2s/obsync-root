@@ -2,7 +2,10 @@ import type { ParsedArgs } from '../../core/args.js';
 import { CliError } from '../../core/errors.js';
 import type { CliOutput } from '../../core/output.js';
 import { loadProjectManifest } from '../../project/load-project-manifest.js';
-import { analyzeSourceDI, type SourceDINode } from '../doctor/di-source-analysis.js';
+import {
+  analyzeSourceDI,
+  type SourceDINode
+} from '../doctor/di-source-analysis.js';
 
 function printDIUsage(output: CliOutput): void {
   output.log(`Usage: stratix di <graph> [options]
@@ -24,14 +27,19 @@ function renderMermaid(nodes: SourceDINode[]): string {
     }
 
     for (const dependency of node.dependencies) {
-      lines.push(`  ${node.token}["${node.token}"] --> ${dependency}["${dependency}"]`);
+      lines.push(
+        `  ${node.token}["${node.token}"] --> ${dependency}["${dependency}"]`
+      );
     }
   }
 
   return lines.join('\n');
 }
 
-export async function diCommand(argv: ParsedArgs, output: CliOutput): Promise<void> {
+export async function diCommand(
+  argv: ParsedArgs,
+  output: CliOutput
+): Promise<void> {
   const subcommand = argv._[1];
   if (argv.help || subcommand === 'help') {
     printDIUsage(output);

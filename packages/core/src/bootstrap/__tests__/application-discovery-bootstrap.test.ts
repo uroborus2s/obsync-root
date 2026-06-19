@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { PluginLoadError } from '../../errors/index.js';
+import { ConfigurationError, PluginLoadError } from '../../errors/index.js';
 import { Stratix } from '../../stratix.js';
 
 describe('application discovery bootstrap integration', () => {
@@ -299,7 +299,20 @@ describe('application discovery bootstrap integration', () => {
         "  'check',",
         "  Object.getOwnPropertyDescriptor(ManifestHealthController.prototype, 'check')",
         ');',
-        'export { ManifestHealthService, ManifestHealthController };'
+        'class SameFileUnlistedService {}',
+        'Service()(SameFileUnlistedService);',
+        'class SameFileUnlistedController {',
+        '  leaked() {',
+        '    return { leaked: true };',
+        '  }',
+        '}',
+        'Controller()(SameFileUnlistedController);',
+        'Get("/same-file-leak")(',
+        '  SameFileUnlistedController.prototype,',
+        "  'leaked',",
+        "  Object.getOwnPropertyDescriptor(SameFileUnlistedController.prototype, 'leaked')",
+        ');',
+        'export { ManifestHealthService, ManifestHealthController, SameFileUnlistedService, SameFileUnlistedController };'
       ].join('\n')
     );
     await writeFile(
@@ -395,7 +408,20 @@ describe('application discovery bootstrap integration', () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ ok: true, source: 'manifest' });
     expect(app.diContainer.hasRegistration('manifestHealthService')).toBe(true);
+    expect(app.diContainer.hasRegistration('sameFileUnlistedService')).toBe(
+      false
+    );
+    expect(app.diContainer.hasRegistration('sameFileUnlistedController')).toBe(
+      false
+    );
     expect(app.diContainer.hasRegistration('globOnlyService')).toBe(false);
+
+    const leaked = await app.inject({
+      method: 'GET',
+      url: '/api/same-file-leak'
+    });
+
+    expect(leaked.statusCode).toBe(404);
   });
 
   it('applies production observability and security presets', async () => {
@@ -519,6 +545,182 @@ describe('application discovery bootstrap integration', () => {
         }
       })
     ).rejects.toThrow('Invalid production manifest');
+  });
+
+  it('fails startup in strict mode when production manifest contains unresolved issues', async () => {
+    const root = await mkdtemp(
+      join(tmpdir(), 'stratix-bootstrap-manifest-issues-')
+    );
+    const manifestPath = join(root, 'production-manifest.json');
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          generatedAt: '2026-06-18T00:00:00.000Z',
+          project: {
+            kind: 'app',
+            type: 'api',
+            runtime: 'web',
+            presets: []
+          },
+          discovery: {
+            rootDir: '.',
+            patterns: ['*.mjs'],
+            routing: {
+              enabled: true
+            }
+          },
+          routes: [],
+          di: {
+            tokens: [],
+            issues: [
+              {
+                code: 'missing-token-source',
+                message: 'Token UserService has no source file'
+              }
+            ]
+          },
+          modules: [],
+          moduleIssues: [],
+          plugins: []
+        },
+        null,
+        2
+      )
+    );
+
+    await expect(
+      Stratix.run({
+        type: 'cli',
+        gracefulShutdown: false,
+        config: {
+          server: {},
+          plugins: [],
+          autoLoad: {},
+          discovery: {
+            enabled: true,
+            rootDir: root,
+            productionManifest: {
+              enabled: true,
+              path: manifestPath,
+              strict: true,
+              skipRuntimeDiscovery: true,
+              registerFromManifest: true
+            }
+          }
+        }
+      })
+    ).rejects.toThrow('Production manifest contains unresolved issues');
+  });
+
+  it('fails startup in strict mode when production manifest source files do not match declared components', async () => {
+    const root = await mkdtemp(
+      join(tmpdir(), 'stratix-bootstrap-manifest-source-mismatch-')
+    );
+    await writeFile(
+      join(root, 'actual-module.mjs'),
+      [
+        `import { Controller, Get, Service } from '${coreImport}';`,
+        'class ActualService {}',
+        'Service()(ActualService);',
+        'class ActualController {',
+        '  actual() {',
+        '    return { ok: true };',
+        '  }',
+        '}',
+        'Controller()(ActualController);',
+        'Get("/actual")(',
+        '  ActualController.prototype,',
+        "  'actual',",
+        "  Object.getOwnPropertyDescriptor(ActualController.prototype, 'actual')",
+        ');',
+        'export { ActualService, ActualController };'
+      ].join('\n')
+    );
+    const manifestPath = join(root, 'production-manifest.json');
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          generatedAt: '2026-06-18T00:00:00.000Z',
+          project: {
+            kind: 'app',
+            type: 'api',
+            runtime: 'web',
+            presets: []
+          },
+          discovery: {
+            rootDir: '.',
+            patterns: ['*.mjs'],
+            routing: {
+              enabled: true
+            }
+          },
+          routes: [
+            {
+              method: 'GET',
+              path: '/manifest-health',
+              operationId: 'ManifestHealthController_check',
+              controllerName: 'ManifestHealthController',
+              handlerName: 'check',
+              sourceFile: 'actual-module.mjs'
+            }
+          ],
+          di: {
+            tokens: [
+              {
+                token: 'manifestHealthService',
+                className: 'ManifestHealthService',
+                dependencies: [],
+                sourceFile: 'actual-module.mjs'
+              }
+            ],
+            issues: []
+          },
+          modules: [],
+          moduleIssues: [],
+          plugins: []
+        },
+        null,
+        2
+      )
+    );
+
+    let app: Awaited<ReturnType<typeof Stratix.run>> | undefined;
+    let caught: unknown;
+    try {
+      app = await Stratix.run({
+        type: 'cli',
+        gracefulShutdown: false,
+        config: {
+          server: {},
+          plugins: [],
+          autoLoad: {},
+          discovery: {
+            enabled: true,
+            rootDir: root,
+            productionManifest: {
+              enabled: true,
+              path: manifestPath,
+              strict: true,
+              skipRuntimeDiscovery: true,
+              registerFromManifest: true
+            }
+          }
+        }
+      });
+    } catch (error) {
+      caught = error;
+    } finally {
+      await app?.stop();
+    }
+
+    expect(caught).toBeInstanceOf(ConfigurationError);
+    expect((caught as Error).message).toContain(
+      'Production manifest source mismatch'
+    );
   });
 
   it('throws typed plugin load errors with cause and plugin name', async () => {

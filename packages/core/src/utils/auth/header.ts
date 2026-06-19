@@ -152,7 +152,7 @@ function decodeChineseHeaderValue(value: string, headerName: string): string {
       return decodeURIComponent(value);
     }
     return value;
-  } catch (error) {
+  } catch {
     // 如果解码失败，返回原始值
     return value;
   }
@@ -376,86 +376,6 @@ function sanitizeHeadersForLogging(
   }
 
   return sanitized;
-}
-
-/**
- * 验证用户身份信息的完整性
- *
- * @param identity - 用户身份信息
- * @returns 验证结果
- */
-function validateUserIdentity(
-  identity: UserIdentity
-): IdentityValidationResult {
-  // 检查必需字段
-  if (!identity.userId) {
-    return {
-      success: false,
-      error: {
-        type: IdentityErrorType.INVALID_IDENTITY,
-        message: 'User ID is required',
-        timestamp: new Date()
-      }
-    };
-  }
-
-  // 验证用户类型
-  if (
-    identity.userType &&
-    !['student', 'teacher'].includes(identity.userType)
-  ) {
-    return {
-      success: false,
-      error: {
-        type: IdentityErrorType.INVALID_IDENTITY,
-        message: 'Invalid user type',
-        details: { userType: identity.userType },
-        timestamp: new Date()
-      }
-    };
-  }
-
-  // 验证角色格式
-  if (identity.roles && !Array.isArray(identity.roles)) {
-    return {
-      success: false,
-      error: {
-        type: IdentityErrorType.INVALID_IDENTITY,
-        message: 'Roles must be an array',
-        details: { roles: identity.roles },
-        timestamp: new Date()
-      }
-    };
-  }
-
-  // 验证权限格式
-  if (identity.permissions && !Array.isArray(identity.permissions)) {
-    return {
-      success: false,
-      error: {
-        type: IdentityErrorType.INVALID_IDENTITY,
-        message: 'Permissions must be an array',
-        details: { permissions: identity.permissions },
-        timestamp: new Date()
-      }
-    };
-  }
-
-  return { success: true, identity };
-}
-
-/**
- * 创建身份验证上下文
- *
- * @param identity - 用户身份信息
- * @returns 身份验证上下文
- */
-function createIdentityContext(identity: UserIdentity) {
-  return {
-    user: identity,
-    authenticated: true,
-    verifiedAt: new Date()
-  };
 }
 
 /**

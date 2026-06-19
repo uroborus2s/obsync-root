@@ -139,12 +139,16 @@ describe('Unified Module Processor', () => {
       (moduleInfo) => moduleInfo.isClass
     );
     moduleClassification.controllerModules =
-      moduleClassification.allModules.filter((moduleInfo) => moduleInfo.isController);
+      moduleClassification.allModules.filter(
+        (moduleInfo) => moduleInfo.isController
+      );
     moduleClassification.routeModules = moduleClassification.allModules.filter(
       (moduleInfo) => moduleInfo.hasRoutes
     );
     moduleClassification.lifecycleModules =
-      moduleClassification.allModules.filter((moduleInfo) => moduleInfo.hasLifecycleMethods);
+      moduleClassification.allModules.filter(
+        (moduleInfo) => moduleInfo.hasLifecycleMethods
+      );
   });
 
   describe('processModulesUnified', () => {

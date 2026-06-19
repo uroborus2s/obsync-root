@@ -49,6 +49,7 @@
     "prepublishOnly": "pnpm run clean && pnpm run build",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "lint": "eslint --ext .ts src",
     "format": "prettier --write \"src/**/*.ts\""
   },

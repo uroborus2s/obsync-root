@@ -132,7 +132,9 @@ function normalizeEnvDefinition(value: unknown): EnvDefinition {
   return {
     key: expectString(value.key, 'env.key'),
     required: booleanValue(value.required, false),
-    ...(optionalString(value.default) && { default: optionalString(value.default) }),
+    ...(optionalString(value.default) && {
+      default: optionalString(value.default)
+    }),
     ...(optionalString(value.description) && {
       description: optionalString(value.description)
     })
@@ -154,7 +156,10 @@ export function normalizeProjectPolicies(value: unknown): ProjectPolicies {
       value.forbidControllerDatabaseAccess,
       false
     ),
-    controllerDecoratorPrefix: booleanValue(value.controllerDecoratorPrefix, false),
+    controllerDecoratorPrefix: booleanValue(
+      value.controllerDecoratorPrefix,
+      false
+    ),
     pluginTokenFromFunctionName: booleanValue(
       value.pluginTokenFromFunctionName,
       false
@@ -176,10 +181,16 @@ export function normalizeContribution(value: unknown): Contribution {
 
   return {
     directories: stringArray(value.directories),
-    files: Array.isArray(value.files) ? value.files.map(normalizeManifestFile) : [],
+    files: Array.isArray(value.files)
+      ? value.files.map(normalizeManifestFile)
+      : [],
     dependencies: {
-      runtime: stringRecord(isRecord(value.dependencies) ? value.dependencies.runtime : {}),
-      dev: stringRecord(isRecord(value.dependencies) ? value.dependencies.dev : {})
+      runtime: stringRecord(
+        isRecord(value.dependencies) ? value.dependencies.runtime : {}
+      ),
+      dev: stringRecord(
+        isRecord(value.dependencies) ? value.dependencies.dev : {}
+      )
     },
     scripts: stringRecord(value.scripts),
     env: Array.isArray(value.env) ? value.env.map(normalizeEnvDefinition) : [],
@@ -243,20 +254,20 @@ export function parsePresetManifest(value: unknown): PresetManifest {
   }
 
   const appliesTo = Array.isArray(value.appliesTo)
-    ? value.appliesTo
-        .filter(isRecord)
-        .map((target) => {
-          if (target.kind !== 'app' && target.kind !== 'plugin') {
-            throw new Error('Invalid preset target kind');
-          }
+    ? value.appliesTo.filter(isRecord).map((target) => {
+        if (target.kind !== 'app' && target.kind !== 'plugin') {
+          throw new Error('Invalid preset target kind');
+        }
 
-          const kind: 'app' | 'plugin' = target.kind;
+        const kind: 'app' | 'plugin' = target.kind;
 
-          return {
-            kind,
-            ...(Array.isArray(target.types) ? { types: stringArray(target.types) } : {})
-          };
-        })
+        return {
+          kind,
+          ...(Array.isArray(target.types)
+            ? { types: stringArray(target.types) }
+            : {})
+        };
+      })
     : [];
 
   return {

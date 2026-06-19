@@ -21,12 +21,6 @@ export interface GeneratedFile {
 
 export type ManagedFilesMode = 'full' | 'project-only';
 
-function stringifyTsObject(value: unknown): string {
-  return JSON.stringify(value, null, 2)
-    .replace(/"([^"]+)":/g, '$1:')
-    .replace(/"/g, "'");
-}
-
 function createIndexTs(context: GeneratedProjectContext): string {
   const invocation =
     context.runtime === 'web' ? '()' : `({ type: '${context.runtime}' })`;

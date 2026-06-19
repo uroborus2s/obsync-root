@@ -190,10 +190,12 @@ export type DeleteWhereExpression<DB, TB extends keyof DB> = (
 /**
  * Kysely 查询表达式类型
  */
-export type WhereExpression<DB, TB extends keyof DB> =
-  SelectWhereExpression<DB, TB> &
-    UpdateWhereExpression<DB, TB> &
-    DeleteWhereExpression<DB, TB>;
+export type WhereExpression<DB, TB extends keyof DB> = SelectWhereExpression<
+  DB,
+  TB
+> &
+  UpdateWhereExpression<DB, TB> &
+  DeleteWhereExpression<DB, TB>;
 
 /**
  * 通用工具类型

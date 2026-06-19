@@ -5,12 +5,9 @@
 
 import {
   type Either,
-  eitherFold,
   eitherLeft,
-  eitherMapLeft,
   eitherRight,
-  isLeft,
-  type Maybe
+  isLeft
 } from '@stratix/core/functional';
 import { sql } from 'kysely';
 import {
@@ -78,7 +75,9 @@ export abstract class AutoSaveRepository<
   /**
    * 创建带批次号的表并插入数据，自动管理批次表的生命周期
    */
-  async createTableWithBatch<D extends Record<string, string | number | boolean>>(
+  async createTableWithBatch<
+    D extends Record<string, string | number | boolean>
+  >(
     dataArray: D[],
     options: CreateTableWithBatchOptions = {}
   ): Promise<Either<DatabaseError, BatchResult<D>>> {
@@ -97,7 +96,10 @@ export abstract class AutoSaveRepository<
 
       // 🎯 4. 如果表不存在，创建表（包含批次字段）
       if (!tableExists) {
-        const schema = this.generateTableSchemaWithBatch(dataWithBatch, options);
+        const schema = this.generateTableSchemaWithBatch(
+          dataWithBatch,
+          options
+        );
         await this.createTableFromSchema(schema);
         this.logger.info(`成功创建带批次管理的表: ${this.tableName}`);
       }
@@ -134,7 +136,9 @@ export abstract class AutoSaveRepository<
    * 根据传入的数组对象自动分析数据结构并创建对应的数据库表
    * 然后将数组中的所有记录批量写入到新创建的表中
    */
-  async createTableFromData<D extends Record<string, string | number | boolean>>(
+  async createTableFromData<
+    D extends Record<string, string | number | boolean>
+  >(
     dataArray: D[],
     options: CreateTableFromDataOptions = {}
   ): Promise<Either<DatabaseError, D[]>> {
@@ -361,16 +365,16 @@ export abstract class AutoSaveRepository<
       const insertResult = await this.createMany(cleanedDataArray as any);
 
       if (isLeft(insertResult)) {
-        this.logger.error(`数据插入失败: ${this.tableName}`, { error: insertResult.left });
+        this.logger.error(`数据插入失败: ${this.tableName}`, {
+          error: insertResult.left
+        });
         return eitherLeft(insertResult.left);
       }
 
-      this.logger.info(`数据插入完成`,
-        {
-          tableName: this.tableName,
-          totalRows: insertResult.right.length
-        }
-      );
+      this.logger.info(`数据插入完成`, {
+        tableName: this.tableName,
+        totalRows: insertResult.right.length
+      });
       return eitherRight(insertResult.right as unknown as D[]);
     } catch (error) {
       this.logger.error(`数据插入失败: ${this.tableName}`, { error });
@@ -393,7 +397,7 @@ export abstract class AutoSaveRepository<
         .execute();
 
       return true;
-    } catch (error) {
+    } catch {
       // 如果查询失败，假设表不存在
       return false;
     }
@@ -478,7 +482,7 @@ export abstract class AutoSaveRepository<
       // 然后通过其他方式获取表列表
       // 这里简化处理，返回空数组，实际使用中可以根据具体数据库实现
       return [];
-    } catch (error) {
+    } catch {
       return [];
     }
   }
@@ -545,14 +549,12 @@ export abstract class AutoSaveRepository<
       // 🎯 3. 确定需要删除的批次（保留最新的N个，删除其余的）
       const batchesToDelete = batchIds.slice(maxBatchesToKeep);
 
-      this.logger.info(`开始清理旧批次数据`,
-        {
-          tableName: this.tableName,
-          totalBatches: batchIds.length,
-          batchesToKeep: batchIds.slice(0, maxBatchesToKeep),
-          batchesToDelete
-        }
-      );
+      this.logger.info(`开始清理旧批次数据`, {
+        tableName: this.tableName,
+        totalBatches: batchIds.length,
+        batchesToKeep: batchIds.slice(0, maxBatchesToKeep),
+        batchesToDelete
+      });
 
       // 🎯 4. 删除旧批次数据（使用 sql 模板批量删除）
       if (batchesToDelete.length > 0) {
@@ -566,43 +568,35 @@ export abstract class AutoSaveRepository<
 
           const deleteResult = await deleteQuery.execute(connection);
 
-          this.logger.info(`批量删除旧批次数据完成`,
-            {
-              tableName: this.tableName,
-              deletedBatches: batchesToDelete,
-              batchCount: batchesToDelete.length,
-              affectedRows: deleteResult.numAffectedRows || 0
-            }
-          );
+          this.logger.info(`批量删除旧批次数据完成`, {
+            tableName: this.tableName,
+            deletedBatches: batchesToDelete,
+            batchCount: batchesToDelete.length,
+            affectedRows: deleteResult.numAffectedRows || 0
+          });
         } catch (error) {
-          this.logger.error(`批量删除批次数据失败`,
-            {
-              tableName: this.tableName,
-              batchesToDelete,
-              error
-            }
-          );
+          this.logger.error(`批量删除批次数据失败`, {
+            tableName: this.tableName,
+            batchesToDelete,
+            error
+          });
           throw error;
         }
       }
 
-      this.logger.info(`批次数据清理完成`,
-        {
-          tableName: this.tableName,
-          totalBatches: batchIds.length,
-          deletedBatches: batchesToDelete.length,
-          remainingBatches: batchIds.length - batchesToDelete.length,
-          keptBatches: batchIds.slice(0, maxBatchesToKeep)
-        }
-      );
+      this.logger.info(`批次数据清理完成`, {
+        tableName: this.tableName,
+        totalBatches: batchIds.length,
+        deletedBatches: batchesToDelete.length,
+        remainingBatches: batchIds.length - batchesToDelete.length,
+        keptBatches: batchIds.slice(0, maxBatchesToKeep)
+      });
     } catch (error) {
-      this.logger.error(`清理批次数据失败`,
-        {
-          tableName: this.tableName,
-          maxBatchesToKeep,
-          error
-        }
-      );
+      this.logger.error(`清理批次数据失败`, {
+        tableName: this.tableName,
+        maxBatchesToKeep,
+        error
+      });
       throw error;
     }
   }

@@ -22,6 +22,7 @@ export {
 
 // 控制器注册
 export {
+  registerControllerClassRoutes,
   registerControllerRoutes,
   type RouteConfig
 } from './controller-registration.js';

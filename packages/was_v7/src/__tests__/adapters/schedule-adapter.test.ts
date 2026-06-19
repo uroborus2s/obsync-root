@@ -178,7 +178,9 @@ describe('WPS V7 日程适配器测试', () => {
         events
       };
 
-      await expect(scheduleAdapter.batchCreateSchedules(params)).rejects.toThrow(
+      await expect(
+        scheduleAdapter.batchCreateSchedules(params)
+      ).rejects.toThrow(
         '批量创建日程失败：events数量不能超过100个，当前数量: 150'
       );
       expect(mockHttpClient.post).not.toHaveBeenCalled();

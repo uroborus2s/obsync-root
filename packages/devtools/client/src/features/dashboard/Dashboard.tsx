@@ -3,9 +3,15 @@ import { api, type SystemStats } from '@/lib/api';
 import { useEffect, useState } from 'react';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
+interface HistoryPoint {
+  time: string;
+  memory: number;
+  cpu: number;
+}
+
 export function Dashboard() {
   const [stats, setStats] = useState<SystemStats | null>(null);
-  const [history, setHistory] = useState<any[]>([]);
+  const [history, setHistory] = useState<HistoryPoint[]>([]);
 
   useEffect(() => {
     const fetchStats = async () => {

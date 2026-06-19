@@ -21,10 +21,12 @@ import {
 } from '../errors/index.js';
 import { createErrorEnvelope } from '../contracts/error-envelope.js';
 import { ApplicationDiscoveryPipeline } from '../discovery/application-pipeline.js';
+import type { ApplicationDiscoveryConfig } from '../discovery/interfaces.js';
 import {
-  collectProductionManifestSourceFiles,
+  createProductionManifestRegistrationPlan,
   loadProductionManifest,
-  type LoadedProductionManifest
+  type LoadedProductionManifest,
+  type ProductionManifestRegistrationPlan
 } from '../discovery/production-manifest.js';
 import type {
   ConfigOptions,
@@ -36,6 +38,7 @@ import type {
 } from '../types/index.js';
 import { decryptConfig } from '../utils/crypto.js';
 import { ErrorUtils } from '../utils/error-utils.js';
+import { registerControllerClassRoutes } from '../plugin/controller-registration.js';
 
 /**
  * 启动阶段
@@ -145,6 +148,7 @@ export class ApplicationBootstrap {
   private shutdownHandlers: Array<() => Promise<void>> = [];
   private isShuttingDown = false;
   private fastifyInstance: FastifyInstance | null = null;
+  private routesFrozen = false;
   private wrapError: (error: unknown, additionalContext?: string) => Error;
   private safeExecute: <T>(
     operation: string,
@@ -170,6 +174,7 @@ export class ApplicationBootstrap {
    */
   async bootstrap(options?: StratixRunOptions): Promise<StratixApplication> {
     const startTime = Date.now();
+    this.routesFrozen = false;
 
     try {
       this.updateStatus(BootstrapPhase.INITIALIZING);
@@ -224,6 +229,7 @@ export class ApplicationBootstrap {
         appType,
         processedOptions
       );
+      this.routesFrozen = true;
 
       // 10. 设置优雅关闭
       if (processedOptions.gracefulShutdown !== false) {
@@ -264,8 +270,33 @@ export class ApplicationBootstrap {
         addShutdownHandler: (handler: () => Promise<void>) =>
           this.addShutdownHandler(handler),
         registerController: async (controllerClass: any) => {
-          // TODO: 实现控制器注册逻辑
-          return controllerClass;
+          if (this.routesFrozen) {
+            throw new ConfigurationError(
+              'Controller registration must happen before Fastify is ready. Use config.discovery or hooks.afterFastifyCreated for startup-time route registration.',
+              {
+                controllerName: controllerClass?.name
+              }
+            );
+          }
+
+          try {
+            return await registerControllerClassRoutes(
+              fastifyInstance,
+              container,
+              controllerClass,
+              config.discovery?.routing
+            );
+          } catch (error) {
+            throw new ConfigurationError(
+              'Controller registration must happen before Fastify is ready. Use config.discovery or hooks.afterFastifyCreated for startup-time route registration.',
+              {
+                controllerName: controllerClass?.name,
+                originalMessage:
+                  error instanceof Error ? error.message : String(error)
+              },
+              error
+            );
+          }
         },
         inject: async (options: any) => {
           return await fastifyInstance.inject(options);
@@ -588,7 +619,7 @@ export class ApplicationBootstrap {
         if (typeof require !== 'undefined' && require.main?.filename) {
           return dirname(require.main.filename);
         }
-      } catch (err) {
+      } catch {
         // 忽略错误，继续尝试其他方法
       }
 
@@ -751,7 +782,7 @@ export class ApplicationBootstrap {
    * 设置容器
    */
   private async setupContainer(
-    config: StratixConfig
+    _config: StratixConfig
   ): Promise<AwilixContainer> {
     this.updateStatus(BootstrapPhase.CONTAINER_SETUP);
 
@@ -787,8 +818,13 @@ export class ApplicationBootstrap {
       discoveryConfig.productionManifest?.skipRuntimeDiscovery === true
     ) {
       if (discoveryConfig.productionManifest.registerFromManifest === true) {
-        const sourceFiles =
-          collectProductionManifestSourceFiles(productionManifest);
+        const registrationPlan =
+          createProductionManifestRegistrationPlan(productionManifest);
+        this.assertProductionManifestRegistrationPlan(
+          productionManifest,
+          discoveryConfig.productionManifest,
+          registrationPlan
+        );
         const manifestRoot =
           discoveryConfig.rootDir ||
           resolve(
@@ -796,18 +832,33 @@ export class ApplicationBootstrap {
             productionManifest.discovery.rootDir || '.'
           );
 
-        if (sourceFiles.length > 0) {
+        if (registrationPlan.sourceFiles.length > 0) {
           this.logger?.info(
             `✅ Registering application components from production manifest: ${productionManifest.sourceFile}`
           );
           const pipeline = new ApplicationDiscoveryPipeline();
-          const result = await pipeline.discoverAndRegister({
+          const pipelineConfig: ApplicationDiscoveryConfig & {
+            container: AwilixContainer;
+            fastify: FastifyInstance;
+          } = {
             ...discoveryConfig,
             rootDir: manifestRoot,
-            files: sourceFiles,
+            files: registrationPlan.sourceFiles,
+            manifestRegistration: {
+              tokens: registrationPlan.tokenEntries,
+              routes: registrationPlan.routes
+            },
             container,
             fastify: fastifyInstance
-          });
+          };
+          const result = await pipeline.discoverAndRegister(pipelineConfig);
+
+          this.assertProductionManifestRegistrationResult(
+            productionManifest,
+            discoveryConfig.productionManifest,
+            registrationPlan,
+            result
+          );
 
           this.logger?.info(
             `✅ Production manifest registration completed: ${result.registered.length} registrations, ${result.routesRegistered} routes`
@@ -844,6 +895,72 @@ export class ApplicationBootstrap {
       this.logger?.error({ err: error }, '❌ Application discovery failed');
       throw error;
     }
+  }
+
+  private assertProductionManifestRegistrationPlan(
+    productionManifest: LoadedProductionManifest,
+    manifestConfig: NonNullable<
+      NonNullable<StratixConfig['discovery']>['productionManifest']
+    >,
+    registrationPlan: ProductionManifestRegistrationPlan
+  ): void {
+    if (
+      manifestConfig.strict === false ||
+      registrationPlan.issues.length === 0
+    ) {
+      return;
+    }
+
+    throw new ConfigurationError(
+      `Production manifest registration plan is incomplete: ${productionManifest.sourceFile}`,
+      {
+        sourceFile: productionManifest.sourceFile,
+        issues: registrationPlan.issues
+      }
+    );
+  }
+
+  private assertProductionManifestRegistrationResult(
+    productionManifest: LoadedProductionManifest,
+    manifestConfig: NonNullable<
+      NonNullable<StratixConfig['discovery']>['productionManifest']
+    >,
+    registrationPlan: ProductionManifestRegistrationPlan,
+    result: Awaited<
+      ReturnType<ApplicationDiscoveryPipeline['discoverAndRegister']>
+    >
+  ): void {
+    if (manifestConfig.strict === false) {
+      return;
+    }
+
+    const registeredTokens = new Set(result.registered);
+    const missingTokens = registrationPlan.tokenEntries
+      .map((token) => token.token)
+      .filter((token) => !registeredTokens.has(token));
+    const expectedRoutes =
+      manifestConfig.registerFromManifest === true
+        ? registrationPlan.routes.length
+        : 0;
+    const missingRouteCount = Math.max(
+      0,
+      expectedRoutes - result.routesRegistered
+    );
+
+    if (missingTokens.length === 0 && missingRouteCount === 0) {
+      return;
+    }
+
+    throw new ConfigurationError(
+      `Production manifest source mismatch: ${productionManifest.sourceFile}`,
+      {
+        sourceFile: productionManifest.sourceFile,
+        missingTokens,
+        expectedRoutes,
+        routesRegistered: result.routesRegistered,
+        missingRouteCount
+      }
+    );
   }
 
   private loadConfiguredProductionManifest(
@@ -1357,14 +1474,16 @@ export class ApplicationBootstrap {
   ): Promise<void> {
     this.updateStatus(BootstrapPhase.PLUGIN_LOADING);
 
-    if (!config.plugins || config.plugins.length === 0) {
+    const pluginConfigs = this.resolvePluginLoadOrder(config.plugins || []);
+
+    if (pluginConfigs.length === 0) {
       this.logger?.debug('No plugins to load');
       return;
     }
 
-    this.logger?.info(`Loading ${config.plugins.length} plugins...`);
+    this.logger?.info(`Loading ${pluginConfigs.length} plugins...`);
 
-    for (const pluginConfig of config.plugins) {
+    for (const pluginConfig of pluginConfigs) {
       try {
         // 注意：插件级生命周期现在由 withRegisterAutoDI 自动管理
 
@@ -1399,6 +1518,76 @@ export class ApplicationBootstrap {
 
     // 执行立即初始化
     await this.executeEagerInitialization();
+  }
+
+  private resolvePluginLoadOrder(
+    pluginConfigs: StratixConfig['plugins']
+  ): StratixConfig['plugins'] {
+    const enabledPlugins = pluginConfigs.filter(
+      (pluginConfig) => pluginConfig.enabled !== false
+    );
+    const pluginsByName = new Map<string, StratixConfig['plugins'][number]>();
+
+    for (const pluginConfig of enabledPlugins) {
+      if (pluginsByName.has(pluginConfig.name)) {
+        throw new ConfigurationError(
+          `Duplicate plugin name: ${pluginConfig.name}`,
+          {
+            pluginName: pluginConfig.name
+          }
+        );
+      }
+      pluginsByName.set(pluginConfig.name, pluginConfig);
+    }
+
+    for (const pluginConfig of enabledPlugins) {
+      for (const dependency of pluginConfig.dependencies || []) {
+        if (!pluginsByName.has(dependency)) {
+          throw new ConfigurationError(
+            `Plugin dependency not found: ${pluginConfig.name} -> ${dependency}`,
+            {
+              pluginName: pluginConfig.name,
+              dependency
+            }
+          );
+        }
+      }
+    }
+
+    const ordered: StratixConfig['plugins'] = [];
+    const loaded = new Set<string>();
+    const remaining = new Map(pluginsByName);
+
+    while (remaining.size > 0) {
+      const ready = [...remaining.values()]
+        .filter((pluginConfig) =>
+          (pluginConfig.dependencies || []).every((dependency) =>
+            loaded.has(dependency)
+          )
+        )
+        .sort((left, right) => {
+          const leftOrder = left.order ?? 0;
+          const rightOrder = right.order ?? 0;
+          if (leftOrder !== rightOrder) {
+            return leftOrder - rightOrder;
+          }
+          return left.name.localeCompare(right.name);
+        });
+
+      if (ready.length === 0) {
+        throw new ConfigurationError('Plugin dependency cycle detected', {
+          remaining: [...remaining.keys()]
+        });
+      }
+
+      for (const pluginConfig of ready) {
+        ordered.push(pluginConfig);
+        loaded.add(pluginConfig.name);
+        remaining.delete(pluginConfig.name);
+      }
+    }
+
+    return ordered;
   }
 
   /**
@@ -1462,7 +1651,7 @@ export class ApplicationBootstrap {
    */
   private async startNonWebApplication(
     fastify: FastifyInstance,
-    config: StratixConfig
+    _config: StratixConfig
   ): Promise<void> {
     try {
       // 对于非 Web 应用，我们只需要准备 Fastify 实例
@@ -1628,7 +1817,7 @@ export class ApplicationBootstrap {
             if (resolver && resolver.eagerInit) {
               eagerInitServices.push(name);
             }
-          } catch (error) {
+          } catch {
             // 忽略获取resolver选项时的错误
           }
         }

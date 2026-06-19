@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
+import packageJson from '../../package.json' with { type: 'json' };
+
 describe('public API contract', () => {
+  it('reports the package version through Stratix version APIs', async () => {
+    const api = (await import('../index.js')) as Record<string, any>;
+
+    expect(api.Stratix.getVersion()).toBe(packageJson.version);
+    expect(api.Stratix.getVersionInfo().version).toBe(packageJson.version);
+  });
+
   it('exports the breaking-upgrade discovery API and does not export removed application APIs', async () => {
     const api = (await import('../index.js')) as Record<string, unknown>;
 
@@ -29,5 +38,28 @@ describe('public API contract', () => {
     expect(api).not.toHaveProperty('isExecutor');
     expect(api).not.toHaveProperty('processExecutorRegistration');
     expect(api).not.toHaveProperty('registerExecutorDomain');
+  });
+
+  it('exports the designed framework error classes from the root API', async () => {
+    const api = (await import('../index.js')) as Record<string, any>;
+
+    expect(api.StratixError).toEqual(expect.any(Function));
+    expect(api.ConfigurationError).toEqual(expect.any(Function));
+    expect(api.DiscoveryError).toEqual(expect.any(Function));
+    expect(api.RegistrationError).toEqual(expect.any(Function));
+    expect(api.PluginLoadError).toEqual(expect.any(Function));
+
+    expect(new api.ConfigurationError('invalid config')).toBeInstanceOf(
+      api.StratixError
+    );
+    expect(new api.DiscoveryError('discovery failed')).toBeInstanceOf(
+      api.StratixError
+    );
+    expect(new api.RegistrationError('registration failed')).toBeInstanceOf(
+      api.StratixError
+    );
+    expect(new api.PluginLoadError('plugin failed')).toBeInstanceOf(
+      api.StratixError
+    );
   });
 });

@@ -17,8 +17,10 @@ export interface RouteContractSchema {
   [key: string]: unknown;
 }
 
-export interface RouteContractOptions
-  extends Omit<RouteShorthandOptions, 'schema'> {
+export interface RouteContractOptions extends Omit<
+  RouteShorthandOptions,
+  'schema'
+> {
   schema?: RouteContractSchema;
 }
 
@@ -79,7 +81,8 @@ function normalizeRouteOptions(
 export function getControllerRouteContracts(
   controllerClass: new (...args: any[]) => any
 ): RouteContract[] {
-  const controllerOptions = MetadataManager.getControllerOptions(controllerClass);
+  const controllerOptions =
+    MetadataManager.getControllerOptions(controllerClass);
   const controllerTags = Array.isArray(controllerOptions.tags)
     ? controllerOptions.tags
     : undefined;
@@ -153,7 +156,9 @@ export function validateRouteContracts(
   return diagnostics;
 }
 
-function schemaProperties(schema: JsonSchemaObject | undefined): JsonSchemaObject {
+function schemaProperties(
+  schema: JsonSchemaObject | undefined
+): JsonSchemaObject {
   const properties = schema?.properties;
   return properties && typeof properties === 'object'
     ? (properties as JsonSchemaObject)

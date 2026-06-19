@@ -172,7 +172,7 @@ export function getCallerFilePath(): string | undefined {
     }
 
     return undefined;
-  } catch (error) {
+  } catch {
     return undefined;
   } finally {
     Error.prepareStackTrace = originalPrepareStackTrace;

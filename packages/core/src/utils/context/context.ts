@@ -114,8 +114,9 @@ export interface IContext<T extends Record<string, unknown>> {
 /**
  * 命名空间上下文类型定义
  */
-export interface INamespaceContext<T extends Record<string, unknown>>
-  extends IContext<T> {
+export interface INamespaceContext<
+  T extends Record<string, unknown>
+> extends IContext<T> {
   /**
    * 命名空间名称
    */

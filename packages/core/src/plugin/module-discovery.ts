@@ -1,14 +1,11 @@
 // @stratix/core 模块发现和筛选工具
 // 负责获取插件域内的模块并进行分类筛选
 
-import { AwilixContainer, isClass, isFunction } from 'awilix';
+import { isClass, isFunction } from 'awilix';
 import type { FastifyInstance } from 'fastify';
-import {
-  MetadataManager,
-  RouteMetadata
-} from '../decorators/metadata.js';
+import { MetadataManager, type RouteMetadata } from '../decorators/metadata.js';
 import { getLogger } from '../logger/index.js';
-import { PluginContainerContext } from './service-discovery.js';
+import type { PluginContainerContext } from './service-discovery.js';
 
 /**
  * 支持的 Fastify 生命周期方法列表
@@ -371,7 +368,10 @@ export async function discoverAndProcessModules<T>(
       }
 
       const instance = internalContainer.resolve(name) as unknown;
-      if (!instance || (typeof instance !== 'object' && typeof instance !== 'function')) {
+      if (
+        !instance ||
+        (typeof instance !== 'object' && typeof instance !== 'function')
+      ) {
         result.statistics.skippedModules++;
         if (debugEnabled) {
           const logger = getLogger();
@@ -383,7 +383,9 @@ export async function discoverAndProcessModules<T>(
       }
 
       // 检查是否为类注册（asClass）
-      const constructor = (instance as { constructor: new (...args: any[]) => any }).constructor;
+      const constructor = (
+        instance as { constructor: new (...args: any[]) => any }
+      ).constructor;
       result.statistics.classModules++;
 
       result.statistics.totalModules++;

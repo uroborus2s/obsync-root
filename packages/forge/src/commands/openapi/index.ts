@@ -79,7 +79,9 @@ export async function openApiCommand(
     }
 
     const { rootDir } = loadProjectManifest(process.cwd());
-    const document = readJsonFile<OpenApiDocument>(path.resolve(rootDir, inputFile));
+    const document = readJsonFile<OpenApiDocument>(
+      path.resolve(rootDir, inputFile)
+    );
     const source = generateTypedClient(document);
     const targetPath = path.resolve(rootDir, outputFile);
     writeTextFile(targetPath, source);

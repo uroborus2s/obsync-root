@@ -1,4 +1,4 @@
-import type { AwilixContainer, Logger } from '@stratix/core';
+import type { AwilixContainer } from '@stratix/core';
 import type { HttpClientService } from '../services/httpClientService.js';
 import type { CompanyInfo } from '../types/contact.js';
 
@@ -15,9 +15,11 @@ export interface WpsCompanyAdapter {
 /**
  * 创建WPS企业适配器的工厂函数
  */
-export function createWpsCompanyAdapter(pluginContainer: AwilixContainer): WpsCompanyAdapter {
-  const httpClient = pluginContainer.resolve<HttpClientService>('httpClientService');
-  const logger = pluginContainer.resolve<Logger>('logger');
+export function createWpsCompanyAdapter(
+  pluginContainer: AwilixContainer
+): WpsCompanyAdapter {
+  const httpClient =
+    pluginContainer.resolve<HttpClientService>('httpClientService');
 
   return {
     /**

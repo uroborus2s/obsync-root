@@ -90,9 +90,7 @@ export const memo = <T extends AnyFunction>(
 ): T => {
   const {
     cache = new DefaultMemoCache<string, any>(options.maxSize, options.ttl),
-    keyGenerator = defaultKeyGenerator,
-    maxSize = 1000,
-    ttl
+    keyGenerator = defaultKeyGenerator
   } = options;
 
   const memoizedFn = ((...args: Parameters<T>): ReturnType<T> => {

@@ -21,7 +21,10 @@ function configHelp(): string {
   return `Usage: stratix config <encrypt|decrypt|validate|generate-key> [options]`;
 }
 
-export async function configCommand(argv: ParsedArgs, output: CliOutput): Promise<void> {
+export async function configCommand(
+  argv: ParsedArgs,
+  output: CliOutput
+): Promise<void> {
   const subcommand = argv._[1];
 
   switch (subcommand) {
@@ -38,7 +41,10 @@ export async function configCommand(argv: ParsedArgs, output: CliOutput): Promis
   }
 }
 
-async function encryptCommand(args: ParsedArgs, output: CliOutput): Promise<void> {
+async function encryptCommand(
+  args: ParsedArgs,
+  output: CliOutput
+): Promise<void> {
   const filePath = args._[2];
   if (!filePath) {
     throw new CliError('Usage: stratix config encrypt <file>');
@@ -72,7 +78,10 @@ async function encryptCommand(args: ParsedArgs, output: CliOutput): Promise<void
   output.log(encrypted);
 }
 
-async function decryptCommand(args: ParsedArgs, output: CliOutput): Promise<void> {
+async function decryptCommand(
+  args: ParsedArgs,
+  output: CliOutput
+): Promise<void> {
   const encryptedString = args._[2];
   if (!encryptedString) {
     throw new CliError('Usage: stratix config decrypt <encrypted-string>');
@@ -95,7 +104,10 @@ async function decryptCommand(args: ParsedArgs, output: CliOutput): Promise<void
   output.log(JSON.stringify(config, null, 2));
 }
 
-async function validateCommand(args: ParsedArgs, output: CliOutput): Promise<void> {
+async function validateCommand(
+  args: ParsedArgs,
+  output: CliOutput
+): Promise<void> {
   const filePath = args._[2];
   if (!filePath) {
     throw new CliError('Usage: stratix config validate <file>');
@@ -115,13 +127,18 @@ async function validateCommand(args: ParsedArgs, output: CliOutput): Promise<voi
   const result = validateConfig(config, options);
 
   if (!result.isValid) {
-    throw new CliError(`Config validation failed: ${(result.errors || []).join(', ')}`);
+    throw new CliError(
+      `Config validation failed: ${(result.errors || []).join(', ')}`
+    );
   }
 
   output.success('Config validation passed.');
 }
 
-async function generateKeyCommand(args: ParsedArgs, output: CliOutput): Promise<void> {
+async function generateKeyCommand(
+  args: ParsedArgs,
+  output: CliOutput
+): Promise<void> {
   const lengthValue = getStringArg(args.length);
   const formatValue = getStringArg(args.format);
   const length = lengthValue ? Number(lengthValue) : 32;

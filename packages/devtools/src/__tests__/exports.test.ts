@@ -115,4 +115,33 @@ describe('@stratix/devtools exports', () => {
 
     await app.close();
   });
+
+  it('protects API routes when an auth token is configured', async () => {
+    const app = fastify();
+
+    await app.register(devToolsPlugin, {
+      path: '/_stratix',
+      auth: {
+        token: 'devtools-secret'
+      }
+    });
+
+    const unauthorized = await app.inject('/_stratix/api/stats');
+    expect(unauthorized.statusCode).toBe(401);
+
+    const authorized = await app.inject({
+      method: 'GET',
+      url: '/_stratix/api/stats',
+      headers: {
+        'x-stratix-devtools-token': 'devtools-secret'
+      }
+    });
+    expect(authorized.statusCode).toBe(200);
+    expect(authorized.json()).toMatchObject({
+      pid: process.pid,
+      nodeVersion: process.version
+    });
+
+    await app.close();
+  });
 });

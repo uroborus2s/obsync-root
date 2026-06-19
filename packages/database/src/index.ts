@@ -110,8 +110,8 @@ import type { DatabasePluginOptions } from './types/configuration.js';
  * ```
  */
 const database: FastifyPluginAsync<DatabasePluginOptions> = async (
-  fastify: FastifyInstance,
-  options: DatabasePluginOptions
+  _fastify: FastifyInstance,
+  _options: DatabasePluginOptions
 ): Promise<void> => {};
 
 /**
@@ -196,26 +196,26 @@ const stratixDatabasePlugin: FastifyPluginAsync<any> = withRegisterAutoDI(
           return false;
         }
 
-	        // 验证每个连接配置
-	        const supportedConnectionTypes = ['postgresql', 'mysql', 'sqlite'];
-	        for (const [name, config] of Object.entries(options.connections)) {
-	          const conn = config as any;
+        // 验证每个连接配置
+        const supportedConnectionTypes = ['postgresql', 'mysql', 'sqlite'];
+        for (const [name, config] of Object.entries(options.connections)) {
+          const conn = config as any;
 
-	          if (!conn.type) {
+          if (!conn.type) {
             console.error(
               `❌ Connection '${name}' must specify a database type`
             );
-	            return false;
-	          }
+            return false;
+          }
 
-	          if (!supportedConnectionTypes.includes(conn.type)) {
-	            console.error(
-	              `❌ Connection '${name}' has unsupported database type '${conn.type}'. Supported types: ${supportedConnectionTypes.join(', ')}`
-	            );
-	            return false;
-	          }
+          if (!supportedConnectionTypes.includes(conn.type)) {
+            console.error(
+              `❌ Connection '${name}' has unsupported database type '${conn.type}'. Supported types: ${supportedConnectionTypes.join(', ')}`
+            );
+            return false;
+          }
 
-	          if (!conn.database) {
+          if (!conn.database) {
             console.error(
               `❌ Connection '${name}' must specify a database name`
             );

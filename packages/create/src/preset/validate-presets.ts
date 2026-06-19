@@ -36,7 +36,10 @@ export function validatePresetSet({
 }: ValidatePresetSetOptions): void {
   const activePresetIds = new Set(presetIds);
 
-  if (templateManifest.allowedPresets && templateManifest.allowedPresets.length > 0) {
+  if (
+    templateManifest.allowedPresets &&
+    templateManifest.allowedPresets.length > 0
+  ) {
     for (const presetId of presetIds) {
       if (!templateManifest.allowedPresets.includes(presetId)) {
         throw new CliError(

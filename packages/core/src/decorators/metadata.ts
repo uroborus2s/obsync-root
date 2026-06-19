@@ -8,10 +8,10 @@ import 'reflect-metadata';
  * 元数据键定义
  */
 export const METADATA_KEYS = {
-    ROUTE: Symbol('route:metadata'),
-    CONTROLLER: Symbol('controller:metadata'),
-    COMPONENT: Symbol('component:metadata'),
-    VALIDATION: Symbol('validation:metadata'),
+  ROUTE: Symbol('route:metadata'),
+  CONTROLLER: Symbol('controller:metadata'),
+  COMPONENT: Symbol('component:metadata'),
+  VALIDATION: Symbol('validation:metadata'),
   PARAM_VALIDATION: Symbol('param-validation:metadata')
 } as const;
 

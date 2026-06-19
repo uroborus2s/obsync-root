@@ -2,7 +2,7 @@
  * 异步工具测试
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 
 import { sleep } from '../common.js';
 import {
@@ -13,9 +13,6 @@ import {
 } from '../concurrency.js';
 import {
   executePromises,
-  executeParallel,
-  executeSequential,
-  executeMixed,
   withRetry,
   withTimeout,
   ExecutionMode,

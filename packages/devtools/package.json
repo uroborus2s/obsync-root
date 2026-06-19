@@ -2,16 +2,30 @@
   "name": "@stratix/devtools",
   "version": "1.0.0-beta.1",
   "description": "Developer tools and dashboard for Stratix framework",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "scripts": {
-    "build": "rimraf dist tsconfig.build.tsbuildinfo && tsc -p tsconfig.build.json",
+    "build": "rimraf dist tsconfig.build.tsbuildinfo && tsc -p tsconfig.build.json && pnpm --dir client build",
     "clean": "rimraf dist tsconfig.build.tsbuildinfo tsconfig.tsbuildinfo",
     "test": "vitest run"
   },
   "files": [
     "dist"
   ],
+  "keywords": [
+    "stratix",
+    "devtools",
+    "dashboard",
+    "fastify"
+  ],
+  "license": "MIT",
   "dependencies": {
     "@fastify/static": "^9.1.3",
     "@fastify/websocket": "^11.2.0",

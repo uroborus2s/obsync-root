@@ -64,9 +64,7 @@ function createExistingTableProvider() {
   return { provider, writeConnection, deleteQuery };
 }
 
-async function createFromData(
-  options: CreateTableFromDataOptions = {}
-) {
+async function createFromData(options: CreateTableFromDataOptions = {}) {
   const context = createExistingTableProvider();
   const repository = new AutoSaveRegressionRepository(context.provider);
   const result = await repository.createTableFromData(

@@ -9,6 +9,13 @@ export * from './types/index.js';
 export * from './bootstrap/index.js';
 export * from './contracts/index.js';
 export * from './diagnostics/index.js';
+export {
+  ConfigurationError,
+  DiscoveryError,
+  PluginLoadError,
+  RegistrationError,
+  StratixError
+} from './errors/index.js';
 
 // 高级功能模块 - 装饰器
 export {
@@ -63,6 +70,7 @@ export {
   processModulesUnified,
   processPluginParameters,
   processSingleModule,
+  registerControllerClassRoutes,
   // 控制器注册
   registerControllerRoutes,
   // 适配器注册

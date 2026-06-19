@@ -1,7 +1,7 @@
 {
   "name": "@stratix/was-v7",
   "version": "1.0.0-beta.36",
-  "description": "Stratix framework common utility functions",
+  "description": "Stratix WPS V7 integration plugin with calendar, schedule and organization adapters",
   "main": "dist/index.js",
   "types": "dist/types/index.d.ts",
   "type": "module",
@@ -33,10 +33,17 @@
   },
   "keywords": [
     "stratix",
-    "utils",
-    "utility",
-    "functions"
+    "wps",
+    "wps-v7",
+    "calendar",
+    "schedule",
+    "organization",
+    "adapter",
+    "plugin"
   ],
   "author": "Stratix Team",
-  "license": "MIT"
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
 }

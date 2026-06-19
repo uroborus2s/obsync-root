@@ -3,9 +3,10 @@ import fastifyStatic from '@fastify/static';
 import fastifyWebsocket from '@fastify/websocket';
 import type { StratixConfig } from '@stratix/core';
 import type { AwilixContainer } from 'awilix';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 interface ProductionManifestView {
   [key: string]: unknown;
@@ -20,6 +21,17 @@ interface ProductionManifestView {
 export interface DevToolsOptions {
   path?: string;
   enable?: boolean;
+  /**
+   * Defaults to local requests only. Set to true only when a trusted upstream
+   * already protects the DevTools route.
+   */
+  allowRemote?: boolean;
+  auth?:
+    | {
+        token: string;
+        headerName?: string;
+      }
+    | ((request: FastifyRequest) => boolean | Promise<boolean>);
   productionManifest?: ProductionManifestView;
   config?: Partial<StratixConfig> | Record<string, unknown>;
   healthCheck?: () =>
@@ -32,13 +44,27 @@ export interface DevToolsOptions {
 
 const logClients = new Set<any>();
 let isStdoutHooked = false;
+let stdoutHookRefCount = 0;
+let originalStdoutWrite:
+  | ((chunk: any, ...args: any[]) => boolean)
+  | undefined;
+let originalStderrWrite:
+  | ((chunk: any, ...args: any[]) => boolean)
+  | undefined;
 
 function hookStdout() {
+  stdoutHookRefCount++;
   if (isStdoutHooked) return;
   isStdoutHooked = true;
 
-  const originalStdoutWrite = process.stdout.write.bind(process.stdout);
-  const originalStderrWrite = process.stderr.write.bind(process.stderr);
+  originalStdoutWrite = process.stdout.write.bind(process.stdout) as (
+    chunk: any,
+    ...args: any[]
+  ) => boolean;
+  originalStderrWrite = process.stderr.write.bind(process.stderr) as (
+    chunk: any,
+    ...args: any[]
+  ) => boolean;
 
   function broadcast(chunk: any) {
     const msg = chunk.toString();
@@ -53,15 +79,33 @@ function hookStdout() {
   process.stdout.write = (chunk, ...args) => {
     broadcast(chunk);
     // @ts-ignore
-    return originalStdoutWrite(chunk, ...args);
+    return originalStdoutWrite?.(chunk, ...args) ?? true;
   };
 
   // @ts-ignore
   process.stderr.write = (chunk, ...args) => {
     broadcast(chunk);
     // @ts-ignore
-    return originalStderrWrite(chunk, ...args);
+    return originalStderrWrite?.(chunk, ...args) ?? true;
   };
+}
+
+function unhookStdout() {
+  stdoutHookRefCount = Math.max(0, stdoutHookRefCount - 1);
+  if (stdoutHookRefCount > 0 || !isStdoutHooked) {
+    return;
+  }
+
+  if (originalStdoutWrite) {
+    process.stdout.write = originalStdoutWrite as typeof process.stdout.write;
+  }
+  if (originalStderrWrite) {
+    process.stderr.write = originalStderrWrite as typeof process.stderr.write;
+  }
+
+  originalStdoutWrite = undefined;
+  originalStderrWrite = undefined;
+  isStdoutHooked = false;
 }
 
 function getProductionManifest(
@@ -128,6 +172,42 @@ function containerTokens(container?: AwilixContainer): unknown[] {
   });
 }
 
+function isLoopbackAddress(address?: string): boolean {
+  return (
+    !address ||
+    address === '127.0.0.1' ||
+    address === '::1' ||
+    address === 'localhost' ||
+    address.startsWith('::ffff:127.')
+  );
+}
+
+async function authorizeDevToolsRequest(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  options: DevToolsOptions
+): Promise<void> {
+  if (options.allowRemote !== true && !isLoopbackAddress(request.ip)) {
+    await reply.code(403).send({ error: 'DevTools is restricted to local requests' });
+    return;
+  }
+
+  if (!options.auth) {
+    return;
+  }
+
+  const authorized =
+    typeof options.auth === 'function'
+      ? await options.auth(request)
+      : request.headers[
+          (options.auth.headerName || 'x-stratix-devtools-token').toLowerCase()
+        ] === options.auth.token;
+
+  if (!authorized) {
+    await reply.code(401).send({ error: 'Unauthorized DevTools request' });
+  }
+}
+
 export default async function devToolsPlugin(
   fastify: FastifyInstance,
   options: DevToolsOptions
@@ -143,9 +223,14 @@ export default async function devToolsPlugin(
   await fastify.register(fastifyWebsocket);
   hookStdout();
 
-  const moduleDir = __dirname;
+  const moduleDir = path.dirname(fileURLToPath(import.meta.url));
   const clientDistPath = path.join(moduleDir, 'client');
   const collectedRoutes: any[] = [];
+  const apiAccess = {
+    preHandler: async (request: FastifyRequest, reply: FastifyReply) =>
+      authorizeDevToolsRequest(request, reply, options)
+  };
+  const pluginLogClients = new Set<any>();
 
   fastify.addHook('onRoute', (routeOptions) => {
     collectedRoutes.push({
@@ -169,7 +254,15 @@ export default async function devToolsPlugin(
 
   const apiPrefix = `${basePath}/api`;
 
-  fastify.get(`${apiPrefix}/stats`, async () => {
+  fastify.addHook('onClose', async () => {
+    for (const client of pluginLogClients) {
+      logClients.delete(client);
+    }
+    pluginLogClients.clear();
+    unhookStdout();
+  });
+
+  fastify.get(`${apiPrefix}/stats`, apiAccess, async () => {
     return {
       uptime: process.uptime(),
       memory: process.memoryUsage(),
@@ -181,7 +274,7 @@ export default async function devToolsPlugin(
     };
   });
 
-  fastify.get(`${apiPrefix}/routes`, async () => {
+  fastify.get(`${apiPrefix}/routes`, apiAccess, async () => {
     const manifest = getProductionManifest(fastify, options);
     if (manifest) {
       return {
@@ -196,14 +289,14 @@ export default async function devToolsPlugin(
     return { routes: collectedRoutes };
   });
 
-  fastify.get(`${apiPrefix}/container`, async () => {
+  fastify.get(`${apiPrefix}/container`, apiAccess, async () => {
     const container = (fastify as any).diContainer as
       | AwilixContainer
       | undefined;
     return { services: containerTokens(container) };
   });
 
-  fastify.get(`${apiPrefix}/di`, async () => {
+  fastify.get(`${apiPrefix}/di`, apiAccess, async () => {
     const manifest = getProductionManifest(fastify, options);
     if (manifest) {
       return {
@@ -223,7 +316,7 @@ export default async function devToolsPlugin(
     return { tokens: containerTokens(container), issues: [] };
   });
 
-  fastify.get(`${apiPrefix}/plugins`, async () => {
+  fastify.get(`${apiPrefix}/plugins`, apiAccess, async () => {
     const manifest = getProductionManifest(fastify, options);
     const config = getConfig(fastify, options);
     return {
@@ -237,13 +330,13 @@ export default async function devToolsPlugin(
     };
   });
 
-  fastify.get(`${apiPrefix}/config`, async () => {
+  fastify.get(`${apiPrefix}/config`, apiAccess, async () => {
     return {
       config: redact(getConfig(fastify, options))
     };
   });
 
-  fastify.get(`${apiPrefix}/health`, async () => {
+  fastify.get(`${apiPrefix}/health`, apiAccess, async () => {
     const healthCheck =
       options.healthCheck || ((fastify as any).stratixHealthCheck as any);
     if (typeof healthCheck === 'function') {
@@ -256,7 +349,7 @@ export default async function devToolsPlugin(
     };
   });
 
-  fastify.get(`${apiPrefix}/traces`, async () => {
+  fastify.get(`${apiPrefix}/traces`, apiAccess, async () => {
     const observability =
       options.observability || (fastify as any).stratixObservability;
     const snapshot =
@@ -269,11 +362,13 @@ export default async function devToolsPlugin(
     };
   });
 
-  fastify.get(`${apiPrefix}/logs`, { websocket: true }, (connection: any) => {
+  fastify.get(`${apiPrefix}/logs`, { ...apiAccess, websocket: true }, (connection: any) => {
     logClients.add(connection.socket);
+    pluginLogClients.add(connection.socket);
 
     connection.socket.on('close', () => {
       logClients.delete(connection.socket);
+      pluginLogClients.delete(connection.socket);
     });
   });
 }

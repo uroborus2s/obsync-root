@@ -1,8 +1,14 @@
+import { asValue, createContainer } from 'awilix';
+import { mkdtemp, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   buildServiceAdapterToken,
-  diagnoseServiceAdapterTokens
+  diagnoseServiceAdapterTokens,
+  registerServiceAdapters
 } from '../adapter-registration.js';
+import type { PluginContainerContext } from '../service-discovery.js';
 
 describe('service adapter token naming', () => {
   it('keeps existing plugin-prefixed adapter names stable', () => {
@@ -51,8 +57,58 @@ describe('service adapter token naming', () => {
         code: 'ADAPTER_TOKEN_CONFLICT',
         adapterName: 'client',
         token: 'queueClient',
-        message: 'Service adapter token already exists in root container: queueClient'
+        message:
+          'Service adapter token already exists in root container: queueClient'
       }
     ]);
+  });
+
+  it('fails fast on adapter token conflicts before registering any discovered adapters', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'stratix-adapter-conflict-'));
+    await writeFile(
+      join(root, 'client-adapter.mjs'),
+      [
+        'export default {',
+        "  adapterName: 'client',",
+        "  factory: () => ({ name: 'new-client' })",
+        '};'
+      ].join('\n')
+    );
+    await writeFile(
+      join(root, 'metrics-adapter.mjs'),
+      [
+        'export default {',
+        "  adapterName: 'metrics',",
+        "  factory: () => ({ name: 'metrics' })",
+        '};'
+      ].join('\n')
+    );
+
+    const rootContainer = createContainer();
+    rootContainer.register('queueClient', asValue({ name: 'existing-client' }));
+    const context: PluginContainerContext<Record<string, never>> = {
+      internalContainer: rootContainer.createScope(),
+      rootContainer,
+      options: {},
+      patterns: [],
+      basePath: root,
+      autoDIConfig: {
+        discovery: { patterns: [] },
+        routing: { enabled: false, prefix: '', validation: false },
+        services: {
+          enabled: true,
+          patterns: ['*.mjs']
+        },
+        lifecycle: { enabled: false },
+        debug: false
+      },
+      debugEnabled: false,
+      pluginName: 'queue'
+    };
+
+    await expect(registerServiceAdapters(context)).rejects.toThrow(
+      'Service adapter token already exists in root container: queueClient'
+    );
+    expect(rootContainer.hasRegistration('queueMetrics')).toBe(false);
   });
 });

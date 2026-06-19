@@ -54,7 +54,7 @@ export interface ErrorHandler {
  * 默认错误处理器
  */
 export class DefaultErrorHandler implements ErrorHandler {
-  canHandle(error: Error): boolean {
+  canHandle(_error: Error): boolean {
     return true; // 默认处理器处理所有错误
   }
 

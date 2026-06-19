@@ -5,7 +5,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createContainer, asValue } from 'awilix';
 import type { AwilixContainer } from '@stratix/core';
-import { createRedisAdapter, type RedisAdapter } from '../adapters/redis.adapter.js';
+import {
+  createRedisAdapter,
+  type RedisAdapter
+} from '../adapters/redis.adapter.js';
 
 // Mock ioredis
 vi.mock('ioredis', () => {
@@ -96,7 +99,7 @@ describe('Redis Adapter', () => {
       (mockClient.get as any).mockResolvedValue('test-value');
 
       const result = await redisAdapter.get('test-key');
-      
+
       expect(result).toBe('test-value');
       expect(mockClient.get).toHaveBeenCalledWith('test-key');
     });
@@ -106,7 +109,7 @@ describe('Redis Adapter', () => {
       (mockClient.set as any).mockResolvedValue('OK');
 
       const result = await redisAdapter.set('test-key', 'test-value');
-      
+
       expect(result).toBe('OK');
       expect(mockClient.set).toHaveBeenCalledWith('test-key', 'test-value');
     });
@@ -116,9 +119,13 @@ describe('Redis Adapter', () => {
       (mockClient.setex as any).mockResolvedValue('OK');
 
       const result = await redisAdapter.set('test-key', 'test-value', 3600);
-      
+
       expect(result).toBe('OK');
-      expect(mockClient.setex).toHaveBeenCalledWith('test-key', 3600, 'test-value');
+      expect(mockClient.setex).toHaveBeenCalledWith(
+        'test-key',
+        3600,
+        'test-value'
+      );
     });
 
     it('应该能够执行 DEL 操作', async () => {
@@ -126,7 +133,7 @@ describe('Redis Adapter', () => {
       (mockClient.del as any).mockResolvedValue(1);
 
       const result = await redisAdapter.del('test-key');
-      
+
       expect(result).toBe(1);
       expect(mockClient.del).toHaveBeenCalledWith('test-key');
     });
@@ -136,7 +143,7 @@ describe('Redis Adapter', () => {
       (mockClient.exists as any).mockResolvedValue(1);
 
       const result = await redisAdapter.exists('test-key');
-      
+
       expect(result).toBe(1);
       expect(mockClient.exists).toHaveBeenCalledWith('test-key');
     });
@@ -148,7 +155,7 @@ describe('Redis Adapter', () => {
       (mockClient.hget as any).mockResolvedValue('field-value');
 
       const result = await redisAdapter.hget('test-hash', 'test-field');
-      
+
       expect(result).toBe('field-value');
       expect(mockClient.hget).toHaveBeenCalledWith('test-hash', 'test-field');
     });
@@ -157,10 +164,18 @@ describe('Redis Adapter', () => {
       const mockClient = redisAdapter.getClient();
       (mockClient.hset as any).mockResolvedValue(1);
 
-      const result = await redisAdapter.hset('test-hash', 'test-field', 'field-value');
-      
+      const result = await redisAdapter.hset(
+        'test-hash',
+        'test-field',
+        'field-value'
+      );
+
       expect(result).toBe(1);
-      expect(mockClient.hset).toHaveBeenCalledWith('test-hash', 'test-field', 'field-value');
+      expect(mockClient.hset).toHaveBeenCalledWith(
+        'test-hash',
+        'test-field',
+        'field-value'
+      );
     });
 
     it('应该能够执行 HGETALL 操作', async () => {
@@ -169,7 +184,7 @@ describe('Redis Adapter', () => {
       (mockClient.hgetall as any).mockResolvedValue(mockData);
 
       const result = await redisAdapter.hgetall('test-hash');
-      
+
       expect(result).toEqual(mockData);
       expect(mockClient.hgetall).toHaveBeenCalledWith('test-hash');
     });
@@ -181,9 +196,13 @@ describe('Redis Adapter', () => {
       (mockClient.lpush as any).mockResolvedValue(2);
 
       const result = await redisAdapter.lpush('test-list', 'value1', 'value2');
-      
+
       expect(result).toBe(2);
-      expect(mockClient.lpush).toHaveBeenCalledWith('test-list', 'value1', 'value2');
+      expect(mockClient.lpush).toHaveBeenCalledWith(
+        'test-list',
+        'value1',
+        'value2'
+      );
     });
 
     it('应该能够执行 LPOP 操作', async () => {
@@ -191,7 +210,7 @@ describe('Redis Adapter', () => {
       (mockClient.lpop as any).mockResolvedValue('popped-value');
 
       const result = await redisAdapter.lpop('test-list');
-      
+
       expect(result).toBe('popped-value');
       expect(mockClient.lpop).toHaveBeenCalledWith('test-list');
     });
@@ -203,14 +222,14 @@ describe('Redis Adapter', () => {
       (mockClient.ping as any).mockResolvedValue('PONG');
 
       const result = await redisAdapter.ping();
-      
+
       expect(result).toBe('PONG');
       expect(mockClient.ping).toHaveBeenCalled();
     });
 
     it('应该能够检查连接状态', () => {
       const isConnected = redisAdapter.isConnected();
-      
+
       expect(typeof isConnected).toBe('boolean');
     });
   });
@@ -221,8 +240,13 @@ describe('Redis Adapter', () => {
       const mockError = new Error('Redis connection failed');
       (mockClient.get as any).mockRejectedValue(mockError);
 
-      await expect(redisAdapter.get('test-key')).rejects.toThrow('Redis connection failed');
-      expect(mockLogger.error).toHaveBeenCalledWith('Redis GET error:', mockError);
+      await expect(redisAdapter.get('test-key')).rejects.toThrow(
+        'Redis connection failed'
+      );
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Redis GET error:',
+        mockError
+      );
     });
 
     it('应该正确处理 SET 操作错误', async () => {
@@ -230,22 +254,27 @@ describe('Redis Adapter', () => {
       const mockError = new Error('Redis write failed');
       (mockClient.set as any).mockRejectedValue(mockError);
 
-      await expect(redisAdapter.set('test-key', 'test-value')).rejects.toThrow('Redis write failed');
-      expect(mockLogger.error).toHaveBeenCalledWith('Redis SET error:', mockError);
+      await expect(redisAdapter.set('test-key', 'test-value')).rejects.toThrow(
+        'Redis write failed'
+      );
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Redis SET error:',
+        mockError
+      );
     });
   });
 
   describe('事务和管道', () => {
     it('应该能够创建事务', () => {
       const multi = redisAdapter.multi();
-      
+
       expect(multi).toBeDefined();
       expect(redisAdapter.getClient().multi).toHaveBeenCalled();
     });
 
     it('应该能够创建管道', () => {
       const pipeline = redisAdapter.pipeline();
-      
+
       expect(pipeline).toBeDefined();
       expect(redisAdapter.getClient().pipeline).toHaveBeenCalled();
     });

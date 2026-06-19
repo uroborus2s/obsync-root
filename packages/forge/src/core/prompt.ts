@@ -64,7 +64,11 @@ export function createConsolePrompter(
         }
 
         const numericIndex = Number(answer);
-        if (Number.isInteger(numericIndex) && numericIndex >= 1 && numericIndex <= choices.length) {
+        if (
+          Number.isInteger(numericIndex) &&
+          numericIndex >= 1 &&
+          numericIndex <= choices.length
+        ) {
           return choices[numericIndex - 1]!.value;
         }
 

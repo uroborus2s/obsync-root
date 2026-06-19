@@ -150,7 +150,7 @@ export function createWpsCalendarAdapter(
       try {
         const response = await httpClient.get(`/v7/calendars/${calendar_id}`);
         return response.data;
-      } catch (e) {
+      } catch {
         return {} as CalendarInfo;
       }
     },

@@ -1,7 +1,10 @@
 import path from 'node:path';
 import { CliError } from '../core/errors.js';
 import { fileExists, readJsonFile, writeJsonFile } from '../utils/fs.js';
-import { parseProjectManifest, type ProjectManifest } from '../schemas/project.js';
+import {
+  parseProjectManifest,
+  type ProjectManifest
+} from '../schemas/project.js';
 
 const PROJECT_MANIFEST_PATH = path.join('.stratix', 'project.json');
 
@@ -32,7 +35,9 @@ export function loadProjectManifest(startDir: string): LoadedProjectManifest {
   const rootDir = findProjectRoot(startDir);
 
   if (!rootDir) {
-    throw new CliError('Current directory is not a Stratix forge managed project.');
+    throw new CliError(
+      'Current directory is not a Stratix forge managed project.'
+    );
   }
 
   const manifestPath = path.join(rootDir, PROJECT_MANIFEST_PATH);
@@ -45,6 +50,9 @@ export function loadProjectManifest(startDir: string): LoadedProjectManifest {
   };
 }
 
-export function writeProjectManifest(rootDir: string, manifest: ProjectManifest): void {
+export function writeProjectManifest(
+  rootDir: string,
+  manifest: ProjectManifest
+): void {
   writeJsonFile(path.join(rootDir, PROJECT_MANIFEST_PATH), manifest);
 }

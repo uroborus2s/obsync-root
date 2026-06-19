@@ -267,7 +267,7 @@ export class WorkflowExecutionRepository extends BaseRepository<
 }
 ```
 
-对于启用了数据库能力的新项目，`@stratix/cli@1.1.0` 可以直接生成这类骨架：
+对于启用了数据库能力的新项目，`@stratix/forge@1.1.0` 可以直接生成这类骨架：
 
 ```bash
 stratix generate business-repository workflow-execution
@@ -291,11 +291,12 @@ stratix generate business-repository workflow-execution
 - `writer(...)`
 - `schema(...)`
 
-`create(...)` / `createMany(...)` 在 1.1.0 中也会按数据库类型分别处理插入回读：
+`create(...)` / `createMany(...)` 在 1.1.0 中会按已实现的数据库类型分别处理插入回读：
 
 - PostgreSQL / SQLite 使用 `RETURNING`
-- MSSQL 使用 `OUTPUT INSERTED`
 - MySQL 使用插入后按主键回读
+
+MSSQL 的 repository SQL 生成分支保留了 `OUTPUT INSERTED` 语义，但 MSSQL 连接方言在 1.1.x 中尚未完整实现，不属于当前 `getSupportedDatabaseTypes()` 返回的支持矩阵。
 
 ## 公共导出
 

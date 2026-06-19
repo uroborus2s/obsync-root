@@ -27,6 +27,12 @@
   "engines": {
     "node": ">=24.0.0"
   },
+  "keywords": [
+    "stratix",
+    "create",
+    "scaffold",
+    "cli"
+  ],
   "publishConfig": {
     "access": "public"
   },

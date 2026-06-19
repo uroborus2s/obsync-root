@@ -1,4 +1,5 @@
 import { Box, LayoutDashboard, Network, PlayCircle, Terminal } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Button } from './components/ui/button';
 import { ApiTester } from './features/api-tester/ApiTester';
@@ -70,7 +71,14 @@ function App() {
   );
 }
 
-function NavButton({ active, onClick, children, icon }: any) {
+interface NavButtonProps {
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+  icon: ReactNode;
+}
+
+function NavButton({ active, onClick, children, icon }: NavButtonProps) {
   return (
     <Button 
       variant={active ? "secondary" : "ghost"} 

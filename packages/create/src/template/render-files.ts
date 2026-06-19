@@ -1,6 +1,9 @@
 import type { ManifestFile } from '../schemas/template.js';
 
-export function renderStringTemplate(template: string, variables: Record<string, string>): string {
+export function renderStringTemplate(
+  template: string,
+  variables: Record<string, string>
+): string {
   return template.replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (_, key) => {
     return variables[key] ?? '';
   });

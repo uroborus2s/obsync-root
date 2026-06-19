@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config'
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
@@ -9,6 +9,24 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
+      thresholds: {
+        lines: 42,
+        functions: 36,
+        branches: 32,
+        statements: 41,
+        'src/bootstrap/application-bootstrap.ts': {
+          lines: 70,
+          functions: 75,
+          branches: 50,
+          statements: 70
+        },
+        'src/discovery/**': {
+          lines: 65,
+          functions: 80,
+          branches: 50,
+          statements: 65
+        }
+      },
       exclude: [
         'node_modules/',
         'dist/',
@@ -23,4 +41,4 @@ export default defineConfig({
       '@': '/src'
     }
   }
-})
+});

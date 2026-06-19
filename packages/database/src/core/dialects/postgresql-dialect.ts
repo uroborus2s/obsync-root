@@ -8,7 +8,7 @@ import {
   isLeft,
   tryCatch
 } from '@stratix/core/functional';
-import { Kysely, PostgresDialect } from 'kysely';
+import { Kysely, PostgresDialect, sql } from 'kysely';
 import { Pool, PoolConfig } from 'pg';
 import type { ConnectionConfig, DatabaseType } from '../../types/index.js';
 import { DatabaseResult } from '../../utils/error-handler.js';
@@ -59,8 +59,7 @@ export class PostgreSQLDialect extends BaseDialect {
 
       // 测试连接
       try {
-        // 测试连接 - 暂时跳过查询
-        // TODO: 实现PostgreSQL特定的健康检查
+        await sql.raw(this.getHealthCheckQuery()).execute(kysely);
       } catch (error) {
         await kysely.destroy();
         throw this.handleConnectionError(error as Error);
@@ -148,13 +147,13 @@ export class PostgreSQLDialect extends BaseDialect {
     [key: string]: any;
   }): string {
     const { host, port, database, username, password } = params;
-    let connectionString = `postgresql://${username}`;
+    let connectionString = `postgresql://${this.encodeConnectionPart(username)}`;
 
     if (password) {
-      connectionString += `:${password}`;
+      connectionString += `:${this.encodeConnectionPart(password)}`;
     }
 
-    connectionString += `@${host}:${port}/${database}`;
+    connectionString += `@${host}:${port}/${this.encodeConnectionPart(database)}`;
 
     // 添加SSL参数
     const sslParams = this.buildSSLParams(params);
@@ -258,16 +257,16 @@ export class PostgreSQLDialect extends BaseDialect {
 
     if (params.ssl) {
       if (params.ssl.mode) {
-        sslParams.push(`sslmode=${params.ssl.mode}`);
+        sslParams.push(`sslmode=${this.encodeQueryValue(params.ssl.mode)}`);
       }
       if (params.ssl.ca) {
-        sslParams.push(`sslcert=${params.ssl.ca}`);
+        sslParams.push(`sslrootcert=${this.encodeQueryValue(params.ssl.ca)}`);
       }
       if (params.ssl.cert) {
-        sslParams.push(`sslcert=${params.ssl.cert}`);
+        sslParams.push(`sslcert=${this.encodeQueryValue(params.ssl.cert)}`);
       }
       if (params.ssl.key) {
-        sslParams.push(`sslkey=${params.ssl.key}`);
+        sslParams.push(`sslkey=${this.encodeQueryValue(params.ssl.key)}`);
       }
     }
 

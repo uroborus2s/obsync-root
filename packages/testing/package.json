@@ -2,11 +2,25 @@
   "name": "@stratix/testing",
   "version": "1.0.0-beta.1",
   "description": "Testing utilities for Stratix framework",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "files": [
     "dist"
   ],
+  "keywords": [
+    "stratix",
+    "testing",
+    "contract-test",
+    "fastify"
+  ],
+  "license": "MIT",
   "scripts": {
     "build": "tsc",
     "clean": "rimraf dist",

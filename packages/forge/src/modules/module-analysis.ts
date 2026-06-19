@@ -2,7 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { toCamelCase } from '../utils/case.js';
 import { fileExists } from '../utils/fs.js';
-import { analyzeSourceDI, type SourceDINode } from '../commands/doctor/di-source-analysis.js';
+import {
+  analyzeSourceDI,
+  type SourceDINode
+} from '../commands/doctor/di-source-analysis.js';
 
 export interface ModuleManifest {
   name: string;
@@ -73,7 +76,10 @@ const ROUTE_DECORATOR_PATTERN =
   /@(Get|Post|Put|Patch|Delete|Head|Options)\(\s*['"`]([^'"`]+)['"`]/g;
 
 function normalizePath(value: string): string {
-  return value.split(/[\\/]+/).filter(Boolean).join('/');
+  return value
+    .split(/[\\/]+/)
+    .filter(Boolean)
+    .join('/');
 }
 
 function indentation(line: string): number {
@@ -87,7 +93,9 @@ function stripComment(line: string): string {
 
 function findSection(lines: string[], key: string, indent: number): string[] {
   const headerPattern = new RegExp(`^ {${indent}}${key}:\\s*$`);
-  const startIndex = lines.findIndex((line) => headerPattern.test(stripComment(line)));
+  const startIndex = lines.findIndex((line) =>
+    headerPattern.test(stripComment(line))
+  );
 
   if (startIndex === -1) {
     return [];
@@ -133,14 +141,26 @@ function readMap(lines: string[], sectionKey: string): Record<string, string> {
   return values;
 }
 
-function readList(lines: string[], sectionKey: string, indent: number): string[] {
+function readList(
+  lines: string[],
+  sectionKey: string,
+  indent: number
+): string[] {
   return findSection(lines, sectionKey, indent)
-    .map((line) => stripComment(line).match(new RegExp(`^ {${indent + 2}}-\\s*(.+?)\\s*$`))?.[1])
+    .map(
+      (line) =>
+        stripComment(line).match(
+          new RegExp(`^ {${indent + 2}}-\\s*(.+?)\\s*$`)
+        )?.[1]
+    )
     .filter((value): value is string => Boolean(value))
     .map((value) => value.trim());
 }
 
-function readNestedMap(lines: string[], sectionKey: string): Record<string, string> {
+function readNestedMap(
+  lines: string[],
+  sectionKey: string
+): Record<string, string> {
   const section = findSection(lines, sectionKey, 0);
   const values: Record<string, string> = {};
 
@@ -154,7 +174,10 @@ function readNestedMap(lines: string[], sectionKey: string): Record<string, stri
   return values;
 }
 
-function parseModuleManifest(filePath: string, rootDir: string): ModuleManifest {
+function parseModuleManifest(
+  filePath: string,
+  rootDir: string
+): ModuleManifest {
   const source = fs.readFileSync(filePath, 'utf8');
   const lines = source.split(/\r?\n/);
   const name = readScalar(lines, 'name') || '';
@@ -206,7 +229,8 @@ function collectModuleManifestFiles(rootDir: string): string[] {
 
 function layerBasePath(pattern: string): string {
   const wildcardIndex = pattern.search(/[*{[]/);
-  const prefix = wildcardIndex === -1 ? pattern : pattern.slice(0, wildcardIndex);
+  const prefix =
+    wildcardIndex === -1 ? pattern : pattern.slice(0, wildcardIndex);
   return normalizePath(prefix.replace(/\/+$/, ''));
 }
 
@@ -274,7 +298,10 @@ function tokenKind(sourceFile: string): ModuleTokenNode['kind'] {
   return 'unknown';
 }
 
-function extractRoutes(rootDir: string, sourceFile: string): Array<{ method: string; path: string }> {
+function extractRoutes(
+  rootDir: string,
+  sourceFile: string
+): Array<{ method: string; path: string }> {
   const absoluteFile = path.join(rootDir, sourceFile);
   if (!fileExists(absoluteFile)) {
     return [];
@@ -287,7 +314,10 @@ function extractRoutes(rootDir: string, sourceFile: string): Array<{ method: str
   }));
 }
 
-function moduleContainsSource(manifest: ModuleManifest, sourceFile: string): boolean {
+function moduleContainsSource(
+  manifest: ModuleManifest,
+  sourceFile: string
+): boolean {
   return normalizePath(sourceFile).startsWith(`${manifest.root}/`);
 }
 
@@ -379,7 +409,9 @@ export function analyzeProjectModules(rootDir: string): ModuleAnalysis {
   });
 
   const moduleByName = new Map(modules.map((module) => [module.name, module]));
-  const manifestsByName = new Map(manifests.map((manifest) => [manifest.name, manifest]));
+  const manifestsByName = new Map(
+    manifests.map((manifest) => [manifest.name, manifest])
+  );
   const dependencyGraph = new Map<string, Set<string>>();
 
   for (const module of modules) {
@@ -429,7 +461,9 @@ export function analyzeProjectModules(rootDir: string): ModuleAnalysis {
   }
 
   for (const module of modules) {
-    module.dependencies = Array.from(dependencyGraph.get(module.name) || []).sort();
+    module.dependencies = Array.from(
+      dependencyGraph.get(module.name) || []
+    ).sort();
   }
 
   for (const cycle of findCycles(dependencyGraph)) {
@@ -460,13 +494,17 @@ export function renderModuleGraphMermaid(analysis: ModuleAnalysis): string {
 
     for (const token of module.tokens) {
       const tokenId = mermaidId(token.token);
-      lines.push(`  ${moduleId}["${module.name}"] --> ${tokenId}["${token.token}"]`);
+      lines.push(
+        `  ${moduleId}["${module.name}"] --> ${tokenId}["${token.token}"]`
+      );
 
       for (const dependency of token.dependencies) {
         if (BUILT_IN_TOKENS.has(dependency)) {
           continue;
         }
-        lines.push(`  ${tokenId}["${token.token}"] --> ${mermaidId(dependency)}["${dependency}"]`);
+        lines.push(
+          `  ${tokenId}["${token.token}"] --> ${mermaidId(dependency)}["${dependency}"]`
+        );
       }
 
       token.routes.forEach((route, index) => {
@@ -478,7 +516,9 @@ export function renderModuleGraphMermaid(analysis: ModuleAnalysis): string {
     }
 
     for (const dependency of module.dependencies) {
-      lines.push(`  ${moduleId}["${module.name}"] -.imports.-> ${mermaidId(dependency)}["${dependency}"]`);
+      lines.push(
+        `  ${moduleId}["${module.name}"] -.imports.-> ${mermaidId(dependency)}["${dependency}"]`
+      );
     }
   }
 

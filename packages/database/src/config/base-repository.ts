@@ -8,7 +8,6 @@ import {
   eitherRight,
   fromNullable,
   isLeft,
-  isNone,
   type Maybe,
   tryCatchAsync
 } from '@stratix/core/functional';
@@ -962,7 +961,7 @@ export class ConnectionConfigResolver {
 export interface QueryOptions<
   DB = any,
   TB extends keyof DB = Extract<keyof DB, string>,
-  T = any
+  _T = any
 > {
   readonly limit?: number;
   readonly offset?: number;
@@ -1072,7 +1071,7 @@ export class QueryBuilderFactory {
    * 创建基础查询
    */
   static createBaseQuery<DB, TB extends keyof DB, O = {}>(
-    context: QueryBuilderContext<DB, TB>
+    _context: QueryBuilderContext<DB, TB>
   ): QueryPipe<DB, TB, O> {
     return (qb) => qb;
   }

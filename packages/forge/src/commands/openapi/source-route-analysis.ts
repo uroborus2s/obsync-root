@@ -104,7 +104,9 @@ function decoratorsOf(ts: any, node: any): readonly any[] {
 }
 
 function decoratorCall(ts: any, decorator: any): any | null {
-  return ts.isCallExpression(decorator.expression) ? decorator.expression : null;
+  return ts.isCallExpression(decorator.expression)
+    ? decorator.expression
+    : null;
 }
 
 function expressionName(ts: any, expression: any): string | null {
@@ -118,7 +120,11 @@ function expressionName(ts: any, expression: any): string | null {
 }
 
 function propertyName(ts: any, name: any): string {
-  if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) {
+  if (
+    ts.isIdentifier(name) ||
+    ts.isStringLiteral(name) ||
+    ts.isNumericLiteral(name)
+  ) {
     return name.text;
   }
   throw new CliError(`Unsupported schema property name: ${name.getText()}`);
@@ -200,7 +206,8 @@ function parseRouteCall(
 } {
   const pathArg = call.arguments[0];
   const routePath =
-    pathArg && (ts.isStringLiteral(pathArg) || ts.isNoSubstitutionTemplateLiteral(pathArg))
+    pathArg &&
+    (ts.isStringLiteral(pathArg) || ts.isNoSubstitutionTemplateLiteral(pathArg))
       ? pathArg.text
       : '/';
   const optionsArg = call.arguments[1];
@@ -269,7 +276,9 @@ export function analyzeSourceRoutes(rootDir: string): SourceRouteContract[] {
 
       const controllerDecorator = decoratorsOf(ts, node)
         .map((decorator) => decoratorCall(ts, decorator))
-        .some((call) => call && expressionName(ts, call.expression) === 'Controller');
+        .some(
+          (call) => call && expressionName(ts, call.expression) === 'Controller'
+        );
       if (!controllerDecorator) {
         return;
       }
@@ -288,7 +297,9 @@ export function analyzeSourceRoutes(rootDir: string): SourceRouteContract[] {
           }
 
           const decoratorName = expressionName(ts, call.expression);
-          const method = decoratorName ? ROUTE_DECORATORS.get(decoratorName) : undefined;
+          const method = decoratorName
+            ? ROUTE_DECORATORS.get(decoratorName)
+            : undefined;
           if (!method) {
             continue;
           }
@@ -417,7 +428,9 @@ export function validateSourceRouteContracts(
   return diagnostics;
 }
 
-function schemaProperties(schema: JsonSchemaObject | undefined): JsonSchemaObject {
+function schemaProperties(
+  schema: JsonSchemaObject | undefined
+): JsonSchemaObject {
   const properties = schema?.properties;
   return properties && typeof properties === 'object'
     ? (properties as JsonSchemaObject)

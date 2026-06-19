@@ -29,7 +29,7 @@ export class ParameterValidationError extends Error {
  */
 const wasV7Api: FastifyPluginAsync<WasV7PluginOptions> = async (
   fastify: FastifyInstance,
-  options: WasV7PluginOptions
+  _options: WasV7PluginOptions
 ): Promise<void> => {
   fastify.log.info('WPS V7 API plugin loaded successfully');
 };
@@ -114,7 +114,7 @@ const stratixWasV7Plugin: FastifyPluginAsync<any> = withRegisterAutoDI(
         if (opts.baseUrl) {
           try {
             new URL(opts.baseUrl);
-          } catch (error) {
+          } catch {
             console.error(`❌ baseUrl must be a valid URL: ${opts.baseUrl}`);
             return false;
           }

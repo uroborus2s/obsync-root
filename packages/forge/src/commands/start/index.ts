@@ -22,7 +22,9 @@ interface StratixCoreModule {
   };
 }
 
-async function loadProjectStratixCore(projectDir: string): Promise<StratixCoreModule> {
+async function loadProjectStratixCore(
+  projectDir: string
+): Promise<StratixCoreModule> {
   let resolvedPath: string;
 
   try {
@@ -34,10 +36,14 @@ async function loadProjectStratixCore(projectDir: string): Promise<StratixCoreMo
     );
   }
 
-  const module = (await import(pathToFileURL(resolvedPath).href)) as Partial<StratixCoreModule>;
+  const module = (await import(
+    pathToFileURL(resolvedPath).href
+  )) as Partial<StratixCoreModule>;
 
   if (!module.Stratix || typeof module.Stratix.run !== 'function') {
-    throw new CliError('The resolved @stratix/core module does not export Stratix.run().');
+    throw new CliError(
+      'The resolved @stratix/core module does not export Stratix.run().'
+    );
   }
 
   return module as StratixCoreModule;

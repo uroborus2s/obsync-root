@@ -142,6 +142,47 @@ function seedWorkspacePackage(
   );
 }
 
+function seedWorkspaceRoot(rootDir: string): void {
+  fs.writeFileSync(
+    path.join(rootDir, 'package.json'),
+    JSON.stringify(
+      {
+        name: '@stratix/workspace-fixture',
+        private: true,
+        scripts: {
+          'build:supported': 'echo build',
+          'test:supported': 'echo test',
+          'security:audit': 'echo security'
+        }
+      },
+      null,
+      2
+    ),
+    'utf8'
+  );
+}
+
+function seedReleaseWorkspacePackage(
+  rootDir: string,
+  packageDir: string,
+  overrides: Record<string, unknown> = {}
+): void {
+  seedWorkspacePackage(rootDir, packageDir, {
+    name: '@stratix/core',
+    version: '1.1.0',
+    description: 'Core runtime package for Stratix framework applications',
+    main: 'dist/index.js',
+    types: 'dist/index.d.ts',
+    files: ['dist'],
+    keywords: ['stratix', 'framework'],
+    license: 'MIT',
+    publishConfig: {
+      access: 'public'
+    },
+    ...overrides
+  });
+}
+
 function seedFakeReleaseGateBins(rootDir: string): string {
   const binDir = path.join(rootDir, 'bin');
   fs.mkdirSync(binDir, { recursive: true });
@@ -1361,6 +1402,17 @@ describe('@stratix/forge', () => {
     );
 
     const projectDir = path.join(cwd, 'release-gate-app');
+    const packageJsonPath = path.join(projectDir, 'package.json');
+    const packageJson = readJson(packageJsonPath);
+    packageJson.scripts = {
+      ...packageJson.scripts,
+      'security:audit': 'echo security'
+    };
+    fs.writeFileSync(
+      packageJsonPath,
+      JSON.stringify(packageJson, null, 2),
+      'utf8'
+    );
     seedProjectTypescript(projectDir);
     const manifestFile = path.join(
       projectDir,
@@ -1415,30 +1467,100 @@ describe('@stratix/forge', () => {
     );
   });
 
+  it('fails release gate dry-run when the security script is missing', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+
+    await runCreate(
+      ['app', 'api', 'release-gate-no-security', '--no-install'],
+      {
+        cwd,
+        output
+      }
+    );
+
+    const projectDir = path.join(cwd, 'release-gate-no-security');
+    seedProjectTypescript(projectDir);
+    const manifestFile = path.join(
+      projectDir,
+      '.stratix',
+      'production-manifest.json'
+    );
+
+    await runCli(['build-manifest', '--output', manifestFile], {
+      cwd: projectDir,
+      output
+    });
+
+    await assert.rejects(
+      runCli(['release', 'gate', '--dry-run', '--manifest', manifestFile], {
+        cwd: projectDir,
+        output
+      }),
+      (error) =>
+        error instanceof CliError &&
+        error.message.includes('Release gate security')
+    );
+  });
+
+  it('fails release gate dry-run when API route contracts are duplicated', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+
+    await runCreate(
+      ['app', 'api', 'release-gate-duplicate-api', '--no-install'],
+      {
+        cwd,
+        output
+      }
+    );
+
+    const projectDir = path.join(cwd, 'release-gate-duplicate-api');
+    const packageJsonPath = path.join(projectDir, 'package.json');
+    const packageJson = readJson(packageJsonPath);
+    packageJson.scripts = {
+      ...packageJson.scripts,
+      'security:audit': 'echo security'
+    };
+    fs.writeFileSync(
+      packageJsonPath,
+      JSON.stringify(packageJson, null, 2),
+      'utf8'
+    );
+    seedProjectTypescript(projectDir);
+    const manifestFile = path.join(
+      projectDir,
+      '.stratix',
+      'production-manifest.json'
+    );
+
+    await runCli(['build-manifest', '--output', manifestFile], {
+      cwd: projectDir,
+      output
+    });
+
+    const manifest = readJson(manifestFile);
+    assert.ok(Array.isArray(manifest.routes) && manifest.routes.length > 0);
+    manifest.routes.push({ ...manifest.routes[0] });
+    fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2), 'utf8');
+
+    await assert.rejects(
+      runCli(['release', 'gate', '--dry-run', '--manifest', manifestFile], {
+        cwd: projectDir,
+        output
+      }),
+      (error) =>
+        error instanceof CliError &&
+        error.message.includes('duplicate route contract')
+    );
+  });
+
   it('plans workspace release readiness without requiring a production manifest', async () => {
     const cwd = createTempRoot();
     const output = createMemoryOutput();
 
-    fs.writeFileSync(
-      path.join(cwd, 'package.json'),
-      JSON.stringify(
-        {
-          name: '@stratix/workspace-fixture',
-          private: true,
-          scripts: {
-            'build:supported': 'echo build',
-            'test:supported': 'echo test'
-          }
-        },
-        null,
-        2
-      ),
-      'utf8'
-    );
-    seedWorkspacePackage(cwd, 'core', {
-      name: '@stratix/core',
-      version: '1.1.0'
-    });
+    seedWorkspaceRoot(cwd);
+    seedReleaseWorkspacePackage(cwd, 'core');
     seedWorkspacePackage(cwd, 'tasks', {
       name: '@stratix/tasks',
       version: '1.1.0'
@@ -1476,26 +1598,8 @@ describe('@stratix/forge', () => {
     const cwd = createTempRoot();
     const output = createMemoryOutput();
 
-    fs.writeFileSync(
-      path.join(cwd, 'package.json'),
-      JSON.stringify(
-        {
-          name: '@stratix/workspace-fixture',
-          private: true,
-          scripts: {
-            'build:supported': 'echo build',
-            'test:supported': 'echo test'
-          }
-        },
-        null,
-        2
-      ),
-      'utf8'
-    );
-    seedWorkspacePackage(cwd, 'core', {
-      name: '@stratix/core',
-      version: '1.1.0'
-    });
+    seedWorkspaceRoot(cwd);
+    seedReleaseWorkspacePackage(cwd, 'core');
 
     await runCli(
       [
@@ -1523,6 +1627,32 @@ describe('@stratix/forge', () => {
     );
   });
 
+  it('fails workspace release gate when package publish metadata is incomplete', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+
+    seedWorkspaceRoot(cwd);
+    seedReleaseWorkspacePackage(cwd, 'core', {
+      publishConfig: undefined
+    });
+
+    await assert.rejects(
+      runCli(['release', 'gate', '--scope', 'workspace', '--dry-run'], {
+        cwd,
+        output
+      }),
+      (error) =>
+        error instanceof CliError &&
+        error.message.includes('Release surface metadata is invalid')
+    );
+
+    assert.ok(
+      output.messages.some((message) =>
+        message.message.includes('publishConfig.access must be public')
+      )
+    );
+  });
+
   it('fails workspace release gate when a package tarball misses entry files', async () => {
     const cwd = createTempRoot();
     const output = createMemoryOutput();
@@ -1530,28 +1660,8 @@ describe('@stratix/forge', () => {
     const originalPath = process.env.PATH;
     const originalFiles = process.env.STRATIX_FAKE_PACK_FILES;
 
-    fs.writeFileSync(
-      path.join(cwd, 'package.json'),
-      JSON.stringify(
-        {
-          name: '@stratix/workspace-fixture',
-          private: true,
-          scripts: {
-            'build:supported': 'echo build',
-            'test:supported': 'echo test'
-          }
-        },
-        null,
-        2
-      ),
-      'utf8'
-    );
-    seedWorkspacePackage(cwd, 'core', {
-      name: '@stratix/core',
-      version: '1.1.0',
-      main: 'dist/index.js',
-      types: 'dist/index.d.ts'
-    });
+    seedWorkspaceRoot(cwd);
+    seedReleaseWorkspacePackage(cwd, 'core');
 
     process.env.PATH = `${binDir}${path.delimiter}${originalPath}`;
     process.env.STRATIX_FAKE_PACK_FILES = JSON.stringify(['package.json']);
@@ -1587,28 +1697,8 @@ describe('@stratix/forge', () => {
     const originalPath = process.env.PATH;
     const originalFiles = process.env.STRATIX_FAKE_PACK_FILES;
 
-    fs.writeFileSync(
-      path.join(cwd, 'package.json'),
-      JSON.stringify(
-        {
-          name: '@stratix/workspace-fixture',
-          private: true,
-          scripts: {
-            'build:supported': 'echo build',
-            'test:supported': 'echo test'
-          }
-        },
-        null,
-        2
-      ),
-      'utf8'
-    );
-    seedWorkspacePackage(cwd, 'core', {
-      name: '@stratix/core',
-      version: '1.1.0',
-      main: 'dist/index.js',
-      types: 'dist/index.d.ts'
-    });
+    seedWorkspaceRoot(cwd);
+    seedReleaseWorkspacePackage(cwd, 'core');
 
     process.env.PATH = `${binDir}${path.delimiter}${originalPath}`;
     process.env.STRATIX_FAKE_PACK_FILES = JSON.stringify([
@@ -1652,28 +1742,8 @@ describe('@stratix/forge', () => {
     const originalTags = process.env.STRATIX_FAKE_GIT_TAGS;
     const originalNpmView = process.env.STRATIX_FAKE_NPM_VIEW;
 
-    fs.writeFileSync(
-      path.join(cwd, 'package.json'),
-      JSON.stringify(
-        {
-          name: '@stratix/workspace-fixture',
-          private: true,
-          scripts: {
-            'build:supported': 'echo build',
-            'test:supported': 'echo test'
-          }
-        },
-        null,
-        2
-      ),
-      'utf8'
-    );
-    seedWorkspacePackage(cwd, 'core', {
-      name: '@stratix/core',
-      version: '1.1.0',
-      main: 'dist/index.js',
-      types: 'dist/index.d.ts'
-    });
+    seedWorkspaceRoot(cwd);
+    seedReleaseWorkspacePackage(cwd, 'core');
 
     process.env.PATH = `${binDir}${path.delimiter}${originalPath}`;
     process.env.STRATIX_FAKE_PACK_FILES = JSON.stringify([
@@ -1728,28 +1798,8 @@ describe('@stratix/forge', () => {
     const originalNpmView = process.env.STRATIX_FAKE_NPM_VIEW;
     const originalNpmVersion = process.env.STRATIX_FAKE_NPM_VERSION;
 
-    fs.writeFileSync(
-      path.join(cwd, 'package.json'),
-      JSON.stringify(
-        {
-          name: '@stratix/workspace-fixture',
-          private: true,
-          scripts: {
-            'build:supported': 'echo build',
-            'test:supported': 'echo test'
-          }
-        },
-        null,
-        2
-      ),
-      'utf8'
-    );
-    seedWorkspacePackage(cwd, 'core', {
-      name: '@stratix/core',
-      version: '1.1.0',
-      main: 'dist/index.js',
-      types: 'dist/index.d.ts'
-    });
+    seedWorkspaceRoot(cwd);
+    seedReleaseWorkspacePackage(cwd, 'core');
 
     process.env.PATH = `${binDir}${path.delimiter}${originalPath}`;
     process.env.STRATIX_FAKE_PACK_FILES = JSON.stringify([

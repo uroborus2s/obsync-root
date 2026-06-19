@@ -416,7 +416,7 @@ export function mapValues<T extends object, R>(
  *
  * @public
  */
-export function transform<T, R>(
+export function transform<R>(
   object: Record<string, any>,
   iteratee: (
     result: R,

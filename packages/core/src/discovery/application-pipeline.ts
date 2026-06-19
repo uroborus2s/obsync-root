@@ -42,6 +42,32 @@ const DEFAULT_EXCLUDE = [
   '**/__tests__/**'
 ];
 
+type ManifestTokenSelector =
+  | string
+  | {
+      token: string;
+      className?: string;
+      sourceFile?: string;
+    };
+
+interface ManifestRouteSelector {
+  method?: string;
+  path?: string;
+  controllerName?: string;
+  handlerName?: string;
+  sourceFile?: string;
+}
+
+interface ManifestRegistrationPlan {
+  tokens?: ManifestTokenSelector[];
+  routes?: ManifestRouteSelector[];
+}
+
+interface AnalyzedComponent {
+  module: LoadedModule;
+  component: ComponentMetadata;
+}
+
 function toLifetime(lifetime?: string): LifetimeType {
   if (lifetime === 'SCOPED') return Lifetime.SCOPED;
   if (lifetime === 'TRANSIENT') return Lifetime.TRANSIENT;
@@ -54,11 +80,6 @@ function toInjectionMode(mode?: string): InjectionModeType {
 
 function camelCaseName(name: string): string {
   return name.charAt(0).toLowerCase() + name.slice(1);
-}
-
-function ensureArray(value: string | string[] | undefined): string[] {
-  if (!value) return [];
-  return Array.isArray(value) ? value : [value];
 }
 
 export class ApplicationDiscoveryPipeline {
@@ -84,7 +105,7 @@ export class ApplicationDiscoveryPipeline {
     const modules = await this.scan(config);
     result.scanned = modules.length;
 
-    const components = modules.flatMap((module) => {
+    const components = modules.flatMap((module): AnalyzedComponent[] => {
       const component = this.analyze(module, config);
       if (!component) {
         result.skipped.push({
@@ -93,11 +114,16 @@ export class ApplicationDiscoveryPipeline {
         });
         return [];
       }
-      return [component];
+      return [{ module, component }];
     });
     result.analyzed = components.length;
+    this.assertManifestPlanMatchesDiscoveredComponents(components, config);
 
-    for (const component of components) {
+    for (const component of this.filterComponentsByManifestPlan(
+      components,
+      config,
+      result
+    )) {
       try {
         const registered = await this.registerComponent(
           component,
@@ -195,7 +221,7 @@ export class ApplicationDiscoveryPipeline {
 
   analyze(
     module: LoadedModule,
-    config: ApplicationDiscoveryConfig
+    _config: ApplicationDiscoveryConfig
   ): ComponentMetadata | null {
     const { value } = module;
     if (typeof value !== 'function') {
@@ -290,6 +316,99 @@ export class ApplicationDiscoveryPipeline {
     return { tokens, routes };
   }
 
+  private assertManifestPlanMatchesDiscoveredComponents(
+    components: AnalyzedComponent[],
+    config: ApplicationDiscoveryConfig
+  ): void {
+    if (config.productionManifest?.strict === false) {
+      return;
+    }
+
+    const plan = this.getManifestRegistrationPlan(config);
+    if (!plan) {
+      return;
+    }
+
+    for (const token of this.getManifestTokenSelectors(plan)) {
+      const matched = components.some(({ component, module }) =>
+        this.matchesManifestToken(component, module, token, config)
+      );
+      if (!matched) {
+        throw new ConfigurationError(
+          `Production manifest source mismatch: declared DI token was not discovered: ${token.token}`,
+          { token }
+        );
+      }
+    }
+
+    for (const route of plan.routes || []) {
+      const matched = components.some(({ component, module }) => {
+        if (component.type !== 'controller') {
+          return false;
+        }
+        return (component.routes || []).some((candidate) =>
+          this.matchesManifestRoute(component, module, candidate, route, config)
+        );
+      });
+
+      if (!matched) {
+        throw new ConfigurationError(
+          `Production manifest source mismatch: declared route was not discovered: ${this.describeManifestRoute(route)}`,
+          { route }
+        );
+      }
+    }
+  }
+
+  private filterComponentsByManifestPlan(
+    components: AnalyzedComponent[],
+    config: ApplicationDiscoveryConfig,
+    result: ApplicationDiscoveryResult
+  ): ComponentMetadata[] {
+    const plan = this.getManifestRegistrationPlan(config);
+    if (!plan) {
+      return components.map(({ component }) => component);
+    }
+
+    const tokenSelectors = this.getManifestTokenSelectors(plan);
+    const routeSelectors = plan.routes || [];
+
+    return components.flatMap(({ component, module }) => {
+      const matchedToken = tokenSelectors.some((selector) =>
+        this.matchesManifestToken(component, module, selector, config)
+      );
+      const matchedControllerRoute =
+        component.type === 'controller' &&
+        routeSelectors.some((selector) =>
+          this.matchesManifestController(component, module, selector, config)
+        );
+
+      if (!matchedToken && !matchedControllerRoute) {
+        result.skipped.push({
+          name: component.name,
+          reason: 'not-in-production-manifest'
+        });
+        return [];
+      }
+
+      if (component.type !== 'controller') {
+        return [component];
+      }
+
+      return [
+        {
+          ...component,
+          routes: this.filterRoutesByManifestPlan(
+            component,
+            module,
+            component.routes || [],
+            config
+          )
+        }
+      ];
+    });
+  }
+
   private async registerRoutes(
     component: ComponentMetadata,
     fastify: FastifyInstance,
@@ -327,5 +446,137 @@ export class ApplicationDiscoveryPipeline {
     }
 
     return routes.length;
+  }
+
+  private filterRoutesByManifestPlan(
+    component: ComponentMetadata,
+    module: LoadedModule,
+    routes: NonNullable<ComponentMetadata['routes']>,
+    config: ApplicationDiscoveryConfig
+  ): NonNullable<ComponentMetadata['routes']> {
+    const manifestRoutes = this.getManifestRegistrationPlan(config)?.routes;
+    if (!manifestRoutes) {
+      return routes;
+    }
+
+    return routes.filter((route) =>
+      manifestRoutes.some((selector) =>
+        this.matchesManifestRoute(component, module, route, selector, config)
+      )
+    );
+  }
+
+  private matchesManifestRoute(
+    component: ComponentMetadata,
+    module: LoadedModule,
+    route: NonNullable<ComponentMetadata['routes']>[number],
+    selector: ManifestRouteSelector,
+    config: ApplicationDiscoveryConfig
+  ): boolean {
+    if (!this.matchesManifestSourceFile(module, selector.sourceFile, config)) {
+      return false;
+    }
+    if (
+      selector.controllerName &&
+      !this.getComponentNames(component, module).has(selector.controllerName)
+    ) {
+      return false;
+    }
+    if (selector.handlerName && selector.handlerName !== route.handlerName) {
+      return false;
+    }
+    if (
+      selector.method &&
+      selector.method.toUpperCase() !== route.method.toUpperCase()
+    ) {
+      return false;
+    }
+    if (selector.path && selector.path !== route.path) {
+      return false;
+    }
+    return true;
+  }
+
+  private matchesManifestController(
+    component: ComponentMetadata,
+    module: LoadedModule,
+    selector: ManifestRouteSelector,
+    config: ApplicationDiscoveryConfig
+  ): boolean {
+    if (!this.matchesManifestSourceFile(module, selector.sourceFile, config)) {
+      return false;
+    }
+    if (!selector.controllerName) {
+      return true;
+    }
+    return this.getComponentNames(component, module).has(
+      selector.controllerName
+    );
+  }
+
+  private matchesManifestToken(
+    component: ComponentMetadata,
+    module: LoadedModule,
+    selector: { token: string; className?: string; sourceFile?: string },
+    config: ApplicationDiscoveryConfig
+  ): boolean {
+    if (!this.matchesManifestSourceFile(module, selector.sourceFile, config)) {
+      return false;
+    }
+    if (selector.token === camelCaseName(component.name)) {
+      return true;
+    }
+    return selector.className
+      ? this.getComponentNames(component, module).has(selector.className)
+      : false;
+  }
+
+  private matchesManifestSourceFile(
+    module: LoadedModule,
+    sourceFile: string | undefined,
+    config: ApplicationDiscoveryConfig
+  ): boolean {
+    if (!sourceFile) {
+      return true;
+    }
+
+    const rootDir = config.rootDir || process.cwd();
+    const expected = isAbsolute(sourceFile)
+      ? resolve(sourceFile)
+      : resolve(rootDir, sourceFile);
+    return resolve(module.path) === expected;
+  }
+
+  private getComponentNames(
+    component: ComponentMetadata,
+    module: LoadedModule
+  ): Set<string> {
+    return new Set(
+      [component.name, module.name, module.value?.name].filter(
+        (name): name is string => typeof name === 'string' && name.length > 0
+      )
+    );
+  }
+
+  private getManifestRegistrationPlan(
+    config: ApplicationDiscoveryConfig
+  ): ManifestRegistrationPlan | undefined {
+    return config.manifestRegistration as ManifestRegistrationPlan | undefined;
+  }
+
+  private getManifestTokenSelectors(
+    plan: ManifestRegistrationPlan
+  ): Array<{ token: string; className?: string; sourceFile?: string }> {
+    return (plan.tokens || []).map((token) =>
+      typeof token === 'string' ? { token } : token
+    );
+  }
+
+  private describeManifestRoute(selector: ManifestRouteSelector): string {
+    const method = selector.method?.toUpperCase() || '*';
+    const path = selector.path || '*';
+    const controller = selector.controllerName || '*';
+    const handler = selector.handlerName || '*';
+    return `${method} ${path} (${controller}.${handler})`;
   }
 }

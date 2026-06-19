@@ -43,6 +43,9 @@
     "README.md",
     "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "ioredis": "^5.11.1"
   },

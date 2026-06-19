@@ -58,9 +58,7 @@ function camelCaseName(name: string): string {
 }
 
 function cleanSource(source: string): string {
-  return source
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/\/\/.*$/gm, '');
+  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
 }
 
 function splitParameters(parameterList: string): string[] {
@@ -163,7 +161,9 @@ function findCycles(nodes: SourceDINode[]): string[][] {
     if (!adjacency.has(node.token)) {
       adjacency.set(
         node.token,
-        node.dependencies.filter((dependency) => !BUILT_IN_TOKENS.has(dependency))
+        node.dependencies.filter(
+          (dependency) => !BUILT_IN_TOKENS.has(dependency)
+        )
       );
     }
   }
@@ -177,7 +177,9 @@ function findCycles(nodes: SourceDINode[]): string[][] {
       const start = pathStack.indexOf(token);
       if (start >= 0) {
         const cycle = pathStack.slice(start);
-        cycles.push(cycle[cycle.length - 1] === token ? cycle : [...cycle, token]);
+        cycles.push(
+          cycle[cycle.length - 1] === token ? cycle : [...cycle, token]
+        );
       }
       return;
     }

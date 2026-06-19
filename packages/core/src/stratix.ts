@@ -11,7 +11,7 @@ import type { StratixApplication, StratixRunOptions } from './types/index.js';
 /**
  * Stratix 版本信息
  */
-export const STRATIX_VERSION = '1.0.0';
+export const STRATIX_VERSION = '1.1.0';
 
 /**
  * Stratix 主类
@@ -32,7 +32,10 @@ export class Stratix {
   /**
    * 创建 Stratix 应用实例
    */
-  static async run(options?: StratixRunOptions, extraStream?: any): Promise<StratixApplication> {
+  static async run(
+    options?: StratixRunOptions,
+    extraStream?: any
+  ): Promise<StratixApplication> {
     const stratix = new Stratix(options, extraStream);
     return await stratix.start(options);
   }
@@ -57,7 +60,10 @@ export class Stratix {
       this.logger.info('✅ Stratix application created successfully');
       return this.application;
     } catch (error) {
-      this.logger.error({ err: error }, '❌ Failed to create Stratix application');
+      this.logger.error(
+        { err: error },
+        '❌ Failed to create Stratix application'
+      );
       this.application = null;
       throw error;
     }
@@ -85,7 +91,10 @@ export class Stratix {
       this.application = null;
       this.logger.info('✅ Stratix application stopped successfully');
     } catch (error) {
-      this.logger.error({ err: error }, '❌ Failed to stop Stratix application');
+      this.logger.error(
+        { err: error },
+        '❌ Failed to stop Stratix application'
+      );
       throw error;
     }
   }

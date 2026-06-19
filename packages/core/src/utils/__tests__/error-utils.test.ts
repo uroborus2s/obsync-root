@@ -154,9 +154,9 @@ describe('ErrorUtils', () => {
         .mockRejectedValueOnce(new Error('first'))
         .mockResolvedValue('success');
 
-      await expect(
-        withRetry(fn, { maxRetries: 2, delay: 1 })
-      ).resolves.toBe('success');
+      await expect(withRetry(fn, { maxRetries: 2, delay: 1 })).resolves.toBe(
+        'success'
+      );
       expect(fn).toHaveBeenCalledTimes(2);
     });
 

@@ -9,11 +9,10 @@ export { pino as createLogger } from 'pino';
 type CompatLogFn = (...args: any[]) => void;
 
 // 对外暴露兼容旧调用习惯的 logger 类型，避免工作区包在升级到 pino 10 后集体报错。
-export interface Logger
-  extends Omit<
-    PinoLogger,
-    'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace'
-  > {
+export interface Logger extends Omit<
+  PinoLogger,
+  'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace'
+> {
   fatal: CompatLogFn;
   error: CompatLogFn;
   warn: CompatLogFn;

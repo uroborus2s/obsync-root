@@ -1,12 +1,12 @@
 # Current State
 
-- Snapshot date: 2026-06-18
-- Recommended software-factory stage: `PHASE_6_RELEASE_READINESS`
+- Snapshot date: 2026-06-19
+- Recommended software-factory stage: `PHASE_6_RELEASE_READY`
 - Repository type: historical Stratix source monorepo
 - Toolchain baseline:
   - Node `24.14.1`
   - pnpm `10.33.0`
-  - TypeScript `6.0.2`
+  - TypeScript `6.0.3`
 - Workspace reality:
   - 11 public `@stratix/*` packages
   - 0 workspace apps
@@ -25,7 +25,7 @@
 - Phase 5 production baseline is implemented: `@stratix/core` accepts `discovery.productionManifest`, loads and validates `.stratix/production-manifest.json`, exposes the loaded artifact on the application instance, can skip application-level runtime glob discovery when `skipRuntimeDiscovery` is true, can register DI/routes from manifest source files when `registerFromManifest` is true, and provides `observability` / `security` presets.
 - `@stratix/devtools` exposes Phase 5 production views for routes, DI, plugins, redacted config, health, and traces.
 - `@stratix/forge` exposes `stratix release gate` for production manifest release checks and `stratix release gate --scope workspace` for monorepo release-readiness planning.
-- Phase 6 release-readiness gate is implemented: workspace release gate executes supported build/test/docs/pack/API/release-surface checks, explicitly excludes frozen `@stratix/tasks`, can include frozen offline install and public npmjs exact-version reconciliation, and validates supported package tarball contents.
+- Phase 6 release-readiness gate is implemented and locally passing: workspace release gate executes supported build/test/docs/security/pack/API/release-surface checks, explicitly excludes frozen `@stratix/tasks`, can include frozen offline install and public npmjs exact-version reconciliation, and validates supported package tarball contents plus package release metadata.
 - The toolchain split is implemented: `@stratix/create` owns app/plugin creation, `@stratix/forge` owns project-local generate/doctor/di/openapi/start/config workflows, and neither package depends on `@stratix/core`.
 - The physical source directory for `@stratix/forge` is now `packages/forge`; `packages/cli` is not retained as a compatibility directory.
 - `.stratix/project.json` is now the create/forge handoff contract at `schemaVersion: 2`; create writes the template contribution snapshot, allowed presets, and managed files mode, while forge reads the manifest/presets/resource templates instead of app/plugin creation templates.
@@ -41,6 +41,9 @@
 - Root `pnpm build:supported` passes:
   - 10 supported packages
   - `@stratix/tasks` explicitly excluded
+- Root `pnpm lint` delegates to `lint:supported` and passes:
+  - 11 supported lint tasks
+  - `@stratix/tasks` explicitly excluded
 - Explicit all-package `pnpm build:all` is still expected to fail at `@stratix/tasks` until that deprecated package is migrated or removed:
   - `@stratix/tasks` still imports the removed `DatabaseAPI`
   - `@stratix/tasks` still calls the old `BaseRepository` constructor shape
@@ -52,9 +55,15 @@
   - Already up to date
 - `pnpm --filter @stratix/core build` passes after the breaking application discovery refactor and unified error envelope work.
 - `pnpm --filter @stratix/core exec tsc -p tsconfig.json --noEmit` passes.
-- `CI=true pnpm --filter @stratix/core exec vitest run` passes after Phase 5 production baseline work:
+- `CI=true pnpm --filter @stratix/core exec vitest run` passes after production manifest strict registration and late controller registration hardening:
   - 27 test files
-  - 194 tests
+  - 203 tests
+- `pnpm --filter @stratix/core run test:coverage` passes:
+  - global lines `42.46%`
+  - global functions `36.76%`
+  - global branches `32.70%`
+  - global statements `41.75%`
+  - bootstrap/discovery critical paths use higher targeted thresholds
 - `@stratix/core` now exports `ERROR_ENVELOPE_SCHEMA` and `createErrorEnvelope()`; bootstrap error handling uses the shared envelope for `HttpError`, validation errors, 404, and response schema serialization failures.
 - `@stratix/core` now accepts `discovery.productionManifest`; bootstrap can load/validate `.stratix/production-manifest.json`, expose the loaded artifact, fail fast on invalid strict manifests, skip application-level runtime glob discovery, and register DI/routes from manifest source files when configured.
 - `@stratix/core` now accepts `observability` and `security`; bootstrap can expose request/trace ids, health, metrics, traces, CORS, security headers, body limit, and rate limit.
@@ -63,11 +72,11 @@
 - `pnpm --filter @stratix/create exec tsc -p tsconfig.json --noEmit` passes.
 - `pnpm --filter @stratix/create run build` passes.
 - `pnpm --filter @stratix/forge test` passes:
-  - 45 tests
+  - 48 tests
 - `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit` passes.
 - `pnpm --filter @stratix/forge run build` passes after advanced typed client generation support.
 - `pnpm --filter @stratix/devtools test` passes:
-  - 2 tests
+  - 3 tests
 - `pnpm --filter @stratix/devtools exec tsc -p tsconfig.json --noEmit` passes.
 - `pnpm --filter @stratix/testing test` passes:
   - 3 test files
@@ -91,8 +100,11 @@
 - Built `@stratix/forge` CLI workspace release gate dry-runs pass:
   - `node packages/forge/dist/bin/stratix.js release gate --scope workspace --dry-run`
   - `node packages/forge/dist/bin/stratix.js release gate --scope workspace --dry-run --include-offline-install --include-registry`
-- Built `@stratix/forge` CLI workspace release gate execution passes build, test, docs, API, and all supported package pack artifact gates; before final exact release tags are created it fails only at `release-surface`.
+- Built `@stratix/forge` CLI workspace release gate execution passes with offline install:
+  - `node packages/forge/dist/bin/stratix.js release gate --scope workspace --include-offline-install`
+  - passed offline install, supported build/test, docs, security audit, pack, API surface, package metadata release-surface, and exact tag presence checks
 - Workspace release gate `pack` now validates every supported tarball for package entry files and development-file leakage.
+- Workspace release gate `release-surface` now validates every supported public package for description, keywords, license, `publishConfig.access: public`, and exact release tags.
 - Workspace release gate `registry` checks public npmjs exact package versions with an isolated npm cache; 404 means a version is available for release, while an already published exact version fails the gate.
 - `node packages/forge/dist/bin/stratix.js openapi generate --help` passes.
 - `node packages/forge/dist/bin/stratix.js openapi client --help` passes.
@@ -114,8 +126,8 @@
 - `pnpm --filter @stratix/database build` passes after the database-only clean breaking refactor.
 - `pnpm --filter @stratix/database exec vitest run` passes after the database quality-gate refactor:
   - 8 test files
-  - 48 tests
-- `pnpm --filter @stratix/database lint` fails before linting source files because the workspace ESLint 10 setup still receives an eslintrc-style `parser` key instead of flat-config `languageOptions.parser`.
+  - 49 tests
+- `pnpm --filter @stratix/database lint` passes after the workspace ESLint 10 flat-config parser wiring fix.
 - `pnpm --filter @stratix/was-v7 test` passes:
   - 11 test files
   - 120 tests
@@ -126,15 +138,14 @@
 
 - Public npmjs verification on 2026-06-18 found `@stratix/core@0.8.2` as the latest published public version; `@stratix/core@1.1.0` is not published.
 - Public npmjs verification returned 404 for `@stratix/create`, `@stratix/database`, `@stratix/devtools`, `@stratix/forge`, `@stratix/ossp`, `@stratix/queue`, `@stratix/redis`, `@stratix/testing`, `@stratix/was-v7`, and `@stratix/tasks`.
-- Phase 6 exact release tags are required for the 10 supported packages and intentionally exclude deprecated `@stratix/tasks`.
+- Phase 6 exact release tags are present for the 10 supported packages and intentionally exclude deprecated `@stratix/tasks`.
 - `@stratix/tasks` is permanently deprecated/frozen for the 1.1.x release line; it remains in source for historical reference but is excluded from supported build/test/release gates and new-project presets.
 
 ## Immediate Priorities
 
-1. Create exact release tags on the final Phase 6 release-readiness commit.
-2. Run the full production release gate with `--include-offline-install --include-registry`.
-3. npm publish remains an external release operation requiring maintainer credentials.
-4. Obsolete `packages/forge/templates/apps` and `packages/forge/templates/plugins` were physically deleted after explicit approval; `@stratix/create` owns app/plugin creation templates.
+1. Run final public registry reconciliation with `--include-registry` in the maintainer release context.
+2. npm publish remains an external release operation requiring maintainer credentials.
+3. Obsolete `packages/forge/templates/apps` and `packages/forge/templates/plugins` were physically deleted after explicit approval; `@stratix/create` owns app/plugin creation templates.
 
 ## Canonical Detailed Report
 

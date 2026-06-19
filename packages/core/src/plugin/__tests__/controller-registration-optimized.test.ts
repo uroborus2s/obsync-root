@@ -1,8 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createContainer, asClass, asValue } from 'awilix';
-import type { FastifyInstance } from 'fastify';
 import { registerControllerRoutes } from '../controller-registration.js';
-import { MetadataManager } from '../../decorators/metadata.js';
 import { Controller } from '../../decorators/controller.js';
 import { Get, Post } from '../../decorators/route.js';
 
@@ -15,7 +13,7 @@ const createMockFastify = () => ({
     error: vi.fn()
   },
   route: vi.fn(),
-  register: vi.fn((plugin, options) => {
+  register: vi.fn((plugin, _options) => {
     // 模拟 register 调用插件函数
     if (typeof plugin === 'function') {
       return plugin(createMockFastify());
@@ -60,7 +58,7 @@ describe('优化后的控制器路由注册', () => {
   beforeEach(() => {
     container = createContainer();
     fastify = createMockFastify();
-    
+
     // 清除之前的调用记录
     vi.clearAllMocks();
   });
@@ -82,10 +80,10 @@ describe('优化后的控制器路由注册', () => {
       expect(fastify.log.info).toHaveBeenCalledWith(
         expect.stringContaining('Discovered')
       );
-      
+
       // 验证路由注册被调用
       expect(fastify.route).toHaveBeenCalled();
-      
+
       // 验证注册了正确数量的路由（TestController 有 2 个路由）
       expect(fastify.route).toHaveBeenCalledTimes(2);
     });
@@ -103,7 +101,7 @@ describe('优化后的控制器路由注册', () => {
       expect(fastify.log.debug).toHaveBeenCalledWith(
         expect.stringContaining('has no routes, skipping')
       );
-      
+
       // 不应该调用路由注册
       expect(fastify.route).not.toHaveBeenCalled();
     });
@@ -121,7 +119,7 @@ describe('优化后的控制器路由注册', () => {
       expect(fastify.log.info).toHaveBeenCalledWith(
         'No controllers found in container'
       );
-      
+
       // 不应该调用路由注册
       expect(fastify.route).not.toHaveBeenCalled();
     });
@@ -141,7 +139,7 @@ describe('优化后的控制器路由注册', () => {
 
       // 验证路由注册调用
       expect(fastify.route).toHaveBeenCalledTimes(2);
-      
+
       // 验证第一个路由（GET /test）
       expect(fastify.route).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -150,7 +148,7 @@ describe('优化后的控制器路由注册', () => {
           handler: expect.any(Function)
         })
       );
-      
+
       // 验证第二个路由（POST /test）
       expect(fastify.route).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -168,11 +166,10 @@ describe('优化后的控制器路由注册', () => {
       });
 
       // 验证使用了 Fastify 的 register 方法来处理前缀
-      expect(fastify.register).toHaveBeenCalledWith(
-        expect.any(Function),
-        { prefix: '/api/v1' }
-      );
-      
+      expect(fastify.register).toHaveBeenCalledWith(expect.any(Function), {
+        prefix: '/api/v1'
+      });
+
       // 验证记录了前缀信息
       expect(fastify.log.info).toHaveBeenCalledWith(
         'Controller routes registered with prefix: /api/v1'
@@ -187,7 +184,7 @@ describe('优化后的控制器路由注册', () => {
       expect(fastify.log.info).toHaveBeenCalledWith(
         'Controller routes are disabled'
       );
-      
+
       expect(fastify.route).not.toHaveBeenCalled();
     });
   });
@@ -227,16 +224,16 @@ describe('优化后的控制器路由注册', () => {
   });
 
   describe('性能优化验证', () => {
-    it('应该避免不必要的实例创建', async () => {
-      // 创建一个带有副作用的控制器来检测是否被实例化
-      let instanceCreated = false;
-      
+    it('应该在注册期只创建一次控制器实例', async () => {
+      // 创建一个带有副作用的控制器来检测实例化次数
+      let instanceCreationCount = 0;
+
       @Controller()
       class SideEffectController {
         constructor() {
-          instanceCreated = true;
+          instanceCreationCount += 1;
         }
-        
+
         @Get('/side-effect')
         async getSideEffect() {
           return { message: 'side effect' };
@@ -251,9 +248,9 @@ describe('优化后的控制器路由注册', () => {
         enabled: true
       });
 
-      // 在发现阶段不应该创建实例
-      // 注意：这个测试可能需要根据实际的 Awilix 行为调整
+      // 注册期预解析一次实例用于绑定路由处理器，不能按路由重复创建。
       expect(fastify.route).toHaveBeenCalled();
+      expect(instanceCreationCount).toBe(1);
     });
   });
 });

@@ -14,6 +14,7 @@ interface ReleaseGateCheck {
   commands?: string[][];
   env?: Record<string, string>;
   validate?: (output: CliOutput) => void;
+  dryRunValidate?: (output: CliOutput) => void;
 }
 
 interface WorkspacePackage {
@@ -29,6 +30,21 @@ type ReleaseGateScope = 'project' | 'workspace';
 
 const DEFAULT_EXCLUDED_WORKSPACE_PACKAGES = new Set(['@stratix/tasks']);
 const PUBLIC_NPM_REGISTRY = 'https://registry.npmjs.org';
+const SECURITY_SCRIPT_CANDIDATES = [
+  'security:audit',
+  'security',
+  'audit:security',
+  'audit'
+];
+const API_ROUTE_METHODS = new Set([
+  'DELETE',
+  'GET',
+  'HEAD',
+  'OPTIONS',
+  'PATCH',
+  'POST',
+  'PUT'
+]);
 
 function printReleaseUsage(output: CliOutput): void {
   output.log(`Usage: stratix release gate [options]
@@ -68,10 +84,10 @@ function releaseGateScope(argv: ParsedArgs): ReleaseGateScope {
   throw new CliError(`Unknown release gate scope: ${scope}`);
 }
 
-function validateProductionManifest(manifestPath: string): void {
-  let manifest: any;
+function validateProductionManifest(manifestPath: string): Record<string, any> {
+  let manifest: Record<string, any>;
   try {
-    manifest = readJsonFile(manifestPath);
+    manifest = readJsonFile<Record<string, any>>(manifestPath);
   } catch {
     throw new CliError(`Production manifest not found: ${manifestPath}`);
   }
@@ -89,9 +105,154 @@ function validateProductionManifest(manifestPath: string): void {
       `Production manifest DI section is invalid: ${manifestPath}`
     );
   }
+
+  return manifest;
 }
 
-function projectReleaseGateChecks(): ReleaseGateCheck[] {
+function readPackageJson(rootDir: string): Record<string, any> {
+  return readJsonFile<Record<string, any>>(path.join(rootDir, 'package.json'));
+}
+
+function findSecurityScript(rootDir: string): string | undefined {
+  const packageJson = readPackageJson(rootDir);
+  const scripts =
+    packageJson.scripts && typeof packageJson.scripts === 'object'
+      ? (packageJson.scripts as Record<string, unknown>)
+      : {};
+
+  return SECURITY_SCRIPT_CANDIDATES.find(
+    (scriptName) =>
+      typeof scripts[scriptName] === 'string' &&
+      (scripts[scriptName] as string).trim().length > 0
+  );
+}
+
+function securityCommand(rootDir: string): string[] | undefined {
+  try {
+    const scriptName = findSecurityScript(rootDir);
+    return scriptName ? ['pnpm', 'run', scriptName] : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function validateSecurityScript(rootDir: string, output: CliOutput): void {
+  let scriptName: string | undefined;
+  try {
+    scriptName = findSecurityScript(rootDir);
+  } catch {
+    throw new CliError(
+      `Release gate security: package.json not found under ${rootDir}`
+    );
+  }
+
+  if (!scriptName) {
+    throw new CliError(
+      `Release gate security: package.json must define one script: ${SECURITY_SCRIPT_CANDIDATES.join(', ')}`
+    );
+  }
+
+  output.info(`Release gate security: using pnpm run ${scriptName}.`);
+}
+
+function projectType(manifest: Record<string, any>): string | undefined {
+  return typeof manifest.project?.type === 'string'
+    ? manifest.project.type
+    : undefined;
+}
+
+function validateProjectApiSurface(
+  manifest: Record<string, any>,
+  output: CliOutput
+): void {
+  const routes = Array.isArray(manifest.routes) ? manifest.routes : [];
+  const type = projectType(manifest);
+
+  if ((type === 'api' || type === 'gateway') && routes.length === 0) {
+    throw new CliError(
+      `Release gate api: ${type} project manifest contains no routes`
+    );
+  }
+
+  const routeKeys = new Set<string>();
+  const operationIds = new Set<string>();
+
+  routes.forEach((route: any, index: number) => {
+    if (!route || typeof route !== 'object') {
+      throw new CliError(`Release gate api: route ${index} is invalid`);
+    }
+
+    const method = typeof route.method === 'string' ? route.method : '';
+    const pathName = typeof route.path === 'string' ? route.path : '';
+    const operationId =
+      typeof route.operationId === 'string' ? route.operationId : '';
+
+    if (!API_ROUTE_METHODS.has(method.toUpperCase())) {
+      throw new CliError(
+        `Release gate api: route ${index} has invalid method: ${method || '<empty>'}`
+      );
+    }
+    if (!pathName.startsWith('/')) {
+      throw new CliError(
+        `Release gate api: route ${index} has invalid path: ${pathName || '<empty>'}`
+      );
+    }
+    if (!operationId.trim()) {
+      throw new CliError(
+        `Release gate api: route ${method} ${pathName} is missing operationId`
+      );
+    }
+
+    const routeKey = `${method.toUpperCase()} ${pathName}`;
+    if (routeKeys.has(routeKey)) {
+      throw new CliError(
+        `Release gate api: duplicate route contract ${routeKey}`
+      );
+    }
+    routeKeys.add(routeKey);
+
+    if (operationIds.has(operationId)) {
+      throw new CliError(
+        `Release gate api: duplicate operationId ${operationId}`
+      );
+    }
+    operationIds.add(operationId);
+  });
+
+  output.info(
+    `Release gate api: ${routes.length} route contract(s) validated.`
+  );
+}
+
+function validateManifestGate(
+  manifest: Record<string, any>,
+  manifestPath: string,
+  output: CliOutput
+): void {
+  const diIssues = Array.isArray(manifest.di?.issues) ? manifest.di.issues : [];
+  const moduleIssues = Array.isArray(manifest.moduleIssues)
+    ? manifest.moduleIssues
+    : [];
+
+  if (diIssues.length > 0) {
+    throw new CliError(
+      `Release gate manifest: DI issues must be fixed before release (${diIssues.length})`
+    );
+  }
+  if (moduleIssues.length > 0) {
+    throw new CliError(
+      `Release gate manifest: module issues must be fixed before release (${moduleIssues.length})`
+    );
+  }
+
+  output.info(`Release gate manifest: ${manifestPath} validated.`);
+}
+
+function projectReleaseGateChecks(
+  rootDir: string,
+  manifestPath: string,
+  manifest: Record<string, any>
+): ReleaseGateCheck[] {
   return [
     {
       id: 'build',
@@ -119,7 +280,10 @@ function projectReleaseGateChecks(): ReleaseGateCheck[] {
     },
     {
       id: 'security',
-      label: 'security'
+      label: 'security',
+      command: securityCommand(rootDir),
+      validate: (output) => validateSecurityScript(rootDir, output),
+      dryRunValidate: (output) => validateSecurityScript(rootDir, output)
     },
     {
       id: 'pack',
@@ -128,11 +292,17 @@ function projectReleaseGateChecks(): ReleaseGateCheck[] {
     },
     {
       id: 'api',
-      label: 'api'
+      label: 'api',
+      validate: (output) => validateProjectApiSurface(manifest, output),
+      dryRunValidate: (output) => validateProjectApiSurface(manifest, output)
     },
     {
       id: 'manifest',
-      label: 'manifest'
+      label: 'manifest',
+      validate: (output) =>
+        validateManifestGate(manifest, manifestPath, output),
+      dryRunValidate: (output) =>
+        validateManifestGate(manifest, manifestPath, output)
     }
   ];
 }
@@ -199,6 +369,45 @@ function supportedWorkspacePackages(
   return packages.filter((workspacePackage) => !workspacePackage.excluded);
 }
 
+function validateWorkspaceApiSurface(
+  packages: WorkspacePackage[],
+  output: CliOutput
+): void {
+  for (const workspacePackage of packages) {
+    const packageJson = readJsonFile<Record<string, any>>(
+      workspacePackage.packageJsonPath
+    );
+    const main = packageJson.main;
+    const types = packageJson.types;
+    const files = packageJson.files;
+    const issues: string[] = [];
+
+    if (packageJson.private === true) {
+      issues.push('must not be private');
+    }
+    if (typeof main !== 'string' || !main.startsWith('dist/')) {
+      issues.push('main must point into dist/');
+    }
+    if (typeof types !== 'string' || !types.startsWith('dist/')) {
+      issues.push('types must point into dist/');
+    }
+    if (!Array.isArray(files) || !files.includes('dist')) {
+      issues.push('files must include dist');
+    }
+
+    if (issues.length > 0) {
+      output.error(
+        `Release gate api: ${workspacePackage.name} package API surface is invalid: ${issues.join(', ')}`
+      );
+      throw new CliError('Release workspace API surface is invalid');
+    }
+  }
+
+  output.info(
+    `Release gate api: ${packages.length} package API surface(s) validated.`
+  );
+}
+
 function workspaceReleaseGateChecks(
   packages: WorkspacePackage[],
   options: { includeOfflineInstall: boolean; includeRegistry: boolean }
@@ -241,6 +450,13 @@ function workspaceReleaseGateChecks(
       ]
     },
     {
+      id: 'security',
+      label: 'security',
+      command: securityCommand(process.cwd()),
+      validate: (output) => validateSecurityScript(process.cwd(), output),
+      dryRunValidate: (output) => validateSecurityScript(process.cwd(), output)
+    },
+    {
       id: 'pack',
       label: 'pack',
       validate: (output) =>
@@ -248,12 +464,18 @@ function workspaceReleaseGateChecks(
     },
     {
       id: 'api',
-      label: 'api'
+      label: 'api',
+      validate: (output) =>
+        validateWorkspaceApiSurface(supportedPackages, output),
+      dryRunValidate: (output) =>
+        validateWorkspaceApiSurface(supportedPackages, output)
     },
     {
       id: 'release-surface',
       label: 'release-surface',
-      validate: (output) => validateWorkspaceReleaseSurface(packages, output)
+      validate: (output) => validateWorkspaceReleaseSurface(packages, output),
+      dryRunValidate: (output) =>
+        validateWorkspaceReleaseMetadata(packages, output)
     }
   );
 
@@ -407,6 +629,8 @@ function validateWorkspaceReleaseSurface(
   packages: WorkspacePackage[],
   output: CliOutput
 ): void {
+  validateWorkspaceReleaseMetadata(packages, output);
+
   const missingExactTags = supportedWorkspacePackages(packages).filter(
     (workspacePackage) => {
       const expectedTag = `${workspacePackage.name}@${workspacePackage.version}`;
@@ -439,6 +663,61 @@ function validateWorkspaceReleaseSurface(
   }
 
   output.info('Release gate release-surface: exact package tags present.');
+}
+
+function validateWorkspaceReleaseMetadata(
+  packages: WorkspacePackage[],
+  output: CliOutput
+): void {
+  const invalidPackages = supportedWorkspacePackages(packages)
+    .map((workspacePackage) => {
+      const packageJson = readJsonFile<Record<string, any>>(
+        workspacePackage.packageJsonPath
+      );
+      const issues: string[] = [];
+      const publishConfig = packageJson.publishConfig;
+      const keywords = Array.isArray(packageJson.keywords)
+        ? packageJson.keywords.filter(
+            (keyword: unknown): keyword is string =>
+              typeof keyword === 'string' && keyword.trim().length > 0
+          )
+        : [];
+
+      if (typeof packageJson.description !== 'string') {
+        issues.push('description is required');
+      } else if (packageJson.description.trim().length < 20) {
+        issues.push('description is too short');
+      }
+      if (keywords.length < 2) {
+        issues.push('keywords must include at least two entries');
+      }
+      if (typeof packageJson.license !== 'string') {
+        issues.push('license is required');
+      }
+      if (
+        !publishConfig ||
+        typeof publishConfig !== 'object' ||
+        publishConfig.access !== 'public'
+      ) {
+        issues.push('publishConfig.access must be public');
+      }
+
+      return { workspacePackage, issues };
+    })
+    .filter((result) => result.issues.length > 0);
+
+  if (invalidPackages.length > 0) {
+    for (const { workspacePackage, issues } of invalidPackages) {
+      output.error(
+        `Release gate release-surface: ${workspacePackage.name} package metadata is invalid: ${issues.join(', ')}`
+      );
+    }
+    throw new CliError('Release surface metadata is invalid');
+  }
+
+  output.info(
+    `Release gate release-surface: ${supportedWorkspacePackages(packages).length} package metadata surface(s) validated.`
+  );
 }
 
 function parseNpmViewVersion(stdout: string, packageRef: string): string {
@@ -561,13 +840,16 @@ function printWorkspaceReleaseSummary(
 function runCheck(check: ReleaseGateCheck, output: CliOutput): void {
   const commands = check.commands || (check.command ? [check.command] : []);
 
-  if (commands.length === 0) {
-    if (check.validate) {
-      check.validate(output);
-      return;
-    }
+  if (check.validate) {
+    check.validate(output);
+  }
 
-    output.info(`Release gate ${check.id}: static check passed.`);
+  if (commands.length === 0) {
+    if (!check.validate) {
+      throw new CliError(
+        `Release gate ${check.id}: no command or validator configured`
+      );
+    }
     return;
   }
 
@@ -583,6 +865,23 @@ function runCheck(check: ReleaseGateCheck, output: CliOutput): void {
     if (result.status !== 0) {
       throw new CliError(`Release gate failed: ${check.id}`);
     }
+  }
+}
+
+function runDryRunValidators(
+  checks: ReleaseGateCheck[],
+  output: CliOutput
+): void {
+  for (const check of checks) {
+    const commands = check.commands || (check.command ? [check.command] : []);
+
+    if (!check.validate && commands.length === 0) {
+      throw new CliError(
+        `Release gate ${check.id}: no command or validator configured`
+      );
+    }
+
+    check.dryRunValidate?.(output);
   }
 }
 
@@ -611,13 +910,12 @@ async function releaseGateCommand(
     );
 
     try {
-      validateProductionManifest(manifestPath);
+      const manifest = validateProductionManifest(manifestPath);
+      checks = projectReleaseGateChecks(process.cwd(), manifestPath, manifest);
     } catch (error) {
       output.error(error instanceof Error ? error.message : String(error));
       throw error;
     }
-
-    checks = projectReleaseGateChecks();
   }
 
   output.info(
@@ -625,6 +923,7 @@ async function releaseGateCommand(
   );
 
   if (argv['dry-run']) {
+    runDryRunValidators(checks, output);
     output.success('Release gate checks passed.');
     return;
   }

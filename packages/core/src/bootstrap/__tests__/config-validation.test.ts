@@ -140,4 +140,82 @@ describe('configuration validation contract', () => {
       })
     ).rejects.toThrow(ConfigurationError);
   });
+
+  it('applies plugin enabled flags and dependency-aware load order', async () => {
+    const loadedPlugins: string[] = [];
+    const plugin = (name: string) => async () => {
+      loadedPlugins.push(name);
+    };
+
+    const app = await Stratix.run({
+      type: 'cli',
+      gracefulShutdown: false,
+      config: {
+        server: {},
+        autoLoad: {},
+        discovery: { enabled: false },
+        plugins: [
+          {
+            name: 'feature',
+            plugin: plugin('feature'),
+            dependencies: ['base'],
+            order: 0
+          },
+          {
+            name: 'disabled',
+            plugin: plugin('disabled'),
+            enabled: false,
+            order: -100
+          },
+          {
+            name: 'base',
+            plugin: plugin('base'),
+            order: 100
+          }
+        ]
+      }
+    });
+
+    expect(loadedPlugins).toEqual(['base', 'feature']);
+    await app.stop();
+  });
+
+  it('rejects duplicate plugin names', async () => {
+    await expect(
+      Stratix.run({
+        type: 'cli',
+        gracefulShutdown: false,
+        config: {
+          server: {},
+          autoLoad: {},
+          discovery: { enabled: false },
+          plugins: [
+            { name: 'duplicate', plugin: async () => {} },
+            { name: 'duplicate', plugin: async () => {} }
+          ]
+        }
+      })
+    ).rejects.toThrow(ConfigurationError);
+  });
+
+  it('rejects missing plugin dependencies', async () => {
+    await expect(
+      Stratix.run({
+        type: 'cli',
+        gracefulShutdown: false,
+        config: {
+          server: {},
+          autoLoad: {},
+          discovery: { enabled: false },
+          plugins: [
+            {
+              name: 'feature',
+              plugin: async () => {},
+              dependencies: ['base']
+            }
+          ]
+        }
+      })
+    ).rejects.toThrow(ConfigurationError);
+  });
 });

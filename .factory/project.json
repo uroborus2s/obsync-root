@@ -17,8 +17,8 @@
     "node": ">=24.0.0",
     "pnpm": ">=10.33.0"
   },
-  "currentStage": "PHASE_6_RELEASE_READINESS",
-  "recommendedNextStage": "Phase 6 release readiness is complete for repository code and gates; create exact release tags, run the final full gate, then publish with maintainer npm credentials",
+  "currentStage": "PHASE_6_RELEASE_READY",
+  "recommendedNextStage": "Repository code and local release gates are ready; run final public registry reconciliation with maintainer release context, then publish with npm credentials",
   "sourceOfTruth": {
     "stableCollaboration": ["AGENTS.md", "GEMINI.md"],
     "humanDocs": "docs/",
@@ -43,7 +43,7 @@
     "previewSamples": ["examples/web-admin-preview"]
   },
   "qualityGate": {
-    "checkedAt": "2026-06-18",
+    "checkedAt": "2026-06-19",
     "status": "passed",
     "excludedPackages": ["@stratix/tasks"],
     "scores": {
@@ -56,7 +56,7 @@
     }
   },
   "releaseSurface": {
-    "checkedAt": "2026-06-18",
+    "checkedAt": "2026-06-19",
     "npmRegistry": {
       "@stratix/core": {
         "published": true,
@@ -89,7 +89,7 @@
       "@stratix/testing": "@stratix/testing@1.0.0-beta.1",
       "@stratix/was-v7": "@stratix/was-v7@1.0.0-beta.36"
     },
-    "assessment": "Supported package manifest versions, exact release tag rule, and public npmjs exact-version availability are aligned. @stratix/tasks is frozen/deprecated and excluded from the 1.1.x release surface."
+    "assessment": "Supported package manifest versions, public package metadata, exact release tags, tarball/API/docs/security gates, and supported workspace release-surface checks are aligned. @stratix/tasks is frozen/deprecated and excluded from the 1.1.x release surface."
   },
   "verification": {
     "checkedAt": "2026-06-18",
@@ -177,6 +177,14 @@
         "status": "passed"
       }
     ],
+    "lint": [
+      {
+        "command": "pnpm lint",
+        "status": "passed",
+        "summary": "11 successful / 11 supported lint tasks",
+        "reason": "Supported lint excludes deprecated @stratix/tasks, uses ESLint 10 flat-config parser wiring, and passes after removing stale duplicate DevTools client files plus unused code references"
+      }
+    ],
     "test": [
       {
         "command": "pnpm test",
@@ -193,8 +201,14 @@
       {
         "command": "pnpm --filter @stratix/core test",
         "status": "passed",
-        "summary": "27 files / 194 tests",
+        "summary": "27 files / 203 tests",
         "reason": "Core package tests pass with route contract/OpenAPI helpers, unified error envelope, response schema failure normalization, DI diagnostics, plugin adapter diagnostics, discovery schema validation, DI graph coverage, production manifest startup consumption, manifest-driven registration, and observability/security preset coverage"
+      },
+      {
+        "command": "pnpm --filter @stratix/core run test:coverage",
+        "status": "passed",
+        "summary": "global lines 42.46%, functions 36.76%, branches 32.70%, statements 41.75%",
+        "reason": "Coverage gate uses a current executable ratchet plus high thresholds on bootstrap/discovery critical paths instead of an unreachable global threshold"
       },
       {
         "command": "pnpm --filter @stratix/create test",
@@ -205,14 +219,14 @@
       {
         "command": "pnpm --filter @stratix/forge test",
         "status": "passed",
-        "summary": "45 tests",
+        "summary": "48 tests",
         "reason": "Forge tests cover doctor di, di graph JSON/Mermaid output, module manifest/doctor/graph governance, plugin manifest doctor/graph governance, production build-manifest generation, project/workspace release gate, release pack artifact validation, registry exact-version validation, OpenAPI generation, advanced typed client generation with path/query/body/header/auth/hooks, command help, and generated resource DI/schema checks"
       },
       {
         "command": "pnpm --filter @stratix/devtools test",
         "status": "passed",
-        "summary": "2 tests",
-        "reason": "DevTools tests cover smoke export and production views for routes, DI, plugins, redacted config, health, and traces"
+        "summary": "3 tests",
+        "reason": "DevTools tests cover smoke export, local-only/API auth behavior, and production views for routes, DI, plugins, redacted config, health, and traces"
       },
       {
         "command": "pnpm --filter @stratix/testing test",
@@ -223,7 +237,7 @@
       {
         "command": "pnpm --filter @stratix/database exec vitest run",
         "status": "passed",
-        "summary": "8 files / 48 tests",
+        "summary": "8 files / 49 tests",
         "reason": "Database quality-gate regressions pass; @stratix/tasks old DatabaseAPI imports were intentionally not migrated"
       },
       {
@@ -275,7 +289,13 @@
         "command": "pnpm --filter @stratix/devtools pack --pack-destination /tmp",
         "status": "passed",
         "summary": "/tmp/stratix-devtools-1.0.0-beta.1.tgz",
-        "reason": "DevTools package tarball can be produced after adding Phase 5 production views"
+        "reason": "DevTools package tarball contains dist/index.js, declarations, and built dist/client assets"
+      },
+      {
+        "command": "pnpm --filter @stratix/testing pack --pack-destination /tmp",
+        "status": "passed",
+        "summary": "/tmp/stratix-testing-1.0.0-beta.1.tgz",
+        "reason": "Testing package tarball contains the ESM entrypoint, declarations, and testing helper modules"
       }
     ],
     "staticAnalysis": [
@@ -376,8 +396,14 @@
       {
         "command": "node packages/forge/dist/bin/stratix.js release gate --scope workspace --dry-run --include-offline-install --include-registry",
         "status": "passed",
-        "summary": "offline-install/build/test/docs/pack/api/release-surface/registry",
-        "reason": "Built forge can include offline install and npm registry reconciliation in the Phase 6 release plan"
+        "summary": "offline-install/build/test/docs/security/pack/api/release-surface/registry",
+        "reason": "Built forge can include offline install, security, package metadata, and npm registry reconciliation in the Phase 6 release plan"
+      },
+      {
+        "command": "node packages/forge/dist/bin/stratix.js release gate --scope workspace --include-offline-install",
+        "status": "passed",
+        "summary": "offline-install/build/test/docs/security/pack/api/release-surface",
+        "reason": "Built forge executes the local workspace release gate end-to-end, validates supported package tarballs, validates package API surface and metadata, and confirms exact package tags are present"
       },
       {
         "command": "pnpm preview --host 127.0.0.1 --port 4273",
@@ -388,16 +414,17 @@
     ]
   },
   "phaseBaseline": {
-    "stage": "PHASE_6_RELEASE_READINESS",
+    "stage": "PHASE_6_RELEASE_READY",
     "entrySatisfied": [
       "Current-state evidence collected",
       "docs/ and .factory/ bootstrapped",
       "Stable collaboration rules separated from transient state",
       "Template preview sample moved out of workspace",
       "Phase 5 production baseline completed",
-      "Workspace release gate dry-run implemented"
+      "Workspace release gate dry-run implemented",
+      "Workspace release gate execution passed with offline install"
     ],
-    "exitBlockedBy": ["BUG-003", "CR-001", "TASK-004"]
+    "exitBlockedBy": []
   },
   "currentWorkitems": [
     "BUG-002",

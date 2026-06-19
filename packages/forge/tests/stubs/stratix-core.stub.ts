@@ -46,7 +46,10 @@ export function generateSecureKey(
 }
 
 export function loadConfigFromFile(filePath: string): Record<string, unknown> {
-  return JSON.parse(fs.readFileSync(filePath, 'utf8')) as Record<string, unknown>;
+  return JSON.parse(fs.readFileSync(filePath, 'utf8')) as Record<
+    string,
+    unknown
+  >;
 }
 
 export function saveConfigToFile(
@@ -57,7 +60,9 @@ export function saveConfigToFile(
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
 
   if (format === 'env') {
-    const lines = Object.entries(value).map(([key, entry]) => `${key}=${entry}`);
+    const lines = Object.entries(value).map(
+      ([key, entry]) => `${key}=${entry}`
+    );
     fs.writeFileSync(filePath, `${lines.join('\n')}\n`, 'utf8');
     return;
   }

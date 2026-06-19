@@ -35,12 +35,25 @@ export default [
   // TypeScript 配置
   {
     files: ['**/*.ts', '**/*.tsx'],
-    parser: tsParser,
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        ecmaVersion: 'latest',
+        sourceType: 'module'
+      }
+    },
     plugins: {
       '@typescript-eslint': tsPlugin
     },
     rules: {
-      '@typescript-eslint/no-unused-vars': 'error',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+          varsIgnorePattern: '^_'
+        }
+      ],
       '@typescript-eslint/explicit-function-return-type': 'off'
     }
   }

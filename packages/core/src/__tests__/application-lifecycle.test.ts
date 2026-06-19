@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { Controller, Get } from '../decorators/index.js';
 import { Stratix } from '../stratix.js';
 import type { StratixApplication, StratixRunOptions } from '../types/config.js';
 
@@ -28,6 +29,18 @@ function webOptions(): StratixRunOptions {
     }
   };
 }
+
+class LateController {
+  ping() {
+    return { message: 'late' };
+  }
+}
+Controller()(LateController);
+Get('/late')(
+  LateController.prototype,
+  'ping',
+  Object.getOwnPropertyDescriptor(LateController.prototype, 'ping')
+);
 
 describe('StratixApplication lifecycle methods', () => {
   let stratix: Stratix;
@@ -100,6 +113,17 @@ describe('StratixApplication lifecycle methods', () => {
       statusCode: 404,
       path: '/missing'
     });
+  });
+
+  it('does not silently accept controller registration after startup', async () => {
+    app = await stratix.start(webOptions());
+
+    await expect(app.registerController(LateController)).rejects.toThrow(
+      /before Fastify is ready/
+    );
+
+    const response = await app.inject({ method: 'GET', url: '/late' });
+    expect(response.statusCode).toBe(404);
   });
 
   it('reports address and running state from the Fastify server', async () => {

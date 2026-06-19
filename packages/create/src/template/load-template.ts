@@ -1,10 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  readJsonFile,
-  readTextFile
-} from '../utils/fs.js';
+import { readJsonFile, readTextFile } from '../utils/fs.js';
 import {
   parsePresetManifest,
   parseTemplateManifest,
@@ -12,7 +9,9 @@ import {
   type TemplateManifest
 } from '../schemas/template.js';
 
-const templatesRoot = fileURLToPath(new URL('../../templates/', import.meta.url));
+const templatesRoot = fileURLToPath(
+  new URL('../../templates/', import.meta.url)
+);
 
 export function getTemplatesRoot(): string {
   return templatesRoot;
@@ -27,7 +26,12 @@ export function loadTemplateManifest(
 }
 
 export function loadPresetManifest(name: string): PresetManifest {
-  const manifestPath = path.join(templatesRoot, 'presets', name, 'manifest.json');
+  const manifestPath = path.join(
+    templatesRoot,
+    'presets',
+    name,
+    'manifest.json'
+  );
   return parsePresetManifest(readJsonFile(manifestPath));
 }
 
@@ -66,7 +70,9 @@ export function readTemplateSourceEntries(
   return readTemplateDirectoryEntries(absolutePath);
 }
 
-export function listTemplateManifests(bucket: 'apps' | 'plugins' | 'resources'): TemplateManifest[] {
+export function listTemplateManifests(
+  bucket: 'apps' | 'plugins' | 'resources'
+): TemplateManifest[] {
   const bucketDir = path.join(templatesRoot, bucket);
   return readTemplateDirectories(bucketDir).map((name) =>
     loadTemplateManifest(bucket, name)
@@ -75,7 +81,9 @@ export function listTemplateManifests(bucket: 'apps' | 'plugins' | 'resources'):
 
 export function listPresetManifests(): PresetManifest[] {
   const presetDir = path.join(templatesRoot, 'presets');
-  return readTemplateDirectories(presetDir).map((name) => loadPresetManifest(name));
+  return readTemplateDirectories(presetDir).map((name) =>
+    loadPresetManifest(name)
+  );
 }
 
 function readTemplateDirectories(bucketDir: string): string[] {
@@ -91,23 +99,21 @@ function readTemplateDirectories(bucketDir: string): string[] {
 }
 
 function readTemplateDirectoryEntries(rootDir: string): TemplateSourceEntry[] {
-  return fs
-    .readdirSync(rootDir, { withFileTypes: true })
-    .flatMap((entry) => {
-      const absolutePath = path.join(rootDir, entry.name);
+  return fs.readdirSync(rootDir, { withFileTypes: true }).flatMap((entry) => {
+    const absolutePath = path.join(rootDir, entry.name);
 
-      if (entry.isDirectory()) {
-        return readTemplateDirectoryEntries(absolutePath).map((child) => ({
-          relativePath: path.join(entry.name, child.relativePath),
-          content: child.content
-        }));
+    if (entry.isDirectory()) {
+      return readTemplateDirectoryEntries(absolutePath).map((child) => ({
+        relativePath: path.join(entry.name, child.relativePath),
+        content: child.content
+      }));
+    }
+
+    return [
+      {
+        relativePath: entry.name,
+        content: readTextFile(absolutePath)
       }
-
-      return [
-        {
-          relativePath: entry.name,
-          content: readTextFile(absolutePath)
-        }
-      ];
-    });
+    ];
+  });
 }

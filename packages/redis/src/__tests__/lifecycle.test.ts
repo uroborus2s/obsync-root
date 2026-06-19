@@ -80,8 +80,12 @@ describe('Redis Adapter Lifecycle', () => {
       await adapter.onClose();
 
       expect(disconnectSpy).toHaveBeenCalled();
-      expect(mockLogger.info).toHaveBeenCalledWith('🔄 Closing Redis connections...');
-      expect(mockLogger.info).toHaveBeenCalledWith('✅ Redis connections closed successfully');
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        '🔄 Closing Redis connections...'
+      );
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        '✅ Redis connections closed successfully'
+      );
     });
 
     it('应该在 onClose 出错时正确处理错误', async () => {
@@ -90,7 +94,10 @@ describe('Redis Adapter Lifecycle', () => {
       vi.spyOn(redisAdapter, 'disconnect').mockRejectedValue(mockError);
 
       await expect(adapter.onClose()).rejects.toThrow('Disconnect failed');
-      expect(mockLogger.error).toHaveBeenCalledWith('❌ Error closing Redis connections:', mockError);
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        '❌ Error closing Redis connections:',
+        mockError
+      );
     });
 
     it('应该能够获取 Redis 适配器实例', () => {
@@ -104,8 +111,6 @@ describe('Redis Adapter Lifecycle', () => {
 
   describe('适配器代理方法', () => {
     it('应该代理基本的 Redis 操作', async () => {
-      const redisAdapter = adapter.getAdapter();
-      
       // 测试代理方法是否存在
       expect(typeof adapter.get).toBe('function');
       expect(typeof adapter.set).toBe('function');
@@ -116,28 +121,34 @@ describe('Redis Adapter Lifecycle', () => {
     });
 
     it('应该正确代理 get 方法', async () => {
-      const getSpy = vi.spyOn(adapter.getAdapter(), 'get').mockResolvedValue('test-value');
-      
+      const getSpy = vi
+        .spyOn(adapter.getAdapter(), 'get')
+        .mockResolvedValue('test-value');
+
       const result = await adapter.get('test-key');
-      
+
       expect(getSpy).toHaveBeenCalledWith('test-key');
       expect(result).toBe('test-value');
     });
 
     it('应该正确代理 set 方法', async () => {
-      const setSpy = vi.spyOn(adapter.getAdapter(), 'set').mockResolvedValue('OK');
-      
+      const setSpy = vi
+        .spyOn(adapter.getAdapter(), 'set')
+        .mockResolvedValue('OK');
+
       const result = await adapter.set('test-key', 'test-value');
-      
+
       expect(setSpy).toHaveBeenCalledWith('test-key', 'test-value');
       expect(result).toBe('OK');
     });
 
     it('应该正确代理 ping 方法', async () => {
-      const pingSpy = vi.spyOn(adapter.getAdapter(), 'ping').mockResolvedValue('PONG');
-      
+      const pingSpy = vi
+        .spyOn(adapter.getAdapter(), 'ping')
+        .mockResolvedValue('PONG');
+
       const result = await adapter.ping();
-      
+
       expect(pingSpy).toHaveBeenCalled();
       expect(result).toBe('PONG');
     });

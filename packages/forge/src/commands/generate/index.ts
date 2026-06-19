@@ -4,10 +4,23 @@ import { CliError } from '../../core/errors.js';
 import type { CliOutput } from '../../core/output.js';
 import { loadProjectManifest } from '../../project/load-project-manifest.js';
 import type { ProjectManifest } from '../../schemas/project.js';
-import { loadTemplateManifest, readTemplateSource } from '../../template/load-template.js';
-import { renderManifestFile, renderStringTemplate } from '../../template/render-files.js';
+import {
+  loadTemplateManifest,
+  readTemplateSource
+} from '../../template/load-template.js';
+import {
+  renderManifestFile,
+  renderStringTemplate
+} from '../../template/render-files.js';
 import { ensureDirectory, writeTextFile } from '../../utils/fs.js';
-import { pluralize, routePathFromName, toCamelCase, toKebabCase, toPascalCase, toSnakeCase } from '../../utils/case.js';
+import {
+  pluralize,
+  routePathFromName,
+  toCamelCase,
+  toKebabCase,
+  toPascalCase,
+  toSnakeCase
+} from '../../utils/case.js';
 
 function titleNameFromName(name: string): string {
   return toKebabCase(name)
@@ -30,7 +43,10 @@ function generationVariables(name: string): Record<string, string> {
   };
 }
 
-function resourceTemplateName(resource: string, projectKind: 'app' | 'plugin'): string {
+function resourceTemplateName(
+  resource: string,
+  projectKind: 'app' | 'plugin'
+): string {
   switch (resource) {
     case 'controller':
     case 'service':
@@ -41,13 +57,22 @@ function resourceTemplateName(resource: string, projectKind: 'app' | 'plugin'): 
     case 'admin-crud':
       return resource;
     case 'plugin-adapter':
-      if (projectKind !== 'plugin') throw new CliError('plugin-adapter can only be generated inside plugin projects.');
+      if (projectKind !== 'plugin')
+        throw new CliError(
+          'plugin-adapter can only be generated inside plugin projects.'
+        );
       return 'plugin-adapter';
     case 'plugin-service':
-      if (projectKind !== 'plugin') throw new CliError('plugin-service can only be generated inside plugin projects.');
+      if (projectKind !== 'plugin')
+        throw new CliError(
+          'plugin-service can only be generated inside plugin projects.'
+        );
       return 'plugin-service';
     case 'plugin-controller':
-      if (projectKind !== 'plugin') throw new CliError('plugin-controller can only be generated inside plugin projects.');
+      if (projectKind !== 'plugin')
+        throw new CliError(
+          'plugin-controller can only be generated inside plugin projects.'
+        );
       return 'plugin-controller';
     default:
       throw new CliError(`Unsupported resource type: ${resource}`);
@@ -68,17 +93,25 @@ function ensureSupportedProject(
   }
 }
 
-function compositeResourceTypes(resourceType: string, projectKind: 'app' | 'plugin'): string[] {
+function compositeResourceTypes(
+  resourceType: string,
+  projectKind: 'app' | 'plugin'
+): string[] {
   if (resourceType === 'resource') {
     if (projectKind !== 'app') {
-      throw new CliError('resource generation is only available for app projects.');
+      throw new CliError(
+        'resource generation is only available for app projects.'
+      );
     }
     return ['controller', 'service', 'repository'];
   }
   return [resourceTemplateName(resourceType, projectKind)];
 }
 
-export async function generateCommand(argv: ParsedArgs, output: CliOutput): Promise<void> {
+export async function generateCommand(
+  argv: ParsedArgs,
+  output: CliOutput
+): Promise<void> {
   const resourceType = argv._[1];
   const resourceName = argv._[2];
 
@@ -100,7 +133,10 @@ export async function generateCommand(argv: ParsedArgs, output: CliOutput): Prom
 
   const variables = generationVariables(resourceName);
 
-  for (const templateName of compositeResourceTypes(resourceType, manifest.kind)) {
+  for (const templateName of compositeResourceTypes(
+    resourceType,
+    manifest.kind
+  )) {
     const manifestFile = loadTemplateManifest('resources', templateName);
 
     for (const file of manifestFile.contributes.files || []) {

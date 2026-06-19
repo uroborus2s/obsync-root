@@ -22,7 +22,10 @@ import {
 } from '../../template/load-template.js';
 import { mergeContributions } from '../../template/merge-contributions.js';
 import { renderManifestFile } from '../../template/render-files.js';
-import { installDependencies, type SupportedPackageManager } from '../../package-manager/index.js';
+import {
+  installDependencies,
+  type SupportedPackageManager
+} from '../../package-manager/index.js';
 import { validatePresetSet } from '../../preset/validate-presets.js';
 import {
   ensureDirectory,
@@ -31,7 +34,12 @@ import {
   assertPathDoesNotExist,
   fileExists
 } from '../../utils/fs.js';
-import { toCamelCase, toKebabCase, toPascalCase, toSnakeCase } from '../../utils/case.js';
+import {
+  toCamelCase,
+  toKebabCase,
+  toPascalCase,
+  toSnakeCase
+} from '../../utils/case.js';
 
 interface InitCommandContext {
   prompter?: CliPrompter;
@@ -43,7 +51,12 @@ function parsePresetList(value: unknown): string[] {
   }
 
   if (Array.isArray(value)) {
-    return value.flatMap((item) => String(item).split(',').map((part) => part.trim()).filter(Boolean));
+    return value.flatMap((item) =>
+      String(item)
+        .split(',')
+        .map((part) => part.trim())
+        .filter(Boolean)
+    );
   }
 
   return String(value)
@@ -52,7 +65,10 @@ function parsePresetList(value: unknown): string[] {
     .filter(Boolean);
 }
 
-function templateVariables(projectName: string, projectType: string): Record<string, string> {
+function templateVariables(
+  projectName: string,
+  projectType: string
+): Record<string, string> {
   const baseName = projectName.replace(/^@[^/]+\//, '');
   return {
     projectName,
@@ -84,7 +100,9 @@ async function createFromManifest(
   const presetIds = Array.from(
     new Set([...(templateManifest.defaultPresets || []), ...selectedPresets])
   );
-  const presetManifests = presetIds.map((presetId) => loadPresetManifest(presetId));
+  const presetManifests = presetIds.map((presetId) =>
+    loadPresetManifest(presetId)
+  );
   validatePresetSet({
     kind: templateBucket === 'apps' ? 'app' : 'plugin',
     type: templateType,
@@ -165,7 +183,14 @@ async function createFromManifest(
   for (const presetId of presetIds) {
     const presetManifest = loadPresetManifest(presetId);
     for (const file of presetManifest.contributes.files || []) {
-      writeTemplateFileSet(rootDir, 'presets', presetId, file, variables, merged);
+      writeTemplateFileSet(
+        rootDir,
+        'presets',
+        presetId,
+        file,
+        variables,
+        merged
+      );
     }
   }
 
@@ -201,9 +226,7 @@ function promptChoicesForKind(): PromptChoice[] {
   ];
 }
 
-function availableTemplateChoices(
-  kind: 'app' | 'plugin'
-): PromptChoice[] {
+function availableTemplateChoices(kind: 'app' | 'plugin'): PromptChoice[] {
   return listTemplateManifests(kind === 'app' ? 'apps' : 'plugins')
     .filter((manifest) => manifest.type !== 'base')
     .map((manifest) => ({
@@ -222,7 +245,8 @@ async function resolveInitOptions(
   const providedProjectName = argv._[3];
   const packageManager = (argv.pm || 'pnpm') as SupportedPackageManager;
   const selectedPresets = parsePresetList(argv.preset);
-  const installWasSpecified = argv.install === true || argv['no-install'] === true;
+  const installWasSpecified =
+    argv.install === true || argv['no-install'] === true;
   const shouldInstall = argv.install === true || argv['no-install'] !== true;
 
   if (providedKind && providedTemplateType && providedProjectName) {
@@ -273,8 +297,7 @@ async function resolveInitOptions(
     );
 
     const projectName =
-      providedProjectName ||
-      (await prompter.text('Enter project name'));
+      providedProjectName || (await prompter.text('Enter project name'));
 
     const interactivePresets =
       selectedPresets.length > 0
@@ -321,7 +344,12 @@ function writeTemplateFileSet(
   rootDir: string,
   bucket: 'apps' | 'plugins' | 'presets',
   templateName: string,
-  file: { source: string; destination: string; template?: boolean; directory?: boolean },
+  file: {
+    source: string;
+    destination: string;
+    template?: boolean;
+    directory?: boolean;
+  },
   variables: Record<string, string>,
   merged: GeneratedProjectContext['contribution']
 ): void {
@@ -336,13 +364,16 @@ function writeTemplateFileSet(
 
   for (const entry of entries) {
     const rendered = renderManifestFile(file, entry.content, variables);
-    const destination = path.join(rootDir, file.destination, entry.relativePath);
+    const destination = path.join(
+      rootDir,
+      file.destination,
+      entry.relativePath
+    );
 
-    if (
-      file.destination === 'package.json' &&
-      entry.relativePath === ''
-    ) {
-      const current = fileExists(destination) ? readTextFile(destination) : rendered;
+    if (file.destination === 'package.json' && entry.relativePath === '') {
+      const current = fileExists(destination)
+        ? readTextFile(destination)
+        : rendered;
       writeTextFile(destination, mergePackageJsonContent(current, merged));
       continue;
     }
@@ -366,10 +397,18 @@ export async function initCommand(
   } = await resolveInitOptions(argv, output, context);
 
   if (templateType === 'base') {
-    throw new CliError('The base template is internal and cannot be initialized directly.');
+    throw new CliError(
+      'The base template is internal and cannot be initialized directly.'
+    );
   }
 
-  const rootDir = path.resolve(process.cwd(), projectName.replace(/^@[^/]+\//, '').split('/').pop() || projectName);
+  const rootDir = path.resolve(
+    process.cwd(),
+    projectName
+      .replace(/^@[^/]+\//, '')
+      .split('/')
+      .pop() || projectName
+  );
 
   await createFromManifest(
     rootDir,

@@ -69,10 +69,10 @@ describe('Environment Priority Override', () => {
     await loadEnvironment(envOptions);
 
     // 验证优先级覆盖结果
-    expect(process.env.TEST_VAR1).toBe('base');        // 只在 .env 中定义
-    expect(process.env.TEST_VAR2).toBe('dev');         // .env.development 覆盖 .env
-    expect(process.env.TEST_VAR3).toBe('dev-local');   // .env.development.local 覆盖前面的
-    expect(process.env.TEST_VAR4).toBe('local');       // 只在 .env.local 中定义
+    expect(process.env.TEST_VAR1).toBe('base'); // 只在 .env 中定义
+    expect(process.env.TEST_VAR2).toBe('dev'); // .env.development 覆盖 .env
+    expect(process.env.TEST_VAR3).toBe('dev-local'); // .env.development.local 覆盖前面的
+    expect(process.env.TEST_VAR4).toBe('local'); // 只在 .env.local 中定义
   });
 
   it('应该正确处理系统环境变量覆盖', async () => {
@@ -134,7 +134,9 @@ TEST_DATABASE_URL=postgres://user:pass@localhost:5432/\${TEST_API_VERSION}_db
     expect(process.env.TEST_BASE_URL).toBe('https://api.example.com');
     expect(process.env.TEST_API_VERSION).toBe('v1');
     expect(process.env.TEST_API_ENDPOINT).toBe('https://api.example.com/v1');
-    expect(process.env.TEST_DATABASE_URL).toBe('postgres://user:pass@localhost:5432/v1_db');
+    expect(process.env.TEST_DATABASE_URL).toBe(
+      'postgres://user:pass@localhost:5432/v1_db'
+    );
   });
 
   it('应该正确处理生产环境中排除 .local 文件', async () => {

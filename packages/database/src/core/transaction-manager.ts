@@ -1,7 +1,6 @@
-import { isLeft, type Either } from '@stratix/core/functional';
+import { isLeft } from '@stratix/core/functional';
 import type { CompiledQuery, Kysely, QueryResult, Transaction } from 'kysely';
 import {
-  type TransactionContextInfo,
   getCurrentTransaction,
   getCurrentTransactionId,
   isInTransaction,
