@@ -17,13 +17,13 @@ Phase 5 的目标是把 Stratix 从“开发期动态发现可用”推进到“
 | 能力                         | 状态   | 入口                                                                              |
 | ---------------------------- | ------ | --------------------------------------------------------------------------------- |
 | 插件治理 manifest            | 已完成 | `@stratix/create` 为 plugin 项目生成 `.stratix/plugin.json`                       |
-| 插件 manifest 校验           | 已完成 | `stratix doctor plugins`                                                          |
+| 插件 manifest 校验           | 已完成 | `stratix doctor plugins`，包含 adapter-backed `provides` 校验                     |
 | 插件拓扑输出                 | 已完成 | `stratix graph plugins --format json\|mermaid`                                    |
 | 生产 manifest artifact       | 已完成 | `stratix build-manifest --output .stratix/production-manifest.json`               |
 | Runtime manifest consumption | 已完成 | `discovery.productionManifest` 启动读取并校验 artifact                            |
 | Manifest-driven registration | 已完成 | `registerFromManifest: true` 时优先注册 v2 `compiledFile`，v1 继续兼容 source files |
-| Observability preset         | 已完成 | `config.observability` 提供 request id、trace id、health、metrics、trace snapshot |
-| Security preset              | 已完成 | `config.security` 提供 body limit、CORS、headers、rate limit                      |
+| Observability preset         | 已完成 | `config.observability` 提供 request id、trace id、health/readiness/liveness、metrics、trace snapshot、provider 扩展点 |
+| Security preset              | 已完成 | `config.security` 提供 body limit、CORS、headers、rate limit 与 rate-limit provider |
 | DevTools production views    | 已完成 | `@stratix/devtools` 暴露 routes、DI、plugins、config、health、traces              |
 | Release gate                 | 已完成 | `stratix release gate --manifest .stratix/production-manifest.json`               |
 
@@ -52,6 +52,7 @@ Phase 5 的目标是把 Stratix 从“开发期动态发现可用”推进到“
 - `name` 与 package name 对齐。
 - `capabilities` 表示插件能力分类，可用于文档和生态目录。
 - `provides` 表示插件向根容器暴露的 adapter token。
+- P2+ 后 `stratix doctor plugins` 会在可静态判断时扫描 `src/adapters` 并校验 `provides` 是否由真实 adapter token 支撑，同时报告存在但未声明的 adapter token。
 - `requires` 表示运行时插件依赖，必须在 `package.json` dependencies、devDependencies 或 peerDependencies 中可解析。
 - `health` 表示插件是否应进入健康检查矩阵。
 
@@ -170,15 +171,32 @@ export default {
     traceIdHeader: 'x-trace-id',
     health: {
       enabled: true,
-      basePath: '/health'
+      basePath: '/health',
+      contributors: [
+        {
+          name: 'database',
+          async check() {
+            return { status: 'healthy' };
+          }
+        }
+      ]
     },
     metrics: {
       enabled: true,
-      path: '/metrics'
+      path: '/metrics',
+      provider: {
+        recordRequest(event) {},
+        snapshot() {
+          return {};
+        }
+      }
     },
     traces: {
       enabled: true,
-      maxEntries: 100
+      maxEntries: 100,
+      provider: {
+        recordTrace(event) {}
+      }
     }
   }
 };
@@ -187,8 +205,9 @@ export default {
 运行时行为：
 
 - 为每个请求生成或继承 request id / trace id，并写回响应头。
-- 暴露 `/health`、`/health/ready`、`/health/live`。
+- 暴露 `/health`、`/health/ready`、`/health/live`；base health 与 `/ready` 包含 contributors，contributors 异常或 unhealthy 返回 503；`/live` 只验证 runtime liveness。
 - 暴露 `/metrics`，返回请求计数、状态码分布、trace snapshot 和 uptime。
+- `metrics.provider` 可接收请求事件和导出 provider snapshot；`traces.provider` 可接收请求 trace 事件。metrics/tracing provider 失败会被记录日志并隔离，不破坏业务响应。
 
 ### 3.5 Security 配置
 
@@ -208,7 +227,12 @@ export default {
     rateLimit: {
       enabled: true,
       max: 100,
-      windowMs: 60000
+      windowMs: 60000,
+      provider: {
+        async consume(input) {
+          return { allowed: true };
+        }
+      }
     }
   }
 };
@@ -219,7 +243,7 @@ export default {
 - `bodyLimit` 进入 Fastify server options。
 - CORS 会处理 preflight，并在响应中写入允许的 origin/method/header。
 - 默认安全响应头包含 `x-content-type-options`、`x-frame-options`、`referrer-policy` 和 CSP。
-- rate limit 使用统一错误 envelope 返回 `RATE_LIMITED`。
+- rate limit 默认使用内存窗口计数器，或通过 `rateLimit.provider.consume()` 接入 Redis / 网关 / 外部限流器；provider 抛错时退回内置限流器；拒绝时使用统一错误 envelope 返回 `RATE_LIMITED`。
 
 ### 3.6 DevTools production views
 
@@ -268,13 +292,13 @@ Release gate 当前纳入以下生产检查项：
 
 | 验收项                                                                                               | 状态 | 证据                    |
 | ---------------------------------------------------------------------------------------------------- | ---- | ----------------------- |
-| `stratix doctor plugins` 对缺失 capabilities、依赖未安装、重复 provides 给出非零退出                 | 通过 | forge CLI 回归测试      |
+| `stratix doctor plugins` 对缺失 capabilities、依赖未安装、重复 provides、adapter-backed provides 漂移给出非零退出 | 通过 | forge CLI 回归测试      |
 | `stratix graph plugins --format json\|mermaid` 可被文档和 DevTools 复用                              | 通过 | forge CLI 回归测试      |
 | `stratix build-manifest` 可在 CI 中生成 schemaVersion 2 可归档 artifact                              | 通过 | forge CLI 回归测试      |
 | 生产启动可读取 manifest，并在 `skipRuntimeDiscovery` 为 `true` 时不执行应用级 runtime glob discovery | 通过 | core bootstrap 回归测试 |
 | `registerFromManifest: true` 只导入 manifest 文件并完成 DI/路由注册；v2 优先 compiled files          | 通过 | core bootstrap 回归测试 |
 | production manifest v2 可校验 source/compiled hash 并在 release gate 中拒绝 stale artifact           | 通过 | core / forge 回归测试   |
-| observability/security preset 有独立测试证据                                                         | 通过 | core bootstrap 回归测试 |
+| observability/security preset、provider 扩展点、readiness/liveness 和 provider 故障隔离有独立测试证据 | 通过 | core bootstrap 回归测试 |
 | DevTools 能展示 route、DI、plugin、config、health、trace 数据                                        | 通过 | devtools 回归测试       |
 | Release gate 能校验 production manifest 并输出发布检查计划                                           | 通过 | forge CLI 回归测试      |
 
@@ -286,3 +310,4 @@ Release gate 当前纳入以下生产检查项：
 | 2026-06-18 | 记录 runtime production-manifest consumption 最小基线：启动期读取 artifact，并可跳过 runtime glob discovery          | Codex |
 | 2026-06-18 | 完成 Phase 5：manifest-driven registration、observability/security preset、DevTools production views 与 release gate | Codex |
 | 2026-06-19 | 完成 P2 production manifest v2 兼容式基线：RegistrationPlan 快照、artifact hash 校验、compiled-file registration 与 release gate v2 校验 | Codex |
+| 2026-06-19 | 完成 P2+ provider 与插件治理硬化：metrics/tracing/rate-limit provider、health contributor、readiness/liveness 分离、plugin `provides` 深校验 | Codex |

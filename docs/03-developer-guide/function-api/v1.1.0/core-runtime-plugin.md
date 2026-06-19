@@ -19,6 +19,7 @@
 - [控制器与路由装饰器](#controllers-routes)
 - [路由契约与 OpenAPI](#route-contracts)
 - [DI 诊断](#di-diagnostics)
+- [生产观测与限流扩展点](#production-observability-security)
 - [校验装饰器](#validation-decorators)
 - [插件 AutoDI 与注册函数](#plugin-autodi)
 - [注册与处理相关函数](#plugin-registration)
@@ -74,6 +75,21 @@
 - `artifacts.files`：记录 `sourceFile/sourceHash`，存在构建产物时记录 `compiledFile/compiledHash`。
 
 runtime 配置 `strict: true` 时会校验 v2 artifact hash。`skipRuntimeDiscovery: true` + `registerFromManifest: true` 时，core 只导入 manifest 记录的文件；v2 优先使用 `compiledFile`，不会回退到隐式源码 glob。v1 manifest 仍按原 `sourceFile` 语义兼容读取。
+
+<a id="production-observability-security"></a>
+## 生产观测与限流扩展点
+
+`StratixConfig` 的 `observability` 和 `security` 可以接入生产 provider：
+
+| 配置 | 说明 |
+|---|---|
+| `observability.health.contributors` | readiness 依赖贡献者。`/health` 与 `/health/ready` 会执行，异常或 unhealthy 返回 503；`/health/live` 只验证 runtime liveness |
+| `observability.metrics.provider.recordRequest(event)` | 每个非失败隔离的请求响应后接收 `StratixRequestObservation` |
+| `observability.metrics.provider.snapshot()` | `/metrics` 返回内建 snapshot 时合并 provider snapshot |
+| `observability.traces.provider.recordTrace(event)` | 请求 trace 事件出口，可接 OpenTelemetry 或自研 exporter |
+| `security.rateLimit.provider.consume(input)` | 外部限流决策入口，返回 `{ allowed: true }` 或 `{ allowed: false, retryAfterSeconds? }` |
+
+provider 抛错会被记录日志并隔离。metrics/tracing 失败不会破坏业务响应；rate-limit provider 抛错时会退回内置限流器；rate-limit provider 返回拒绝时，runtime 使用统一错误 envelope 返回 `RATE_LIMITED`。
 
 <a id="controllers-routes"></a>
 ## 控制器与路由装饰器

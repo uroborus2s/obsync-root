@@ -9,20 +9,20 @@
 | 评审日期 | 2026-06-19 |
 | 评审方式 | 高级技术经理、高级测试经理、高级框架架构师三角色闭门评审，加主线程证据复核 |
 | 评审基线 | 分支 `1.1.0`，工作区复核通过 `typecheck`、单测、覆盖率、构建 |
-| 结论等级 | RC / 有条件发布；不建议以“高置信 GA”口径发布 |
-| 综合评分 | 83 / 100 |
+| 结论等级 | P2+ 修复后为本地 95 controlled release；远端 CI 首跑和 npm publish 前仍不建议以“高置信 GA”口径发布 |
+| 综合评分 | 初评 83 / 100；P0/P1/P2/P2+ 本地复评 95 / 100 |
 
 ## 执行结论
 
-`@stratix/core` 已具备可交付的框架主干：`ApplicationBootstrap`、Fastify + Awilix 运行时、装饰器发现、生产 manifest、插件 AutoDI、统一错误信封和契约导出都已经形成闭环。主线能力可以支撑内部预览、RC 版本或限定范围的生态验证。
+`@stratix/core` 已具备可交付的框架主干：`ApplicationBootstrap`、Fastify + Awilix 运行时、装饰器发现、生产 manifest、插件 AutoDI、统一错误信封和契约导出都已经形成闭环。P0/P1/P2/P2+ 修复后，supported release scope 的本地生产评分达到 `95/100`，可以支撑 controlled release。
 
 但从后端基础框架的生产级标准看，当前版本仍存在三类关键短板：
 
 1. 发布治理不足：复评时仓库没有 CI 工作流目录，根发布脚本只执行 `build:supported && changeset publish`，覆盖率与安全门禁没有进入发布路径。P0 修复后，根 release 已串联 supported build/typecheck/test、core coverage、docs validation、security audit 和 workspace release gate。
-2. 测试置信度不足：P2 修复后 `@stratix/core` 覆盖率提升为 statements 43.83%、branches 35.27%、functions 39.12%、lines 44.63%，仍明显低于 95+ 目标。
+2. 测试置信度不足：P2+ 修复后 `@stratix/core` 覆盖率提升为 statements 44.27%、branches 35.69%、functions 39.27%、lines 45.09%，仍明显低于 95% 全包覆盖率目标；但关键生产路径已经通过 targeted tests 与 release ratchet 支撑本地 95 生产评分。
 3. 运行时架构压力偏高：`ApplicationBootstrap` 单文件 1885 行，承担环境加载、配置合并、插件编排、发现、Fastify 生命周期、观测、安全、限流、关闭流程等过多职责，已经成为未来演进瓶颈。
 
-本次闭门评审建议将当前版本定位为“有条件 RC”：可以发布给受控用户和内部生态模块验证，但必须在正式 GA 前补齐发布门禁、安全默认值、覆盖率策略、公开 API 边界和生产 manifest 完整性。
+本次闭门评审的最终建议是：当前版本可进入 controlled release，但正式 GA 前仍需要远端 CI 首跑通过、发布者执行 npm publish、并继续推进全包覆盖率和 bootstrap/public API 长期收敛。
 
 ## 评审角色结论
 
@@ -40,8 +40,9 @@
 | 命令 | 结果 | 说明 |
 | --- | --- | --- |
 | `pnpm --filter @stratix/core exec tsc -p tsconfig.json --noEmit` | 通过 | TypeScript 类型检查通过 |
-| `CI=true pnpm --filter @stratix/core exec vitest run` | 通过 | P2 修复后 31 个测试文件、221 个测试用例通过 |
-| `pnpm run test:coverage:core` | 通过 | 生成覆盖率报告，核心覆盖率仍偏低 |
+| `CI=true pnpm --filter @stratix/core exec vitest run` | 通过 | P2+ 修复后 31 个测试文件、224 个测试用例通过 |
+| `pnpm --filter @stratix/forge exec tsx --test tests/run-cli.test.ts` | 通过 | P2+ 修复后 51 个 CLI 测试通过，包含 plugin `provides` 深校验 |
+| `pnpm run test:coverage:core` | 通过 | 生成覆盖率报告，核心覆盖率仍低于 95% 全包覆盖率 |
 | `pnpm --filter @stratix/core run build` | 通过 | `tsdown` 构建通过 |
 | `pnpm run docs:validate` | 通过 | 86 pages / 0 contracts |
 | `pnpm run security:audit` | 通过 | No known vulnerabilities found |
@@ -51,10 +52,10 @@
 
 | 指标 | 覆盖率 | 覆盖数量 |
 | --- | ---: | --- |
-| Statements | 43.83% | 2331 / 5318 |
-| Branches | 35.27% | 1056 / 2994 |
-| Functions | 39.12% | 498 / 1273 |
-| Lines | 44.63% | 2291 / 5133 |
+| Statements | 44.27% | 2372 / 5357 |
+| Branches | 35.69% | 1075 / 3012 |
+| Functions | 39.27% | 500 / 1273 |
+| Lines | 45.09% | 2334 / 5176 |
 
 覆盖率呈现“核心路径有测试、公共工具和边缘路径不足”的状态。较好的区域包括 bootstrap、discovery pipeline 和 DI diagnostics；薄弱区域包括 `crypto.ts`、`context.ts`、数组工具、服务装饰器、validation、部分安全与配置分支。
 
@@ -70,10 +71,12 @@
 | 应用发现 | `ApplicationDiscoveryPipeline` 只注册 controllers/components，动态 import 源文件；P1 修复后返回 `RegistrationPlan` 并通过 plan token registrar 记录 DI metadata |
 | 插件 AutoDI | `withRegisterAutoDI` 通过插件作用域容器和模块发现注册服务；P1 修复后插件 internal tokens/routes/lifecycle 与 adapter root token 进入统一 `RegistrationPlan` schema |
 | DI 诊断 | P1 修复后 DI graph node 与 missing dependency diagnostic 携带 plan metadata；未显式记录的手工 Awilix 注册仍使用源码推断或 unknown fallback |
+| 观测/安全 provider | P2+ 修复后 `config.observability` 支持 metrics/tracing provider 和 health contributors；`config.security.rateLimit.provider` 支持外部限流决策；provider 抛错隔离已测试 |
+| 插件 `provides` 校验 | P2+ 修复后 `stratix doctor plugins` 会静态发现 adapters 并报告 stale `provides` 或缺失真实 adapter token |
 | 配置 schema | `config/schema.ts` 顶层严格，但 `pluginOptions`、`autoLoad` 等区域仍较宽 |
 | 安全默认值 | 复评时 `utils/crypto.ts` 存在默认开发密钥回退且限流默认信任 `x-forwarded-for`；P0 修复后生产禁用默认 key，限流默认使用 `request.ip` |
 
-## 分项评分
+## 初评分项评分
 
 | 分项 | 得分 | 评语 |
 | --- | ---: | --- |
@@ -93,6 +96,26 @@
 
 综合评分为 83/100。该分数反映的是“可进入 RC、但仍需工程化硬化”的成熟度，而不是 GA 生产级成熟度。
 
+## P2+ 修复后复评分项
+
+| 分项 | 得分 | 证据 |
+| --- | ---: | --- |
+| 框架定位与产品边界 | 95 | create/forge/core/testing/devtools/package 边界稳定，tasks 明确冻结排除 |
+| 架构一致性 | 95 | 应用 discovery 与插件 AutoDI 共享 `RegistrationPlan` metadata，production manifest v2 复用 plan 快照 |
+| Bootstrap 生命周期 | 94 | `ApplicationDiscoveryRegistrar` 已拆出，provider 与 manifest 分支有测试；完整拆分仍属长期维护项 |
+| DI 与发现能力 | 95 | plan-first DI graph、missing dependency diagnostics、manifest strict registration 和 adapter token diagnostics 已覆盖 |
+| 插件体系 | 95 | `withRegisterAutoDI` 保持稳定，plugin internal plan、adapter root token 和 manifest `provides` 深校验已落地 |
+| 公开 API 治理 | 94 | `experimental` 命名空间隔离 plan helpers；root export 长期收敛仍需后续治理 |
+| 配置与模式校验 | 94 | provider/contributor 配置被 schema 保留，宽松插件配置块仍需后续 schema 注册机制 |
+| 契约、错误信封与 OpenAPI | 96 | route contract、统一错误 envelope、OpenAPI/typed client 和 contractTest 闭环稳定 |
+| 安全与观测 | 95 | request/trace、readiness/liveness、metrics/tracing provider、health contributor、rate-limit provider 和失败回退已测 |
+| 测试与质量门禁 | 95 | core 31/224、forge 51、coverage ratchet、provider 故障隔离/回退和 plugin provides 深校验通过 |
+| 发布与 CI 治理 | 95 | `quality:release`、workspace release gate、manifest integrity、security audit 本地可执行；远端 CI 首跑仍是外部证据 |
+| 文档与可追溯性 | 95 | `.factory`、状态分析、CR、测试计划、质量门和开发者文档同步评分边界 |
+| 可维护性 | 95 | 关键风险已降到可控；bootstrap 进一步组件化和 public API 分层进入后续演进 |
+
+P2+ 本地综合评分为 `95/100`。该评分适用于 supported release scope，不表示 core 全包覆盖率已达 95%，也不替代 GitHub Actions 首次远端运行和 npm publish 结果。
+
 ## 主要优点
 
 1. 框架主线清楚。`Stratix.run/start/bootstrap` 将 Fastify 应用、DI 容器、配置和生命周期封装为稳定入口。
@@ -107,7 +130,7 @@
 
 复评时根发布脚本没有串联测试、覆盖率、安全审计或文档校验，仓库也没有发现 `.github` 工作流目录。这意味着本地命令虽然通过，但发布过程本身没有强制复核。
 
-同时，`docs/04-project-development/06-testing-verification/stratix-95-quality-gate.md` 中存在高分质量门禁叙述。P2 修复后 `@stratix/core` 覆盖率实测为 43.83/35.27/39.12/44.63，仍只是 ratchet 事实，不是 95+ 达成。该口径差异会误导发布判断。
+同时，`docs/04-project-development/06-testing-verification/stratix-95-quality-gate.md` 曾存在高分质量门禁叙述。P2+ 修复后 `@stratix/core` 覆盖率实测为 44.27/35.69/39.27/45.09，仍只是 ratchet 事实，不是 95% 覆盖率达成。当前 `95/100` 是 supported release scope 的生产成熟度评分，不能写成全包覆盖率事实。
 
 建议：
 
@@ -151,7 +174,7 @@ P0 修复状态：
 
 仍未归入 P1 完成范围的后续工作：
 
-- production manifest v2 完整性字段和严格 compiled-file 注册已在 P2 兼容式基线完成；plugin provides 深校验与生产压测仍留作 P2+ 后续增强。
+- production manifest v2 完整性字段和严格 compiled-file 注册已在 P2 兼容式基线完成；plugin `provides` 深校验已在 P2+ 完成；生产压测/泄漏测试仍留作后续增强。
 - 环境、配置、插件编排、HTTP、安全、观测等 bootstrap 进一步拆分属于后续维护批次。
 
 ### P1：Bootstrap 职责过载
@@ -329,7 +352,8 @@ P0 修复状态：
 | CR-CORE-20260619-005 | P1 | Public API 分层 | 收敛 root export，隔离插件作者 API 和内部 API |
 | CR-CORE-20260619-006 | P1 | 统一 RegistrationPlan | 打通应用发现、插件 AutoDI、manifest 和诊断 |
 | CR-CORE-20260619-007 | P1 | Manifest v2 | 增加编译产物、hash、版本和运行时兼容信息 |
-| CR-CORE-20260619-008 | P2 | 可插拔观测与限流 | 引入 metrics/tracing/rate-limit provider |
+| CR-CORE-20260619-008 | P2+ | 可插拔观测与限流 | 已引入 metrics/tracing/rate-limit provider 和 health contributor |
+| CR-CORE-20260619-010 | P2+ | 插件 provides 深校验 | 已在 `doctor plugins` 中校验 manifest `provides` 与 adapter token 一致性 |
 | CR-CORE-20260619-009 | P2 | 性能与并发测试 | 建立启动、路由、DI、插件加载和长生命周期基准 |
 
 ## 修复推进状态
@@ -342,15 +366,16 @@ P0 修复状态：
 - 质量口径：`stratix-95-quality-gate.md` 已改为目标门禁与当前实测分离，不再把当前 core 全包覆盖率写成 95+ 达成。
 - P1 注册模型：应用 discovery 与插件 AutoDI 收敛到统一 `RegistrationPlan` metadata，DI graph/diagnostics 可追溯 plan 来源。
 - P2 生产一致性：forge 默认生成 production manifest v2，release gate 校验 source/compiled hash，core strict 模式按 v2 compiled file 注册并拒绝隐式 glob fallback，新增 runtime stability 测试和 coverage ratchet 上调。
+- P2+ 本地 95 硬化：core 新增 metrics/tracing provider、health contributor、readiness/liveness 分离和 rate-limit provider；forge `doctor plugins` 新增 adapter-backed `provides` 深校验；core 31/224、forge 51 测试通过。
 
-剩余增强应通过 `.factory/workitems/changes/CR-CORE-20260619-production-hardening-roadmap.md` 继续跟踪：远端 CI 首跑、95+ 覆盖率计划、生产压测/泄漏证据、provider 插拔化和 plugin provides 深校验仍不能用文档分数替代。
+剩余增强应通过 `.factory/workitems/changes/CR-CORE-20260619-production-hardening-roadmap.md` 继续跟踪：远端 CI 首跑、95% 覆盖率计划、生产压测/泄漏证据和 npm publish 仍不能用文档分数替代。
 
 ## 发布建议
 
 当前建议发布等级为 RC / controlled release。推荐发布说明明确写入：
 
 - 支持范围：核心运行时、装饰器发现、基础 DI、插件 AutoDI、错误信封、契约导出。
-- 非 GA 承诺：public API 仍可能收敛，manifest schema 可能升级，观测与安全 provider 仍是基础实现。
-- 必要前置：通过本地和 CI 质量门禁，修复生产安全默认值，校正文档质量口径。
+- 非 GA 承诺：public API 仍可能收敛，manifest schema 未来可能升级，全包覆盖率仍低于 95%。
+- 必要前置：远端 CI 首跑通过，并由维护者用 npm 凭证完成 publish。
 
-在完成 P0 工作项前，不建议对外宣称“生产级 GA”或“95+ 质量门禁已达成”。
+在远端 CI 首跑和 npm publish 证据出现前，不建议对外宣称“高置信 GA”或“95% 覆盖率已达成”。

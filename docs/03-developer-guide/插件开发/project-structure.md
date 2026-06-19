@@ -32,6 +32,8 @@ src/
 - `requires`：插件运行时依赖的其他 Stratix 插件包
 - `health`：是否应进入健康检查矩阵
 
+`provides` 需要和插件真实 adapter token 对齐。P2+ 之后，`stratix doctor plugins` 会在可静态判断时读取 `src/index.ts` 中的 `withRegisterAutoDI(pluginFn, ...)` 插件函数名，并扫描 `src/adapters` 推断 adapter token；manifest 中多写、漏写都会被报告。
+
 ### `src/index.ts`
 
 这是插件入口。一个由 create 生成的典型入口会长这样：

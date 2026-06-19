@@ -33,7 +33,7 @@
 
 ## 4. 当前设计债
 
-- Plugin manifest、Production manifest artifact、runtime production-manifest consumption、manifest-driven registration、observability preset、security preset、DevTools production views 和 release gate 已完成 Phase 5 基线。统一错误 envelope、response validation strict gate、testing fixtures 和 Module governance tooling 已有基线。
+- Plugin manifest、Production manifest artifact、runtime production-manifest consumption、manifest-driven registration、observability/security provider、DevTools production views 和 release gate 已完成 Phase 5/P2+ 基线。统一错误 envelope、response validation strict gate、testing fixtures 和 Module governance tooling 已有基线。
 - 根 README 不承载瞬时设计状态；当前事实以 `.factory/project.json`、`.factory/memory/current-state.md` 和 `docs/04-project-development/02-discovery/current-state-analysis.md` 为准。
 
 ## 5. 变更记录

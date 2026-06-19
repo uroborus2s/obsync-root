@@ -658,7 +658,7 @@ flowchart TD
 | contract test DSL           | `@stratix/testing` `contractTest()` 复用 route contract、diagnostics 和共享错误 envelope schema 验证 app.inject 响应                                         |
 | plugin adapter diagnostics  | `diagnoseServiceAdapterTokens()` 检测重复 adapter name 与根容器 token 冲突                                                                                   |
 
-Phase 5/P2 生产能力已经落地：create 为插件项目生成 `.stratix/plugin.json`，forge 提供 `doctor plugins`、`graph plugins`、`build-manifest` 和 `release gate`，core 可通过 `discovery.productionManifest` 启动期读取 artifact、跳过应用级 runtime glob discovery，并在 `registerFromManifest: true` 时优先按 v2 manifest `compiledFile` 恢复 DI/路由注册，v1 manifest 继续按 source files 兼容注册。core 还提供 observability/security preset；DevTools 提供 routes、DI、plugins、redacted config、health 和 traces 生产视图。Module governance tooling 已有 `generate module` / `doctor modules` / `graph modules` 基线；`@stratix/testing` Phase 4 基线已覆盖 test app、DI override、plugin fixture、discovery fixture、repository fixture 和 module fixture。
+Phase 5/P2+ 生产能力已经落地：create 为插件项目生成 `.stratix/plugin.json`，forge 提供 `doctor plugins`、`graph plugins`、`build-manifest` 和 `release gate`，core 可通过 `discovery.productionManifest` 启动期读取 artifact、跳过应用级 runtime glob discovery，并在 `registerFromManifest: true` 时优先按 v2 manifest `compiledFile` 恢复 DI/路由注册，v1 manifest 继续按 source files 兼容注册。core 还提供 observability/security preset、metrics/tracing provider、health contributor、readiness/liveness 分离和 rate-limit provider；forge `doctor plugins` 会在可静态判断时校验 manifest `provides` 与真实 adapter token 一致性；DevTools 提供 routes、DI、plugins、redacted config、health 和 traces 生产视图。Module governance tooling 已有 `generate module` / `doctor modules` / `graph modules` 基线；`@stratix/testing` Phase 4 基线已覆盖 test app、DI override、plugin fixture、discovery fixture、repository fixture 和 module fixture。
 
 ### 9.3 Create 与 Forge 工具入口
 
@@ -794,12 +794,12 @@ flowchart TD
 - 生成插件文档。
 - 检查版本兼容矩阵。
 
-截至 2026-06-18，插件 manifest 基线已完成：
+截至 2026-06-19，插件 manifest 基线已完成：
 
 | 能力                   | 状态                                                                           |
 | ---------------------- | ------------------------------------------------------------------------------ |
 | `.stratix/plugin.json` | create 在 plugin 项目中生成 name/version/capabilities/provides/requires/health |
-| `doctor plugins`       | forge 校验 manifest schema、requires 依赖和 provides 重复                      |
+| `doctor plugins`       | forge 校验 manifest schema、requires 依赖、provides 重复，以及 adapter-backed provides 一致性 |
 | `graph plugins`        | forge 输出 capability/provides/requires JSON 与 Mermaid 拓扑                   |
 
 ### 9.7 安全能力标准化
@@ -840,7 +840,7 @@ flowchart TD
 - plugin manifest lock
 - build artifact 校验
 
-截至 2026-06-19，production manifest artifact、runtime consumption 与 manifest-driven registration 已完成 P2 基线：`stratix build-manifest` 默认生成 `schemaVersion: 2` 的 `.stratix/production-manifest.json`，内容包含 project、discovery、routes、DI tokens/issues、modules/moduleIssues、runtime plugin-lock、app `RegistrationPlan`、generator/runtime metadata、source hash 和可选 compiled artifact hash；`@stratix/core` 可通过 `discovery.productionManifest` 读取并校验该 artifact，在 `skipRuntimeDiscovery: true` 时跳过应用级 runtime glob discovery，并在 `registerFromManifest: true` 时优先导入 manifest 中记录的 `compiledFile` 完成 DI/路由注册，v1 manifest 继续按 `sourceFile` 兼容注册。
+截至 2026-06-19，production manifest artifact、runtime consumption 与 manifest-driven registration 已完成 P2 基线：`stratix build-manifest` 默认生成 `schemaVersion: 2` 的 `.stratix/production-manifest.json`，内容包含 project、discovery、routes、DI tokens/issues、modules/moduleIssues、runtime plugin-lock、app `RegistrationPlan`、generator/runtime metadata、source hash 和可选 compiled artifact hash；`@stratix/core` 可通过 `discovery.productionManifest` 读取并校验该 artifact，在 `skipRuntimeDiscovery: true` 时跳过应用级 runtime glob discovery，并在 `registerFromManifest: true` 时优先导入 manifest 中记录的 `compiledFile` 完成 DI/路由注册，v1 manifest 继续按 `sourceFile` 兼容注册。P2+ 同时补齐了 metrics/tracing/rate-limit provider、health contributor 和插件 `provides` 深校验。
 
 ### 9.9 DevTools
 

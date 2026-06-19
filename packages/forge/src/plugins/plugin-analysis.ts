@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { toCamelCase } from '../utils/case.js';
 import { fileExists, readJsonFile } from '../utils/fs.js';
@@ -27,7 +28,9 @@ export interface PluginIssue {
     | 'PLUGIN_MANIFEST_MISSING'
     | 'PLUGIN_SCHEMA'
     | 'PLUGIN_DEPENDENCY_MISSING'
-    | 'PLUGIN_DUPLICATE_PROVIDE';
+    | 'PLUGIN_DUPLICATE_PROVIDE'
+    | 'PLUGIN_PROVIDE_NOT_BACKED_BY_ADAPTER'
+    | 'PLUGIN_ADAPTER_NOT_DECLARED';
   pluginName?: string;
   sourceFile?: string;
   message: string;
@@ -39,6 +42,24 @@ export interface PluginAnalysis {
 }
 
 const PLUGIN_MANIFEST_PATH = path.join('.stratix', 'plugin.json');
+const ADAPTER_FILE_EXTENSIONS = new Set([
+  '.ts',
+  '.tsx',
+  '.js',
+  '.mjs',
+  '.cjs',
+  '.mts',
+  '.cts'
+]);
+const PLUGIN_INDEX_EXTENSIONS = [
+  '.ts',
+  '.tsx',
+  '.js',
+  '.mjs',
+  '.cjs',
+  '.mts',
+  '.cts'
+];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -54,6 +75,40 @@ function stringArray(value: unknown): string[] | undefined {
 
 function packageBaseName(packageName: string): string {
   return packageName.replace(/^@[^/]+\//, '');
+}
+
+function pluginFunctionNameFromIndex(rootDir: string): string | undefined {
+  const indexPath = PLUGIN_INDEX_EXTENSIONS.map((extension) =>
+    path.join(rootDir, 'src', `index${extension}`)
+  ).find((candidate) => fileExists(candidate));
+
+  if (!indexPath) {
+    return undefined;
+  }
+  const source = fs.readFileSync(indexPath, 'utf8');
+  const match = source.match(
+    /withRegisterAutoDI(?:<[^>]+>)?\(\s*([A-Za-z_$][\w$]*)/
+  );
+  return match?.[1];
+}
+
+function capitalizeIdentifier(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function buildAdapterToken(pluginName: string, adapterName: string): string {
+  if (adapterName === pluginName) {
+    return adapterName;
+  }
+
+  if (adapterName.startsWith(pluginName)) {
+    const nextCharacter = adapterName.charAt(pluginName.length);
+    if (nextCharacter !== '' && nextCharacter === nextCharacter.toUpperCase()) {
+      return adapterName;
+    }
+  }
+
+  return `${pluginName}${capitalizeIdentifier(adapterName)}`;
 }
 
 function manifestPath(rootDir: string): string {
@@ -179,6 +234,83 @@ function parsePluginManifest(
   };
 }
 
+function adapterFiles(rootDir: string): string[] {
+  const adaptersDir = path.join(rootDir, 'src', 'adapters');
+  if (!fs.existsSync(adaptersDir)) {
+    return [];
+  }
+
+  const files: string[] = [];
+  const visit = (dir: string) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const absolutePath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        visit(absolutePath);
+        continue;
+      }
+
+      if (ADAPTER_FILE_EXTENSIONS.has(path.extname(entry.name))) {
+        files.push(absolutePath);
+      }
+    }
+  };
+
+  visit(adaptersDir);
+  return files.sort();
+}
+
+function lowerFirst(value: string): string {
+  return value.charAt(0).toLowerCase() + value.slice(1);
+}
+
+function adapterNameFromClassName(className: string): string | undefined {
+  const withoutSuffix = className.replace(/Adapter$/, '');
+  return withoutSuffix ? lowerFirst(withoutSuffix) : undefined;
+}
+
+function adapterNameFromFileName(filePath: string): string | undefined {
+  const fileName = path.basename(filePath, path.extname(filePath));
+  const withoutSuffix = fileName
+    .replace(/[-_]?adapter$/i, '')
+    .replace(/[-_]?api$/i, '');
+  const adapterName = withoutSuffix.replace(/[-_]([a-z])/g, (_, letter) =>
+    String(letter).toUpperCase()
+  );
+  return adapterName ? lowerFirst(adapterName) : undefined;
+}
+
+function staticAdapterName(source: string): string | undefined {
+  const match =
+    source.match(/static\s+adapterName\s*=\s*['"]([^'"]+)['"]/) ||
+    source.match(/adapterName\s*:\s*['"]([^'"]+)['"]/);
+  return match?.[1];
+}
+
+function classAdapterName(source: string): string | undefined {
+  const match = source.match(/class\s+([A-Za-z_$][\w$]*)/);
+  return match?.[1] ? adapterNameFromClassName(match[1]) : undefined;
+}
+
+function discoveredAdapterTokens(
+  rootDir: string,
+  pluginName: string
+): string[] {
+  const tokens = new Set<string>();
+
+  for (const filePath of adapterFiles(rootDir)) {
+    const source = fs.readFileSync(filePath, 'utf8');
+    const adapterName =
+      staticAdapterName(source) ||
+      classAdapterName(source) ||
+      adapterNameFromFileName(filePath);
+    if (adapterName) {
+      tokens.add(buildAdapterToken(pluginName, adapterName));
+    }
+  }
+
+  return [...tokens].sort();
+}
+
 export function analyzeProjectPlugins(rootDir: string): PluginAnalysis {
   const issues: PluginIssue[] = [];
   const manifest = parsePluginManifest(rootDir, issues);
@@ -212,6 +344,35 @@ export function analyzeProjectPlugins(rootDir: string): PluginAnalysis {
       });
     }
     providedTokens.add(token);
+  }
+
+  const pluginName = pluginFunctionNameFromIndex(rootDir);
+  if (pluginName) {
+    const adapterTokens = discoveredAdapterTokens(rootDir, pluginName);
+    if (adapterTokens.length > 0) {
+      const adapterTokenSet = new Set(adapterTokens);
+      for (const token of manifest.provides) {
+        if (!adapterTokenSet.has(token)) {
+          issues.push({
+            code: 'PLUGIN_PROVIDE_NOT_BACKED_BY_ADAPTER',
+            pluginName: manifest.name,
+            sourceFile: manifest.sourceFile,
+            message: `Plugin manifest provides token is not backed by a discovered adapter: ${token}. Discovered adapter tokens: ${adapterTokens.join(', ')}`
+          });
+        }
+      }
+
+      for (const token of adapterTokens) {
+        if (!providedTokens.has(token)) {
+          issues.push({
+            code: 'PLUGIN_ADAPTER_NOT_DECLARED',
+            pluginName: manifest.name,
+            sourceFile: manifest.sourceFile,
+            message: `Plugin adapter token is missing from manifest provides: ${token}. Discovered adapter tokens: ${adapterTokens.join(', ')}`
+          });
+        }
+      }
+    }
   }
 
   return {

@@ -59,6 +59,24 @@ describe('configuration validation contract', () => {
   });
 
   it('accepts production observability and security configuration', async () => {
+    const metricsProvider = {
+      recordRequest() {}
+    };
+    const tracingProvider = {
+      recordTrace() {}
+    };
+    const rateLimitProvider = {
+      consume() {
+        return { allowed: true };
+      }
+    };
+    const healthContributor = {
+      name: 'database',
+      check() {
+        return { status: 'healthy' as const };
+      }
+    };
+
     const app = await Stratix.run({
       type: 'cli',
       gracefulShutdown: false,
@@ -71,15 +89,18 @@ describe('configuration validation contract', () => {
           enabled: true,
           health: {
             enabled: true,
-            basePath: '/healthz'
+            basePath: '/healthz',
+            contributors: [healthContributor]
           },
           metrics: {
             enabled: true,
-            path: '/metrics'
+            path: '/metrics',
+            provider: metricsProvider
           },
           traces: {
             enabled: true,
-            maxEntries: 10
+            maxEntries: 10,
+            provider: tracingProvider
           }
         },
         security: {
@@ -95,7 +116,8 @@ describe('configuration validation contract', () => {
           rateLimit: {
             enabled: true,
             max: 100,
-            windowMs: 60_000
+            windowMs: 60_000,
+            provider: rateLimitProvider
           },
           bodyLimit: 1024
         }
@@ -103,9 +125,18 @@ describe('configuration validation contract', () => {
     });
 
     expect(app.config.observability?.health?.basePath).toBe('/healthz');
+    expect(app.config.observability?.health?.contributors?.[0]?.name).toBe(
+      healthContributor.name
+    );
+    expect(
+      app.config.observability?.health?.contributors?.[0]?.check
+    ).toBeTypeOf('function');
+    expect(app.config.observability?.metrics?.provider).toBe(metricsProvider);
+    expect(app.config.observability?.traces?.provider).toBe(tracingProvider);
     expect(app.config.security?.cors?.origins).toEqual([
       'https://console.example.com'
     ]);
+    expect(app.config.security?.rateLimit?.provider).toBe(rateLimitProvider);
 
     await app.stop();
   });

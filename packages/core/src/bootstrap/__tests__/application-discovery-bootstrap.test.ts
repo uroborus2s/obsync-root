@@ -702,6 +702,297 @@ describe('application discovery bootstrap integration', () => {
     });
   });
 
+  it('uses production observability and rate-limit providers when configured', async () => {
+    const metricEvents: Array<{ statusCode: number; url: string }> = [];
+    const traceEvents: Array<{ statusCode: number; url: string }> = [];
+    const consumedKeys: string[] = [];
+
+    const app = await Stratix.run({
+      type: 'cli',
+      gracefulShutdown: false,
+      config: {
+        server: {},
+        plugins: [],
+        autoLoad: {},
+        discovery: { enabled: false },
+        observability: {
+          enabled: true,
+          health: {
+            enabled: true,
+            basePath: '/health-provider',
+            contributors: [
+              {
+                name: 'database',
+                async check() {
+                  return {
+                    status: 'healthy',
+                    details: { latencyMs: 3 }
+                  };
+                }
+              }
+            ]
+          },
+          metrics: {
+            enabled: true,
+            path: '/metrics-provider',
+            provider: {
+              recordRequest(event) {
+                metricEvents.push({
+                  statusCode: event.statusCode,
+                  url: event.url
+                });
+              },
+              snapshot() {
+                return {
+                  exported: true,
+                  events: metricEvents.length
+                };
+              }
+            }
+          },
+          traces: {
+            enabled: true,
+            maxEntries: 5,
+            provider: {
+              recordTrace(event) {
+                traceEvents.push({
+                  statusCode: event.statusCode,
+                  url: event.url
+                });
+              }
+            }
+          }
+        },
+        security: {
+          enabled: true,
+          rateLimit: {
+            enabled: true,
+            max: 1,
+            windowMs: 60_000,
+            provider: {
+              consume(input) {
+                consumedKeys.push(input.key);
+                return consumedKeys.length === 1
+                  ? { allowed: true }
+                  : { allowed: false, retryAfterSeconds: 7 };
+              }
+            }
+          }
+        }
+      }
+    });
+    apps.push(app);
+
+    const first = await app.inject({ method: 'GET', url: '/missing' });
+    const second = await app.inject({ method: 'GET', url: '/missing' });
+    const health = await app.inject({
+      method: 'GET',
+      url: '/health-provider'
+    });
+    const metrics = await app.inject({
+      method: 'GET',
+      url: '/metrics-provider'
+    });
+
+    expect(first.statusCode).toBe(404);
+    expect(second.statusCode).toBe(429);
+    expect(second.headers['retry-after']).toBe('7');
+    expect(consumedKeys.length).toBe(2);
+    expect(health.statusCode).toBe(200);
+    expect(health.json()).toMatchObject({
+      status: 'healthy',
+      checks: {
+        runtime: 'healthy',
+        database: {
+          status: 'healthy',
+          details: { latencyMs: 3 }
+        }
+      }
+    });
+    expect(metrics.statusCode).toBe(200);
+    expect(metrics.json()).toMatchObject({
+      provider: {
+        exported: true
+      }
+    });
+    expect(metricEvents.some((event) => event.statusCode === 404)).toBe(true);
+    expect(traceEvents.some((event) => event.statusCode === 404)).toBe(true);
+  });
+
+  it('separates readiness contributors from liveness health checks', async () => {
+    const app = await Stratix.run({
+      type: 'cli',
+      gracefulShutdown: false,
+      config: {
+        server: {},
+        plugins: [],
+        autoLoad: {},
+        discovery: { enabled: false },
+        observability: {
+          enabled: true,
+          health: {
+            enabled: true,
+            basePath: '/health-split',
+            contributors: [
+              {
+                name: 'database',
+                async check() {
+                  return {
+                    status: 'unhealthy',
+                    details: { reason: 'not connected' }
+                  };
+                }
+              }
+            ]
+          },
+          metrics: { enabled: false },
+          traces: { enabled: false }
+        }
+      }
+    });
+    apps.push(app);
+
+    const ready = await app.inject({
+      method: 'GET',
+      url: '/health-split/ready'
+    });
+    const live = await app.inject({
+      method: 'GET',
+      url: '/health-split/live'
+    });
+
+    expect(ready.statusCode).toBe(503);
+    expect(ready.json()).toMatchObject({
+      status: 'unhealthy',
+      checks: {
+        database: {
+          status: 'unhealthy',
+          details: { reason: 'not connected' }
+        }
+      }
+    });
+    expect(live.statusCode).toBe(200);
+    expect(live.json()).toMatchObject({
+      status: 'healthy',
+      checks: {
+        runtime: 'healthy'
+      }
+    });
+  });
+
+  it('isolates observability provider failures from request handling and liveness', async () => {
+    const app = await Stratix.run({
+      type: 'cli',
+      gracefulShutdown: false,
+      config: {
+        server: {},
+        plugins: [],
+        autoLoad: {},
+        discovery: { enabled: false },
+        observability: {
+          enabled: true,
+          health: {
+            enabled: true,
+            basePath: '/health-failure',
+            contributors: [
+              {
+                name: 'database',
+                async check() {
+                  throw new Error('database down');
+                }
+              }
+            ]
+          },
+          metrics: {
+            enabled: true,
+            path: '/metrics-failure',
+            provider: {
+              recordRequest() {
+                throw new Error('metrics exporter down');
+              },
+              snapshot() {
+                throw new Error('metrics snapshot down');
+              }
+            }
+          },
+          traces: {
+            enabled: true,
+            provider: {
+              recordTrace() {
+                throw new Error('tracing exporter down');
+              }
+            }
+          }
+        },
+        security: {
+          enabled: true,
+          rateLimit: {
+            enabled: true,
+            max: 2,
+            windowMs: 60_000,
+            provider: {
+              consume() {
+                throw new Error('rate limiter down');
+              }
+            }
+          }
+        }
+      }
+    });
+    apps.push(app);
+
+    const missing = await app.inject({ method: 'GET', url: '/missing' });
+    const ready = await app.inject({
+      method: 'GET',
+      url: '/health-failure/ready'
+    });
+    const live = await app.inject({
+      method: 'GET',
+      url: '/health-failure/live'
+    });
+    const metrics = await app.inject({
+      method: 'GET',
+      url: '/metrics-failure'
+    });
+    const fallbackAllowed = await app.inject({
+      method: 'GET',
+      url: '/fallback-rate-limit'
+    });
+    const fallbackLimited = await app.inject({
+      method: 'GET',
+      url: '/fallback-rate-limit'
+    });
+
+    expect(missing.statusCode).toBe(404);
+    expect(ready.statusCode).toBe(503);
+    expect(ready.json()).toMatchObject({
+      status: 'unhealthy',
+      checks: {
+        database: {
+          status: 'unhealthy',
+          details: { message: 'database down' }
+        }
+      }
+    });
+    expect(live.statusCode).toBe(200);
+    expect(live.json()).toMatchObject({
+      status: 'healthy',
+      checks: {
+        runtime: 'healthy'
+      }
+    });
+    expect(metrics.statusCode).toBe(200);
+    expect(metrics.json().provider).toBeUndefined();
+    expect(metrics.json().requests.total).toBeGreaterThanOrEqual(1);
+    expect(fallbackAllowed.statusCode).toBe(404);
+    expect(fallbackLimited.statusCode).toBe(429);
+    expect(fallbackLimited.json()).toMatchObject({
+      error: {
+        code: 'RATE_LIMITED'
+      }
+    });
+  });
+
   it('does not trust x-forwarded-for for rate limiting unless explicitly configured', async () => {
     const app = await Stratix.run({
       type: 'cli',

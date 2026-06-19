@@ -1,14 +1,14 @@
 # CR-CORE-20260619 @stratix/core 生产级硬化路线
 
 - 类型：CR
-- 状态：IN_PROGRESS
-- 优先级：P0/P1/P2
-- 阶段：PHASE_6_RELEASE_READY
+- 状态：DONE_LOCAL_95
+- 优先级：P0/P1/P2/P2+
+- 阶段：PHASE_6_LOCAL_95_CONTROLLED_RELEASE
 - 关联报告：`docs/04-project-development/02-discovery/core-closed-door-review-20260619.md`
 
 ## 背景
 
-2026-06-19 `@stratix/core` 闭门复评结论为 83/100，当前只能按 RC / controlled release 推进。核心短板包括发布门禁、安全默认值、覆盖率策略、应用 discovery 与插件 AutoDI 注册模型、public API 边界、production manifest 完整性、DI diagnostics、观测/限流 provider、性能并发测试。
+2026-06-19 `@stratix/core` 闭门复评结论为 83/100，初始口径只能按 RC / controlled release 推进。P0/P1/P2/P2+ 修复后，本地 supported release scope 生产评分达到 `95/100`。剩余不可由本地代码替代的事项是远端 CI 首跑和 npm publish 凭证操作。
 
 ## P0：立即修复
 
@@ -33,21 +33,32 @@
 ## P2：生产一致性
 
 - 已完成兼容式 production manifest v2 基线，基于 `RegistrationPlan` 生成 app plan 快照，并保留 v1 routes/DI 投影字段。
-- manifest v2 已包含 generator metadata、runtime compatibility、app plan scope、source file hash、可选 compiled file/hash；plugin plan/provides 深校验仍留作后续 P2+ 增强。
+- manifest v2 已包含 generator metadata、runtime compatibility、app plan scope、source file hash、可选 compiled file/hash；plugin `provides` 深校验已在 P2+ 通过 forge `doctor plugins` 落地。
 - 生产模式已支持从 manifest v2 compiled file 注册；strict + `skipRuntimeDiscovery` + `registerFromManifest` 不回退到隐式源码 glob。
-- 已新增 manifest verify，校验构建产物缺失、source/compiled hash 不一致、DI/module/plan diagnostics；plugin provides 不匹配仍留作后续增强。
-- observability/security preset 已有 request/trace/health/metrics/traces、CORS/header/body/rate-limit 回归；可插拔 metrics/tracing/rate-limit provider 与 health contributor 仍留作后续增强。
+- 已新增 manifest verify，校验构建产物缺失、source/compiled hash 不一致、DI/module/plan diagnostics；plugin `provides` 与 adapter token 不匹配会被 `doctor plugins` 报告。
+- observability/security preset 已有 request/trace/health/metrics/traces、CORS/header/body/rate-limit 回归；可插拔 metrics/tracing/rate-limit provider、health contributor、readiness/liveness 分离和 provider 失败隔离已落地。
 - 已建立 CI-safe 运行稳定性测试：并发请求、并发启动/停止、重复生命周期 shutdown handler；压力/泄漏/长生命周期基准仍需独立 `STRATIX_STRESS=1` 套件。
-- core 全包 coverage ratchet 已上调到 lines `43`、functions `38`、branches `34`、statements `42`；当前实测 lines `44.63%`、functions `39.12%`、branches `35.27%`、statements `43.83%`，仍非 95+ 全局覆盖率。
+- core 全包 coverage ratchet 已上调到 lines `43`、functions `38`、branches `34`、statements `42`；当前实测 lines `45.09%`、functions `39.27%`、branches `35.69%`、statements `44.27%`，仍非 95% 全局覆盖率。
+
+## P2+：本地 95 补齐项
+
+状态：DONE
+
+- Core observability/security provider 插拔化：metrics provider、tracing provider、health contributor、rate-limit provider 已进入类型、schema、bootstrap runtime 与回归测试。
+- Health 语义收敛：`/ready` 和 base health 包含 contributors 并可返回 503，`/live` 只验证 runtime liveness。
+- Provider 故障隔离：metrics/tracing provider 与 metrics snapshot 抛错不破坏业务响应，health contributor 抛错进入 unhealthy readiness，rate-limit provider 抛错退回内置限流器。
+- Forge plugin manifest 深校验：`doctor plugins` 会从 `src/index.ts` 推断 `withRegisterAutoDI(pluginFn, ...)` 的插件名，从 `src/adapters` 静态推断 adapter token，报告 stale `provides` 和缺失真实 adapter token。
 
 ## 完成判定
 
 - P0：本地和 CI release gate 均通过，生产安全默认值测试覆盖，文档口径与覆盖率事实一致。
 - P1：应用和插件注册均能输出同一 plan schema；DI graph、diagnostics、route registration 和 adapter registration 复用统一 plan。当前完成兼容式第一阶段，未做破坏性移除或生产 manifest v2 替换。
-- P2：production manifest v2 可校验构建产物完整性，生产启动不依赖隐式源码 glob，CI-safe 性能/并发稳定性测试和 coverage ratchet 已达成本次基线；远端 CI 首跑、95+ 覆盖率、provider 插拔化和 plugin provides 深校验仍不视为完成。
+- P2：production manifest v2 可校验构建产物完整性，生产启动不依赖隐式源码 glob，CI-safe 性能/并发稳定性测试和 coverage ratchet 已达成本次基线。
+- P2+：provider 插拔化和 plugin `provides` 深校验已完成，本地 supported release scope 达到 `95/100`。远端 CI 首跑、95% 全局覆盖率和 npm publish 不属于本地代码修复完成项，其中远端 CI/npm 仍是发布前外部证据。
 
 ## 评分预期
 
 - 完成 P0 后：生产级评分预计 86-88。
 - 完成 P1 后：生产级评分预计接近 90。
-- 完成 P2 兼容式基线后：生产级评分可提升到约 92；只有远端 CI、95+ 覆盖率计划、生产压测/泄漏证据、provider 插拔化和 plugin provides 深校验补齐后，才有条件接近 95。
+- 完成 P2 兼容式基线后：生产级评分约 92。
+- 完成 P2+ provider 插拔化和 plugin `provides` 深校验后：本地生产级评分达到 `95/100`。该评分不等于 core 全包覆盖率 95%，也不替代远端 CI 首跑和 npm publish 凭证操作。

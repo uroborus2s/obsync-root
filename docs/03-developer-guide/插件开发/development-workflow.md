@@ -70,7 +70,7 @@ stratix doctor plugins
 stratix graph plugins --format mermaid
 ```
 
-`doctor plugins` 会校验 `.stratix/plugin.json` 的 capabilities、provides、requires 和 health 字段；`graph plugins` 用于检查插件能力、对外 token 和运行时依赖拓扑。
+`doctor plugins` 会校验 `.stratix/plugin.json` 的 capabilities、provides、requires 和 health 字段，并在可静态判断时检查 `provides` 是否由 `src/adapters` 中的真实 adapter token 支撑；`graph plugins` 用于检查插件能力、对外 token 和运行时依赖拓扑。
 
 ## 5. 插件接入时要检查什么
 

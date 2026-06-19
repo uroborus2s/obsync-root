@@ -27,6 +27,8 @@ import type {
   SecurityConfig,
   StratixApplication,
   StratixConfig,
+  StratixHealthCheckResult,
+  StratixRequestObservation,
   StratixRunOptions
 } from '../types/index.js';
 import { decryptConfig } from '../utils/crypto.js';
@@ -97,15 +99,7 @@ type FastifyHandledError = Partial<FastifyError> & {
   details?: unknown;
 };
 
-interface StratixTraceEntry {
-  requestId?: string;
-  traceId?: string;
-  method: string;
-  url: string;
-  statusCode: number;
-  durationMs: number;
-  timestamp: string;
-}
+interface StratixTraceEntry extends StratixRequestObservation {}
 
 interface StratixObservabilityState {
   requests: {
@@ -1030,6 +1024,10 @@ export class ApplicationBootstrap {
       observabilityConfig.traceIdHeader || 'x-trace-id'
     ).toLowerCase();
     const maxTraceEntries = observabilityConfig.traces?.maxEntries ?? 100;
+    const metricsProvider = observabilityConfig.metrics?.provider;
+    const tracingProvider = observabilityConfig.traces?.provider;
+    const healthContributors =
+      observabilityConfig.health?.contributors || [];
     const state: StratixObservabilityState = {
       requests: {
         total: 0,
@@ -1091,41 +1089,94 @@ export class ApplicationBootstrap {
       state.requests.byStatus[statusKey] =
         (state.requests.byStatus[statusKey] || 0) + 1;
 
+      const event: StratixRequestObservation = {
+        requestId: this.getRequestId(request),
+        traceId: (request as any).traceId,
+        method: request.method,
+        url: request.url,
+        statusCode,
+        durationMs,
+        timestamp: new Date().toISOString()
+      };
+
+      try {
+        await metricsProvider?.recordRequest?.(event);
+      } catch (error) {
+        this.logger?.error({ err: error }, 'Metrics provider failed');
+      }
+
       if (observabilityConfig.traces?.enabled !== false) {
-        state.traces.push({
-          requestId: this.getRequestId(request),
-          traceId: (request as any).traceId,
-          method: request.method,
-          url: request.url,
-          statusCode,
-          durationMs,
-          timestamp: new Date().toISOString()
-        });
+        state.traces.push(event);
         while (state.traces.length > maxTraceEntries) {
           state.traces.shift();
+        }
+        try {
+          await tracingProvider?.recordTrace?.(event);
+        } catch (error) {
+          this.logger?.error({ err: error }, 'Tracing provider failed');
         }
       }
     });
 
     if (observabilityConfig.health?.enabled !== false) {
       const healthBasePath = observabilityConfig.health?.basePath || '/health';
-      const healthPayload = () => ({
-        status: 'healthy',
-        uptime: Math.max(0, Date.now() - startedAt),
-        timestamp: new Date().toISOString(),
-        checks: {
+      const healthPayload = async (includeContributors: boolean) => {
+        const checks: Record<string, unknown> = {
           runtime: 'healthy'
-        }
-      });
+        };
+        let status: 'healthy' | 'unhealthy' = 'healthy';
 
-      fastify.get(healthBasePath, async () => healthPayload());
-      fastify.get(`${healthBasePath}/ready`, async () => healthPayload());
-      fastify.get(`${healthBasePath}/live`, async () => healthPayload());
+        if (includeContributors) {
+          for (const contributor of healthContributors) {
+            try {
+              const result = await contributor.check();
+              checks[contributor.name] = result;
+              if (result.status !== 'healthy') {
+                status = 'unhealthy';
+              }
+            } catch (error) {
+              status = 'unhealthy';
+              checks[contributor.name] = this.healthContributorError(error);
+            }
+          }
+        }
+
+        return {
+          status,
+          uptime: Math.max(0, Date.now() - startedAt),
+          timestamp: new Date().toISOString(),
+          checks
+        };
+      };
+      const readinessPayload = async (_request: unknown, reply: any) => {
+        const payload = await healthPayload(true);
+        if (payload.status !== 'healthy') {
+          reply.status(503);
+        }
+        return payload;
+      };
+
+      fastify.get(healthBasePath, readinessPayload);
+      fastify.get(`${healthBasePath}/ready`, readinessPayload);
+      fastify.get(`${healthBasePath}/live`, async () => healthPayload(false));
     }
 
     if (observabilityConfig.metrics?.enabled !== false) {
       const metricsPath = observabilityConfig.metrics?.path || '/metrics';
-      fastify.get(metricsPath, async () => state.getSnapshot());
+      fastify.get(metricsPath, async () => {
+        const snapshot = state.getSnapshot();
+        if (metricsProvider?.snapshot) {
+          try {
+            return {
+              ...snapshot,
+              provider: await metricsProvider.snapshot()
+            };
+          } catch (error) {
+            this.logger?.error({ err: error }, 'Metrics provider failed');
+          }
+        }
+        return snapshot;
+      });
     }
   }
 
@@ -1157,6 +1208,37 @@ export class ApplicationBootstrap {
         const windowMs = rateLimit.windowMs ?? 60_000;
         const key = this.rateLimitKey(request, rateLimit.trustProxy === true);
         const now = Date.now();
+        if (rateLimit.provider) {
+          try {
+            const decision = await rateLimit.provider.consume({
+              key,
+              max,
+              windowMs,
+              now,
+              request
+            });
+            if (!decision.allowed) {
+              reply.header(
+                'retry-after',
+                decision.retryAfterSeconds ?? Math.ceil(windowMs / 1000)
+              );
+              reply.status(429).send(
+                createErrorEnvelope({
+                  code: 'RATE_LIMITED',
+                  message: 'Too Many Requests',
+                  statusCode: 429,
+                  path: request.url,
+                  requestId: this.getRequestId(request)
+                })
+              );
+              return reply;
+            }
+            return;
+          } catch (error) {
+            this.logger?.error({ err: error }, 'Rate limit provider failed');
+          }
+        }
+
         const current = rateLimitStore.get(key);
         const bucket =
           current && current.resetAt > now
@@ -1187,6 +1269,15 @@ export class ApplicationBootstrap {
       this.applyCorsHeaders(request, reply, securityConfig.cors);
       return payload;
     });
+  }
+
+  private healthContributorError(error: unknown): StratixHealthCheckResult {
+    return {
+      status: 'unhealthy',
+      details: {
+        message: error instanceof Error ? error.message : String(error)
+      }
+    };
   }
 
   private observabilityPaths(config: StratixConfig): string[] {

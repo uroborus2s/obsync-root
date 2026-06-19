@@ -23,10 +23,10 @@
 | `API-008` | Typed client generator                  | `stratix openapi client`                   | Phase 2 扩展能力已实现；支持 path/query/body/header 参数、auth provider 和 hooks              |
 | `API-009` | Contract test DSL                       | `@stratix/testing` `contractTest()`        | Phase 2 扩展能力已实现                                                                        |
 | `API-010` | Plugin adapter diagnostics              | `@stratix/core` public functions           | Phase 2 扩展能力已实现                                                                        |
-| `API-011` | Plugin manifest governance              | `.stratix/plugin.json` + forge             | 已完成基线；`doctor plugins` / `graph plugins` 可用                                           |
+| `API-011` | Plugin manifest governance              | `.stratix/plugin.json` + forge             | 已完成；`doctor plugins` / `graph plugins` 可用，并校验 adapter-backed `provides`             |
 | `API-012` | Production manifest artifact            | `stratix build-manifest`                   | 已完成基线；生成 route/DI/module/plugin-lock artifact                                         |
 | `API-013` | Runtime production manifest consumption | `discovery.productionManifest`             | 已完成；启动期读取 artifact、跳过 runtime glob discovery，并支持 manifest-driven registration |
-| `API-014` | Observability/Security preset           | `config.observability` / `config.security` | 已完成；提供 request/trace id、health、metrics、traces、CORS、headers、rate limit、body limit |
+| `API-014` | Observability/Security preset           | `config.observability` / `config.security` | 已完成；提供 request/trace id、health/readiness/liveness、provider 扩展点、CORS、headers、rate limit、body limit |
 | `API-015` | DevTools production views               | `@stratix/devtools`                        | 已完成；展示 routes、DI、plugins、redacted config、health、traces                             |
 | `API-016` | Release gate                            | `stratix release gate`                     | Phase 5 project scope 已完成；Phase 6 workspace scope 已进入开发                              |
 

@@ -154,6 +154,56 @@ export interface CacheConfig {
   };
 }
 
+export interface StratixRequestObservation {
+  requestId?: string;
+  traceId?: string;
+  method: string;
+  url: string;
+  statusCode: number;
+  durationMs: number;
+  timestamp: string;
+}
+
+export interface StratixMetricsProvider {
+  recordRequest?(
+    event: StratixRequestObservation
+  ): Promise<void> | void;
+  snapshot?(): Promise<unknown> | unknown;
+}
+
+export interface StratixTracingProvider {
+  recordTrace?(event: StratixRequestObservation): Promise<void> | void;
+}
+
+export interface StratixHealthCheckResult {
+  status: 'healthy' | 'unhealthy';
+  details?: unknown;
+}
+
+export interface StratixHealthContributor {
+  name: string;
+  check(): Promise<StratixHealthCheckResult> | StratixHealthCheckResult;
+}
+
+export interface StratixRateLimitInput {
+  key: string;
+  max: number;
+  windowMs: number;
+  now: number;
+  request: unknown;
+}
+
+export interface StratixRateLimitDecision {
+  allowed: boolean;
+  retryAfterSeconds?: number;
+}
+
+export interface StratixRateLimitProvider {
+  consume(
+    input: StratixRateLimitInput
+  ): Promise<StratixRateLimitDecision> | StratixRateLimitDecision;
+}
+
 export interface ObservabilityConfig {
   enabled?: boolean;
   requestIdHeader?: string;
@@ -161,14 +211,17 @@ export interface ObservabilityConfig {
   health?: {
     enabled?: boolean;
     basePath?: string;
+    contributors?: StratixHealthContributor[];
   };
   metrics?: {
     enabled?: boolean;
     path?: string;
+    provider?: StratixMetricsProvider;
   };
   traces?: {
     enabled?: boolean;
     maxEntries?: number;
+    provider?: StratixTracingProvider;
   };
 }
 
@@ -194,6 +247,7 @@ export interface SecurityConfig {
     max?: number;
     windowMs?: number;
     trustProxy?: boolean;
+    provider?: StratixRateLimitProvider;
   };
 }
 

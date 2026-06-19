@@ -118,19 +118,29 @@ export const ObservabilityConfigSchema = z
     health: z
       .object({
         enabled: z.boolean().optional(),
-        basePath: z.string().optional()
+        basePath: z.string().optional(),
+        contributors: z
+          .array(
+            z.object({
+              name: z.string(),
+              check: z.function()
+            })
+          )
+          .optional()
       })
       .optional(),
     metrics: z
       .object({
         enabled: z.boolean().optional(),
-        path: z.string().optional()
+        path: z.string().optional(),
+        provider: z.any().optional()
       })
       .optional(),
     traces: z
       .object({
         enabled: z.boolean().optional(),
-        maxEntries: z.number().optional()
+        maxEntries: z.number().optional(),
+        provider: z.any().optional()
       })
       .optional()
   })
@@ -164,7 +174,8 @@ export const SecurityConfigSchema = z
         enabled: z.boolean().optional(),
         max: z.number().optional(),
         windowMs: z.number().optional(),
-        trustProxy: z.boolean().optional()
+        trustProxy: z.boolean().optional(),
+        provider: z.any().optional()
       })
       .optional()
   })

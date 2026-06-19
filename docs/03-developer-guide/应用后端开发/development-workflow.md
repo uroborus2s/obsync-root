@@ -109,8 +109,22 @@ discovery: {
 ```ts
 observability: {
   enabled: true,
-  health: { enabled: true, basePath: '/health' },
-  metrics: { enabled: true, path: '/metrics' },
+  health: {
+    enabled: true,
+    basePath: '/health',
+    contributors: [
+      {
+        name: 'database',
+        async check() {
+          return { status: 'healthy' };
+        }
+      }
+    ]
+  },
+  metrics: {
+    enabled: true,
+    path: '/metrics'
+  },
   traces: { enabled: true, maxEntries: 100 }
 },
 security: {
@@ -121,6 +135,8 @@ security: {
   rateLimit: { enabled: true, max: 100, windowMs: 60000 }
 }
 ```
+
+如果生产环境已有 Prometheus/OpenTelemetry/Redis 限流等基础设施，可以通过 `metrics.provider`、`traces.provider` 和 `security.rateLimit.provider` 接入外部实现。`/health/ready` 会执行 contributors，`/health/live` 只表示 runtime 存活。
 
 发布前可以跑 release gate：
 

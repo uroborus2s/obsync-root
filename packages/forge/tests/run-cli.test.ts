@@ -1318,6 +1318,82 @@ describe('@stratix/forge', () => {
     );
   });
 
+  it('doctor plugins reports provides tokens that are not backed by adapters', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+
+    await runCreate(
+      ['plugin', 'adapter', '@demo/broken-plugin', '--no-install'],
+      {
+        cwd,
+        output
+      }
+    );
+
+    const projectDir = path.join(cwd, 'broken-plugin');
+    const manifestPath = path.join(projectDir, '.stratix', 'plugin.json');
+    const pluginManifest = readJson(manifestPath);
+    pluginManifest.provides = ['brokenPluginGhost'];
+    fs.writeFileSync(manifestPath, JSON.stringify(pluginManifest, null, 2));
+
+    await assert.rejects(
+      runCli(['doctor', 'plugins'], {
+        cwd: projectDir,
+        output
+      }),
+      CliError
+    );
+
+    assert.ok(
+      output.messages.some((message) =>
+        message.message.includes(
+          'Plugin manifest provides token is not backed by a discovered adapter: brokenPluginGhost'
+        )
+      )
+    );
+    assert.ok(
+      output.messages.some((message) =>
+        message.message.includes('Discovered adapter tokens: brokenPluginClient')
+      )
+    );
+  });
+
+  it('doctor plugins reports adapters that are missing from provides', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+
+    await runCreate(['plugin', 'data', '@demo/cache-plugin', '--no-install'], {
+      cwd,
+      output
+    });
+
+    const projectDir = path.join(cwd, 'cache-plugin');
+    fs.renameSync(
+      path.join(projectDir, 'src', 'index.ts'),
+      path.join(projectDir, 'src', 'index.mjs')
+    );
+    const manifestPath = path.join(projectDir, '.stratix', 'plugin.json');
+    const pluginManifest = readJson(manifestPath);
+    pluginManifest.provides = [];
+    fs.writeFileSync(manifestPath, JSON.stringify(pluginManifest, null, 2));
+
+    await assert.rejects(
+      runCli(['doctor', 'plugins'], {
+        cwd: projectDir,
+        output
+      }),
+      CliError
+    );
+
+    assert.ok(
+      output.messages.some((message) =>
+        message.message.includes(
+          'Plugin adapter token is missing from manifest provides: cachePluginApi'
+        )
+      )
+    );
+  });
+
   it('builds a production manifest from project source contracts', async () => {
     const cwd = createTempRoot();
     const output = createMemoryOutput();

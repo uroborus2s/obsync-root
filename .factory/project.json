@@ -17,8 +17,8 @@
     "node": ">=24.0.0",
     "pnpm": ">=10.33.0"
   },
-  "currentStage": "PHASE_6_RELEASE_READY",
-  "recommendedNextStage": "Repository code and full release gates are ready; publish with maintainer npm credentials",
+  "currentStage": "PHASE_6_LOCAL_95_CONTROLLED_RELEASE",
+  "recommendedNextStage": "Run the first remote GitHub Actions quality gate, then publish with maintainer npm credentials",
   "sourceOfTruth": {
     "stableCollaboration": ["AGENTS.md", "GEMINI.md"],
     "humanDocs": "docs/",
@@ -44,15 +44,16 @@
   },
   "qualityGate": {
     "checkedAt": "2026-06-19",
-    "status": "passed",
+    "status": "passed_local_95_controlled_release",
+    "scope": "Local production-grade score for supported 1.1.x packages and @stratix/core critical runtime paths; this is not a 95% global coverage claim and not a high-confidence GA claim before remote CI and npm publish evidence.",
     "excludedPackages": ["@stratix/tasks"],
     "scores": {
-      "architecture": 99,
-      "implementation": 99,
-      "tests": 99,
-      "documentation": 99,
-      "releaseSurface": 99,
-      "qa": 99
+      "architecture": 95,
+      "implementation": 95,
+      "tests": 95,
+      "documentation": 95,
+      "releaseSurface": 95,
+      "qa": 95
     }
   },
   "releaseSurface": {
@@ -90,10 +91,18 @@
       "@stratix/was-v7": "@stratix/was-v7@1.0.0-beta.36"
     },
     "assessment": "Supported package manifest versions, public package metadata, exact release tags, tarball/API/docs/security gates, supported workspace release-surface checks, and public npmjs exact-version availability are aligned. @stratix/tasks is frozen/deprecated and excluded from the 1.1.x release surface."
-  },
-  "verification": {
-    "checkedAt": "2026-06-19",
-    "install": [
+    },
+    "verification": {
+        "checkedAt": "2026-06-19",
+        "quality": [
+            {
+                "command": "pnpm run quality:release",
+                "status": "passed",
+                "summary": "supported build/typecheck/test, core coverage, docs, security audit, and workspace release gate dry-run passed",
+                "reason": "Local P2+ production hardening gate passed with 10 supported build tasks, explicit supported typecheck, 12 supported test turbo tasks, core coverage ratchet at lines 45.09/functions 39.27/branches 35.69/statements 44.27, docs validation at 86 pages / 0 contracts, no high production audit vulnerabilities, and workspace release gate dry-run passed; docs validation required elevated local uv cache access"
+            }
+        ],
+        "install": [
       {
         "command": "CI=true pnpm install --frozen-lockfile --ignore-scripts",
         "status": "passed",
@@ -201,14 +210,14 @@
       {
         "command": "pnpm --filter @stratix/core test",
         "status": "passed",
-        "summary": "31 files / 221 tests",
-        "reason": "Core package tests pass with route contract/OpenAPI helpers, unified error envelope, response schema failure normalization, plan-first DI diagnostics, plugin adapter RegistrationPlan metadata, discovery schema validation, DI graph coverage, production manifest startup consumption, manifest-driven registration, production manifest v2 integrity/compiled-file registration, observability/security preset coverage, runtime stability coverage, and ApplicationDiscoveryRegistrar extraction"
+        "summary": "31 files / 224 tests",
+        "reason": "Core package tests pass with route contract/OpenAPI helpers, unified error envelope, response schema failure normalization, plan-first DI diagnostics, plugin adapter RegistrationPlan metadata, discovery schema validation, DI graph coverage, production manifest startup consumption, manifest-driven registration, production manifest v2 integrity/compiled-file registration, observability/security provider and health contributor coverage, runtime stability coverage, and ApplicationDiscoveryRegistrar extraction"
       },
       {
         "command": "pnpm --filter @stratix/core run test:coverage",
         "status": "passed",
-        "summary": "global lines 44.63%, functions 39.12%, branches 35.27%, statements 43.83%",
-        "reason": "Coverage gate uses a current executable ratchet plus high thresholds on bootstrap/discovery critical paths instead of an unreachable global threshold; P2 raises the global ratchet to lines 43, functions 38, branches 34, statements 42"
+        "summary": "global lines 45.09%, functions 39.27%, branches 35.69%, statements 44.27%",
+        "reason": "Coverage gate uses a current executable ratchet plus high thresholds on bootstrap/discovery critical paths instead of an unreachable global threshold; P2+ provider and plugin-manifest hardening remains above the ratchet lines 43, functions 38, branches 34, statements 42"
       },
       {
         "command": "pnpm --filter @stratix/create test",
@@ -219,8 +228,8 @@
       {
         "command": "pnpm --filter @stratix/forge test",
         "status": "passed",
-        "summary": "49 tests",
-        "reason": "Forge tests cover doctor di, di graph JSON/Mermaid output, module manifest/doctor/graph governance, plugin manifest doctor/graph governance, production build-manifest v2 generation, production manifest artifact-hash release gate validation, project/workspace release gate, release pack artifact validation, registry exact-version validation, OpenAPI generation, advanced typed client generation with path/query/body/header/auth/hooks, command help, and generated resource DI/schema checks"
+        "summary": "51 tests",
+        "reason": "Forge tests cover doctor di, di graph JSON/Mermaid output, module manifest/doctor/graph governance, plugin manifest doctor/graph governance with adapter-backed provides validation, production build-manifest v2 generation, production manifest artifact-hash release gate validation, project/workspace release gate, release pack artifact validation, registry exact-version validation, OpenAPI generation, advanced typed client generation with path/query/body/header/auth/hooks, command help, and generated resource DI/schema checks"
       },
       {
         "command": "pnpm --filter @stratix/devtools test",
@@ -256,7 +265,7 @@
       {
         "command": "uvx --from docs-stratego docs-stratego source validate --repo-path .",
         "status": "passed",
-        "summary": "85 pages / 0 contracts",
+                "summary": "86 pages / 0 contracts",
         "reason": "Docs navigation validates after adding the core breaking-upgrade report, concept-model evolution plan, implementation plan, test plan, release gate, Phase 2 extended status, create/forge split, Phase 5 production baseline, and developer-guide cleanup"
       },
       {

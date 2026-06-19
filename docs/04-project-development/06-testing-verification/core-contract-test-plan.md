@@ -14,7 +14,7 @@
 | testing platform DSL | `contract-test.test.ts`、`test-platform.test.ts`   | 基于 route contract 验证 app.inject 响应状态、response schema、错误 envelope schema，并覆盖 test app、DI override、plugin/discovery/repository/module fixture               |
 | DI diagnostics       | `di-diagnostics.test.ts`、`registration-plan.test.ts` | DI graph、缺失依赖、重复 token、循环依赖、RegistrationPlan metadata                                                                                                         |
 | discovery 管道       | `application-pipeline.test.ts`                     | 扫描、显式组件注册、路由前缀、Fastify schema validation、RegistrationPlan 输出和 DI metadata recording                                                                      |
-| 启动集成             | `application-discovery-bootstrap.test.ts`、`application-runtime-stability.test.ts` | `Stratix.run()` 到 DI、请求 scope、路由响应、response schema failure envelope、production manifest consumption、manifest-driven registration、production manifest v2 compiled-file registration、observability/security preset、并发请求与生命周期稳定性 |
+| 启动集成             | `application-discovery-bootstrap.test.ts`、`application-runtime-stability.test.ts` | `Stratix.run()` 到 DI、请求 scope、路由响应、response schema failure envelope、production manifest consumption、manifest-driven registration、production manifest v2 compiled-file registration、observability/security provider、readiness/liveness、并发请求与生命周期稳定性 |
 | production manifest  | `production-manifest.test.ts`                     | v1/v2 manifest 加载、v2 artifact hash、strict/fallback、RegistrationPlan 到 compiled-file registration plan 映射                                                            |
 | 公共 API             | `public-api-contract.test.ts`                      | 新导出存在，旧根导出不存在                                                                                                                                                  |
 
@@ -23,7 +23,7 @@
 | 命令                                                                | 当前结果                   |
 | ------------------------------------------------------------------- | -------------------------- |
 | `pnpm --filter @stratix/core exec tsc -p tsconfig.json --noEmit`    | 通过                       |
-| `CI=true pnpm --filter @stratix/core exec vitest run`               | 通过，31 files / 221 tests |
+| `CI=true pnpm --filter @stratix/core exec vitest run`               | 通过，31 files / 224 tests |
 | `pnpm --filter @stratix/core run build`                             | 通过                       |
 | `pnpm --filter @stratix/testing exec tsc -p tsconfig.json --noEmit` | 通过                       |
 | `pnpm --filter @stratix/testing test`                               | 通过，3 files / 12 tests   |
@@ -50,6 +50,8 @@
 | `RISK-CORE-015` | 应用 discovery 与插件 AutoDI 诊断模型漂移        | `RegistrationPlan`、应用 discovery、插件 adapter 和 public API 测试必须覆盖统一 plan schema、plan token registrar、DI graph metadata 和 experimental 出口边界                                                                                   |
 | `RISK-CORE-016` | production manifest v2 被篡改或退回源码 glob     | `production-manifest.test.ts` 与 bootstrap 集成测试必须覆盖 v2 source/compiled hash 校验、compiled-file registration、strict 模式不回退 runtime glob、stale/missing artifact fail-fast |
 | `RISK-CORE-017` | 并发请求和生命周期重复执行不稳定                 | runtime stability 测试必须覆盖并发 request scope、并发 CLI app start/stop、重复 shutdown handler 调用次数                                                                    |
+| `RISK-CORE-018` | observability/security provider 只测成功路径      | bootstrap/config 测试必须覆盖 metrics/tracing provider、health contributor、readiness/liveness、rate-limit provider 以及 provider 抛错不破坏业务响应                         |
+| `RISK-CORE-019` | 插件 manifest `provides` 与真实 adapter token 漂移 | forge CLI 测试必须覆盖 manifest stale `provides` 和缺失真实 adapter token 两类诊断，防止插件拓扑图与运行时 token 不一致                                                     |
 
 ## 准入门槛
 
