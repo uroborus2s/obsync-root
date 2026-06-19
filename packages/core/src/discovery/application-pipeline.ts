@@ -3,7 +3,6 @@ import {
   type AwilixContainer,
   type InjectionModeType,
   type LifetimeType,
-  type Resolver,
   InjectionMode,
   Lifetime
 } from 'awilix';
@@ -20,7 +19,17 @@ import {
   DiscoveryError,
   RegistrationError
 } from '../errors/index.js';
-import { recordDIRegistration } from '../diagnostics/index.js';
+import {
+  extractConstructorDependencies,
+  recordDIRegistration
+} from '../diagnostics/index.js';
+import {
+  createRegistrationPlan,
+  registerRegistrationPlanToken,
+  type RegistrationPlan,
+  type RegistrationPlanRoute,
+  type RegistrationPlanToken
+} from '../registration/index.js';
 import type {
   ApplicationDiscoveryConfig,
   ApplicationDiscoveryResult,
@@ -118,18 +127,25 @@ export class ApplicationDiscoveryPipeline {
     });
     result.analyzed = components.length;
     this.assertManifestPlanMatchesDiscoveredComponents(components, config);
-
-    for (const component of this.filterComponentsByManifestPlan(
+    const selectedComponents = this.filterComponentsByManifestPlan(
       components,
       config,
       result
-    )) {
+    );
+    const registrationPlan = this.createApplicationRegistrationPlan(
+      selectedComponents,
+      config
+    );
+    result.registrationPlan = registrationPlan;
+
+    for (const component of selectedComponents) {
       try {
         const registered = await this.registerComponent(
           component,
           config.container,
           config.fastify,
-          config
+          config,
+          registrationPlan
         );
         result.registered.push(...registered.tokens);
         result.routesRegistered += registered.routes;
@@ -275,15 +291,9 @@ export class ApplicationDiscoveryPipeline {
     component: ComponentMetadata,
     container: AwilixContainer,
     fastify: FastifyInstance,
-    config: ApplicationDiscoveryConfig
+    config: ApplicationDiscoveryConfig,
+    registrationPlan: RegistrationPlan
   ): Promise<{ tokens: string[]; routes: number }> {
-    const lifetime = toLifetime(component.diOptions?.lifetime);
-    const injectionMode = toInjectionMode(component.diOptions?.injectionMode);
-    const resolver = asClass(component.value, {
-      lifetime,
-      injectionMode
-    }) as Resolver<unknown>;
-
     const tokens = [camelCaseName(component.name)];
 
     for (const token of tokens) {
@@ -293,15 +303,29 @@ export class ApplicationDiscoveryPipeline {
           component
         });
       }
-      container.register(token, resolver);
-      recordDIRegistration(container, {
-        token,
-        registrationType: 'class',
-        lifetime: component.diOptions?.lifetime,
-        injectionMode: component.diOptions?.injectionMode,
-        target: component.value,
-        source: component.name
-      });
+      const planToken = registrationPlan.tokens.find(
+        (entry) => entry.token === token
+      );
+      if (planToken) {
+        registerRegistrationPlanToken(container, registrationPlan, planToken);
+      } else {
+        const lifetime = toLifetime(component.diOptions?.lifetime);
+        const injectionMode = toInjectionMode(component.diOptions?.injectionMode);
+        const resolver = asClass(component.value, {
+          lifetime,
+          injectionMode
+        });
+
+        container.register(token, resolver);
+        recordDIRegistration(container, {
+          token,
+          registrationType: 'class',
+          lifetime: component.diOptions?.lifetime,
+          injectionMode: component.diOptions?.injectionMode,
+          target: component.value,
+          source: component.name
+        });
+      }
     }
 
     let routes = 0;
@@ -314,6 +338,91 @@ export class ApplicationDiscoveryPipeline {
     }
 
     return { tokens, routes };
+  }
+
+  private createApplicationRegistrationPlan(
+    components: ComponentMetadata[],
+    config: ApplicationDiscoveryConfig
+  ): RegistrationPlan {
+    const tokens = components.map((component) =>
+      this.createApplicationPlanToken(component)
+    );
+    const routes = components.flatMap((component) =>
+      this.createApplicationPlanRoutes(component, config)
+    );
+
+    return createRegistrationPlan({
+      id: 'application-discovery:root',
+      source: 'application-discovery',
+      owner: {
+        type: 'application'
+      },
+      tokens,
+      routes,
+      metadata: {
+        rootDir: config.rootDir || process.cwd(),
+        routingPrefix: config.routing?.prefix
+      }
+    });
+  }
+
+  private createApplicationPlanToken(
+    component: ComponentMetadata
+  ): RegistrationPlanToken {
+    return {
+      token: camelCaseName(component.name),
+      kind: this.toRegistrationPlanTokenKind(component.type),
+      registrationType: 'class',
+      lifetime: component.diOptions?.lifetime,
+      injectionMode: component.diOptions?.injectionMode,
+      scope: 'root',
+      visibility: 'internal',
+      dependencies: extractConstructorDependencies(component.value),
+      target: component.value,
+      source: component.name,
+      metadata: {
+        componentName: component.name,
+        componentType: component.type
+      }
+    };
+  }
+
+  private createApplicationPlanRoutes(
+    component: ComponentMetadata,
+    config: ApplicationDiscoveryConfig
+  ): RegistrationPlanRoute[] {
+    if (component.type !== 'controller') {
+      return [];
+    }
+
+    const token = camelCaseName(component.name);
+    return (component.routes || []).map((route) => ({
+      method: route.method.toUpperCase(),
+      path: route.path,
+      controllerName: component.name,
+      handlerName: route.handlerName,
+      token,
+      scope: 'root',
+      prefix: config.routing?.prefix,
+      source: component.name,
+      metadata: {
+        hasOptions: Boolean(route.options)
+      }
+    }));
+  }
+
+  private toRegistrationPlanTokenKind(
+    type: ComponentMetadata['type']
+  ): RegistrationPlanToken['kind'] {
+    if (
+      type === 'controller' ||
+      type === 'service' ||
+      type === 'repository' ||
+      type === 'component'
+    ) {
+      return type;
+    }
+    return 'unknown';
   }
 
   private assertManifestPlanMatchesDiscoveredComponents(

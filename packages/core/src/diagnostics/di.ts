@@ -1,4 +1,5 @@
 import type { AwilixContainer } from 'awilix';
+import type { RegistrationPlanRecordMetadata } from '../registration/index.js';
 
 export type DIRegistrationType = 'class' | 'function' | 'value' | 'unknown';
 export type DIDiagnosticSeverity = 'error' | 'warning';
@@ -11,6 +12,7 @@ export interface DIRegistrationRecord {
   dependencies?: string[];
   target?: unknown;
   source?: string;
+  plan?: RegistrationPlanRecordMetadata;
 }
 
 export interface DIGraphNode {
@@ -20,6 +22,7 @@ export interface DIGraphNode {
   lifetime?: string;
   injectionMode?: string;
   source?: string;
+  plan?: RegistrationPlanRecordMetadata;
 }
 
 export interface DIGraph {
@@ -36,6 +39,7 @@ export interface DIDiagnostic {
   token: string;
   dependency?: string;
   cycle?: string[];
+  plan?: RegistrationPlanRecordMetadata;
   message: string;
 }
 
@@ -159,7 +163,8 @@ export function createDIGraph(container: AwilixContainer): DIGraph {
     registrationType: record.registrationType,
     lifetime: record.lifetime,
     injectionMode: record.injectionMode,
-    source: record.source
+    source: record.source,
+    plan: record.plan
   }));
 
   const knownTokens = new Set(records.map((record) => record.token));
@@ -265,6 +270,7 @@ export function diagnoseDIGraph(
           severity: 'error',
           token: node.token,
           dependency,
+          plan: node.plan,
           message: `DI missing dependency: ${node.token} -> ${dependency}`
         });
       }

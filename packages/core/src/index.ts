@@ -9,6 +9,7 @@ export * from './types/index.js';
 export * from './bootstrap/index.js';
 export * from './contracts/index.js';
 export * from './diagnostics/index.js';
+export * as experimental from './experimental/index.js';
 export {
   ConfigurationError,
   DiscoveryError,

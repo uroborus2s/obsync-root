@@ -26,7 +26,14 @@ describe('public API contract', () => {
     expect(api.diagnoseDIGraph).toEqual(expect.any(Function));
     expect(api.runDIDiagnostics).toEqual(expect.any(Function));
     expect(api.diagnoseServiceAdapterTokens).toEqual(expect.any(Function));
+    expect(api.experimental).toEqual(expect.any(Object));
+    expect((api.experimental as Record<string, unknown>).createRegistrationPlan)
+      .toEqual(expect.any(Function));
+    expect((api.experimental as Record<string, unknown>).recordRegistrationPlan)
+      .toEqual(expect.any(Function));
 
+    expect(api).not.toHaveProperty('createRegistrationPlan');
+    expect(api).not.toHaveProperty('recordRegistrationPlan');
     expect(api).not.toHaveProperty('performApplicationAutoDI');
     expect(api).not.toHaveProperty('discoverAndProcessApplicationModules');
     expect(api).not.toHaveProperty('ApplicationErrorHandler');

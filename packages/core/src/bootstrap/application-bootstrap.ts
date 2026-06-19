@@ -20,14 +20,7 @@ import {
   StratixError
 } from '../errors/index.js';
 import { createErrorEnvelope } from '../contracts/error-envelope.js';
-import { ApplicationDiscoveryPipeline } from '../discovery/application-pipeline.js';
-import type { ApplicationDiscoveryConfig } from '../discovery/interfaces.js';
-import {
-  createProductionManifestRegistrationPlan,
-  loadProductionManifest,
-  type LoadedProductionManifest,
-  type ProductionManifestRegistrationPlan
-} from '../discovery/production-manifest.js';
+import type { LoadedProductionManifest } from '../discovery/production-manifest.js';
 import type {
   ConfigOptions,
   EnvOptions,
@@ -39,6 +32,7 @@ import type {
 import { decryptConfig } from '../utils/crypto.js';
 import { ErrorUtils } from '../utils/error-utils.js';
 import { registerControllerClassRoutes } from '../plugin/controller-registration.js';
+import { ApplicationDiscoveryRegistrar } from './discovery-registrar.js';
 
 /**
  * 启动阶段
@@ -199,7 +193,9 @@ export class ApplicationBootstrap {
         processedOptions.config ?? processedOptions.configOptions
       );
       const config = this.applyRuntimeOverrides(loadedConfig, processedOptions);
-      const productionManifest = this.loadConfiguredProductionManifest(config);
+      const discoveryRegistrar = this.createApplicationDiscoveryRegistrar();
+      const productionManifest =
+        discoveryRegistrar.loadConfiguredProductionManifest(config);
 
       // 5. 设置容器
       const container = await this.setupContainer(config);
@@ -215,7 +211,7 @@ export class ApplicationBootstrap {
       await this.loadPlugins(config, fastifyInstance);
 
       // 8.1 执行应用级发现与注册（包括控制器路由注册）
-      await this.runApplicationDiscovery(
+      await discoveryRegistrar.register(
         config,
         container,
         fastifyInstance,
@@ -799,193 +795,11 @@ export class ApplicationBootstrap {
     return this.rootContainer;
   }
 
-  /**
-   * 执行应用级发现管道
-   */
-  private async runApplicationDiscovery(
-    config: StratixConfig,
-    container: AwilixContainer,
-    fastifyInstance: FastifyInstance,
-    productionManifest?: LoadedProductionManifest
-  ): Promise<void> {
-    const discoveryConfig = config.discovery || {};
-    if (discoveryConfig.enabled === false) {
-      return;
-    }
-
-    if (
-      productionManifest &&
-      discoveryConfig.productionManifest?.skipRuntimeDiscovery === true
-    ) {
-      if (discoveryConfig.productionManifest.registerFromManifest === true) {
-        const registrationPlan =
-          createProductionManifestRegistrationPlan(productionManifest);
-        this.assertProductionManifestRegistrationPlan(
-          productionManifest,
-          discoveryConfig.productionManifest,
-          registrationPlan
-        );
-        const manifestRoot =
-          discoveryConfig.rootDir ||
-          resolve(
-            dirname(productionManifest.sourceFile),
-            productionManifest.discovery.rootDir || '.'
-          );
-
-        if (registrationPlan.sourceFiles.length > 0) {
-          this.logger?.info(
-            `✅ Registering application components from production manifest: ${productionManifest.sourceFile}`
-          );
-          const pipeline = new ApplicationDiscoveryPipeline();
-          const pipelineConfig: ApplicationDiscoveryConfig & {
-            container: AwilixContainer;
-            fastify: FastifyInstance;
-          } = {
-            ...discoveryConfig,
-            rootDir: manifestRoot,
-            files: registrationPlan.sourceFiles,
-            manifestRegistration: {
-              tokens: registrationPlan.tokenEntries,
-              routes: registrationPlan.routes
-            },
-            container,
-            fastify: fastifyInstance
-          };
-          const result = await pipeline.discoverAndRegister(pipelineConfig);
-
-          this.assertProductionManifestRegistrationResult(
-            productionManifest,
-            discoveryConfig.productionManifest,
-            registrationPlan,
-            result
-          );
-
-          this.logger?.info(
-            `✅ Production manifest registration completed: ${result.registered.length} registrations, ${result.routesRegistered} routes`
-          );
-          return;
-        }
-      }
-
-      this.logger?.info(
-        `✅ Production manifest loaded, skipping runtime application discovery: ${productionManifest.sourceFile}`
-      );
-      return;
-    }
-
-    try {
-      this.logger?.debug('🚀 Starting application discovery pipeline...');
-
-      const appRoot = this.getEntryModulePath() || process.cwd();
-      const sourceRoot = fs.existsSync(resolve(appRoot, 'src'))
-        ? resolve(appRoot, 'src')
-        : appRoot;
-      const pipeline = new ApplicationDiscoveryPipeline();
-      const result = await pipeline.discoverAndRegister({
-        rootDir: sourceRoot,
-        ...discoveryConfig,
-        container,
-        fastify: fastifyInstance
-      });
-
-      this.logger?.info(
-        `✅ Application discovery completed: ${result.registered.length} registrations, ${result.routesRegistered} routes`
-      );
-    } catch (error) {
-      this.logger?.error({ err: error }, '❌ Application discovery failed');
-      throw error;
-    }
-  }
-
-  private assertProductionManifestRegistrationPlan(
-    productionManifest: LoadedProductionManifest,
-    manifestConfig: NonNullable<
-      NonNullable<StratixConfig['discovery']>['productionManifest']
-    >,
-    registrationPlan: ProductionManifestRegistrationPlan
-  ): void {
-    if (
-      manifestConfig.strict === false ||
-      registrationPlan.issues.length === 0
-    ) {
-      return;
-    }
-
-    throw new ConfigurationError(
-      `Production manifest registration plan is incomplete: ${productionManifest.sourceFile}`,
-      {
-        sourceFile: productionManifest.sourceFile,
-        issues: registrationPlan.issues
-      }
-    );
-  }
-
-  private assertProductionManifestRegistrationResult(
-    productionManifest: LoadedProductionManifest,
-    manifestConfig: NonNullable<
-      NonNullable<StratixConfig['discovery']>['productionManifest']
-    >,
-    registrationPlan: ProductionManifestRegistrationPlan,
-    result: Awaited<
-      ReturnType<ApplicationDiscoveryPipeline['discoverAndRegister']>
-    >
-  ): void {
-    if (manifestConfig.strict === false) {
-      return;
-    }
-
-    const registeredTokens = new Set(result.registered);
-    const missingTokens = registrationPlan.tokenEntries
-      .map((token) => token.token)
-      .filter((token) => !registeredTokens.has(token));
-    const expectedRoutes =
-      manifestConfig.registerFromManifest === true
-        ? registrationPlan.routes.length
-        : 0;
-    const missingRouteCount = Math.max(
-      0,
-      expectedRoutes - result.routesRegistered
-    );
-
-    if (missingTokens.length === 0 && missingRouteCount === 0) {
-      return;
-    }
-
-    throw new ConfigurationError(
-      `Production manifest source mismatch: ${productionManifest.sourceFile}`,
-      {
-        sourceFile: productionManifest.sourceFile,
-        missingTokens,
-        expectedRoutes,
-        routesRegistered: result.routesRegistered,
-        missingRouteCount
-      }
-    );
-  }
-
-  private loadConfiguredProductionManifest(
-    config: StratixConfig
-  ): LoadedProductionManifest | undefined {
-    const discoveryConfig = config.discovery || {};
-    if (discoveryConfig.enabled === false) {
-      return undefined;
-    }
-
-    const manifestConfig = discoveryConfig.productionManifest;
-    if (manifestConfig?.enabled !== true) {
-      return undefined;
-    }
-
-    const appRoot = this.getEntryModulePath() || process.cwd();
-    const productionManifest = loadProductionManifest(appRoot, manifestConfig);
-
-    if (productionManifest) {
-      this.logger?.info(
-        `✅ Production manifest loaded: ${productionManifest.sourceFile}`
-      );
-    }
-
-    return productionManifest;
+  private createApplicationDiscoveryRegistrar(): ApplicationDiscoveryRegistrar {
+    return new ApplicationDiscoveryRegistrar({
+      logger: this.logger,
+      getAppRoot: () => this.getEntryModulePath() || process.cwd()
+    });
   }
 
   /**

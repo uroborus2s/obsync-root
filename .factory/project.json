@@ -149,7 +149,7 @@
       {
         "command": "pnpm --filter @stratix/core build",
         "status": "passed",
-        "reason": "Core builds after adding route contract/OpenAPI helpers, DI graph diagnostics, discovery DI metadata recording, plugin adapter token diagnostics, unified error envelope, response schema failure normalization, runtime production manifest consumption, manifest-driven registration, and observability/security preset"
+        "reason": "Core builds after adding route contract/OpenAPI helpers, DI graph diagnostics, RegistrationPlan-based discovery/plugin metadata recording, plugin adapter token diagnostics, unified error envelope, response schema failure normalization, runtime production manifest consumption, manifest-driven registration, observability/security preset, and ApplicationDiscoveryRegistrar extraction"
       },
       {
         "command": "pnpm --filter @stratix/create build",
@@ -201,13 +201,13 @@
       {
         "command": "pnpm --filter @stratix/core test",
         "status": "passed",
-        "summary": "27 files / 203 tests",
-        "reason": "Core package tests pass with route contract/OpenAPI helpers, unified error envelope, response schema failure normalization, DI diagnostics, plugin adapter diagnostics, discovery schema validation, DI graph coverage, production manifest startup consumption, manifest-driven registration, and observability/security preset coverage"
+        "summary": "29 files / 213 tests",
+        "reason": "Core package tests pass with route contract/OpenAPI helpers, unified error envelope, response schema failure normalization, plan-first DI diagnostics, plugin adapter RegistrationPlan metadata, discovery schema validation, DI graph coverage, production manifest startup consumption, manifest-driven registration, observability/security preset coverage, and ApplicationDiscoveryRegistrar extraction"
       },
       {
         "command": "pnpm --filter @stratix/core run test:coverage",
         "status": "passed",
-        "summary": "global lines 42.46%, functions 36.76%, branches 32.70%, statements 41.75%",
+        "summary": "global lines 44.00%, functions 38.49%, branches 34.62%, statements 43.19%",
         "reason": "Coverage gate uses a current executable ratchet plus high thresholds on bootstrap/discovery critical paths instead of an unreachable global threshold"
       },
       {

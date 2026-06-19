@@ -19,7 +19,7 @@
 但从后端基础框架的生产级标准看，当前版本仍存在三类关键短板：
 
 1. 发布治理不足：复评时仓库没有 CI 工作流目录，根发布脚本只执行 `build:supported && changeset publish`，覆盖率与安全门禁没有进入发布路径。P0 修复后，根 release 已串联 supported build/typecheck/test、core coverage、docs validation、security audit 和 workspace release gate。
-2. 测试置信度不足：P0 修复后 `@stratix/core` 覆盖率提升为 statements 42.39%、branches 33.98%、functions 37.00%、lines 43.12%，仍明显低于 95+ 目标。
+2. 测试置信度不足：P1 修复后 `@stratix/core` 覆盖率提升为 statements 43.19%、branches 34.62%、functions 38.49%、lines 44.00%，仍明显低于 95+ 目标。
 3. 运行时架构压力偏高：`ApplicationBootstrap` 单文件 1885 行，承担环境加载、配置合并、插件编排、发现、Fastify 生命周期、观测、安全、限流、关闭流程等过多职责，已经成为未来演进瓶颈。
 
 本次闭门评审建议将当前版本定位为“有条件 RC”：可以发布给受控用户和内部生态模块验证，但必须在正式 GA 前补齐发布门禁、安全默认值、覆盖率策略、公开 API 边界和生产 manifest 完整性。
@@ -40,7 +40,7 @@
 | 命令 | 结果 | 说明 |
 | --- | --- | --- |
 | `pnpm --filter @stratix/core exec tsc -p tsconfig.json --noEmit` | 通过 | TypeScript 类型检查通过 |
-| `CI=true pnpm --filter @stratix/core exec vitest run` | 通过 | 28 个测试文件、210 个测试用例通过 |
+| `CI=true pnpm --filter @stratix/core exec vitest run` | 通过 | P1 修复后 29 个测试文件、213 个测试用例通过 |
 | `pnpm run test:coverage:core` | 通过 | 生成覆盖率报告，核心覆盖率仍偏低 |
 | `pnpm --filter @stratix/core run build` | 通过 | `tsdown` 构建通过 |
 | `pnpm run docs:validate` | 通过 | 86 pages / 0 contracts |
@@ -51,10 +51,10 @@
 
 | 指标 | 覆盖率 | 覆盖数量 |
 | --- | ---: | --- |
-| Statements | 42.39% | 2187 / 5159 |
-| Branches | 33.98% | 977 / 2875 |
-| Functions | 37.00% | 453 / 1224 |
-| Lines | 43.12% | 2148 / 4981 |
+| Statements | 43.19% | 2271 / 5257 |
+| Branches | 34.62% | 1020 / 2946 |
+| Functions | 38.49% | 487 / 1265 |
+| Lines | 44.00% | 2232 / 5072 |
 
 覆盖率呈现“核心路径有测试、公共工具和边缘路径不足”的状态。较好的区域包括 bootstrap、discovery pipeline 和 DI diagnostics；薄弱区域包括 `crypto.ts`、`context.ts`、数组工具、服务装饰器、validation、部分安全与配置分支。
 
@@ -67,9 +67,9 @@
 | Core 导出面 | `packages/core/src/index.ts` 导出大量内部插件、DI、Fastify、Awilix 类型与实现细节 |
 | Bootstrap 复杂度 | `packages/core/src/bootstrap/application-bootstrap.ts` 约 1885 行，职责集中 |
 | 生产 manifest | `packages/core/src/discovery/production-manifest.ts` 支持 strict 问题报告，但 manifest 类型缺少编译产物路径、hash、完整性校验字段 |
-| 应用发现 | `ApplicationDiscoveryPipeline` 只注册 controllers/components，动态 import 源文件；生产模式依赖 manifest 匹配 |
-| 插件 AutoDI | `withRegisterAutoDI` 通过插件作用域容器和模块发现注册服务，与应用侧 metadata 发现模型不完全一致 |
-| DI 诊断 | `diagnostics/di.ts` 依赖注册记录和函数源码提取依赖，插件适配器路径记录不完整 |
+| 应用发现 | `ApplicationDiscoveryPipeline` 只注册 controllers/components，动态 import 源文件；P1 修复后返回 `RegistrationPlan` 并通过 plan token registrar 记录 DI metadata |
+| 插件 AutoDI | `withRegisterAutoDI` 通过插件作用域容器和模块发现注册服务；P1 修复后插件 internal tokens/routes/lifecycle 与 adapter root token 进入统一 `RegistrationPlan` schema |
+| DI 诊断 | P1 修复后 DI graph node 与 missing dependency diagnostic 携带 plan metadata；未显式记录的手工 Awilix 注册仍使用源码推断或 unknown fallback |
 | 配置 schema | `config/schema.ts` 顶层严格，但 `pluginOptions`、`autoLoad` 等区域仍较宽 |
 | 安全默认值 | 复评时 `utils/crypto.ts` 存在默认开发密钥回退且限流默认信任 `x-forwarded-for`；P0 修复后生产禁用默认 key，限流默认使用 `request.ip` |
 
@@ -107,7 +107,7 @@
 
 复评时根发布脚本没有串联测试、覆盖率、安全审计或文档校验，仓库也没有发现 `.github` 工作流目录。这意味着本地命令虽然通过，但发布过程本身没有强制复核。
 
-同时，`docs/04-project-development/06-testing-verification/stratix-95-quality-gate.md` 中存在高分质量门禁叙述。P0 修复后 `@stratix/core` 覆盖率实测为 42.39/33.98/37.00/43.12，仍只是 ratchet 事实，不是 95+ 达成。该口径差异会误导发布判断。
+同时，`docs/04-project-development/06-testing-verification/stratix-95-quality-gate.md` 中存在高分质量门禁叙述。P1 修复后 `@stratix/core` 覆盖率实测为 43.19/34.62/38.49/44.00，仍只是 ratchet 事实，不是 95+ 达成。该口径差异会误导发布判断。
 
 建议：
 
@@ -136,6 +136,23 @@ P0 修复状态：
 - 生产环境缺少显式 key 或强制 `useDefaultKey: true` 时会失败。
 - 限流默认不再读取 `x-forwarded-for`，只有 `security.rateLimit.trustProxy: true` 时才读取首个非空代理客户端 token。
 - 已新增 crypto 与 rate limit 回归测试。
+
+### P1 修复状态：RegistrationPlan 与 Discovery Registrar
+
+2026-06-19 已完成 P1 兼容式第一阶段：
+
+- 保留 `withRegisterAutoDI` 插件作者 API，不做破坏性移除。
+- 新增统一 `RegistrationPlan` schema、plan token registrar 和 recorder。
+- 应用 discovery 在注册前生成 `registrationPlan`，应用 DI token 通过 plan token registrar 写入容器和 DI graph。
+- 插件 AutoDI 生成 plugin-scoped plan，覆盖 internal tokens、routes、lifecycle；adapter root token 通过同一 registrar 注册并写入根容器 DI graph。
+- `diagnostics/di.ts` 以 plan 显式 dependencies 和 metadata 为主，源码构造参数推断只作为 fallback；缺失依赖诊断携带 plan metadata。
+- root export 新增 `experimental` 命名空间暴露 `RegistrationPlan` helper，同时 public API contract 锁定不直接暴露稳定 root helper 名称。
+- `ApplicationBootstrap` 已抽出 `ApplicationDiscoveryRegistrar`，将 application discovery / production-manifest 注册编排从启动器主类中剥离。
+
+仍未归入 P1 完成范围的后续工作：
+
+- production manifest v2 完整性字段和严格 compiled-file 注册属于 P2。
+- 环境、配置、插件编排、HTTP、安全、观测等 bootstrap 进一步拆分属于后续维护批次。
 
 ### P1：Bootstrap 职责过载
 

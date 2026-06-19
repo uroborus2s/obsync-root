@@ -3,6 +3,7 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { runDIDiagnostics } from '../../diagnostics/index.js';
 import {
   buildServiceAdapterToken,
   diagnoseServiceAdapterTokens,
@@ -110,5 +111,76 @@ describe('service adapter token naming', () => {
       'Service adapter token already exists in root container: queueClient'
     );
     expect(rootContainer.hasRegistration('queueMetrics')).toBe(false);
+  });
+
+  it('records plugin adapter registrations as RegistrationPlan metadata', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'stratix-adapter-plan-'));
+    await writeFile(
+      join(root, 'client-adapter.mjs'),
+      [
+        'export default {',
+        "  adapterName: 'client',",
+        "  factory: () => ({ name: 'queue-client' })",
+        '};'
+      ].join('\n')
+    );
+
+    const rootContainer = createContainer();
+    const context: PluginContainerContext<Record<string, never>> = {
+      internalContainer: rootContainer.createScope(),
+      rootContainer,
+      options: {},
+      patterns: [],
+      basePath: root,
+      autoDIConfig: {
+        discovery: { patterns: [] },
+        routing: { enabled: false, prefix: '', validation: false },
+        services: {
+          enabled: true,
+          patterns: ['*.mjs']
+        },
+        lifecycle: { enabled: false },
+        debug: false
+      },
+      debugEnabled: false,
+      pluginName: 'queue'
+    };
+
+    await registerServiceAdapters(context);
+
+    expect(rootContainer.hasRegistration('queueClient')).toBe(true);
+    expect(context.registrationPlan).toEqual(
+      expect.objectContaining({
+        source: 'plugin-autodi',
+        owner: {
+          type: 'plugin',
+          name: 'queue'
+        },
+        adapters: [
+          expect.objectContaining({
+            adapterName: 'client',
+            token: 'queueClient'
+          })
+        ]
+      })
+    );
+
+    const diagnostics = runDIDiagnostics(rootContainer);
+    expect(diagnostics.graph.nodes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          token: 'queueClient',
+          registrationType: 'function',
+          plan: expect.objectContaining({
+            source: 'plugin-autodi',
+            ownerType: 'plugin',
+            ownerName: 'queue',
+            tokenKind: 'adapter',
+            scope: 'root',
+            visibility: 'public'
+          })
+        })
+      ])
+    );
   });
 });

@@ -13,9 +13,11 @@ flowchart LR
   C --> D["runApplicationDiscovery"]
   D --> E["ApplicationDiscoveryPipeline.scan"]
   E --> F["ApplicationDiscoveryPipeline.analyze"]
-  F --> G["ApplicationDiscoveryPipeline.registerComponent"]
-  G --> H["Awilix container"]
-  G --> I["Fastify routes"]
+  F --> G["RegistrationPlan"]
+  G --> H["Plan token registrar"]
+  H --> I["Awilix container"]
+  G --> J["Fastify routes"]
+  G --> K["DI diagnostics metadata"]
 ```
 
 ## 管道职责
@@ -24,7 +26,8 @@ flowchart LR
 |---|---|---|---|
 | scan | `rootDir`、`patterns`、`directories`、`exclude` | `LoadedModule[]` | 模块加载失败抛 `DiscoveryError` |
 | analyze | 模块导出对象 | `ComponentMetadata | null` | 非 Stratix 组件跳过 |
-| register | 组件元数据、容器、Fastify | DI token、路由数量 | 重复 token 或注册失败抛 `RegistrationError` |
+| plan | 组件元数据 | `RegistrationPlan` | 只描述将注册的 token、route、scope、依赖和来源 |
+| register | `RegistrationPlan`、组件元数据、容器、Fastify | DI token、路由数量 | 重复 token 或注册失败抛 `RegistrationError` |
 | route binding | 控制器路由元数据 | Fastify route | handler 不存在抛 `RegistrationError` |
 
 ## 显式组件规则
@@ -75,6 +78,12 @@ flowchart LR
 
 ## Phase 2 扩展
 
-应用级 discovery 在注册 DI token 时同步记录诊断 metadata，供 `createDIGraph()`、`diagnoseDIGraph()`、`runDIDiagnostics()` 使用。
+应用级 discovery 在分析完成后先生成 `RegistrationPlan`，再由 plan token registrar 注册 DI token，并同步记录 plan metadata，供 `createDIGraph()`、`diagnoseDIGraph()`、`runDIDiagnostics()` 使用。DI graph 以 plan 显式依赖和来源为主，源码参数推断只作为 fallback。
 
 控制器路由继续把 schema 透传给 Fastify，同时可由 `getControllerRouteContracts()` 提取为 route contract，再用于 contract diagnostics 和 OpenAPI 文档生成。
+
+## Phase 6 P1 扩展
+
+插件级 `withRegisterAutoDI` 保持原有插件作者 API，但内部也会生成 `RegistrationPlan`：插件 internal container tokens、controller routes、lifecycle hooks 和公开 adapter token 都会进入同一 plan schema。adapter root token 通过 plan token registrar 注册并进入根容器 DI graph，插件内部 token 记录在插件作用域 plan 中。
+
+`ApplicationBootstrap` 的 discovery / production-manifest 编排已抽出到 `ApplicationDiscoveryRegistrar`。启动器继续负责生命周期顺序，registrar 负责应用发现、manifest-driven registration 和 manifest mismatch 校验。

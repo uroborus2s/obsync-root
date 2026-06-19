@@ -139,12 +139,28 @@ describe('ApplicationDiscoveryPipeline', () => {
     container.register('logger', asValue(app.log));
 
     const pipeline = new ApplicationDiscoveryPipeline();
-    await pipeline.discoverAndRegister({
+    const discoveryResult = await pipeline.discoverAndRegister({
       container,
       fastify: app,
       rootDir: root,
       patterns: ['*.mjs']
     });
+
+    expect(discoveryResult.registrationPlan).toEqual(
+      expect.objectContaining({
+        source: 'application-discovery',
+        owner: {
+          type: 'application'
+        },
+        tokens: expect.arrayContaining([
+          expect.objectContaining({
+            token: 'userService',
+            kind: 'service',
+            scope: 'root'
+          })
+        ])
+      })
+    );
 
     const result = runDIDiagnostics(container);
 
@@ -153,7 +169,12 @@ describe('ApplicationDiscoveryPipeline', () => {
         expect.objectContaining({
           token: 'userService',
           dependencies: ['userRepository', 'logger'],
-          registrationType: 'class'
+          registrationType: 'class',
+          plan: expect.objectContaining({
+            source: 'application-discovery',
+            ownerType: 'application',
+            tokenKind: 'service'
+          })
         })
       ])
     );

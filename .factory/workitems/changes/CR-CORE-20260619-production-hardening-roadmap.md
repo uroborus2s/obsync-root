@@ -20,13 +20,15 @@
 
 ## P1：架构收敛
 
+状态：DONE（兼容式第一阶段）
+
 - 保持 `withRegisterAutoDI` 作为插件作者 API，不做破坏性移除。
 - 为应用 discovery 和插件 AutoDI 引入统一 `RegistrationPlan` 中间表示。
-- 将应用组件、插件内部模块、adapter、route、lifecycle 都收敛到统一 registrar。
-- 所有注册路径补齐统一 diagnostics recorder。
-- `diagnostics/di.ts` 以 plan metadata 为主，源码推断只作为 fallback。
-- 拆分 `ApplicationBootstrap` 的环境、配置、容器、插件编排、发现注册、HTTP、安全、观测、生命周期职责。
-- 收敛 `@stratix/core` root export，区分 stable / experimental / internal。
+- 应用 discovery 返回 `registrationPlan`，应用 DI token 通过 plan token registrar 注册和记录。
+- 插件 AutoDI 生成 plugin-scoped plan，覆盖 internal tokens、routes、lifecycle；adapter root token 通过同一 plan token registrar 注册和记录。
+- `diagnostics/di.ts` 以 plan metadata 和显式 dependencies 为主，源码推断只作为 fallback；缺失依赖诊断携带 plan metadata。
+- `ApplicationBootstrap` 已抽出 `ApplicationDiscoveryRegistrar`，先拆分 discovery / production-manifest 注册职责；环境、配置、HTTP、安全、观测等后续拆分留在后续维护批次。
+- `@stratix/core` root export 新增 `experimental` 命名空间暴露 RegistrationPlan helpers，并通过 public API contract 锁定不直接暴露稳定 root helper 名称。
 
 ## P2：生产一致性
 
@@ -41,7 +43,7 @@
 ## 完成判定
 
 - P0：本地和 CI release gate 均通过，生产安全默认值测试覆盖，文档口径与覆盖率事实一致。
-- P1：应用和插件注册均能输出同一 plan schema；DI graph、diagnostics、route registration 和 adapter registration 复用统一 plan。
+- P1：应用和插件注册均能输出同一 plan schema；DI graph、diagnostics、route registration 和 adapter registration 复用统一 plan。当前完成兼容式第一阶段，未做破坏性移除或生产 manifest v2 替换。
 - P2：production manifest v2 可校验构建产物完整性，生产启动不依赖隐式源码 glob，性能/并发/覆盖率门禁达标。
 
 ## 评分预期

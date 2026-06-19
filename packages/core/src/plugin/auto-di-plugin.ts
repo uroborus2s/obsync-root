@@ -10,6 +10,7 @@ import type {
   FastifyPluginOptions
 } from 'fastify';
 import { getLogger } from '../logger/index.js';
+import { recordRegistrationPlan } from '../registration/index.js';
 
 // 跨插件工作流相关导入
 
@@ -19,6 +20,7 @@ import {
   discoverAndProcessModules,
   type ModuleProcessingResult
 } from './module-discovery.js';
+import { createPluginAutoDIRegistrationPlan } from './registration-plan.js';
 import {
   ensureAwilixPlugin,
   performAutoRegistration,
@@ -162,6 +164,15 @@ export function withRegisterAutoDI<
       const moduleProcessingResult = await discoverAndProcessModules(
         pluginContext,
         fastify
+      );
+      const pluginRegistrationPlan = createPluginAutoDIRegistrationPlan(
+        pluginContext,
+        moduleProcessingResult
+      );
+      pluginContext.registrationPlan = pluginRegistrationPlan;
+      recordRegistrationPlan(
+        pluginContext.internalContainer,
+        pluginRegistrationPlan
       );
 
       if (debugEnabled) {

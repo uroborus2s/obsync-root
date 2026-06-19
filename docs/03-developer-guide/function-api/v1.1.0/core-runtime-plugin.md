@@ -60,7 +60,7 @@
 |---|---|---|---|
 | `ApplicationDiscoveryPipeline` | `ApplicationDiscoveryConfig & { container, fastify }` | `ApplicationDiscoveryResult` | 应用级扫描、分析、DI 注册和路由绑定入口 |
 | `ApplicationDiscoveryConfig` | `enabled`、`rootDir`、`patterns`、`directories`、`routing`、`lifecycle` | 类型 | 应用级 discovery 配置契约 |
-| `ApplicationDiscoveryResult` | `scanned`、`analyzed`、`registered`、`routesRegistered`、`skipped`、`errors` | 类型 | 应用级 discovery 执行结果 |
+| `ApplicationDiscoveryResult` | `scanned`、`analyzed`、`registered`、`routesRegistered`、`registrationPlan`、`skipped`、`errors` | 类型 | 应用级 discovery 执行结果，包含统一注册计划 |
 
 <a id="controllers-routes"></a>
 ## 控制器与路由装饰器
@@ -136,6 +136,22 @@ async getUser() {}
 | `diagnoseDIGraph(graph, options?)` | DI 图 | `DIDiagnostic[]` | 检查重复 token、缺失依赖和循环依赖 |
 | `runDIDiagnostics(container, options?)` | Awilix 容器 | `DIDiagnosticsResult` | 一次性生成图并返回诊断结果 |
 | `extractConstructorDependencies(target)` | class 或 function | `string[]` | 从构造函数参数名提取依赖 token |
+
+说明：
+
+- 应用 discovery 和插件 AutoDI 会优先通过 `RegistrationPlan` 记录 token、scope、visibility、owner 和 dependency metadata。
+- `createDIGraph()` 输出的节点会携带 plan metadata；缺失依赖诊断也会携带对应 plan metadata。
+- 未通过 plan 记录的手工 Awilix 注册仍会以源码参数推断或 `unknown` fallback 进入图。
+
+### `experimental` 注册计划 API
+
+| API | 参数 | 返回值 | 说明 |
+|---|---|---|---|
+| `experimental.createRegistrationPlan(input)` | plan 输入 | `RegistrationPlan` | 创建应用或插件注册计划 |
+| `experimental.recordRegistrationPlan(container, plan)` | Awilix 容器、plan | `void` | 将 plan token metadata 写入 DI recorder |
+| `experimental.registerRegistrationPlanToken(container, plan, token)` | Awilix 容器、plan、token | `boolean` | 按 plan token 注册并记录容器 token |
+
+`experimental` 命名空间不是稳定 root API 承诺；普通应用代码不应直接依赖它。
 
 <a id="validation-decorators"></a>
 ## 校验装饰器
@@ -213,7 +229,7 @@ async getUser() {}
 | `ensureAwilixPlugin(fastify)` | Fastify 实例 | 容器实例 | 确保 `@fastify/awilix` 已注册 |
 | `performAutoRegistration(pluginContext)` | 插件上下文 | `Promise<void>` | 自动注册插件内部对象 |
 | `registerControllerRoutes(...)` | Fastify、控制器信息、路由配置 | 注册结果 | 把控制器路由挂到 Fastify |
-| `registerServiceAdapters(pluginContext)` | 插件上下文 | `Promise<void>` | 注册适配器 |
+| `registerServiceAdapters(pluginContext)` | 插件上下文 | `Promise<void>` | 注册适配器，并把公开 adapter token 合并进插件 `registrationPlan` |
 | `processModulesUnified(...)` | 模块处理配置 | 处理结果 | 统一处理多种模块 |
 | `processSingleModule(...)` | 单模块处理配置 | 处理结果 | 处理单个模块 |
 

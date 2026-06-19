@@ -2,6 +2,7 @@ import type {
   ComponentInjectionMode,
   ComponentLifetime
 } from '../decorators/index.js';
+import type { RegistrationPlan } from '../registration/index.js';
 import type { ProductionManifestDiscoveryConfig } from './production-manifest.js';
 
 /**
@@ -90,6 +91,7 @@ export interface ApplicationDiscoveryResult {
   analyzed: number;
   registered: string[];
   routesRegistered: number;
+  registrationPlan?: RegistrationPlan;
   skipped: Array<{ name: string; reason: string }>;
   errors: Array<{ name: string; error: Error }>;
 }

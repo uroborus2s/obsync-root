@@ -28,6 +28,8 @@
 - Phase 6 workspace release gate exists and has local passing evidence, but the 2026-06-19 closed-door review reset the release posture to RC / controlled release until root release gates, CI enforcement, coverage policy, and GA wording are hardened.
 - Root release gating is now tightened so `release` must pass supported build, supported typecheck, supported test, core coverage ratchet, docs validation, security audit, release gate dry-run, and offline workspace release gate before `changeset publish`.
 - GitHub Actions CI now has a `Quality Gate` workflow for PRs and pushes to `main` / `1.1.0`; it installs with pnpm and runs the supported build/typecheck/test/coverage/docs/security gates plus workspace release gate dry-run.
+- `@stratix/core` P1 registration-model convergence is implemented in a compatible first stage: application discovery and plugin AutoDI now emit a shared `RegistrationPlan` schema, DI graph nodes and missing-dependency diagnostics carry plan metadata, application DI tokens and plugin adapter root tokens use the plan token registrar, plugin internal tokens/routes/lifecycle are recorded into the plugin plan, and new `experimental` root namespace exposes plan helpers without adding stable root-level helper names.
+- `ApplicationBootstrap` no longer owns the application discovery / production-manifest registration branch directly; `ApplicationDiscoveryRegistrar` owns that orchestration while bootstrap keeps lifecycle ordering.
 - The toolchain split is implemented: `@stratix/create` owns app/plugin creation, `@stratix/forge` owns project-local generate/doctor/di/openapi/start/config workflows, and neither package depends on `@stratix/core`.
 - The physical source directory for `@stratix/forge` is now `packages/forge`; `packages/cli` is not retained as a compatibility directory.
 - `.stratix/project.json` is now the create/forge handoff contract at `schemaVersion: 2`; create writes the template contribution snapshot, allowed presets, and managed files mode, while forge reads the manifest/presets/resource templates instead of app/plugin creation templates.
@@ -72,14 +74,14 @@
   - Already up to date
 - `pnpm --filter @stratix/core build` passes after the breaking application discovery refactor and unified error envelope work.
 - `pnpm --filter @stratix/core exec tsc -p tsconfig.json --noEmit` passes.
-- `CI=true pnpm --filter @stratix/core exec vitest run` passes after production manifest strict registration, late controller registration hardening, and security default hardening:
-  - 28 test files
-  - 210 tests
+- `CI=true pnpm --filter @stratix/core exec vitest run` passes after production manifest strict registration, late controller registration hardening, security default hardening, and P1 RegistrationPlan convergence:
+  - 29 test files
+  - 213 tests
 - `pnpm run test:coverage:core` passes:
-  - global lines `43.12%`
-  - global functions `37.00%`
-  - global branches `33.98%`
-  - global statements `42.39%`
+  - global lines `44.00%`
+  - global functions `38.49%`
+  - global branches `34.62%`
+  - global statements `43.19%`
   - bootstrap/discovery critical paths use higher targeted thresholds
   - these values are current executable ratchet facts, not 95+ global coverage
 - 2026-06-19 closed-door `@stratix/core` review completed with three-role

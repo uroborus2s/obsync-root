@@ -2,17 +2,20 @@
 // 负责服务适配器的发现、验证和注册
 
 import {
-  asFunction,
-  InjectionMode,
   isClass,
   isFunction,
-  Lifetime,
   listModules,
   type AwilixContainer
 } from 'awilix';
 import { isAbsolute, resolve } from 'node:path';
 import { ConfigurationError } from '../errors/index.js';
 import { getLogger } from '../logger/index.js';
+import {
+  createRegistrationPlan,
+  mergeRegistrationPlans,
+  registerRegistrationPlanToken,
+  type RegistrationPlan
+} from '../registration/index.js';
 import type { PluginContainerContext } from './service-discovery.js';
 
 /**
@@ -439,7 +442,7 @@ async function registerSingleServiceAdapter<T>(
     debugEnabled,
     pluginName
   }: PluginContainerContext<T>
-): Promise<boolean> {
+): Promise<RegistrationPlan | null> {
   try {
     const { adapterName, factory } = adapter;
     // 构建带命名空间的适配器名称：pluginNameAdapterName (camelCase)
@@ -456,15 +459,45 @@ async function registerSingleServiceAdapter<T>(
 
     // 创建适配器工厂函数，传入插件内部容器
     const adapterFactory = () => factory(internalContainer);
-
-    // 创建 resolver（固定为 SINGLETON）
-    const resolver = asFunction(adapterFactory, {
-      lifetime: Lifetime.SINGLETON,
-      injectionMode: InjectionMode.CLASSIC
+    const adapterPlan = createRegistrationPlan({
+      id: `plugin-autodi:${pluginName}:adapters`,
+      source: 'plugin-autodi',
+      owner: {
+        type: 'plugin',
+        name: pluginName
+      },
+      tokens: [
+        {
+          token: namespacedAdapterName,
+          kind: 'adapter',
+          registrationType: 'function',
+          lifetime: 'SINGLETON',
+          injectionMode: 'CLASSIC',
+          scope: 'root',
+          visibility: 'public',
+          target: adapterFactory,
+          source: `${pluginName}.${adapterName}`,
+          metadata: {
+            adapterName,
+            pluginName
+          }
+        }
+      ],
+      adapters: [
+        {
+          adapterName,
+          token: namespacedAdapterName,
+          pluginName,
+          scope: 'root',
+          source: `${pluginName}.${adapterName}`
+        }
+      ]
     });
-
-    // 注册到根容器，使用带命名空间的名称
-    rootContainer.register(namespacedAdapterName, resolver);
+    registerRegistrationPlanToken(
+      rootContainer,
+      adapterPlan,
+      adapterPlan.tokens[0]
+    );
 
     if (debugEnabled) {
       const logger = getLogger();
@@ -473,7 +506,7 @@ async function registerSingleServiceAdapter<T>(
       );
     }
 
-    return true;
+    return adapterPlan;
   } catch (error) {
     if (debugEnabled) {
       const logger = getLogger();
@@ -482,7 +515,7 @@ async function registerSingleServiceAdapter<T>(
         error
       );
     }
-    return false;
+    return null;
   }
 }
 
@@ -570,13 +603,17 @@ export async function registerServiceAdapters<T>(
 
     let totalRegistered = 0;
     for (const adapter of uniqueAdapters.values()) {
-      const success = await registerSingleServiceAdapter(
+      const adapterPlan = await registerSingleServiceAdapter(
         adapter,
         pluginContext
       );
 
-      if (success) {
+      if (adapterPlan) {
         totalRegistered++;
+        pluginContext.registrationPlan = mergeRegistrationPlans(
+          pluginContext.registrationPlan,
+          adapterPlan
+        );
       } else {
         throw new ConfigurationError(
           `Service adapter registration failed: ${adapter.adapterName}`,
