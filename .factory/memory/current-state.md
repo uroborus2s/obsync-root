@@ -5,7 +5,7 @@
 - Repository type: historical Stratix source monorepo
 - Toolchain baseline:
   - Node `24.14.1`
-  - pnpm `11.9.0`
+  - pnpm `11.9.0` from system `PATH`; no project `packageManager` pin
   - TypeScript `6.0.3`
 - Workspace reality:
   - 10 public `@stratix/*` packages
@@ -91,7 +91,7 @@
   - `pnpm-lock.yaml` no longer contains a `packages/tasks` importer or `@stratix/tasks` dependency
   - `pnpm list --depth -1 --filter './packages/*'` reports 10 public workspace packages and no `@stratix/tasks`
 - `CI=true pnpm install --frozen-lockfile --ignore-scripts` passes after removing `packages/utils` from the workspace lockfile.
-- Root `CI=true pnpm install --frozen-lockfile --ignore-scripts` passes on pnpm `11.9.0`.
+- Root `CI=true pnpm install --frozen-lockfile --ignore-scripts` passes with system `PATH` pnpm `11.9.0`.
 - Preview sample `CI=true pnpm install --ignore-workspace --frozen-lockfile` passes.
 - Root `pnpm build` delegates to `build:supported` and now covers every remaining workspace package.
 - Root `pnpm build:supported` passes across the 10 remaining workspace packages.
