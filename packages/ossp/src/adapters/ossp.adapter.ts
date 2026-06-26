@@ -23,6 +23,10 @@ import type {
   UploadOptions,
   UploadResult
 } from './interfaces/IOSSAdapter.js';
+import {
+  AliyunOSSAdapter,
+  type AliyunOSSConfig
+} from './providers/AliyunOSSAdapter.js';
 import { MinioAdapter, type MinioConfig } from './providers/MinioAdapter.js';
 
 /**
@@ -39,9 +43,10 @@ function createOSSProviderAdapter(
     case 'minio':
       return new MinioAdapter(config as MinioConfig, logger);
 
+    case 'aliyun-oss':
+      return new AliyunOSSAdapter(config as AliyunOSSConfig, logger);
+
     // 未来可以添加其他提供商
-    // case 'aliyun-oss':
-    //   return new AliyunOSSAdapter(config, logger);
     // case 'tencent-cos':
     //   return new TencentCOSAdapter(config, logger);
     // case 'aws-s3':

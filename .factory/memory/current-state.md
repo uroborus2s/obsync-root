@@ -5,7 +5,7 @@
 - Repository type: historical Stratix source monorepo
 - Toolchain baseline:
   - Node `24.14.1`
-  - pnpm `10.33.0`
+  - pnpm `11.7.0`
   - TypeScript `6.0.3`
 - Workspace reality:
   - 10 public `@stratix/*` packages
@@ -20,6 +20,7 @@
   - Release status: RC-candidate evidence is present; GA/public release still requires exact release tags pointing at the final release commit, pushed tags, maintainer npm publish, and final release wording.
 - Stable docs were missing before this baseline; `docs/`, `.factory/`, `AGENTS.md`, `GEMINI.md` are now present.
 - Developer guides now include beginner-oriented paths for backend apps, plugins, and the create/forge scaffold model.
+- `@stratix/ossp` now supports Aliyun OSS through the official `ali-oss` SDK in addition to MinIO.
 - `@stratix/database` has started a database-only clean breaking refactor: `DatabaseAPI` was removed from the package, module-level database manager/global connection helpers were removed, and `BaseRepository` now requires an explicit `DatabaseConnectionProvider`.
 - `@stratix/core` has completed a package-level breaking discovery refactor: application discovery is now driven by `config.discovery` and `ApplicationDiscoveryPipeline`, while old application-level discovery entry points were removed from the root export surface.
 - Phase 1 of the Core concept-model evolution is implemented: `executor` has been removed from `@stratix/core` decorators, metadata, discovery, plugin registration, public exports, and from create/forge generator/template surfaces without compatibility adapters.
@@ -90,7 +91,7 @@
   - `pnpm-lock.yaml` no longer contains a `packages/tasks` importer or `@stratix/tasks` dependency
   - `pnpm list --depth -1 --filter './packages/*'` reports 10 public workspace packages and no `@stratix/tasks`
 - `CI=true pnpm install --frozen-lockfile --ignore-scripts` passes after removing `packages/utils` from the workspace lockfile.
-- Root `CI=true pnpm install --frozen-lockfile` passes on pnpm `10.33.0`.
+- Root `CI=true pnpm install --frozen-lockfile --ignore-scripts` passes on pnpm `11.7.0`.
 - Preview sample `CI=true pnpm install --ignore-workspace --frozen-lockfile` passes.
 - Root `pnpm build` delegates to `build:supported` and now covers every remaining workspace package.
 - Root `pnpm build:supported` passes across the 10 remaining workspace packages.
@@ -247,7 +248,7 @@
   - 11 test files
   - 120 tests
 - 2026-06-20 plugin credential validation targeted tests pass:
-  - `pnpm --filter @stratix/ossp exec vitest run src/__tests__/plugin-validation.test.ts`: 5 tests
+  - `CI=true pnpm --filter @stratix/ossp exec vitest run src/__tests__/aliyun-oss-adapter.test.ts src/__tests__/exports.test.ts src/__tests__/plugin-validation.test.ts`: 3 files / 8 tests
   - `pnpm --filter @stratix/was-v7 exec vitest run src/__tests__/plugin-validation.test.ts`: 21 tests
 - `@stratix/devtools`, `@stratix/ossp`, `@stratix/queue`, and `@stratix/testing` now have smoke tests so the supported root test profile is not broken by no-test packages.
 - The upgraded toolchain still emits peer warnings because `@typescript-eslint` does not yet declare TypeScript 6 support and `eslint-plugin-import` does not yet declare ESLint 10 support.

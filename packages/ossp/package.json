@@ -1,7 +1,7 @@
 {
   "name": "@stratix/ossp",
   "version": "0.0.1-beta.3",
-  "description": "Stratix OSS Plugin with MinIO support, multi-provider architecture and complete object storage operations",
+  "description": "Stratix OSS Plugin with MinIO and Aliyun OSS support, multi-provider architecture and complete object storage operations",
   "main": "dist/index.js",
   "types": "dist/types/index.d.ts",
   "type": "module",
@@ -20,6 +20,7 @@
   "keywords": [
     "stratix",
     "oss",
+    "aliyun-oss",
     "object-storage",
     "minio",
     "s3",
@@ -50,6 +51,7 @@
     "access": "public"
   },
   "dependencies": {
+    "ali-oss": "^6.23.0",
     "minio": "^8.0.7"
   },
   "peerDependencies": {

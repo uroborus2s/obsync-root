@@ -4,7 +4,7 @@
 
 ## 特性
 
-- 🚀 **多提供商支持**: 支持MinIO、AWS S3、阿里云OSS等多种对象存储提供商
+- 🚀 **多提供商支持**: 已支持 MinIO、阿里云 OSS，AWS S3 等其他提供商按需扩展
 - 🔧 **完整功能**: 文件上传、下载、删除、复制、移动等完整OSS操作
 - 📦 **存储桶管理**: 创建、删除、列表、统计等存储桶管理功能
 - 🔗 **预签名URL**: 支持生成预签名上传/下载URL
@@ -33,21 +33,19 @@ pnpm add @stratix/ossp
 ```typescript
 import Fastify from 'fastify';
 import ossp from '@stratix/ossp';
-import { OssProvider } from '@stratix/ossp';
+import { OSSProvider } from '@stratix/ossp';
 
 const fastify = Fastify();
 
 // 注册OSS插件 - MinIO
 await fastify.register(ossp, {
-  oss: {
-    provider: OssProvider.MINIO,
-    endpoint: 'localhost',
-    port: 9000,
-    useSSL: false,
-    accessKeyId: 'your-access-key',
-    accessKeySecret: 'your-secret-key',
-    region: 'us-east-1'
-  }
+  provider: OSSProvider.MINIO,
+  endPoint: 'localhost',
+  port: 9000,
+  useSSL: false,
+  accessKey: 'your-access-key',
+  secretKey: 'your-secret-key',
+  region: 'us-east-1'
 });
 ```
 
@@ -56,22 +54,20 @@ await fastify.register(ossp, {
 ```typescript
 import Fastify from 'fastify';
 import ossp from '@stratix/ossp';
-import { OssProvider } from '@stratix/ossp';
+import { OSSProvider } from '@stratix/ossp';
 
 const fastify = Fastify();
 
 // 注册OSS插件 - 阿里云OSS
 await fastify.register(ossp, {
-  oss: {
-    provider: OssProvider.ALIYUN_OSS,
-    accessKeyId: 'your-access-key-id',
-    accessKeySecret: 'your-access-key-secret',
-    region: 'oss-cn-hangzhou',
-    bucket: 'your-bucket-name',
-    endpoint: 'oss-cn-hangzhou.aliyuncs.com', // 可选，自定义域名
-    secure: true, // 是否使用HTTPS，默认true
-    timeout: 60000 // 超时时间，默认60秒
-  }
+  provider: OSSProvider.ALIYUN_OSS,
+  accessKeyId: 'your-access-key-id',
+  accessKeySecret: 'your-access-key-secret',
+  region: 'oss-cn-hangzhou',
+  bucket: 'your-bucket-name',
+  endpoint: 'oss-cn-hangzhou.aliyuncs.com', // 可选，自定义域名
+  secure: true, // 是否使用HTTPS，默认true
+  timeout: 60000 // 超时时间，默认60秒
 });
 
 await fastify.listen({ port: 3000 });
@@ -281,40 +277,20 @@ class MyTaskService {
 
 ```typescript
 interface OsspPluginOptions {
-  oss: {
-    provider: OssProvider;           // OSS提供商
-    endpoint: string;                // 服务端点
-    port?: number;                   // 端口号
-    useSSL?: boolean;                // 是否使用SSL
-    accessKeyId: string;             // 访问密钥ID
-    accessKeySecret: string;         // 访问密钥Secret
-    region?: string;                 // 区域
-    connectTimeout?: number;         // 连接超时时间
-    requestTimeout?: number;         // 请求超时时间
-    retryAttempts?: number;          // 重试次数
-    retryDelay?: number;             // 重试延迟
-  };
-  cache?: {
-    enabled?: boolean;               // 是否启用缓存
-    ttl?: number;                    // 缓存TTL
-    prefix?: string;                 // 缓存前缀
-  };
-  logging?: {
-    enabled?: boolean;               // 是否启用日志
-    level?: string;                  // 日志级别
-    logRequests?: boolean;           // 是否记录请求日志
-  };
-  security?: {
-    enableAccessControl?: boolean;   // 是否启用访问控制
-    maxFileSize?: number;            // 最大文件大小
-    enableVirusScanning?: boolean;   // 是否启用病毒扫描
-  };
-  performance?: {
-    poolSize?: number;               // 连接池大小
-    multipartThreshold?: number;     // 分片上传阈值
-    partSize?: number;               // 分片大小
-    concurrentUploads?: number;      // 并发上传数
-  };
+  provider?: OSSProvider;            // OSS 提供商，默认 MinIO
+  endPoint?: string;                 // MinIO 服务端点
+  endpoint?: string;                 // 阿里云 OSS 服务端点
+  port?: number;                     // 端口号
+  useSSL?: boolean;                  // 是否使用 SSL/HTTPS
+  accessKey?: string;                // MinIO 访问密钥
+  secretKey?: string;                // MinIO 秘密密钥
+  accessKeyId?: string;              // 阿里云访问密钥 ID
+  accessKeySecret?: string;          // 阿里云访问密钥 Secret
+  region?: string;                   // 区域
+  bucket?: string;                   // 阿里云默认存储桶
+  defaultBucket?: string;            // 默认存储桶
+  timeout?: number;                  // 超时时间
+  retryAttempts?: number;            // 重试次数
 }
 ```
 
@@ -323,47 +299,41 @@ interface OsspPluginOptions {
 ### MinIO
 ```typescript
 {
-  oss: {
-    provider: OssProvider.MINIO,
-    endpoint: 'localhost',
-    port: 9000,
-    useSSL: false,
-    accessKeyId: 'minioadmin',
-    accessKeySecret: 'minioadmin'
-  }
+  provider: OSSProvider.MINIO,
+  endPoint: 'localhost',
+  port: 9000,
+  useSSL: false,
+  accessKey: 'your-minio-access-key',
+  secretKey: 'your-minio-secret-key'
 }
 ```
 
 ### AWS S3 (计划支持)
 ```typescript
 {
-  oss: {
-    provider: OssProvider.AWS_S3,
-    endpoint: 's3.amazonaws.com',
-    region: 'us-east-1',
-    accessKeyId: 'your-aws-access-key',
-    accessKeySecret: 'your-aws-secret-key'
-  }
+  provider: OSSProvider.AWS_S3,
+  endpoint: 's3.amazonaws.com',
+  region: 'us-east-1',
+  accessKeyId: 'your-aws-access-key',
+  accessKeySecret: 'your-aws-secret-key'
 }
 ```
 
 ### 阿里云OSS
 ```typescript
 {
-  oss: {
-    provider: OssProvider.ALIYUN_OSS,
-    accessKeyId: 'your-access-key-id',        // 必需：阿里云访问密钥ID
-    accessKeySecret: 'your-access-key-secret', // 必需：阿里云访问密钥Secret
-    region: 'oss-cn-hangzhou',                // 必需：OSS区域
-    bucket: 'your-bucket-name',               // 可选：默认存储桶
-    endpoint: 'oss-cn-hangzhou.aliyuncs.com', // 可选：自定义域名
-    secure: true,                             // 可选：是否使用HTTPS，默认true
-    timeout: 60000,                           // 可选：超时时间(ms)，默认60000
-    stsToken: 'your-sts-token',               // 可选：STS临时访问凭证
-    cname: false,                             // 可选：是否启用CNAME，默认false
-    isRequestPay: false,                      // 可选：是否启用请求者付费，默认false
-    userAgent: 'your-user-agent'              // 可选：自定义User-Agent
-  }
+  provider: OSSProvider.ALIYUN_OSS,
+  accessKeyId: 'your-access-key-id',        // 必需：阿里云访问密钥ID
+  accessKeySecret: 'your-access-key-secret', // 必需：阿里云访问密钥Secret
+  region: 'oss-cn-hangzhou',                // 必需：OSS区域
+  bucket: 'your-bucket-name',               // 可选：默认存储桶
+  endpoint: 'oss-cn-hangzhou.aliyuncs.com', // 可选：自定义域名
+  secure: true,                             // 可选：是否使用HTTPS，默认true
+  timeout: 60000,                           // 可选：超时时间(ms)，默认60000
+  stsToken: 'your-sts-token',               // 可选：STS临时访问凭证
+  cname: false,                             // 可选：是否启用CNAME，默认false
+  isRequestPay: false,                      // 可选：是否启用请求者付费，默认false
+  userAgent: 'your-user-agent'              // 可选：自定义User-Agent
 }
 ```
 

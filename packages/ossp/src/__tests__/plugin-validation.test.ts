@@ -47,6 +47,17 @@ describe('@stratix/ossp plugin parameter validation', () => {
     await expect(testPluginWithOptions(validOptions)).resolves.toBeUndefined();
   });
 
+  it('accepts aliyun credentials without custom endpoint', async () => {
+    await expect(
+      testPluginWithOptions({
+        provider: 'aliyun-oss',
+        accessKeyId: 'prod-access-key',
+        accessKeySecret: 'prod-secret-key',
+        region: 'oss-cn-hangzhou'
+      })
+    ).resolves.toBeUndefined();
+  });
+
   it.each([
     ['missing accessKey', { accessKey: undefined }],
     ['missing secretKey', { secretKey: undefined }],

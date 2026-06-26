@@ -12,10 +12,10 @@
     "Vitest",
     "Vite"
   ],
-  "packageManager": "pnpm@10.33.0",
+  "packageManager": "pnpm@11.7.0",
   "engines": {
     "node": ">=24.0.0",
-    "pnpm": ">=10.33.0"
+    "pnpm": ">=11.0.0"
   },
   "currentStage": "PHASE_6_DEVELOPMENT_HARDENING_RELEASE_DEFERRED",
   "recommendedNextStage": "Finish local development hardening, rerun the fixed closed-door rubric, then handle exact tags and npm publish as the final release phase",

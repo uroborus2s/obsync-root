@@ -16,18 +16,28 @@ import { deepMerge } from '@stratix/core/data';
  * OSSP 插件配置选项
  */
 export interface OsspPluginOptions extends FastifyPluginOptions {
+  /** OSS 提供商 */
+  provider?: string;
   /** MinIO 服务端点 */
-  endPoint: string;
+  endPoint?: string;
+  /** OSS 服务端点 */
+  endpoint?: string;
   /** 端口号 */
   port?: number;
   /** 是否使用SSL */
   useSSL?: boolean;
   /** 访问密钥 */
-  accessKey: string;
+  accessKey?: string;
+  /** 阿里云访问密钥 ID */
+  accessKeyId?: string;
   /** 秘密密钥 */
-  secretKey: string;
+  secretKey?: string;
+  /** 阿里云访问密钥 Secret */
+  accessKeySecret?: string;
   /** 会话令牌 */
   sessionToken?: string;
+  /** 阿里云 STS 临时凭证 */
+  stsToken?: string;
   /** 区域 */
   region?: string;
   /** 分片大小 */
@@ -46,10 +56,22 @@ export interface OsspPluginOptions extends FastifyPluginOptions {
   timeout?: number;
   /** 默认存储桶 */
   defaultBucket?: string;
+  /** 默认存储桶，阿里云 SDK 原生命名 */
+  bucket?: string;
   /** 默认区域 */
   defaultRegion?: string;
   /** 启用调试模式 */
   debug?: boolean;
+  /** 阿里云 OSS CNAME 模式 */
+  cname?: boolean;
+  /** 阿里云 OSS 内网访问 */
+  internal?: boolean;
+  /** 阿里云 OSS 请求者付费 */
+  isRequestPay?: boolean;
+  /** 自定义 User-Agent */
+  userAgent?: string;
+  /** 是否使用 V4 签名 */
+  authorizationV4?: boolean;
 }
 
 /**
@@ -100,24 +122,33 @@ export default withRegisterAutoDI<OsspPluginOptions>(ossp, {
     ) as T,
   parameterValidator: <T>(options: T): boolean => {
     const opts = options as Partial<OsspPluginOptions>;
-    if (typeof opts.endPoint !== 'string' || opts.endPoint.trim() === '') {
+    const provider = opts.provider || 'minio';
+    const endpoint = opts.endPoint || opts.endpoint;
+    const accessKey = opts.accessKey || opts.accessKeyId;
+    const secretKey = opts.secretKey || opts.accessKeySecret;
+
+    if (
+      provider === 'minio' &&
+      (typeof endpoint !== 'string' || endpoint.trim() === '')
+    ) {
       return false;
     }
 
-    if (typeof opts.accessKey !== 'string' || opts.accessKey.trim() === '') {
+    if (typeof accessKey !== 'string' || accessKey.trim() === '') {
       return false;
     }
 
-    if (typeof opts.secretKey !== 'string' || opts.secretKey.trim() === '') {
+    if (typeof secretKey !== 'string' || secretKey.trim() === '') {
       return false;
     }
 
     return (
-      opts.accessKey.trim() !== 'minioadmin' &&
-      opts.secretKey.trim() !== 'minioadmin'
+      accessKey.trim() !== 'minioadmin' && secretKey.trim() !== 'minioadmin'
     );
   }
 });
+
+export { OSSProvider } from './adapters/interfaces/IOSSAdapter.js';
 
 // 导出核心接口和类型
 export type {
@@ -130,7 +161,6 @@ export type {
   ListOptions,
   ObjectInfo,
   ObjectMetadata,
-  OSSProvider,
   PresignedUrlOptions,
   UploadOptions,
   UploadResult
@@ -168,6 +198,10 @@ export type {
 } from './types/index.js';
 
 // 导出提供商适配器
+export {
+  AliyunOSSAdapter,
+  type AliyunOSSConfig
+} from './adapters/providers/AliyunOSSAdapter.js';
 export {
   MinioAdapter,
   type MinioConfig

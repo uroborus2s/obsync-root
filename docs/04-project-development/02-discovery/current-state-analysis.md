@@ -50,7 +50,8 @@
 - `@stratix/utils` 已从当前 workspace 删除；async、data、functional、environment、context、auth 等共享工具由 `@stratix/core/utils` 及 core 子路径承接。
 - `@stratix/tasks` 已从当前 workspace、create/forge preset 模板和发布面物理移除。
 - 预览样例由 create/forge 模板链路生成到 `examples/web-admin-preview`，用于验证模板输出，不代表正式产品模块。
-- 当前依赖基线已整体刷新到 Node `24.14.1` / pnpm `10.33.0`。
+- 当前依赖基线已整体刷新到 Node `24.14.1` / pnpm `11.7.0`。
+- `@stratix/ossp` 已通过官方 `ali-oss` SDK 接入阿里云 OSS，继续保留 MinIO 适配器。
 - `@stratix/core` Phase 1 概念模型重构已落地：executor decorator、metadata、discovery 分支、plugin registration、公有导出全部删除；create/forge 中 executor 与 plugin-executor 生成入口和模板也已删除。
 - `@stratix/core` Phase 2 基础能力已落地：route contract 提取、contract 诊断、OpenAPI 文档生成、DI graph、DI diagnostics、discovery 注册 metadata 记录进入 core 公有 API；`@stratix/forge` 新增 `doctor di` 与 `di graph`。
 - Phase 2 扩展工作流已落地：`@stratix/forge` 新增零运行时依赖的 `openapi generate` 和 `openapi client`，`@stratix/testing` 新增 runner-neutral `contractTest()`，`@stratix/core` 新增插件 adapter token 诊断。
@@ -119,11 +120,10 @@
 | 命令                                                           | 结论   | 关键结果                                                                    |
 | -------------------------------------------------------------- | ------ | --------------------------------------------------------------------------- |
 | `CI=true pnpm install --no-frozen-lockfile`                    | passed | 根工作区已在最新依赖栈下刷新 lockfile                                       |
-| `CI=true pnpm install --frozen-lockfile`                       | passed | 根工作区冻结安装在 pnpm `10.33.0` 下可通过                                  |
+| `CI=true pnpm install --frozen-lockfile --ignore-scripts`      | passed | 根工作区冻结安装在 pnpm `11.7.0` 下可通过                                  |
 | `CI=true pnpm install --frozen-lockfile --offline`             | passed | 当前 pnpm store 下 frozen offline install 可重复通过                        |
 | `CI=true pnpm install --ignore-workspace --no-frozen-lockfile` | passed | `examples/web-admin-preview` 已刷新独立 lockfile                            |
 | `CI=true pnpm install --ignore-workspace --frozen-lockfile`    | passed | 样例冻结安装可通过                                                          |
-| `CI=true pnpm install --frozen-lockfile --ignore-scripts`      | passed | `packages/utils` 已从 workspace importer 移除，根 lockfile 与当前工作区一致 |
 | `pnpm install --lockfile-only --ignore-scripts`                | passed | lockfile 已接收 `packages/create` 新 importer 与 `packages/forge` 物理目录  |
 
 ### 5.2 构建验证
