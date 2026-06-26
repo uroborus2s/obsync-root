@@ -1,6 +1,6 @@
 # Stratix 95+ Quality Gate
 
-**状态：** 本文件记录 2026-06-19 闭门复评后的历史 release-scope `95/100` 口径。2026-06-20 起当前工作模式调整为开发硬化优先、发布工作最后处理；该历史分数不能直接复用为本轮开发硬化后的最终复评分，也不能在远端 CI 绿灯和 npm publish 前宣称高置信 GA。2026-06-26 远端 Quality Gate 曾因未跟踪 `.env.example.tpl` 模板失败，本地已修复忽略规则但仍需远端复跑通过。
+**状态：** 本文件记录 2026-06-19 闭门复评后的历史 release-scope `95/100` 口径。2026-06-20 起当前工作模式调整为开发硬化优先、发布工作最后处理；该历史分数不能直接复用为本轮开发硬化后的最终复评分，也不能在 npm publish 前宣称高置信 GA。2026-06-26 远端 Quality Gate 曾因未跟踪 `.env.example.tpl` 模板失败，本地已修复忽略规则，run `28234054546` 已远端通过。
 **适用范围：** Stratix 1.1.x supported packages 与 `@stratix/core` 质量口径。
 **排除范围：** 无；`@stratix/tasks` 已从 workspace、preset 模板和发布面物理移除。
 **关联工作项：** `TASK-003`

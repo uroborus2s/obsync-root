@@ -126,7 +126,7 @@
   - `@stratix/forge` release gate now supports `--scope workspace` for monorepo release-readiness planning.
   - Workspace scope scans `packages/*/package.json`, reports supported package versions, excludes frozen `@stratix/tasks`, and plans build/test/docs/pack/API/release-surface checks.
   - `--include-offline-install` and `--include-registry` opt into the remaining Phase 6 offline and npm registry governance checks.
-  - Actual workspace release-surface gate checks exact git tags for supported package versions.
+  - Actual workspace release-surface gate checks exact git tags for supported package versions and requires them to point at HEAD.
 - Verified focused Phase 6 forge checks:
   - `pnpm --filter @stratix/forge test` passed, 41 tests.
   - `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit` passed.

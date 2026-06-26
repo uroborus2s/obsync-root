@@ -35,7 +35,7 @@
 ## Phase 6 结论
 
 - `stratix release gate --scope workspace --dry-run` 已可把 release-surface 纳入 monorepo 发布准备计划。
-- 实际执行 workspace release-surface gate 时，supported package 必须存在 exact git tag。
+- 实际执行 workspace release-surface gate 时，supported package 必须存在 exact git tag，且 tag 指向当前 release commit。
 - registry reconciliation 通过 `--include-registry` 显式纳入门禁，并固定查询 public npmjs exact package version。
 - public npmjs 当前仅存在 `@stratix/core@0.8.2` 历史版本；`@stratix/core@1.1.0` 和其他 supported package exact versions 均未发布，可进入发布准备。
 - README 已从旧 `packages/cli` 口径修正为 `packages/create` + `packages/forge`。

@@ -18,7 +18,7 @@
     "pnpm": ">=10.33.0"
   },
   "currentStage": "PHASE_6_DEVELOPMENT_HARDENING_RELEASE_DEFERRED",
-  "recommendedNextStage": "Finish local development hardening, rerun the fixed closed-door rubric, then handle remote CI and npm publish as the final release phase",
+  "recommendedNextStage": "Finish local development hardening, rerun the fixed closed-door rubric, then handle exact tags and npm publish as the final release phase",
   "sourceOfTruth": {
     "stableCollaboration": [
       "AGENTS.md",
@@ -51,9 +51,9 @@
   },
   "qualityGate": {
     "checkedAt": "2026-06-26",
-    "status": "remote_quality_gate_p0_remediated_locally_pending_remote_rerun",
-    "scope": "Local remediation for the 2026-06-26 remote Quality Gate P0. The failed run missed create/forge admin-mock .env.example.tpl templates because .gitignore ignored .env.*. The local fix allows .env.example.tpl and must be followed by a remote Quality Gate rerun before RC/GA wording. This is not a 95% global coverage claim, not a final closed-door rescore, and not a publish claim.",
-    "scorePolicy": "Do not revise numeric scores or use them as release claims until the fixed three-role rubric reruns against a green remote Quality Gate and updated release evidence.",
+    "status": "remote_quality_gate_p0_remediated_remote_passed_release_evidence_pending",
+    "scope": "The 2026-06-26 remote Quality Gate P0 was remediated by tracking the create/forge admin-mock .env.example.tpl templates. GitHub Actions Quality Gate run 28234054546 passed on commit 457357f6e3285afdd7f5ed6f496cdf8962fd0183. This supports RC candidate wording, but it is not a 95% global coverage claim, not a final closed-door rescore, and not a publish claim.",
+    "scorePolicy": "Do not revise numeric scores or use them as GA/release claims until the fixed three-role rubric reruns against the updated evidence, exact release tags point at the final release commit and are pushed, and npm publish evidence exists.",
     "excludedPackages": [],
     "scores": {
       "architecture": 95,
@@ -66,12 +66,13 @@
     "latestRemoteGate": {
       "checkedAt": "2026-06-26",
       "workflow": "Quality Gate",
-      "runId": "28231936087",
-      "status": "failed_before_local_remediation",
-      "failedStep": "Test supported packages",
-      "failedTask": "@stratix/forge#test",
+      "runId": "28234054546",
+      "status": "passed_after_local_remediation",
+      "headSha": "457357f6e3285afdd7f5ed6f496cdf8962fd0183",
+      "previousFailedRunId": "28231936087",
+      "passedSteps": "install, build, typecheck, lint, test, core coverage ratchet, packed core API smoke, docs validation, security audit, release gate dry-run",
       "rootCause": "create/forge admin-mock .env.example.tpl template files existed locally but were not tracked because .gitignore ignored .env.*",
-      "localRemediation": ".gitignore now allows .env.example.tpl; the two admin-mock template files must be committed and pushed, then the remote Quality Gate must pass."
+      "localRemediation": ".gitignore allows .env.example.tpl and the two admin-mock template files are tracked in Git; the remediation commit passed the remote Quality Gate."
     }
   },
   "closedDoorReview": {
@@ -237,11 +238,17 @@
       "@stratix/testing": "@stratix/testing@1.0.0-beta.1",
       "@stratix/was-v7": "@stratix/was-v7@1.0.0-beta.36"
     },
-    "assessment": "Supported package manifest versions, public package metadata, local exact release tags, tarball/API/docs/security gates, workspace release-surface checks, and public npmjs exact-version availability are aligned for the 10 remaining public packages. @stratix/tasks has been physically removed from the workspace, presets, lockfile importer, release gate exclusions, and publish surface. As of 2026-06-26, exact versions are still unpublished on public npmjs, exact tags still need to be pushed to origin, and remote Quality Gate must pass on the remediation commit before RC/GA wording."
+    "assessment": "Supported package manifest versions, public package metadata, tarball/API/docs/security gates, workspace release-surface checks, remote Quality Gate run 28234054546, and public npmjs exact-version availability are aligned for the 10 remaining public packages at RC-candidate level. @stratix/tasks has been physically removed from the workspace, presets, lockfile importer, release gate exclusions, and publish surface. As of 2026-06-26, exact versions are still unpublished on public npmjs, exact tags must point at the final release commit and be pushed to origin, and npm publish evidence is still pending before GA/public release wording."
   },
   "verification": {
     "checkedAt": "2026-06-26",
     "quality": [
+      {
+        "command": "GitHub Actions Quality Gate run 28234054546",
+        "status": "passed_after_local_remediation",
+        "summary": "remote Quality Gate passed on commit 457357f6e3285afdd7f5ed6f496cdf8962fd0183",
+        "reason": "The remediation commit includes the tracked create/forge admin-mock .env.example.tpl templates and completed install, build, typecheck, lint, supported tests, core coverage ratchet, packed core API smoke, docs validation, security audit, and release gate dry-run."
+      },
       {
         "command": "GitHub Actions Quality Gate run 28231936087",
         "status": "failed_before_local_remediation",
@@ -250,15 +257,15 @@
       },
       {
         "command": "git check-ignore / git ls-files for admin-mock .env.example.tpl templates",
-        "status": "fixed_locally_pending_commit_and_remote_rerun",
+        "status": "fixed_and_remote_verified",
         "summary": ".env.example.tpl is now allowed and required templates are ready to be tracked",
-        "reason": "The P0 root cause is fixed at the ignore-rule layer so remote checkout can include the same templates used by local create/forge tests. The remote Quality Gate still must be rerun after push."
+        "reason": "The P0 root cause is fixed at the ignore-rule layer so remote checkout includes the same templates used by local create/forge tests; run 28234054546 verified the fix remotely."
       },
       {
         "command": "CI=true COREPACK_HOME=/private/tmp/corepack npm_config_cache=/private/tmp/npm-cache npm_config_devdir=/private/tmp/node-gyp UV_CACHE_DIR=/private/tmp/uv-cache UV_TOOL_DIR=/private/tmp/uv-tools corepack pnpm run quality:release",
         "status": "passed",
         "summary": "local full quality release gate passed after admin-mock template tracking remediation",
-        "reason": "Local gate passed supported build, supported typecheck, lint with warnings only, supported tests, core coverage ratchet, packed core API smoke, docs validation, security audit, and workspace release gate dry-run. This is local evidence only; remote Quality Gate still must pass after push."
+        "reason": "Local gate passed supported build, supported typecheck, lint with warnings only, supported tests, core coverage ratchet, packed core API smoke, docs validation, security audit, and workspace release gate dry-run. Remote Quality Gate run 28234054546 later passed on the remediation commit."
       },
       {
         "command": "pnpm run release:gate",
@@ -630,15 +637,12 @@
       "Core development-stage coverage and packed API smoke now pass after problem 3 / problem 4 hardening"
     ],
     "exitBlockedBy": [
-      "Remote GitHub Actions Quality Gate must pass on the admin-mock template tracking remediation commit",
       "Fixed-rubric closed-door re-review has not yet been rerun after the latest development hardening evidence",
-      "Exact release tags must be pushed to origin before publish",
+      "Exact release tags must point at the final release commit and be pushed to origin before publish",
       "npm publish, final release notes, and GA/RC wording are deferred to the final release phase"
     ]
   },
   "currentWorkitems": [
-    "BUG-004",
-    "TASK-001",
-    "TASK-002"
+    "TASK-001"
   ]
 }

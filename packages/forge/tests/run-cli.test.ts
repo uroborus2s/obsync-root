@@ -210,11 +210,18 @@ function seedFakeReleaseGateBins(rootDir: string): string {
     [
       '#!/usr/bin/env node',
       'const args = process.argv.slice(2);',
-      "if (args[0] === 'tag' && args[1] === '--list') {",
-      "  if (process.env.STRATIX_FAKE_GIT_TAGS === 'present') {",
-      '    console.log(args[2]);',
+      "const currentSha = '1111111111111111111111111111111111111111';",
+      "const oldSha = '0000000000000000000000000000000000000000';",
+      "if (args[0] === 'rev-parse' && args[1] === '--verify') {",
+      "  if (args[2] === 'HEAD') {",
+      '    console.log(currentSha);',
+      '    process.exit(0);',
       '  }',
-      '  process.exit(0);',
+      "  if (process.env.STRATIX_FAKE_GIT_TAGS === 'present') {",
+      "    console.log(process.env.STRATIX_FAKE_GIT_TAG_SHA === 'old' ? oldSha : currentSha);",
+      '    process.exit(0);',
+      '  }',
+      '  process.exit(1);',
       '}',
       'process.exit(1);'
     ].join('\n'),
@@ -2005,6 +2012,61 @@ describe('@stratix/forge', () => {
     assert.ok(
       output.messages.some((message) =>
         message.message.includes('contains development files')
+      )
+    );
+  });
+
+  it('fails workspace release gate when exact tags do not point at HEAD', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+    const binDir = seedFakeReleaseGateBins(cwd);
+    const originalPath = process.env.PATH;
+    const originalFiles = process.env.STRATIX_FAKE_PACK_FILES;
+    const originalTags = process.env.STRATIX_FAKE_GIT_TAGS;
+    const originalTagSha = process.env.STRATIX_FAKE_GIT_TAG_SHA;
+
+    seedWorkspaceRoot(cwd);
+    seedReleaseWorkspacePackage(cwd, 'core');
+
+    process.env.PATH = `${binDir}${path.delimiter}${originalPath}`;
+    process.env.STRATIX_FAKE_PACK_FILES = JSON.stringify([
+      'package.json',
+      'dist/index.js',
+      'dist/index.d.ts'
+    ]);
+    process.env.STRATIX_FAKE_GIT_TAGS = 'present';
+    process.env.STRATIX_FAKE_GIT_TAG_SHA = 'old';
+
+    try {
+      await assert.rejects(
+        runCli(['release', 'gate', '--scope', 'workspace'], {
+          cwd,
+          output
+        }),
+        CliError
+      );
+    } finally {
+      process.env.PATH = originalPath;
+      if (originalFiles === undefined) {
+        delete process.env.STRATIX_FAKE_PACK_FILES;
+      } else {
+        process.env.STRATIX_FAKE_PACK_FILES = originalFiles;
+      }
+      if (originalTags === undefined) {
+        delete process.env.STRATIX_FAKE_GIT_TAGS;
+      } else {
+        process.env.STRATIX_FAKE_GIT_TAGS = originalTags;
+      }
+      if (originalTagSha === undefined) {
+        delete process.env.STRATIX_FAKE_GIT_TAG_SHA;
+      } else {
+        process.env.STRATIX_FAKE_GIT_TAG_SHA = originalTagSha;
+      }
+    }
+
+    assert.ok(
+      output.messages.some((message) =>
+        message.message.includes('missing or stale exact git tags')
       )
     );
   });

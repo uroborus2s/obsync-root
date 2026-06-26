@@ -782,28 +782,19 @@ function validateWorkspaceReleaseSurface(
 ): void {
   validateWorkspaceReleaseMetadata(packages, output);
 
-  const missingExactTags = supportedWorkspacePackages(packages).filter(
+  const headSha = readGitRevision('HEAD');
+  const staleOrMissingExactTags = supportedWorkspacePackages(packages).filter(
     (workspacePackage) => {
       const expectedTag = `${workspacePackage.name}@${workspacePackage.version}`;
-      const result = spawnSync('git', ['tag', '--list', expectedTag], {
-        cwd: process.cwd(),
-        encoding: 'utf8',
-        shell: false
-      });
+      const tagSha = readGitRevision(`${expectedTag}^{}`);
 
-      if (result.status !== 0) {
-        throw new CliError(
-          'Release surface check failed: cannot read git tags'
-        );
-      }
-
-      return result.stdout.trim() !== expectedTag;
+      return tagSha !== headSha;
     }
   );
 
-  if (missingExactTags.length > 0) {
+  if (staleOrMissingExactTags.length > 0) {
     output.error(
-      `Release surface missing exact git tags: ${missingExactTags
+      `Release surface missing or stale exact git tags: ${staleOrMissingExactTags
         .map(
           (workspacePackage) =>
             `${workspacePackage.name}@${workspacePackage.version}`
@@ -813,7 +804,27 @@ function validateWorkspaceReleaseSurface(
     throw new CliError('Release surface is not aligned');
   }
 
-  output.info('Release gate release-surface: exact package tags present.');
+  output.info(
+    'Release gate release-surface: exact package tags point at HEAD.'
+  );
+}
+
+function readGitRevision(revision: string): string | undefined {
+  const result = spawnSync('git', ['rev-parse', '--verify', revision], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+    shell: false
+  });
+
+  if (result.status === 0) {
+    return result.stdout.trim();
+  }
+
+  if (revision === 'HEAD') {
+    throw new CliError('Release surface check failed: cannot read git HEAD');
+  }
+
+  return undefined;
 }
 
 function validateWorkspaceReleaseMetadata(

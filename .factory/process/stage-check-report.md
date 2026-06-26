@@ -2,22 +2,21 @@
 
 - Checked at: 2026-06-26
 - Current stage: `PHASE_6_DEVELOPMENT_HARDENING_RELEASE_DEFERRED`
-- Gate status: `P0_REMEDIATED_LOCALLY_REMOTE_CI_PENDING`
+- Gate status: `REMOTE_CI_PASSED_RELEASE_EVIDENCE_PENDING`
 
 ## Current Facts
 
 - `@stratix/tasks` has been physically removed from workspace, presets, lockfile importer, release gate exclusions, and publish surface.
-- Local supported gates have historical passing evidence, but the latest remote `Quality Gate` run `28231936087` failed before coverage, smoke, docs, security, and release dry-run.
-- The remote failure root cause was untracked create/forge `admin-mock` `.env.example.tpl` template files ignored by `.env.*`.
-- `.gitignore` now allows `.env.example.tpl`; the two required templates must be tracked in the remediation commit.
+- Local supported gates have historical passing evidence, and remote `Quality Gate` run `28234054546` passed after the admin-mock `.env.example.tpl` tracking remediation.
+- The previous remote failure root cause was untracked create/forge `admin-mock` `.env.example.tpl` template files ignored by `.env.*`.
+- `.gitignore` now allows `.env.example.tpl`; the two required templates are tracked in Git.
 - Exact package versions remain unpublished on public npmjs; this is release availability, not publish evidence.
 
 ## Blocked
 
-- Remote `Quality Gate` must pass on the remediation commit before RC wording.
-- Exact release tags must be pushed to origin before publish.
+- Exact release tags must point at the final release commit and be pushed to origin before publish.
 - npm publish still requires maintainer credentials.
 
 ## Recommendation
 
-Ship the P0 template tracking fix, rerun the remote `Quality Gate`, then refresh `.factory/project.json`, current-state, and release notes with the actual remote result.
+Proceed as RC candidate only. Before GA/public release, align exact release tags to the final release commit, push tags to origin, rerun full `release:gate`, and publish with maintainer credentials.

@@ -35,4 +35,4 @@
 
 ## 关闭结论
 
-该 BUG 已关闭。后续远端 Quality Gate 复跑由 `TASK-002` 和 `BUG-004` 跟踪。
+该 BUG 已关闭。远端 Quality Gate run `28234054546` 已在模板跟踪修复后通过；后续 exact tags / npm publish 不属于本 core 回归缺陷。

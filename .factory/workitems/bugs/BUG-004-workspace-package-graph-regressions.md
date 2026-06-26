@@ -1,14 +1,14 @@
 # BUG-004 workspace 包图构建与测试链不稳定
 
 - 类型：BUG
-- 状态：IN_PROGRESS_REMOTE_CI_PENDING
+- 状态：CLOSED
 - 优先级：P1
 - 阶段：PHASE_6_REMOTE_CI_REMEDIATION
 - 预计工作量：2.0 人/天
 
 ## 描述
 
-移除 `apps/admin-dashboard` 并完成 Node 24 / TypeScript 6 升级后，根工作区的真实阻塞进一步收敛。当前 supported package 图本地可构建和测试；最新远端失败来自未跟踪的 create/forge `admin-mock` `.env.example.tpl` 模板文件。
+移除 `apps/admin-dashboard` 并完成 Node 24 / TypeScript 6 升级后，根工作区的真实阻塞进一步收敛。当前 supported package 图本地可构建和测试；未跟踪的 create/forge `admin-mock` `.env.example.tpl` 模板文件已进入 Git，并通过最新远端 Quality Gate 验证。
 
 ## 证据
 
@@ -18,6 +18,7 @@
   - `packages/create/templates/presets/admin-mock/files/.env.example.tpl` 缺失
   - `packages/forge/templates/presets/admin-mock/files/.env.example.tpl` 缺失
 - 两个文件本地存在但被 `.gitignore` 的 `.env.*` 忽略，导致远端 checkout 缺文件。
+- 2026-06-26 远端 run `28234054546` 已在提交 `457357f6e3285afdd7f5ed6f496cdf8962fd0183` 上通过，覆盖 install、build、typecheck、lint、test、coverage、smoke、docs、安全审计和 release dry-run。
 
 ## 影响
 

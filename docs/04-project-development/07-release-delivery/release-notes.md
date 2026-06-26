@@ -17,12 +17,12 @@
 
 ## 1.1 当前发布准入状态
 
-截至 2026-06-26，本仓库不能标记 GA，也不能在远端 Quality Gate 重新通过前标记 RC。
+截至 2026-06-26，本仓库可进入 RC 候选口径，但不能标记 GA，也不能宣称 public npm 正式上线完成。
 
-- 远端 `Quality Gate` run `28231936087` 在 `Test supported packages` 步骤失败，后续 coverage、packed API smoke、docs、安全审计和 release dry-run 未执行。
-- 失败根因是 create/forge `admin-mock` preset 需要的 `.env.example.tpl` 模板文件被 `.gitignore` 的 `.env.*` 规则忽略，远端 checkout 缺文件。
-- 本地修复为放行 `.env.example.tpl`，并确保两个模板文件进入 Git。
-- 发布前必须在修复提交上重新跑远端 `Quality Gate` 并完整通过。
+- 远端 `Quality Gate` run `28234054546` 已在提交 `457357f6e3285afdd7f5ed6f496cdf8962fd0183` 上完整通过。
+- 前一轮 run `28231936087` 在 `Test supported packages` 步骤失败，根因是 create/forge `admin-mock` preset 需要的 `.env.example.tpl` 模板文件被 `.gitignore` 的 `.env.*` 规则忽略，远端 checkout 缺文件。
+- 本地修复为放行 `.env.example.tpl`，并确保两个模板文件进入 Git；run `28234054546` 已远端验证该修复。
+- 正式发布前，exact release tags 必须指向最终发布提交并推送到 origin，随后重新执行完整 `release:gate`。
 - 10 个 exact package versions 在 public npmjs 上仍返回 404，表示未发布且版本未被占用；这不是已发布证据。
 
 ## 2. 发布范围
@@ -79,7 +79,7 @@ Phase 6 workspace release gate 覆盖：
 
 - 远端 `Quality Gate` 在 `1.1.0` 最新提交完整通过。
 - 本地完整发布门禁 `pnpm run release:gate` 通过。
-- 以下 exact git tags 已创建并推送到 origin。
+- 以下 exact git tags 指向最终发布提交，并已推送到 origin。
 
 - `@stratix/core@1.1.0`
 - `@stratix/create@1.1.0`
@@ -104,4 +104,4 @@ node packages/forge/dist/bin/stratix.js release gate --scope workspace --include
 | ---------- | ------------------------------------------------------------------------------------------------------------- | ------ |
 | 2026-03-28 | 发布面现状说明初版                                                                                            | Codex  |
 | 2026-06-18 | 更新为 Phase 6 发布准备说明：supported scope、registry exact-version gate、pack artifact gate、tasks 冻结决策 | Codex  |
-| 2026-06-26 | 记录远端 Quality Gate P0 与本地修复口径，明确远端门禁通过前不能标 RC/GA                                      | Codex  |
+| 2026-06-26 | 记录远端 Quality Gate P0、本地修复、run `28234054546` 通过，以及 GA 前仍需 exact tags / npm publish 证据      | Codex  |

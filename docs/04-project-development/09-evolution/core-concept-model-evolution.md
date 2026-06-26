@@ -1105,7 +1105,7 @@ CI=true pnpm --filter @stratix/testing exec vitest run
 
 当前状态：Phase 6 处于开发硬化与发布准入复核阶段。`@stratix/forge` 已扩展 `stratix release gate --scope workspace --dry-run`，用于在 monorepo 根目录规划 supported packages 发布准备门禁。project scope 继续校验应用级 production manifest；workspace scope 不要求 production manifest，默认扫描当前 `packages/*/package.json` 中的 10 个 public packages；`@stratix/tasks` 已物理移除，不再是 workspace、preset 或发布面成员。
 
-Phase 6 workspace gate 可通过 `--include-offline-install` 和 `--include-registry` 把离线安装与 npm registry reconciliation 纳入发布准备计划。真实执行 workspace release-surface gate 时，supported package 必须存在 exact git tag；发布前还必须让远端 Quality Gate 在最新修复提交上完整通过，并将 exact tags 推送到 origin。
+Phase 6 workspace gate 可通过 `--include-offline-install` 和 `--include-registry` 把离线安装与 npm registry reconciliation 纳入发布准备计划。真实执行 workspace release-surface gate 时，supported package 必须存在 exact git tag 且 tag 指向最终发布提交；远端 Quality Gate run `28234054546` 已在最新修复提交上完整通过，发布前还必须将 exact tags 推送到 origin。
 
 目标：用证据支撑 supported release scope 的生产成熟度评分；该评分不得写成 95% 全局覆盖率，也不得替代远端 CI、tag 推送或 npm publish 证据。
 
