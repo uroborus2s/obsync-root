@@ -14,7 +14,7 @@
 
 - `CI=true pnpm install --frozen-lockfile` 通过
 - `CI=true pnpm install --frozen-lockfile --offline` 通过：
-  - `Scope: all 13 workspace projects`
+  - `Scope: all 12 workspace projects`
   - `Lockfile is up to date, resolution step is skipped`
   - `Already up to date`
 

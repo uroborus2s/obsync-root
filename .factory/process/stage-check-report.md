@@ -1,25 +1,23 @@
 # Stage Check Report
 
-- Checked at: 2026-06-18
-- Current stage: `PHASE_6_RELEASE_READINESS`
-- Gate status: `GREEN_WITH_RELEASE_BLOCKERS`
+- Checked at: 2026-06-26
+- Current stage: `PHASE_6_DEVELOPMENT_HARDENING_RELEASE_DEFERRED`
+- Gate status: `P0_REMEDIATED_LOCALLY_REMOTE_CI_PENDING`
 
-## Passed
+## Current Facts
 
-- Discovery evidence exists
-- Stable collaboration documents exist
-- Current-state facts are recorded in `project.json`, memory, and discovery docs
-- Initial workitems exist
-- Phase 5 production baseline is complete
-- Supported root build/test gates pass with `@stratix/tasks` excluded
-- `stratix release gate --scope workspace --dry-run` can plan monorepo release-readiness checks
+- `@stratix/tasks` has been physically removed from workspace, presets, lockfile importer, release gate exclusions, and publish surface.
+- Local supported gates have historical passing evidence, but the latest remote `Quality Gate` run `28231936087` failed before coverage, smoke, docs, security, and release dry-run.
+- The remote failure root cause was untracked create/forge `admin-mock` `.env.example.tpl` template files ignored by `.env.*`.
+- `.gitignore` now allows `.env.example.tpl`; the two required templates must be tracked in the remediation commit.
+- Exact package versions remain unpublished on public npmjs; this is release availability, not publish evidence.
 
 ## Blocked
 
-- `BUG-003` offline install baseline is still not reproducible
-- `CR-001` release surface is not aligned across local manifests, exact git tags, and npm registry
-- `@stratix/tasks` remains excluded from supported scope and needs a deprecation/removal decision
+- Remote `Quality Gate` must pass on the remediation commit before RC wording.
+- Exact release tags must be pushed to origin before publish.
+- npm publish still requires maintainer credentials.
 
 ## Recommendation
 
-Continue Phase 6 until the real workspace release gate has a clear pass/fail report, offline install has a release policy, and npm/tag/registry reality is reconciled.
+Ship the P0 template tracking fix, rerun the remote `Quality Gate`, then refresh `.factory/project.json`, current-state, and release notes with the actual remote result.

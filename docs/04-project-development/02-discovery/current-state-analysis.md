@@ -28,7 +28,7 @@
 
 ## 2. 当前真实仓库形态
 
-当前仓库不是根 README 描述的旧四包结构，也不再包含 workspace 应用。当前真实形态是 11 个公共包，以及 1 个非 workspace 的 create/forge 预览样例。
+当前仓库不是根 README 描述的旧四包结构，也不再包含 workspace 应用。当前真实形态是 10 个公共包，以及 1 个非 workspace 的 create/forge 预览样例。
 
 | 单元                         | 类型    |      当前版本 | 公开性        | 主要职责                                                                                              | 关键内部依赖                         |
 | ---------------------------- | ------- | ------------: | ------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------ |
@@ -61,7 +61,7 @@
 - 2026-06-20 开发阶段继续硬化已落地：`ApplicationBootstrap` 进一步拆出 error handling、request context、plugin loader、eager initialization、lifecycle shutdown、observability/security hook installer，`@stratix/core/internal` 改为显式白名单，config schema 移除 `z.any()` / `catchall(z.any())` 并校验 typed `autoLoad`、plugin function、observability provider 与 rate-limit provider；workspace pack gate 开始验证 `package.json exports` 的 import/types 子路径文件必须进入 tarball；问题 3/4 边界测试覆盖 trace/request id 透传、AutoDI strict 正/负路径、prefix normalization、并发关闭、应用级 restart 生命周期和真实 web ephemeral port listen。
 - `pnpm run test:coverage:core` 已在本轮开发硬化后通过：34 个测试文件、261 个测试，global lines `47.14%` / functions `41.36%` / branches `38.87%` / statements `46.32%`，`application-bootstrap.ts` 达到 lines `75.65%` / functions `96.07%` / branches `55.33%` / statements `75.73%`。
 - `pnpm run smoke:core-api` 已通过：构建并打包 `@stratix/core`，在临时消费者项目安装 tarball，导入 root 与 `./auth`、`./context`、`./contracts`、`./data`、`./diagnostics`、`./environment`、`./internal`、`./logger`、`./plugin`、`./service` 子路径，并启动/停止最小 CLI 应用。本冒烟发现并修复了 `pino-pretty` 运行时依赖缺失问题。
-- 当前仍处开发硬化阶段；远端 GitHub Actions 首跑、npm publish、最终 release notes/GA 口径属于最后发布阶段，不作为当前本地开发问题阻断项。
+- 当前仍处开发硬化阶段；2026-06-26 远端 GitHub Actions Quality Gate 曾因 `admin-mock` preset 的 `.env.example.tpl` 模板文件未被 Git 跟踪而失败。本地已通过放行 `.env.example.tpl` 修复该根因，发布前仍必须等待远端 Quality Gate 在修复提交上完整通过。
 - 闭门评审风险评分与本地 release-gate 评分分离：固定 rubric 为 `core-rc-remediation-v1`。2026-06-19 风险基线 composite 为 82/100；2026-06-20 batch 1/2 修复后本地证据分为技术管理 90、测试管理 82、框架架构 88、综合 87/100。未来重评只有在可执行证据或范围变化时才允许变更分数。
 - Phase 6 发布准备门禁已落地并通过本地真实执行：`@stratix/forge` 支持 `stratix release gate --scope workspace`，用于 monorepo supported packages 的 build/test/docs/security/pack/API/release-surface 执行；offline install 与 public npmjs exact-version reconciliation 可通过显式参数纳入门禁；release-surface 会校验公开包 metadata 与 exact release tags。
 - `@stratix/create` 和 `@stratix/forge` 都不依赖 `@stratix/core`。创建项目时 create 把 `@stratix/core` 写入目标项目 dependencies，把 `@stratix/forge` 写入目标项目 devDependencies；`openapi generate` 执行时从目标项目解析 `typescript`，避免一次性创建入口承担 runtime/core/compiler 下载成本。
@@ -237,22 +237,23 @@
 - 当前复评必须优先使用本地可执行证据：core typecheck、core coverage ratchet、packed API smoke、public API contract、config/schema 正负测试与 runtime stability 测试
 - 历史 `95/100` 只能视为旧 supported release-scope 口径，不能直接复用为本轮开发硬化后的最终评分，也不能写成全包覆盖率或 GA 事实
 - `@stratix/tasks` 已物理移除，不再作为本轮发布阻断项或 publish 候选
-- npm publish、远端 CI 首跑、最终 release notes/GA 口径属于最后发布阶段，不属于当前开发阶段优先项
+- npm publish、远端 Quality Gate 复跑、最终 release notes/GA 口径属于最后发布阶段；远端 Quality Gate 必须在本次 P0 修复提交上通过后才能进入 RC 口径
 
 发布操作前至少需要完成：
 
-- `.github/workflows/quality-gate.yml` 首次远端运行通过
+- `.github/workflows/quality-gate.yml` 在本次 `.env.example.tpl` 模板跟踪修复提交上完整通过
+- 10 个 exact release tags 推送到 origin
 - 由维护者使用 npm 凭证执行 public npm publish
 
 ## 8. 首批建议工作项
 
 - `BUG-001`: 根 `build` 入口已修复，可转 CLOSED
-- `BUG-002`: `@stratix/core` 构建兼容问题已修复，剩余测试回归待继续收敛
+- `BUG-002`: `@stratix/core` 构建、类型检查、测试与 coverage ratchet 已恢复，可转 CLOSED
 - `BUG-003`: 离线安装基线已恢复，可转 CLOSED
-- `BUG-004`: supported workspace test profile 已恢复；可进入复核关闭
+- `BUG-004`: supported workspace test profile 本地已恢复；远端 Quality Gate 需在 `.env.example.tpl` 模板跟踪修复后复跑通过
 - `CR-001`: README、exact tag 规则、public npmjs registry 事实与本地版本声明已对齐，可转 CLOSED
 - `TASK-001`: 完成历史项目 requirements upgrade 与设计基线补齐
-- `TASK-002`: 建立统一的根级验证命令和 CI profile
+- `TASK-002`: 统一根级验证命令和 CI profile 已建立；关闭前需要最新远端 Quality Gate 绿灯证据
 
 ## 9. 变更记录
 
@@ -288,3 +289,4 @@
 | 2026-06-20 | 继续开发阶段硬化并修复 packed consumer 缺陷：`ApplicationBootstrap` 进一步拆出 error handling、request context、plugin loader、eager initialization 与 lifecycle shutdown；修复 `StratixApplication.restart()` 返回新应用且不复用旧 shutdown handler，修复 web `port: 0` 被默认端口吞掉的问题；core coverage 34/261 通过，`application-bootstrap.ts` lines 75.65 / branches 55.33，`smoke:core-api` 通过并确认 `pino-pretty` 为运行时依赖；root quality 和 GitHub quality gate 已纳入 packed API smoke                    | Codex  |
 | 2026-06-20 | 开发态复验补齐：`pnpm lint`、`pnpm run typecheck:supported`、`pnpm run build:supported`、`pnpm run test:supported`、`pnpm --filter @stratix/core run test:coverage`、`pnpm run smoke:core-api`、`pnpm run docs:validate` 与 `pnpm run quality:release` 均通过；`docs:validate` 改为仓库内包装脚本，forge project/workspace release gate docs 检查也统一委托该入口，避免开发机缺少全局 `uvx` 时产生假失败                                                                                                                  | Codex  |
 | 2026-06-23 | 硬删除 `@stratix/tasks`：移除 `packages/tasks`、create/forge `tasks` preset 模板、根脚本中的 tasks 排除过滤和 release gate 排除分支；刷新 `pnpm-lock.yaml`；`pnpm --filter @stratix/create test` 5 项、`pnpm --filter @stratix/forge test` 54 项、create/forge typecheck、`pnpm run quality:release` 和 `pnpm run release:gate` 均通过，发布面为 10 个公共包且不再包含 tasks                                                                                                            | Codex  |
+| 2026-06-26 | 修复远端 Quality Gate P0：`.gitignore` 放行 `.env.example.tpl`，确保 create/forge `admin-mock` preset 需要的 `.env.example.tpl` 模板可进入 Git；发布结论改为待远端 Quality Gate 复跑通过后再评 RC                                                                                                            | Codex  |

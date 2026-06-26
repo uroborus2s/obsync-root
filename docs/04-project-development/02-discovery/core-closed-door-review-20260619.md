@@ -12,6 +12,8 @@
 | 结论等级 | P2+ 修复后为本地 95 controlled release；远端 CI 首跑和 npm publish 前仍不建议以“高置信 GA”口径发布 |
 | 综合评分 | 初评 83 / 100；P0/P1/P2/P2+ 本地复评 95 / 100 |
 
+> 2026-06-26 更新：本文件保留 2026-06-19 历史闭门复评口径，不再作为当前发布准入结论。当前准入以 `.factory/project.json`、`.factory/memory/current-state.md` 和最新远端 Quality Gate 为准；run `28231936087` 曾失败，本地已修复 `.env.example.tpl` 跟踪问题，但远端复跑绿灯前不能标 RC/GA。
+
 ## 执行结论
 
 `@stratix/core` 已具备可交付的框架主干：`ApplicationBootstrap`、Fastify + Awilix 运行时、装饰器发现、生产 manifest、插件 AutoDI、统一错误信封和契约导出都已经形成闭环。P0/P1/P2/P2+ 修复后，supported release scope 的本地生产评分达到 `95/100`，可以支撑 controlled release。

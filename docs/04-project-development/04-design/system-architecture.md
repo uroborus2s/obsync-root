@@ -7,7 +7,7 @@
 **上游输入：** 当前状态分析 | 技术选型  
 **下游输出：** 模块边界 | 实施计划 | 测试计划  
 **关联 ID：** `MOD-001` ~ `MOD-012`
-**最后更新：** 2026-06-18
+**最后更新：** 2026-06-26
 
 ## 1. 架构摘要
 
@@ -16,7 +16,7 @@
 - 框架核心层：`@stratix/core`
 - 工具链层：`@stratix/create`, `@stratix/forge`
 - 核心工具层：`@stratix/core/utils`
-- 能力插件层：`database`, `redis`, `queue`, `tasks`, `ossp`, `was-v7`, `devtools`, `testing`
+- 能力插件层：`database`, `redis`, `queue`, `ossp`, `was-v7`, `devtools`, `testing`
 - 样例层：`examples/web-admin-preview`（模板生成预览样例，不属于 workspace）
 
 ## 2. 逻辑分层
@@ -24,7 +24,7 @@
 ```mermaid
 flowchart TD
   A["Create / Forge 开发入口"] --> E["应用、模板预览样例与未来消费项目"]
-  B["Core 基础层"] --> C["Database / Redis / Queue / Tasks 插件层"]
+  B["Core 基础层"] --> C["Database / Redis / Queue 插件层"]
   B --> D["OSSP / WAS V7 / Devtools / Testing 集成层"]
   C --> E
   D --> E
@@ -40,6 +40,7 @@ flowchart TD
 - `@stratix/create` 负责轻量 app/plugin 创建入口。
 - `@stratix/forge` 负责项目内工程化生成、诊断、OpenAPI、配置和应用启动入口。
 - `examples/web-admin-preview` 是模板生成样例，用于预览模板输出，不属于公共包发布面。
+- `@stratix/tasks` 已从当前 workspace、preset 模板和发布面物理移除，不再作为当前架构层。
 
 ## 4. 架构层面的主要问题
 
@@ -61,3 +62,4 @@ flowchart TD
 | 2026-06-16 | 记录 `@stratix/utils` 重新进入 `packages/*` workspace 包图 | Codex |
 | 2026-06-16 | 删除独立 `@stratix/utils` 包，明确共享工具能力归入 `@stratix/core/utils` | Codex |
 | 2026-06-18 | 将工具链架构拆分为 `@stratix/create` 创建入口和 `@stratix/forge` 项目工程入口 | Codex |
+| 2026-06-26 | 移除架构摘要中的 `@stratix/tasks` 当前层级口径，避免与物理删除事实冲突 | Codex |

@@ -1,6 +1,6 @@
 # Current State
 
-- Snapshot date: 2026-06-23
+- Snapshot date: 2026-06-26
 - Recommended software-factory stage: `PHASE_6_DEVELOPMENT_HARDENING_RELEASE_DEFERRED`
 - Repository type: historical Stratix source monorepo
 - Toolchain baseline:
@@ -12,6 +12,13 @@
   - 0 workspace apps
   - 1 non-workspace preview sample at `examples/web-admin-preview`
   - `@stratix/utils` and `@stratix/tasks` removed from the current workspace; shared utility APIs are owned by `@stratix/core/utils`
+- 2026-06-26 remote Quality Gate status:
+  - GitHub Actions run `28231936087` failed in `Test supported packages` before local remediation.
+  - Failed task: `@stratix/forge#test`.
+  - Root cause: create/forge `admin-mock` preset `.env.example.tpl` template files existed locally but were ignored by `.gitignore` and were not present in remote checkout.
+  - Local remediation: `.gitignore` now allows `.env.example.tpl`; both admin-mock template files must be tracked in Git.
+  - Local verification after remediation: `CI=true COREPACK_HOME=/private/tmp/corepack npm_config_cache=/private/tmp/npm-cache npm_config_devdir=/private/tmp/node-gyp UV_CACHE_DIR=/private/tmp/uv-cache UV_TOOL_DIR=/private/tmp/uv-tools corepack pnpm run quality:release` passed.
+  - Release status: not RC/GA until the remote Quality Gate reruns green on the remediation commit.
 - Stable docs were missing before this baseline; `docs/`, `.factory/`, `AGENTS.md`, `GEMINI.md` are now present.
 - Developer guides now include beginner-oriented paths for backend apps, plugins, and the create/forge scaffold model.
 - `@stratix/database` has started a database-only clean breaking refactor: `DatabaseAPI` was removed from the package, module-level database manager/global connection helpers were removed, and `BaseRepository` now requires an explicit `DatabaseConnectionProvider`.
@@ -28,7 +35,7 @@
 - `@stratix/tasks` has been physically removed from the workspace and create/forge preset templates; it is no longer a package, preset, release-surface entry, or publish candidate.
 - Phase 6 workspace release gate exists and has historical local passing evidence, but the active 2026-06-20 work mode is development hardening with release work deferred until all local code, test, documentation, and defect items are closed.
 - Root release gating is now tightened so `release` must pass supported build, supported typecheck, supported test, core coverage ratchet, docs validation, security audit, release gate dry-run, and offline workspace release gate before `changeset publish`.
-- GitHub Actions CI now has a `Quality Gate` workflow for PRs and pushes to `main` / `1.1.0`; it installs with pnpm and runs the supported build/typecheck/test/coverage/docs/security gates plus workspace release gate dry-run.
+- GitHub Actions CI has a `Quality Gate` workflow for PRs and pushes to `main` / `1.1.0`; it installs with pnpm and runs the supported build/typecheck/test/coverage/docs/security gates plus workspace release gate dry-run. The latest known remote run failed before remediation and must be rerun after the `.env.example.tpl` tracking fix.
 - 2026-06-20 review-thread remediation completed batch 1 and batch 2 locally:
   release gating, CI lint enforcement, deprecated preset blocking, generator
   overwrite protection, scaffolded secret handling, OSSP/WAS placeholder
@@ -66,7 +73,7 @@
 - `@stratix/core` P1 registration-model convergence is implemented in a compatible first stage: application discovery and plugin AutoDI now emit a shared `RegistrationPlan` schema, DI graph nodes and missing-dependency diagnostics carry plan metadata, application DI tokens and plugin adapter root tokens use the plan token registrar, plugin internal tokens/routes/lifecycle are recorded into the plugin plan, and new `experimental` root namespace exposes plan helpers without adding stable root-level helper names.
 - `@stratix/core` / `@stratix/forge` P2 production-manifest v2 baseline is implemented: forge `build-manifest` now emits schemaVersion 2 with generator/runtime metadata, app `RegistrationPlan` snapshot, source artifact hashes, optional compiled artifact hashes, and v1-compatible routes/DI projections; forge release gate verifies v2 artifact integrity; core loads v1/v2 manifests, validates v2 hashes in strict mode, and prefers v2 compiled files for manifest-driven registration so strict production startup does not fall back to implicit runtime glob discovery.
 - P2+ production hardening is implemented locally: `@stratix/core` observability/security now supports metrics/tracing providers, health contributors, readiness/liveness split, and rate-limit provider decisions; `@stratix/forge doctor plugins` now statically compares manifest `provides` against discovered adapter tokens and reports stale or missing adapter declarations.
-- Historical local production-grade score was `95/100` for the supported 1.1.x release scope after P0/P1/P2/P2+ fixes. That score is not the active development-stage score and must not be reused as a GA/release claim until the current hardening batch is fully verified. It is also not a claim that global core coverage is 95% or that remote CI/npm publish evidence already exists.
+- Historical local production-grade score was `95/100` for the supported 1.1.x release scope after P0/P1/P2/P2+ fixes. That score is not the active development-stage score and must not be reused as a GA/release claim until the current hardening batch is fully verified and the remote Quality Gate is green. It is also not a claim that global core coverage is 95% or that remote CI/npm publish evidence already exists.
 - `@stratix/core` now has minimum runtime stability coverage for concurrent request-scoped route execution, concurrent CLI app start/stop, and repeated lifecycle shutdown handlers; this is a CI-safe regression suite, not a hard latency benchmark.
 - `ApplicationBootstrap` no longer owns the application discovery / production-manifest registration branch directly; `ApplicationDiscoveryRegistrar` owns that orchestration while bootstrap keeps lifecycle ordering.
 - The toolchain split is implemented: `@stratix/create` owns app/plugin creation, `@stratix/forge` owns project-local generate/doctor/di/openapi/start/config workflows, and neither package depends on `@stratix/core`.
@@ -101,13 +108,13 @@
   - delegates to `node scripts/docs-validate.mjs`
   - the wrapper runs `docs-stratego source validate --repo-path .` through existing `uvx`/`uv`, or through a temporary `/tmp` uv runtime when `uvx` is absent
 - `@stratix/forge` project/workspace release gate docs checks now delegate to `pnpm run docs:validate` instead of invoking `uvx` directly, so release and development docs validation use the same entrypoint.
-- Root `pnpm run quality:release` now requires supported build/typecheck/lint/test, core coverage ratchet, packed core API smoke, docs validation, security audit, and release gate dry-run.
+- Root `pnpm run quality:release` requires supported build/typecheck/lint/test, core coverage ratchet, packed core API smoke, docs validation, security audit, and release gate dry-run.
   - 2026-06-20 development-stage rerun passed after bootstrap/API/docs hardening.
   - Verified results: 10 supported build tasks, supported typecheck, 11 supported lint tasks, 12 supported test tasks, core coverage ratchet at 34 files / 261 tests, packed core API smoke, 87 docs pages / 0 contracts, no high production audit vulnerabilities, and workspace release gate dry-run passed.
-  - This is local dry-run quality evidence; remote CI, registry reconciliation release gate execution, npm publish, and release notes remain final release-stage work.
+  - This is local dry-run quality evidence; remote CI must be rerun after the 2026-06-26 P0 template tracking fix, while registry reconciliation release gate execution, npm publish, and release notes remain final release-stage work.
 - Root `pnpm run release` requires `quality:release`, offline+registry workspace `release:gate`, and then `changeset publish`.
 - Root `pnpm run release:gate` includes `--include-offline-install --include-registry`; registry reconciliation is no longer optional for the real local release gate.
-- `.github/workflows/quality-gate.yml` defines PR and `main` / `1.1.0` push CI for install, supported build, supported typecheck, supported lint, supported test, core coverage ratchet, docs validation, security audit, and release gate dry-run.
+- `.github/workflows/quality-gate.yml` defines PR and `main` / `1.1.0` push CI for install, supported build, supported typecheck, supported lint, supported test, core coverage ratchet, docs validation, security audit, and release gate dry-run; run `28231936087` failed before local remediation because untracked `.env.example.tpl` templates were absent from remote checkout.
 - Root `pnpm run release:gate:dry-run` passes for the 10 remaining public workspace packages and planned build/test/docs/security/pack/api/release-surface checks.
 - Root `pnpm run release:gate` passes with elevated local cache access:
   - offline install, supported build/test, docs, security audit, pack, API surface, release-surface, exact tag, and registry reconciliation checks passed
@@ -266,7 +273,7 @@
 
 1. Finish local development hardening and rerun the fixed three-role rubric with only changed executable evidence.
 2. Remaining development-stage risk areas are public-subpath coverage depth, longer reliability/performance regression suites, and any further bootstrap decomposition beyond the new request/observability/security split.
-3. Release-stage evidence is intentionally deferred until local development issues are closed: first remote GitHub Actions quality-gate run, npm publish with maintainer credentials, and final release notes/GA wording.
+3. Release-stage evidence is intentionally deferred until local development issues are closed: remote GitHub Actions quality-gate rerun on the remediation commit, npm publish with maintainer credentials, pushed exact release tags, and final release notes/GA wording.
 
 ## Canonical Detailed Report
 

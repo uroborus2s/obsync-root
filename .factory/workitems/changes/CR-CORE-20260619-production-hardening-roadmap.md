@@ -8,7 +8,7 @@
 
 ## 背景
 
-2026-06-19 `@stratix/core` 闭门复评结论为 83/100，初始口径只能按 RC / controlled release 推进。P0/P1/P2/P2+ 修复后，本地 supported release scope 生产评分达到 `95/100`。剩余不可由本地代码替代的事项是远端 CI 首跑和 npm publish 凭证操作。
+2026-06-19 `@stratix/core` 闭门复评结论为 83/100，初始口径只能按 RC / controlled release 推进。P0/P1/P2/P2+ 修复后，本地 supported release scope 生产评分达到 `95/100`。该历史分数不替代当前发布准入；2026-06-26 远端 Quality Gate 曾失败，本地修复 `.env.example.tpl` 跟踪问题后仍必须等待远端复跑通过和 npm publish 凭证操作。
 
 ## P0：立即修复
 
@@ -54,11 +54,11 @@
 - P0：本地和 CI release gate 均通过，生产安全默认值测试覆盖，文档口径与覆盖率事实一致。
 - P1：应用和插件注册均能输出同一 plan schema；DI graph、diagnostics、route registration 和 adapter registration 复用统一 plan。当前完成兼容式第一阶段，未做破坏性移除或生产 manifest v2 替换。
 - P2：production manifest v2 可校验构建产物完整性，生产启动不依赖隐式源码 glob，CI-safe 性能/并发稳定性测试和 coverage ratchet 已达成本次基线。
-- P2+：provider 插拔化和 plugin `provides` 深校验已完成，本地 supported release scope 达到 `95/100`。远端 CI 首跑、95% 全局覆盖率和 npm publish 不属于本地代码修复完成项，其中远端 CI/npm 仍是发布前外部证据。
+- P2+：provider 插拔化和 plugin `provides` 深校验已完成，本地 supported release scope 达到 `95/100`。远端 Quality Gate 复跑、95% 全局覆盖率和 npm publish 不属于本地代码修复完成项，其中远端 CI/npm 仍是发布前外部证据。
 
 ## 评分预期
 
 - 完成 P0 后：生产级评分预计 86-88。
 - 完成 P1 后：生产级评分预计接近 90。
 - 完成 P2 兼容式基线后：生产级评分约 92。
-- 完成 P2+ provider 插拔化和 plugin `provides` 深校验后：本地生产级评分达到 `95/100`。该评分不等于 core 全包覆盖率 95%，也不替代远端 CI 首跑和 npm publish 凭证操作。
+- 完成 P2+ provider 插拔化和 plugin `provides` 深校验后：本地生产级评分达到 `95/100`。该评分不等于 core 全包覆盖率 95%，也不替代远端 Quality Gate 复跑和 npm publish 凭证操作。

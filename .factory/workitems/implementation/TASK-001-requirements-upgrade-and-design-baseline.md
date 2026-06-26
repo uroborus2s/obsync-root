@@ -14,10 +14,11 @@
 
 - 已完成 discovery / requirements / solution / quality 首批文档
 - 已建立 `.factory/` 和 workitems
+- 2026-06-26 已把测试计划、发布说明、架构边界和阶段/质量报告更新为远端 Quality Gate 优先口径。
 
 ## 剩余工作
 
-- 根据后续修复结果持续回写文档
+- 等远端 Quality Gate 复跑结果出来后，回写最终 CI 证据
 - 补齐更细的接口、发布和运维资料
 
 ## 完成判定

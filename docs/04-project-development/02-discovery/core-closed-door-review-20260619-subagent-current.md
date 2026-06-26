@@ -12,7 +12,9 @@
 | 结论等级 | 可进入 RC / controlled release；不建议按高置信 GA 宣称 |
 | 综合风险评分 | 82 / 100 |
 
-> 2026-06-20 更新：本文件保留 2026-06-19 闭门评审原始基线。后续本地开发硬化已解决或缓解多项 P1/P2：root API 分层、`./plugin`/`./contracts`/`./diagnostics`/`./internal` 子路径、`HttpError` 公共导出、AutoDI fail-fast 与 strict 正/负路径、`close()`/`stop()` 生命周期一致、strict `compiledOnly` manifest、requestId/traceId 一致性、DI graph confidence、prefix-aware route contracts、`ApplicationBootstrap` request/observability/security 拆分、config schema 去 `z.any()`、workspace exports 子路径 tarball smoke。远端 CI 首跑、npm publish 与最终 release notes 属于最后发布阶段，当前开发复评不应把这些外部发布证据作为本地代码问题重复扣分。
+> 2026-06-20 更新：本文件保留 2026-06-19 闭门评审原始基线。后续本地开发硬化已解决或缓解多项 P1/P2：root API 分层、`./plugin`/`./contracts`/`./diagnostics`/`./internal` 子路径、`HttpError` 公共导出、AutoDI fail-fast 与 strict 正/负路径、`close()`/`stop()` 生命周期一致、strict `compiledOnly` manifest、requestId/traceId 一致性、DI graph confidence、prefix-aware route contracts、`ApplicationBootstrap` request/observability/security 拆分、config schema 去 `z.any()`、workspace exports 子路径 tarball smoke。
+>
+> 2026-06-26 更新：当前发布准入以 `.factory/project.json`、`.factory/memory/current-state.md` 和最新远端 Quality Gate 为准。run `28231936087` 曾因未跟踪 `.env.example.tpl` 模板失败；本地已修复忽略规则，但远端复跑绿灯前不能用本文件作为 RC/GA 依据。
 
 ### 2026-06-20 本地开发硬化状态对照
 

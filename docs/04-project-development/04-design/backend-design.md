@@ -7,7 +7,7 @@
 **上游输入：** 技术选型 | 系统架构 | 模块边界  
 **下游输出：** 实施计划 | 测试计划  
 **关联 ID：** `MOD-002`, `MOD-004`, `MOD-007`  
-**最后更新：** 2026-06-18
+**最后更新：** 2026-06-26
 
 ## 1. 当前后端设计共识
 
@@ -15,7 +15,7 @@
 - `@stratix/database@1.1.0` 在应用侧以 `BaseRepository` 为公共编程模型。
 - `@stratix/create` 是轻量创建入口，只负责 app/plugin 创建；`@stratix/forge` 是项目内工程入口，负责 generate、doctor、di、openapi、start、config 等命令。二者都必须保持零运行时依赖，不依赖 `@stratix/core` 或任何项目包。
 - `@stratix/testing` 是独立的一等测试平台入口，不并入 core；当前已具备 smoke 与 `contractTest()` 基线。
-- `@stratix/tasks` 当前是冻结/待废弃候选包，不作为 core 设计依赖，也不作为默认质量门的一部分。
+- `@stratix/tasks` 已从当前 workspace、preset 模板和发布面物理移除，不作为 core 设计依赖，也不作为默认质量门的一部分。
 
 ## 2. 分层约束
 
@@ -29,7 +29,7 @@
 - 插件主入口优先使用具名插件函数并通过 `withRegisterAutoDI(...)` 暴露。
 - 对外能力优先通过 adapter token，而不是内部 service 名称。
 - 插件 adapter token 必须可诊断；重复 adapter name 或根容器 token 冲突必须显式暴露。
-- tasks 相关能力不进入本阶段稳定后端设计，未来如恢复必须单独立项。
+- tasks 相关能力不进入本阶段稳定后端设计；未来如恢复必须按新包重新立项，不继承旧 executor 口径。
 
 ## 4. 当前设计债
 
@@ -46,3 +46,4 @@
 | 2026-06-18 | 记录 Plugin manifest 与 Production manifest artifact 的后端边界                                      | Codex  |
 | 2026-06-18 | 记录 Runtime production manifest consumption 后端边界                                                | Codex  |
 | 2026-06-18 | 记录 Phase 5 manifest-driven registration、observability/security、DevTools 与 release gate 后端边界 | Codex  |
+| 2026-06-26 | 将 `@stratix/tasks` 后端设计口径从冻结候选更新为当前仓库已移除 | Codex  |

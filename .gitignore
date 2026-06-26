@@ -148,6 +148,7 @@ build/Release
 !.env.example
 !.env.template
 !.env.sample
+!.env.example.tpl
 
 # parcel-bundler cache (https://parceljs.org/)
 .parcel-cache
