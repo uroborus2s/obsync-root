@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createContainer, asValue } from 'awilix';
-import type { AwilixContainer } from '@stratix/core';
+import type { AwilixContainer } from '@stratix/core/plugin';
 import clientAdapter from '../adapters/redis.adapter.js';
 
 // Mock ioredis

@@ -49,11 +49,17 @@ jobs:
       - name: Typecheck supported packages
         run: pnpm run typecheck:supported
 
+      - name: Lint supported packages
+        run: pnpm run lint
+
       - name: Test supported packages
         run: pnpm run test:supported
 
       - name: Verify core coverage ratchet
         run: pnpm run test:coverage:core
+
+      - name: Smoke packed core API
+        run: pnpm run smoke:core-api
 
       - name: Validate docs
         run: pnpm run docs:validate

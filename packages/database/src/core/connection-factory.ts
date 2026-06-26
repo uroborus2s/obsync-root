@@ -1,7 +1,8 @@
 // @stratix/database 连接工厂实现
 // 负责创建和管理数据库连接的工厂类
 
-import { Logger, RESOLVER } from '@stratix/core';
+import type { Logger } from '@stratix/core';
+import { RESOLVER } from '@stratix/core/plugin';
 import {
   eitherFold,
   eitherGetOrElse,

@@ -67,7 +67,9 @@ function numericArg(value: unknown): number | undefined {
 
 function forgeVersion(): string {
   try {
-    const packageJson = require('../../../package.json') as { version?: string };
+    const packageJson = require('../../../package.json') as {
+      version?: string;
+    };
     return packageJson.version || 'unknown';
   } catch {
     return 'unknown';
@@ -114,16 +116,16 @@ function sha256File(filePath: string): string {
     .digest('hex')}`;
 }
 
-function compiledFileForSource(sourceFile: string, compiledRoot: string): string {
+function compiledFileForSource(
+  sourceFile: string,
+  compiledRoot: string
+): string {
   const normalizedSource = sourceFile.replace(/\\/g, '/');
   const withoutSourceRoot = normalizedSource.startsWith('src/')
     ? normalizedSource.slice('src/'.length)
     : normalizedSource;
   return path
-    .join(
-      compiledRoot,
-      withoutSourceRoot.replace(/\.(tsx|ts|mts|cts)$/, '.js')
-    )
+    .join(compiledRoot, withoutSourceRoot.replace(/\.(tsx|ts|mts|cts)$/, '.js'))
     .replace(/\\/g, '/');
 }
 

@@ -151,7 +151,7 @@ stratix release gate --scope workspace --dry-run
 stratix release gate --scope workspace --dry-run --include-offline-install --include-registry
 ```
 
-project scope 校验单个应用的 production manifest；workspace scope 校验 supported packages 的 build/test/docs/pack/API/release-surface 发布准备计划，并显式排除已冻结的 `@stratix/tasks`。
+project scope 校验单个应用的 production manifest；workspace scope 校验 supported packages 的 build/test/docs/pack/API/release-surface 发布准备计划。
 
 ## 推荐的实现顺序为什么是 repository -> service -> controller
 
@@ -164,7 +164,7 @@ project scope 校验单个应用的 production manifest；workspace scope 校验
 
 ## 什么时候加 preset
 
-很多新手会一开始把 `database`、`redis`、`queue` 这类基础设施全加上，这通常不是好习惯。`tasks` 即将废弃，新项目不要再把它加入默认 preset 组合。
+很多新手会一开始把 `database`、`redis`、`queue` 这类基础设施全加上，这通常不是好习惯。`tasks` preset 已移除，新项目不要再把它加入 preset 组合。
 
 更稳妥的顺序是：
 

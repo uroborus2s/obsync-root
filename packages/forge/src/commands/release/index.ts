@@ -23,13 +23,10 @@ interface WorkspacePackage {
   version: string;
   dirName: string;
   packageJsonPath: string;
-  excluded: boolean;
-  exclusionReason?: string;
 }
 
 type ReleaseGateScope = 'project' | 'workspace';
 
-const DEFAULT_EXCLUDED_WORKSPACE_PACKAGES = new Set(['@stratix/tasks']);
 const PUBLIC_NPM_REGISTRY = 'https://registry.npmjs.org';
 const SECURITY_SCRIPT_CANDIDATES = [
   'security:audit',
@@ -120,7 +117,10 @@ function validateProductionManifestV2(
   manifestPath: string,
   rootDir: string
 ): void {
-  if (!manifest.registrationPlan || typeof manifest.registrationPlan !== 'object') {
+  if (
+    !manifest.registrationPlan ||
+    typeof manifest.registrationPlan !== 'object'
+  ) {
     throw new CliError(
       `Production manifest v2 registrationPlan is invalid: ${manifestPath}`
     );
@@ -400,16 +400,7 @@ function projectReleaseGateChecks(
     {
       id: 'docs',
       label: 'docs',
-      command: [
-        'uvx',
-        '--from',
-        'docs-stratego',
-        'docs-stratego',
-        'source',
-        'validate',
-        '--repo-path',
-        '.'
-      ]
+      command: ['pnpm', 'run', 'docs:validate']
     },
     {
       id: 'security',
@@ -473,17 +464,12 @@ function readWorkspacePackages(rootDir: string): WorkspacePackage[] {
         );
       }
 
-      const excluded = DEFAULT_EXCLUDED_WORKSPACE_PACKAGES.has(name);
       return [
         {
           name,
           version,
           dirName: entry.name,
-          packageJsonPath,
-          excluded,
-          exclusionReason: excluded
-            ? 'deprecated/out of supported scope'
-            : undefined
+          packageJsonPath
         }
       ];
     })
@@ -499,7 +485,7 @@ function readWorkspacePackages(rootDir: string): WorkspacePackage[] {
 function supportedWorkspacePackages(
   packages: WorkspacePackage[]
 ): WorkspacePackage[] {
-  return packages.filter((workspacePackage) => !workspacePackage.excluded);
+  return packages;
 }
 
 function validateWorkspaceApiSurface(
@@ -513,6 +499,7 @@ function validateWorkspaceApiSurface(
     const main = packageJson.main;
     const types = packageJson.types;
     const files = packageJson.files;
+    const exportFiles = collectPackageExportFiles(packageJson.exports);
     const issues: string[] = [];
 
     if (packageJson.private === true) {
@@ -526,6 +513,20 @@ function validateWorkspaceApiSurface(
     }
     if (!Array.isArray(files) || !files.includes('dist')) {
       issues.push('files must include dist');
+    }
+    if (packageJson.exports !== undefined) {
+      if (exportFiles.length === 0) {
+        issues.push('exports must reference package files');
+      }
+
+      const invalidExportFiles = exportFiles.filter(
+        (entryFile) => !entryFile.startsWith('dist/')
+      );
+      if (invalidExportFiles.length > 0) {
+        issues.push(
+          `exports must point into dist/: ${invalidExportFiles.join(', ')}`
+        );
+      }
     }
 
     if (issues.length > 0) {
@@ -571,16 +572,7 @@ function workspaceReleaseGateChecks(
     {
       id: 'docs',
       label: 'docs',
-      command: [
-        'uvx',
-        '--from',
-        'docs-stratego',
-        'docs-stratego',
-        'source',
-        'validate',
-        '--repo-path',
-        '.'
-      ]
+      command: ['pnpm', 'run', 'docs:validate']
     },
     {
       id: 'security',
@@ -628,11 +620,37 @@ function normalizePackageFilePath(filePath: string): string {
   return filePath.replace(/\\/g, '/').replace(/^\.\//, '');
 }
 
+function collectPackageExportFiles(exportsField: unknown): string[] {
+  const entries: string[] = [];
+  const visit = (value: unknown) => {
+    if (typeof value === 'string') {
+      entries.push(normalizePackageFilePath(value));
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+      return;
+    }
+
+    if (value && typeof value === 'object') {
+      Object.values(value as Record<string, unknown>).forEach(visit);
+    }
+  };
+
+  visit(exportsField);
+  return Array.from(new Set(entries));
+}
+
 function readPackageEntryFiles(workspacePackage: WorkspacePackage): string[] {
   const packageJson = readJsonFile<Record<string, unknown>>(
     workspacePackage.packageJsonPath
   );
-  const entries = [packageJson.main, packageJson.types]
+  const entries = [
+    packageJson.main,
+    packageJson.types,
+    ...collectPackageExportFiles(packageJson.exports)
+  ]
     .filter((entry): entry is string => typeof entry === 'string')
     .map(normalizePackageFilePath);
 
@@ -957,17 +975,6 @@ function printWorkspaceReleaseSummary(
       )
       .join(', ')}`
   );
-
-  const excludedPackages = packages.filter(
-    (workspacePackage) => workspacePackage.excluded
-  );
-  if (excludedPackages.length > 0) {
-    output.warn(
-      `Release gate exclusions: ${excludedPackages
-        .map((workspacePackage) => `${workspacePackage.name} excluded`)
-        .join(', ')}`
-    );
-  }
 }
 
 function runCheck(check: ReleaseGateCheck, output: CliOutput): void {

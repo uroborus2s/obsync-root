@@ -3,7 +3,6 @@
 
 import type { AwilixContainer } from 'awilix';
 import fastify, {
-  type FastifyError,
   type FastifyInstance,
   type FastifyServerOptions
 } from 'fastify';
@@ -13,28 +12,31 @@ import { get, getNodeEnv, isProduction } from '../utils/environment/index.js';
 import { asValue, createContainer, InjectionMode } from 'awilix';
 import fs from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import {
-  ConfigurationError,
-  HttpError,
-  PluginLoadError,
-  StratixError
-} from '../errors/index.js';
-import { createErrorEnvelope } from '../contracts/error-envelope.js';
+import { ConfigurationError, StratixError } from '../errors/index.js';
 import type { LoadedProductionManifest } from '../discovery/production-manifest.js';
 import type {
   ConfigOptions,
   EnvOptions,
-  SecurityConfig,
   StratixApplication,
   StratixConfig,
-  StratixHealthCheckResult,
-  StratixRequestObservation,
   StratixRunOptions
 } from '../types/index.js';
 import { decryptConfig } from '../utils/crypto.js';
 import { ErrorUtils } from '../utils/error-utils.js';
 import { registerControllerClassRoutes } from '../plugin/controller-registration.js';
 import { ApplicationDiscoveryRegistrar } from './discovery-registrar.js';
+import { executeEagerInitialization } from './eager-initialization.js';
+import { setupErrorHandling } from './error-handling.js';
+import {
+  cleanupRuntimeResources,
+  executeShutdownHandlers,
+  setupProcessGracefulShutdown
+} from './lifecycle-shutdown.js';
+import { setupObservability } from './observability.js';
+import { loadConfiguredPlugins } from './plugin-loader.js';
+import { getRequestId as getAssignedRequestId } from './request-identity.js';
+import { setupRequestContext } from './request-context.js';
+import { setupSecurity } from './security.js';
 
 /**
  * 启动阶段
@@ -91,36 +93,6 @@ function isDirectConfig(value: unknown): value is StratixConfig {
   );
 }
 
-type FastifyHandledError = Partial<FastifyError> & {
-  validation?: unknown;
-  code?: string;
-  statusCode?: number;
-  message?: string;
-  details?: unknown;
-};
-
-interface StratixTraceEntry extends StratixRequestObservation {}
-
-interface StratixObservabilityState {
-  requests: {
-    total: number;
-    byStatus: Record<string, number>;
-  };
-  traces: StratixTraceEntry[];
-  getSnapshot(): {
-    requests: {
-      total: number;
-      byStatus: Record<string, number>;
-    };
-    traces: StratixTraceEntry[];
-    uptime: number;
-  };
-}
-
-type EagerInitializable = {
-  initialize?: () => unknown | Promise<unknown>;
-};
-
 /**
  * 应用启动器类
  * 负责协调整个应用的启动过程，采用函数式编程风格
@@ -162,7 +134,14 @@ export class ApplicationBootstrap {
    */
   async bootstrap(options?: StratixRunOptions): Promise<StratixApplication> {
     const startTime = Date.now();
+    this.status = {
+      phase: BootstrapPhase.INITIALIZING,
+      startTime: new Date()
+    };
     this.routesFrozen = false;
+    this.shutdownHandlers = [];
+    this.isShuttingDown = false;
+    this.fastifyInstance = null;
 
     try {
       this.updateStatus(BootstrapPhase.INITIALIZING);
@@ -240,13 +219,13 @@ export class ApplicationBootstrap {
         });
       }
 
-      // 12. 创建应用实例 - 确保日志器统一性
+      // 12. 创建应用实例 - 使用同源 Pino logger
       const application: StratixApplication = {
         fastify: fastifyInstance as any,
         diContainer: container,
         config,
         productionManifest,
-        logger: this.logger, // 使用统一的日志器实例（与 Fastify 相同）
+        logger: this.logger,
         status: this.status,
         type: appType,
         instanceId: processedOptions.instanceId || 'default',
@@ -254,9 +233,8 @@ export class ApplicationBootstrap {
           // 正确的停止流程：先执行应用级停止逻辑，再关闭 Fastify
           await this.stop();
         },
-        restart: async (options?: any) => {
-          await this.restart({ ...processedOptions, ...options });
-        },
+        restart: async (options?: any) =>
+          await this.restart({ ...processedOptions, ...options }),
         addShutdownHandler: (handler: () => Promise<void>) =>
           this.addShutdownHandler(handler),
         registerController: async (controllerClass: any) => {
@@ -298,7 +276,7 @@ export class ApplicationBootstrap {
           return fastifyInstance.server?.listening || false;
         },
         close: async () => {
-          await fastifyInstance.close();
+          await this.stop();
         },
         getUptime: () => {
           return Date.now() - application.status.startTime.getTime();
@@ -379,8 +357,8 @@ export class ApplicationBootstrap {
   }
 
   /**
-   * 验证日志器统一性
-   * 确保应用日志器与 Fastify 日志器是同一个实例
+   * 验证日志器兼容性
+   * Fastify 可能暴露同源 child logger，因此只要求两侧满足 Pino logger 契约。
    */
   private validateLoggerUnity(application: StratixApplication): void {
     if (!application.fastify) {
@@ -391,14 +369,20 @@ export class ApplicationBootstrap {
     const appLogger = application.logger;
     const fastifyLogger = application.fastify.log;
 
-    // 验证日志器实例是否相同
     if (appLogger === fastifyLogger) {
       this.logger?.debug(
         '✅ Logger unity verified: app.logger === app.fastify.log'
       );
+    } else if (
+      this.isPinoCompatibleLogger(appLogger) &&
+      this.isPinoCompatibleLogger(fastifyLogger)
+    ) {
+      this.logger?.debug(
+        '✅ Logger source verified: app.logger and app.fastify.log are compatible Pino loggers'
+      );
     } else {
       this.logger?.warn(
-        '⚠️ Logger unity check failed: app.logger !== app.fastify.log'
+        '⚠️ Logger compatibility check failed: app.logger and app.fastify.log are not compatible'
       );
       this.logger?.warn({ appLoggerType: typeof appLogger }, 'App logger');
       this.logger?.warn(
@@ -407,7 +391,6 @@ export class ApplicationBootstrap {
       );
     }
 
-    // 验证日志器是否为同一个 Pino 实例
     if (
       appLogger &&
       'version' in appLogger &&
@@ -416,6 +399,17 @@ export class ApplicationBootstrap {
     ) {
       this.logger?.debug('✅ Both loggers are Pino instances');
     }
+  }
+
+  private isPinoCompatibleLogger(logger: unknown): boolean {
+    if (!logger || typeof logger !== 'object') {
+      return false;
+    }
+
+    const candidate = logger as Record<string, unknown>;
+    return ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'child'].every(
+      (method) => typeof candidate[method] === 'function'
+    );
   }
 
   /**
@@ -805,12 +799,12 @@ export class ApplicationBootstrap {
     productionManifest?: LoadedProductionManifest
   ): Promise<FastifyInstance> {
     this.updateStatus(BootstrapPhase.FASTIFY_INIT);
-    // 构建 Fastify 选项 - 确保使用统一的日志器
+    // 构建 Fastify 选项 - 使用同源日志器
     const fastifyOptions: FastifyServerOptions = {
       ...config.server,
       bodyLimit: config.security?.bodyLimit ?? config.server.bodyLimit,
       loggerInstance: this.logger,
-      pluginTimeout: 0 // 统一的日志器实例，确保 app.logger === app.fastify.log
+      pluginTimeout: 0
     };
 
     // 创建 Fastify 实例
@@ -827,15 +821,24 @@ export class ApplicationBootstrap {
       productionManifest
     );
 
-    // 设置错误处理
-    this.setupErrorHandling(fastifyInstance);
-
-    // 设置请求上下文
-    this.setupRequestContext(fastifyInstance, container);
+    setupErrorHandling(fastifyInstance, {
+      logger: this.logger,
+      getRequestId: (request) => this.getRequestId(request)
+    });
 
     // 设置生产观测和安全基线
-    this.setupObservability(fastifyInstance, config);
-    this.setupSecurity(fastifyInstance, config);
+    setupObservability(fastifyInstance, config, {
+      logger: this.logger,
+      getRequestId: (request) => this.getRequestId(request)
+    });
+
+    // 设置请求上下文。必须在 observability 之后安装，让 request scope 中的
+    // requestId 与响应头、metrics/traces 使用同一个来源。
+    setupRequestContext(fastifyInstance, container, this.logger);
+    setupSecurity(fastifyInstance, config, {
+      logger: this.logger,
+      getRequestId: (request) => this.getRequestId(request)
+    });
 
     this.logger?.debug('Fastify initialization completed');
     if (config.hooks?.afterFastifyCreated) {
@@ -844,536 +847,8 @@ export class ApplicationBootstrap {
     return fastifyInstance;
   }
 
-  /**
-   * 设置错误处理
-   */
-  private setupErrorHandling(fastify: FastifyInstance): void {
-    // 全局错误处理器
-    fastify.setErrorHandler(async (error, request, reply) => {
-      const handledError = error as FastifyHandledError;
-
-      // 如果响应已经发送，则记录错误但不尝试再次发送
-      if (reply.sent) {
-        this.logger?.error(
-          { err: error },
-          'Response already sent, but an error occurred'
-        );
-        return;
-      }
-
-      let statusCode = 500;
-      let errorCode = 'INTERNAL_SERVER_ERROR';
-      let message = 'Internal Server Error';
-      let details: unknown = undefined;
-
-      // 1. 处理 Stratix 定义的 HttpError
-      if (error instanceof HttpError) {
-        statusCode = error.statusCode;
-        errorCode = error.code;
-        message = error.message;
-        details = error.details;
-      }
-      // 2. 处理其他 StratixError
-      else if (error instanceof StratixError) {
-        statusCode = 500; // 默认 500
-        errorCode = error.code;
-        message = error.message;
-        details = error.details;
-      }
-      // 3. 处理 Fastify 请求验证错误
-      else if (handledError.validation) {
-        statusCode = 400;
-        errorCode = 'VALIDATION_ERROR';
-        message = 'Validation Error';
-        details = handledError.validation;
-      }
-      // 4. 处理 Fastify 响应序列化/响应校验错误
-      else if (this.isResponseValidationError(handledError)) {
-        statusCode = 500;
-        errorCode = 'RESPONSE_VALIDATION_ERROR';
-        message = 'Response Validation Error';
-        details = {
-          code: handledError.code,
-          message: handledError.message
-        };
-      }
-      // 5. 处理 Fastify 自带的 HTTP 错误 (具有 statusCode 属性)
-      else if (handledError.statusCode) {
-        statusCode = handledError.statusCode;
-        errorCode = handledError.code || 'HTTP_ERROR';
-        message = handledError.message || message;
-      }
-
-      // 记录错误日志 (500及以上错误记录为 error，其他为 warn/info)
-      if (statusCode >= 500) {
-        this.logger?.error({ err: error }, 'Unhandled error');
-      } else {
-        this.logger?.warn(`Handled error (${statusCode}): ${message}`);
-      }
-
-      const response = createErrorEnvelope({
-        code: errorCode,
-        message,
-        statusCode,
-        details,
-        path: request.url,
-        requestId: this.getRequestId(request)
-      });
-
-      return reply.status(statusCode).send(response);
-    });
-
-    // 404 处理器
-    fastify.setNotFoundHandler(async (request, reply) => {
-      return reply.status(404).send(
-        createErrorEnvelope({
-          code: 'NOT_FOUND',
-          message: 'Route not found',
-          statusCode: 404,
-          path: request.url,
-          requestId: this.getRequestId(request)
-        })
-      );
-    });
-  }
-
   private getRequestId(request: unknown): string | undefined {
-    const candidate = (request as any)?.requestId ?? (request as any)?.id;
-
-    return typeof candidate === 'string' ? candidate : undefined;
-  }
-
-  private isResponseValidationError(error: FastifyHandledError): boolean {
-    if ((error as any).serialization) {
-      return true;
-    }
-
-    if (
-      error.code === 'FST_ERR_FAILED_ERROR_SERIALIZATION' ||
-      error.code === 'FST_ERR_SCH_SERIALIZATION_BUILD'
-    ) {
-      return true;
-    }
-
-    return (
-      typeof error.message === 'string' &&
-      error.message.toLowerCase().includes('response') &&
-      error.message.toLowerCase().includes('schema')
-    );
-  }
-
-  /**
-   * 设置请求上下文
-   */
-  private setupRequestContext(
-    fastify: FastifyInstance,
-    container: AwilixContainer
-  ): void {
-    if (!container) return;
-
-    // 为每个请求创建作用域
-    fastify.addHook('onRequest', async (request, reply) => {
-      const requestId = `req_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
-
-      // 创建请求作用域
-      const requestScope = container.createScope();
-      requestScope.register({
-        request: asValue(request),
-        reply: asValue(reply),
-        requestId: asValue(requestId),
-        logger: asValue(request.log || this.logger),
-        diScope: asValue(requestScope)
-      });
-
-      // 将请求作用域附加到请求对象
-      (request as any).diScope = requestScope;
-      (request as any).requestId = requestId;
-    });
-
-    // 🔧 修复：在请求结束时清理作用域容器
-    fastify.addHook('onResponse', async (request, _reply) => {
-      try {
-        const requestScope = (request as any).diScope;
-        if (requestScope && typeof requestScope.dispose === 'function') {
-          await requestScope.dispose();
-          (request as any).diScope = null;
-        }
-      } catch (error) {
-        this.logger?.error(
-          { err: error },
-          'Failed to dispose request scope container'
-        );
-      }
-    });
-  }
-
-  private setupObservability(
-    fastify: FastifyInstance,
-    config: StratixConfig
-  ): void {
-    const observabilityConfig = config.observability;
-    if (observabilityConfig?.enabled !== true) {
-      return;
-    }
-
-    const startedAt = Date.now();
-    const requestIdHeader = (
-      observabilityConfig.requestIdHeader || 'x-request-id'
-    ).toLowerCase();
-    const traceIdHeader = (
-      observabilityConfig.traceIdHeader || 'x-trace-id'
-    ).toLowerCase();
-    const maxTraceEntries = observabilityConfig.traces?.maxEntries ?? 100;
-    const metricsProvider = observabilityConfig.metrics?.provider;
-    const tracingProvider = observabilityConfig.traces?.provider;
-    const healthContributors =
-      observabilityConfig.health?.contributors || [];
-    const state: StratixObservabilityState = {
-      requests: {
-        total: 0,
-        byStatus: {}
-      },
-      traces: [],
-      getSnapshot: () => ({
-        requests: {
-          total: state.requests.total,
-          byStatus: { ...state.requests.byStatus }
-        },
-        traces: [...state.traces],
-        uptime: Math.max(0, Date.now() - startedAt)
-      })
-    };
-
-    fastify.decorate('stratixObservability', state);
-
-    fastify.addHook('onRequest', async (request) => {
-      const incomingRequestId = request.headers[requestIdHeader];
-      const incomingTraceId = request.headers[traceIdHeader];
-      const requestId = Array.isArray(incomingRequestId)
-        ? incomingRequestId[0]
-        : incomingRequestId;
-      const traceId = Array.isArray(incomingTraceId)
-        ? incomingTraceId[0]
-        : incomingTraceId;
-
-      if (typeof requestId === 'string' && requestId.length > 0) {
-        (request as any).requestId = requestId;
-      }
-      (request as any).traceId =
-        typeof traceId === 'string' && traceId.length > 0
-          ? traceId
-          : `trace_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-      (request as any).stratixStartedAt = Date.now();
-      state.requests.total += 1;
-    });
-
-    fastify.addHook('onSend', async (request, reply, payload) => {
-      const requestId = this.getRequestId(request);
-      const traceId = (request as any).traceId;
-      if (requestId) {
-        reply.header(requestIdHeader, requestId);
-      }
-      if (typeof traceId === 'string') {
-        reply.header(traceIdHeader, traceId);
-      }
-      return payload;
-    });
-
-    fastify.addHook('onResponse', async (request, reply) => {
-      const statusCode = reply.statusCode;
-      const statusKey = String(statusCode);
-      const started = (request as any).stratixStartedAt;
-      const durationMs =
-        typeof started === 'number' ? Math.max(0, Date.now() - started) : 0;
-
-      state.requests.byStatus[statusKey] =
-        (state.requests.byStatus[statusKey] || 0) + 1;
-
-      const event: StratixRequestObservation = {
-        requestId: this.getRequestId(request),
-        traceId: (request as any).traceId,
-        method: request.method,
-        url: request.url,
-        statusCode,
-        durationMs,
-        timestamp: new Date().toISOString()
-      };
-
-      try {
-        await metricsProvider?.recordRequest?.(event);
-      } catch (error) {
-        this.logger?.error({ err: error }, 'Metrics provider failed');
-      }
-
-      if (observabilityConfig.traces?.enabled !== false) {
-        state.traces.push(event);
-        while (state.traces.length > maxTraceEntries) {
-          state.traces.shift();
-        }
-        try {
-          await tracingProvider?.recordTrace?.(event);
-        } catch (error) {
-          this.logger?.error({ err: error }, 'Tracing provider failed');
-        }
-      }
-    });
-
-    if (observabilityConfig.health?.enabled !== false) {
-      const healthBasePath = observabilityConfig.health?.basePath || '/health';
-      const healthPayload = async (includeContributors: boolean) => {
-        const checks: Record<string, unknown> = {
-          runtime: 'healthy'
-        };
-        let status: 'healthy' | 'unhealthy' = 'healthy';
-
-        if (includeContributors) {
-          for (const contributor of healthContributors) {
-            try {
-              const result = await contributor.check();
-              checks[contributor.name] = result;
-              if (result.status !== 'healthy') {
-                status = 'unhealthy';
-              }
-            } catch (error) {
-              status = 'unhealthy';
-              checks[contributor.name] = this.healthContributorError(error);
-            }
-          }
-        }
-
-        return {
-          status,
-          uptime: Math.max(0, Date.now() - startedAt),
-          timestamp: new Date().toISOString(),
-          checks
-        };
-      };
-      const readinessPayload = async (_request: unknown, reply: any) => {
-        const payload = await healthPayload(true);
-        if (payload.status !== 'healthy') {
-          reply.status(503);
-        }
-        return payload;
-      };
-
-      fastify.get(healthBasePath, readinessPayload);
-      fastify.get(`${healthBasePath}/ready`, readinessPayload);
-      fastify.get(`${healthBasePath}/live`, async () => healthPayload(false));
-    }
-
-    if (observabilityConfig.metrics?.enabled !== false) {
-      const metricsPath = observabilityConfig.metrics?.path || '/metrics';
-      fastify.get(metricsPath, async () => {
-        const snapshot = state.getSnapshot();
-        if (metricsProvider?.snapshot) {
-          try {
-            return {
-              ...snapshot,
-              provider: await metricsProvider.snapshot()
-            };
-          } catch (error) {
-            this.logger?.error({ err: error }, 'Metrics provider failed');
-          }
-        }
-        return snapshot;
-      });
-    }
-  }
-
-  private setupSecurity(fastify: FastifyInstance, config: StratixConfig): void {
-    const securityConfig = config.security;
-    if (securityConfig?.enabled !== true) {
-      return;
-    }
-
-    const rateLimitStore = new Map<
-      string,
-      { count: number; resetAt: number }
-    >();
-    const observabilityPaths = this.observabilityPaths(config);
-
-    fastify.addHook('onRequest', async (request, reply) => {
-      if (this.isCorsPreflight(request.method, securityConfig.cors)) {
-        this.applyCorsHeaders(request, reply, securityConfig.cors);
-        reply.status(204).send();
-        return reply;
-      }
-
-      const rateLimit = securityConfig.rateLimit;
-      if (
-        rateLimit?.enabled === true &&
-        !this.isObservabilityPath(request.url, observabilityPaths)
-      ) {
-        const max = rateLimit.max ?? 100;
-        const windowMs = rateLimit.windowMs ?? 60_000;
-        const key = this.rateLimitKey(request, rateLimit.trustProxy === true);
-        const now = Date.now();
-        if (rateLimit.provider) {
-          try {
-            const decision = await rateLimit.provider.consume({
-              key,
-              max,
-              windowMs,
-              now,
-              request
-            });
-            if (!decision.allowed) {
-              reply.header(
-                'retry-after',
-                decision.retryAfterSeconds ?? Math.ceil(windowMs / 1000)
-              );
-              reply.status(429).send(
-                createErrorEnvelope({
-                  code: 'RATE_LIMITED',
-                  message: 'Too Many Requests',
-                  statusCode: 429,
-                  path: request.url,
-                  requestId: this.getRequestId(request)
-                })
-              );
-              return reply;
-            }
-            return;
-          } catch (error) {
-            this.logger?.error({ err: error }, 'Rate limit provider failed');
-          }
-        }
-
-        const current = rateLimitStore.get(key);
-        const bucket =
-          current && current.resetAt > now
-            ? current
-            : { count: 0, resetAt: now + windowMs };
-
-        if (bucket.count >= max) {
-          reply.header('retry-after', Math.ceil((bucket.resetAt - now) / 1000));
-          reply.status(429).send(
-            createErrorEnvelope({
-              code: 'RATE_LIMITED',
-              message: 'Too Many Requests',
-              statusCode: 429,
-              path: request.url,
-              requestId: this.getRequestId(request)
-            })
-          );
-          return reply;
-        }
-
-        bucket.count += 1;
-        rateLimitStore.set(key, bucket);
-      }
-    });
-
-    fastify.addHook('onSend', async (request, reply, payload) => {
-      this.applySecurityHeaders(reply, securityConfig.headers);
-      this.applyCorsHeaders(request, reply, securityConfig.cors);
-      return payload;
-    });
-  }
-
-  private healthContributorError(error: unknown): StratixHealthCheckResult {
-    return {
-      status: 'unhealthy',
-      details: {
-        message: error instanceof Error ? error.message : String(error)
-      }
-    };
-  }
-
-  private observabilityPaths(config: StratixConfig): string[] {
-    const paths: string[] = [];
-    if (config.observability?.health?.enabled !== false) {
-      const basePath = config.observability?.health?.basePath || '/health';
-      paths.push(basePath, `${basePath}/ready`, `${basePath}/live`);
-    }
-    if (config.observability?.metrics?.enabled !== false) {
-      paths.push(config.observability?.metrics?.path || '/metrics');
-    }
-    return paths;
-  }
-
-  private isObservabilityPath(url: string, paths: string[]): boolean {
-    const pathname = url.split('?')[0];
-    return paths.includes(pathname);
-  }
-
-  private rateLimitKey(request: any, trustProxy: boolean): string {
-    const forwardedFor = request.headers['x-forwarded-for'];
-    if (trustProxy && typeof forwardedFor === 'string') {
-      const forwardedClient = forwardedFor.split(',')[0]?.trim();
-      if (forwardedClient) {
-        return forwardedClient;
-      }
-    }
-    return request.ip || request.socket?.remoteAddress || 'unknown';
-  }
-
-  private isCorsPreflight(
-    method: string,
-    cors: SecurityConfig['cors']
-  ): boolean {
-    return method === 'OPTIONS' && Boolean(cors?.enabled);
-  }
-
-  private applyCorsHeaders(
-    request: any,
-    reply: any,
-    cors: SecurityConfig['cors']
-  ): void {
-    if (!cors?.enabled) {
-      return;
-    }
-
-    const origin = request.headers.origin;
-    const origins = cors.origins ?? '*';
-    const allowedOrigins = Array.isArray(origins) ? origins : [origins];
-    const allowAny = allowedOrigins.includes('*');
-
-    if (
-      typeof origin === 'string' &&
-      (allowAny || allowedOrigins.includes(origin))
-    ) {
-      reply.header('access-control-allow-origin', allowAny ? '*' : origin);
-    }
-    if (cors.credentials === true) {
-      reply.header('access-control-allow-credentials', 'true');
-    }
-    reply.header(
-      'access-control-allow-methods',
-      (
-        cors.methods || ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
-      ).join(', ')
-    );
-    reply.header('access-control-allow-headers', 'content-type, authorization');
-  }
-
-  private applySecurityHeaders(
-    reply: any,
-    headers: SecurityConfig['headers']
-  ): void {
-    if (
-      headers === false ||
-      (typeof headers === 'object' && headers.enabled === false)
-    ) {
-      return;
-    }
-
-    const headerOptions = typeof headers === 'object' ? headers : {};
-    reply.header('x-content-type-options', 'nosniff');
-    reply.header('x-frame-options', headerOptions.frameOptions || 'DENY');
-    reply.header(
-      'referrer-policy',
-      headerOptions.referrerPolicy || 'no-referrer'
-    );
-
-    if (headerOptions.contentSecurityPolicy !== false) {
-      reply.header(
-        'content-security-policy',
-        typeof headerOptions.contentSecurityPolicy === 'string'
-          ? headerOptions.contentSecurityPolicy
-          : "default-src 'self'"
-      );
-    }
+    return getAssignedRequestId(request);
   }
 
   /**
@@ -1384,121 +859,11 @@ export class ApplicationBootstrap {
     fastify: FastifyInstance
   ): Promise<void> {
     this.updateStatus(BootstrapPhase.PLUGIN_LOADING);
-
-    const pluginConfigs = this.resolvePluginLoadOrder(config.plugins || []);
-
-    if (pluginConfigs.length === 0) {
-      this.logger?.debug('No plugins to load');
-      return;
-    }
-
-    this.logger?.info(`Loading ${pluginConfigs.length} plugins...`);
-
-    for (const pluginConfig of pluginConfigs) {
-      try {
-        // 注意：插件级生命周期现在由 withRegisterAutoDI 自动管理
-
-        // 注意：插件作用域现在由 withRegisterAutoDI 自动管理
-        // 不需要在这里手动创建作用域
-
-        // 注册插件到 Fastify（所有应用类型都支持插件系统）
-        if (pluginConfig.plugin) {
-          await fastify.register(pluginConfig.plugin, {
-            ...pluginConfig.options,
-            prefix: pluginConfig.prefix
-          });
-        }
-
-        // 注意：插件级生命周期现在由 withRegisterAutoDI 自动管理
-
-        this.logger?.debug(`Plugin "${pluginConfig.name}" loaded successfully`);
-      } catch (error) {
-        this.logger?.error(
-          { err: error, pluginName: pluginConfig.name },
-          `Failed to load plugin "${pluginConfig.name}"`
-        );
-        throw new PluginLoadError(
-          `Plugin loading failed: ${pluginConfig.name}`,
-          { pluginName: pluginConfig.name },
-          error
-        );
-      }
-    }
-
-    this.logger?.info('All plugins loaded successfully');
-
-    // 执行立即初始化
-    await this.executeEagerInitialization();
-  }
-
-  private resolvePluginLoadOrder(
-    pluginConfigs: StratixConfig['plugins']
-  ): StratixConfig['plugins'] {
-    const enabledPlugins = pluginConfigs.filter(
-      (pluginConfig) => pluginConfig.enabled !== false
-    );
-    const pluginsByName = new Map<string, StratixConfig['plugins'][number]>();
-
-    for (const pluginConfig of enabledPlugins) {
-      if (pluginsByName.has(pluginConfig.name)) {
-        throw new ConfigurationError(
-          `Duplicate plugin name: ${pluginConfig.name}`,
-          {
-            pluginName: pluginConfig.name
-          }
-        );
-      }
-      pluginsByName.set(pluginConfig.name, pluginConfig);
-    }
-
-    for (const pluginConfig of enabledPlugins) {
-      for (const dependency of pluginConfig.dependencies || []) {
-        if (!pluginsByName.has(dependency)) {
-          throw new ConfigurationError(
-            `Plugin dependency not found: ${pluginConfig.name} -> ${dependency}`,
-            {
-              pluginName: pluginConfig.name,
-              dependency
-            }
-          );
-        }
-      }
-    }
-
-    const ordered: StratixConfig['plugins'] = [];
-    const loaded = new Set<string>();
-    const remaining = new Map(pluginsByName);
-
-    while (remaining.size > 0) {
-      const ready = [...remaining.values()]
-        .filter((pluginConfig) =>
-          (pluginConfig.dependencies || []).every((dependency) =>
-            loaded.has(dependency)
-          )
-        )
-        .sort((left, right) => {
-          const leftOrder = left.order ?? 0;
-          const rightOrder = right.order ?? 0;
-          if (leftOrder !== rightOrder) {
-            return leftOrder - rightOrder;
-          }
-          return left.name.localeCompare(right.name);
-        });
-
-      if (ready.length === 0) {
-        throw new ConfigurationError('Plugin dependency cycle detected', {
-          remaining: [...remaining.keys()]
-        });
-      }
-
-      for (const pluginConfig of ready) {
-        ordered.push(pluginConfig);
-        loaded.add(pluginConfig.name);
-        remaining.delete(pluginConfig.name);
-      }
-    }
-
-    return ordered;
+    await loadConfiguredPlugins(config, fastify, {
+      logger: this.logger,
+      executeEagerInitialization: () =>
+        executeEagerInitialization(this.rootContainer, this.logger)
+    });
   }
 
   /**
@@ -1546,8 +911,8 @@ export class ApplicationBootstrap {
       const { host, port } = config.server;
 
       await fastify.listen({
-        host: host || '0.0.0.0',
-        port: port || 3000
+        host: host ?? '0.0.0.0',
+        port: port ?? 3000
       });
 
       this.logger?.info(`🌐 Server listening on ${host}:${port}`);
@@ -1580,28 +945,11 @@ export class ApplicationBootstrap {
    * 设置优雅关闭
    */
   private setupGracefulShutdown(shutdownTimeout?: number): void {
-    const timeout = shutdownTimeout || 10000;
-
-    const gracefulShutdown = async (signal: string) => {
-      this.logger?.info(`Received ${signal}, starting graceful shutdown...`);
-
-      try {
-        await Promise.race([
-          this.stop(),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Shutdown timeout')), timeout)
-          )
-        ]);
-
-        process.exit(0);
-      } catch (error) {
-        this.logger?.error({ err: error }, 'Error during graceful shutdown');
-        process.exit(1);
-      }
-    };
-
-    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+    setupProcessGracefulShutdown({
+      logger: this.logger,
+      stop: () => this.stop(),
+      timeout: shutdownTimeout || 10000
+    });
   }
 
   /**
@@ -1619,8 +967,7 @@ export class ApplicationBootstrap {
     this.logger?.info('🛑 Stopping Stratix application...');
 
     try {
-      // 执行自定义关闭处理器
-      await this.executeShutdownHandlers();
+      await executeShutdownHandlers(this.shutdownHandlers, this.logger);
 
       // 清理资源
       await this.cleanup();
@@ -1650,126 +997,17 @@ export class ApplicationBootstrap {
   }
 
   /**
-   * 执行关闭处理器
-   */
-  private async executeShutdownHandlers(): Promise<void> {
-    if (this.shutdownHandlers.length === 0) {
-      return;
-    }
-
-    this.logger?.debug(
-      `Executing ${this.shutdownHandlers.length} shutdown handlers...`
-    );
-
-    const results = await Promise.allSettled(
-      this.shutdownHandlers.map((handler) => handler())
-    );
-
-    results.forEach((result, index) => {
-      if (result.status === 'rejected') {
-        this.logger?.error(
-          { err: result.reason, handlerIndex: index + 1 },
-          `Shutdown handler ${index + 1} failed`
-        );
-      }
-    });
-  }
-
-  /**
    * 清理资源
    */
   private async cleanup(): Promise<void> {
-    try {
-      // 1. 关闭 Fastify 实例（如果存在）
-      if (this.fastifyInstance) {
-        this.logger?.debug('Closing Fastify instance...');
-        await this.fastifyInstance.close();
-        this.logger?.debug('Fastify instance closed');
-      }
-
-      // 2. 销毁容器
-      if (this.rootContainer) {
-        this.logger?.debug('Disposing root container...');
-        await this.rootContainer.dispose();
+    await cleanupRuntimeResources({
+      clearRootContainer: () => {
         this.rootContainer = undefined;
-        this.logger?.debug('Root container disposed');
-      }
-
-      // 3. 销毁应用级生命周期管理器
-      this.logger?.debug('Disposing application lifecycle manager...');
-
-      this.logger?.debug('Application lifecycle manager disposed');
-
-      this.logger?.debug('✅ Cleanup completed successfully');
-    } catch (error) {
-      this.logger?.error({ err: error }, '❌ Error during cleanup');
-      throw error; // 重新抛出错误，确保调用者知道清理失败
-    }
-  }
-
-  /**
-   * 执行立即初始化
-   */
-  private async executeEagerInitialization(): Promise<void> {
-    try {
-      this.logger?.debug('Starting eager initialization...');
-
-      // 目前简化实现：直接从根容器中查找需要立即初始化的服务
-      // 这是一个临时方案，后续会与插件系统完全集成
-      if (this.rootContainer) {
-        const registrations = this.rootContainer.registrations;
-        const eagerInitServices: string[] = [];
-
-        // 扫描所有注册的服务，查找标记为立即初始化的
-        for (const [name, registration] of Object.entries(registrations)) {
-          try {
-            // 尝试获取服务的RESOLVER选项
-            const resolver = (registration as any).resolver;
-            if (resolver && resolver.eagerInit) {
-              eagerInitServices.push(name);
-            }
-          } catch {
-            // 忽略获取resolver选项时的错误
-          }
-        }
-
-        if (eagerInitServices.length > 0) {
-          this.logger?.info(
-            `Found ${eagerInitServices.length} services marked for eager initialization`
-          );
-
-          // 按优先级排序并立即创建实例
-          for (const serviceName of eagerInitServices) {
-            try {
-              const startTime = Date.now();
-              const instance = this.rootContainer.resolve(serviceName) as
-                | EagerInitializable
-                | undefined;
-
-              // 如果实例有initialize方法，调用它
-              if (instance && typeof instance.initialize === 'function') {
-                await Promise.resolve(instance.initialize());
-              }
-
-              const duration = Date.now() - startTime;
-              this.logger?.debug(
-                `✅ Eager initialized: ${serviceName} in ${duration}ms`
-              );
-            } catch (error) {
-              this.logger?.error(
-                { err: error, serviceName },
-                `❌ Failed to eager initialize: ${serviceName}`
-              );
-            }
-          }
-        } else {
-          this.logger?.debug('No services marked for eager initialization');
-        }
-      }
-    } catch (error) {
-      this.logger?.error({ err: error }, 'Error during eager initialization');
-      // 不抛出错误，避免影响应用启动
-    }
+      },
+      fastifyInstance: this.fastifyInstance,
+      logger: this.logger,
+      rootContainer: this.rootContainer
+    });
   }
 
   /**

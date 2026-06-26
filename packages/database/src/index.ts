@@ -60,8 +60,11 @@ export type { Maybe as Option } from '@stratix/core/functional';
 // 导出 Kysely 工具函数
 export { sql } from 'kysely';
 
-import type { FastifyInstance, FastifyPluginAsync } from '@stratix/core';
-import { withRegisterAutoDI } from '@stratix/core';
+import type {
+  FastifyInstance,
+  FastifyPluginAsync
+} from '@stratix/core/plugin';
+import { withRegisterAutoDI } from '@stratix/core/plugin';
 import { get, isDevelopment } from '@stratix/core/environment';
 
 export type { DatabaseConfig, DatabasePluginOptions } from './types/index.js';

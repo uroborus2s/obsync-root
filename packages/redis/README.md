@@ -62,7 +62,7 @@ export default function createConfig(): StratixConfig {
 
 ```typescript
 // src/services/CacheService.ts
-import { RESOLVER } from '@stratix/core';
+import { RESOLVER } from '@stratix/core/plugin';
 import type { RedisAdapter } from '@stratix/redis';
 
 export interface ICacheService {

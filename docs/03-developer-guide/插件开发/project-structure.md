@@ -39,8 +39,10 @@ src/
 这是插件入口。一个由 create 生成的典型入口会长这样：
 
 ```ts
-import type { FastifyInstance } from '@stratix/core';
-import { withRegisterAutoDI } from '@stratix/core';
+import {
+  type FastifyInstance,
+  withRegisterAutoDI
+} from '@stratix/core/plugin';
 import type { IntegrationPluginOptions } from './config/plugin-config.js';
 
 async function pingPlugin(

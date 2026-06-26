@@ -24,6 +24,7 @@
 - `@stratix/core/utils`
 
 <a id="page-summary"></a>
+
 ## 页面摘要
 
 - 这一页是 Core 侧总览，先帮你判断应该查哪一组导入路径，再决定是否进入细分页。
@@ -31,6 +32,7 @@
 - 如果你已经知道主题，可以直接用下方页内导航跳到对应导入路径，或进入更细的专题页。
 
 <a id="page-nav"></a>
+
 ## 页内导航
 
 - [@stratix/core](#root-core)
@@ -44,6 +46,7 @@
 - [完整导出清单](#complete-exports)
 
 <a id="root-core"></a>
+
 ## `@stratix/core`
 
 ### `Stratix.run(options?, extraStream?)`
@@ -67,15 +70,15 @@ const result = await app.inject({
 
 参数：
 
-| 参数 | 类型 | 说明 |
-|---|---|---|
-| `options` | `StratixRunOptions` | 启动配置，决定应用类型、debug、环境、配置来源、关闭行为等 |
-| `extraStream` | `any` | 额外日志流。需要把日志同时发到 WebSocket、文件流等场景时使用 |
+| 参数          | 类型                | 说明                                                         |
+| ------------- | ------------------- | ------------------------------------------------------------ |
+| `options`     | `StratixRunOptions` | 启动配置，决定应用类型、debug、环境、配置来源、关闭行为等    |
+| `extraStream` | `any`               | 额外日志流。需要把日志同时发到 WebSocket、文件流等场景时使用 |
 
 返回值：
 
-| 返回值 | 说明 |
-|---|---|
+| 返回值                        | 说明                                                                                           |
+| ----------------------------- | ---------------------------------------------------------------------------------------------- |
 | `Promise<StratixApplication>` | 已启动的应用实例，常用字段包括 `fastify`、`diContainer`、`inject()`、`stop()`、`healthCheck()` |
 
 适合：
@@ -98,23 +101,24 @@ await runtime.stop();
 
 常用实例方法：
 
-| 方法 | 作用 | 返回值 |
-|---|---|---|
-| `start(options?)` | 启动应用 | `Promise<StratixApplication>` |
-| `stop()` | 停止当前应用 | `Promise<void>` |
-| `restart(options?)` | 重启应用 | `Promise<StratixApplication>` |
-| `getApplication()` | 获取当前应用实例 | `StratixApplication \| null` |
-| `isRunning()` | 当前是否已启动 | `boolean` |
-| `getStatus()` | 获取运行状态摘要 | `any` |
-| `cleanup()` | 清理资源，本质上会调用 `stop()` | `Promise<void>` |
+| 方法                | 作用                            | 返回值                        |
+| ------------------- | ------------------------------- | ----------------------------- |
+| `start(options?)`   | 启动应用                        | `Promise<StratixApplication>` |
+| `stop()`            | 停止当前应用                    | `Promise<void>`               |
+| `restart(options?)` | 重启应用                        | `Promise<StratixApplication>` |
+| `getApplication()`  | 获取当前应用实例                | `StratixApplication \| null`  |
+| `isRunning()`       | 当前是否已启动                  | `boolean`                     |
+| `getStatus()`       | 获取运行状态摘要                | `any`                         |
+| `cleanup()`         | 清理资源，本质上会调用 `stop()` | `Promise<void>`               |
 
 ### `ApplicationBootstrap`
 
-框架内部真正的启动器。  
-只有当你需要接管完整启动流程时，才建议直接使用它。
+框架内部真正的启动器，已从 root 公共入口移到 `@stratix/core/internal`。
+普通应用应优先使用 `Stratix.run()` 或 `new Stratix().start()`；只有框架维护、迁移工具或受控高级场景才建议直接使用它。
 
 ```ts
-import { ApplicationBootstrap, createLogger } from '@stratix/core';
+import { createLogger } from '@stratix/core';
+import { ApplicationBootstrap } from '@stratix/core/internal';
 
 const logger = createLogger();
 const bootstrap = new ApplicationBootstrap(logger);
@@ -123,12 +127,12 @@ const app = await bootstrap.bootstrap({ type: 'web' });
 
 关键方法：
 
-| 方法 | 说明 |
-|---|---|
+| 方法                  | 说明                                                                               |
+| --------------------- | ---------------------------------------------------------------------------------- |
 | `bootstrap(options?)` | 负责环境加载、配置加载、容器初始化、Fastify 初始化、插件加载、应用级 AutoDI 和启动 |
-| `stop()` | 停止应用并清理资源 |
-| `restart(options?)` | 用新参数重启 |
-| `getStatus()` | 获取 `BootstrapStatus` |
+| `stop()`              | 停止应用并清理资源                                                                 |
+| `restart(options?)`   | 用新参数重启                                                                       |
+| `getStatus()`         | 获取 `BootstrapStatus`                                                             |
 
 ### `withRegisterAutoDI(plugin, config?)`
 
@@ -136,7 +140,7 @@ const app = await bootstrap.bootstrap({ type: 'web' });
 它会自动扫描并注册插件目录下的控制器、服务、仓储、组件和适配器。
 
 ```ts
-import { withRegisterAutoDI } from '@stratix/core';
+import { withRegisterAutoDI } from '@stratix/core/plugin';
 
 async function redisPlugin(fastify) {
   fastify.get('/ping', async () => ({ ok: true }));
@@ -166,27 +170,27 @@ export default withRegisterAutoDI(redisPlugin, {
 
 参数：
 
-| 参数 | 类型 | 说明 |
-|---|---|---|
-| `plugin` | `FastifyPluginAsync<T> \| FastifyPluginCallback<T>` | 原始 Fastify 插件 |
-| `config` | `Partial<AutoDIConfig>` | AutoDI 配置，会和默认值合并 |
+| 参数     | 类型                                                | 说明                        |
+| -------- | --------------------------------------------------- | --------------------------- |
+| `plugin` | `FastifyPluginAsync<T> \| FastifyPluginCallback<T>` | 原始 Fastify 插件           |
+| `config` | `Partial<AutoDIConfig>`                             | AutoDI 配置，会和默认值合并 |
 
 `AutoDIConfig` 核心字段：
 
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| `discovery.patterns` | `string[]` | 需要扫描的模块模式 |
-| `discovery.baseDir` | `string` | 显式指定基础目录，默认自动推断 |
-| `routing.enabled` | `boolean` | 是否自动注册控制器路由 |
-| `routing.prefix` | `string` | 统一路由前缀，推荐在这里配置 |
-| `routing.validation` | `boolean` | 是否启用路由验证 |
-| `services.enabled` | `boolean` | 是否注册适配器 |
-| `services.patterns` | `string[]` | 适配器扫描模式 |
-| `lifecycle.enabled` | `boolean` | 是否启用生命周期管理 |
-| `lifecycle.errorHandling` | `'throw' \| 'log' \| 'ignore'` | 生命周期错误处理方式 |
-| `parameterProcessor` | `<T>(options: T) => T` | 插件启动前改写参数 |
-| `parameterValidator` | `<T>(options: T) => boolean` | 插件启动前校验参数 |
-| `debug` | `boolean` | 是否输出调试信息 |
+| 字段                      | 类型                           | 说明                           |
+| ------------------------- | ------------------------------ | ------------------------------ |
+| `discovery.patterns`      | `string[]`                     | 需要扫描的模块模式             |
+| `discovery.baseDir`       | `string`                       | 显式指定基础目录，默认自动推断 |
+| `routing.enabled`         | `boolean`                      | 是否自动注册控制器路由         |
+| `routing.prefix`          | `string`                       | 统一路由前缀，推荐在这里配置   |
+| `routing.validation`      | `boolean`                      | 是否启用路由验证               |
+| `services.enabled`        | `boolean`                      | 是否注册适配器                 |
+| `services.patterns`       | `string[]`                     | 适配器扫描模式                 |
+| `lifecycle.enabled`       | `boolean`                      | 是否启用生命周期管理           |
+| `lifecycle.errorHandling` | `'throw' \| 'log' \| 'ignore'` | 生命周期错误处理方式           |
+| `parameterProcessor`      | `<T>(options: T) => T`         | 插件启动前改写参数             |
+| `parameterValidator`      | `<T>(options: T) => boolean`   | 插件启动前校验参数             |
+| `debug`                   | `boolean`                      | 是否输出调试信息               |
 
 使用建议：
 
@@ -214,8 +218,8 @@ class UserController {
 
 参数：
 
-| 参数 | 类型 | 说明 |
-|---|---|---|
+| 参数      | 类型                | 说明             |
+| --------- | ------------------- | ---------------- |
 | `options` | `ControllerOptions` | 控制器元数据配置 |
 
 注意：
@@ -229,15 +233,15 @@ class UserController {
 
 参数：
 
-| 参数 | 类型 | 说明 |
-|---|---|---|
-| `path` | `string` | 路由路径，默认 `'/'`，会自动补全 `/` 前缀 |
+| 参数   | 类型                    | 说明                                          |
+| ------ | ----------------------- | --------------------------------------------- |
+| `path` | `string`                | 路由路径，默认 `'/'`，会自动补全 `/` 前缀     |
 | `opts` | `RouteShorthandOptions` | Fastify 路由选项，例如 `schema`、`preHandler` |
 
 返回值：
 
-| 返回值 | 说明 |
-|---|---|
+| 返回值            | 说明                                         |
+| ----------------- | -------------------------------------------- |
 | `MethodDecorator` | 标准方法装饰器，供 AutoDI 在扫描控制器时读取 |
 
 常见错误：
@@ -250,13 +254,19 @@ class UserController {
 
 路由方法装饰器上的 `schema` 是当前 API 契约的唯一来源。Core 提供契约提取、校验和 OpenAPI 生成能力：
 
-| API | 作用 |
-|---|---|
-| `getControllerRouteContracts(controllerClass)` | 从控制器类提取路由契约 |
-| `validateRouteContracts(contracts, options?)` | 检查是否缺少 schema、response schema 或 operationId |
-| `generateOpenApiDocument(contracts, options)` | 生成 OpenAPI 3.1 文档对象 |
+| API                                            | 作用                                                |
+| ---------------------------------------------- | --------------------------------------------------- |
+| `getControllerRouteContracts(controllerClass)` | 从控制器类提取路由契约                              |
+| `validateRouteContracts(contracts, options?)`  | 检查是否缺少 schema、response schema 或 operationId |
+| `generateOpenApiDocument(contracts, options)`  | 生成 OpenAPI 3.1 文档对象                           |
 
 ```ts
+import {
+  generateOpenApiDocument,
+  getControllerRouteContracts,
+  validateRouteContracts
+} from '@stratix/core/contracts';
+
 const contracts = getControllerRouteContracts(UserController);
 const diagnostics = validateRouteContracts(contracts, {
   requireSchema: true,
@@ -272,26 +282,31 @@ const document = generateOpenApiDocument(contracts, {
 
 应用级 discovery 会记录 DI 注册元数据。Core 提供图谱和诊断函数，用于发现重复 token、缺失依赖和循环依赖：
 
-| API | 作用 |
-|---|---|
-| `recordDIRegistration(container, record)` | 记录 DI 注册元数据 |
-| `createDIGraph(container)` | 生成 DI 图 |
-| `diagnoseDIGraph(graph, options?)` | 诊断 DI 图 |
-| `runDIDiagnostics(container, options?)` | 一次性生成图并返回诊断结果 |
-| `extractConstructorDependencies(target)` | 从构造函数参数名提取依赖 token |
+| API                                       | 作用                           |
+| ----------------------------------------- | ------------------------------ |
+| `recordDIRegistration(container, record)` | 记录 DI 注册元数据             |
+| `createDIGraph(container)`                | 生成 DI 图                     |
+| `diagnoseDIGraph(graph, options?)`        | 诊断 DI 图                     |
+| `runDIDiagnostics(container, options?)`   | 一次性生成图并返回诊断结果     |
+| `extractConstructorDependencies(target)`  | 从构造函数参数名提取依赖 token |
+
+```ts
+import { createDIGraph, runDIDiagnostics } from '@stratix/core/diagnostics';
+```
 
 ### 校验装饰器
 
 这组装饰器负责写入校验元数据，本身不直接替你执行 DTO 校验流程。
 
-| 装饰器 | 参数 | 作用 |
-|---|---|---|
+| 装饰器               | 参数           | 作用         |
+| -------------------- | -------------- | ------------ |
 | `Required(message?)` | 自定义错误消息 | 标记字段必填 |
 | `IsString(message?)` | 自定义错误消息 | 必须是字符串 |
-| `IsNumber(message?)` | 自定义错误消息 | 必须是数字 |
-| `IsEmail(message?)` | 自定义错误消息 | 必须是邮箱 |
+| `IsNumber(message?)` | 自定义错误消息 | 必须是数字   |
+| `IsEmail(message?)`  | 自定义错误消息 | 必须是邮箱   |
 
 <a id="core-context"></a>
+
 ## `@stratix/core/context`
 
 ### `createContext(defaultValues?)`
@@ -311,32 +326,33 @@ console.log(ctx.get('userId'));
 
 参数：
 
-| 参数 | 类型 | 说明 |
-|---|---|---|
+| 参数            | 类型         | 说明     |
+| --------------- | ------------ | -------- |
 | `defaultValues` | `Partial<T>` | 默认状态 |
 
 返回值：`IContext<T>`
 
 常用方法：
 
-| 方法 | 作用 |
-|---|---|
-| `get(key)` | 读取字段 |
-| `set(key, value)` | 写入字段并返回当前上下文 |
-| `has(key)` | 判断字段是否存在 |
-| `remove(key)` | 删除字段，若有默认值则恢复默认值 |
-| `getAll()` | 获取快照 |
-| `onChange(handler)` | 监听整体变更 |
-| `subscribe(key, handler)` | 监听某个字段 |
-| `setDefaults(defaultValues)` | 更新默认值 |
-| `withHandler(handler)` | 把内部状态对象交给处理函数 |
-| `clear()` | 清空并恢复默认值 |
+| 方法                         | 作用                             |
+| ---------------------------- | -------------------------------- |
+| `get(key)`                   | 读取字段                         |
+| `set(key, value)`            | 写入字段并返回当前上下文         |
+| `has(key)`                   | 判断字段是否存在                 |
+| `remove(key)`                | 删除字段，若有默认值则恢复默认值 |
+| `getAll()`                   | 获取快照                         |
+| `onChange(handler)`          | 监听整体变更                     |
+| `subscribe(key, handler)`    | 监听某个字段                     |
+| `setDefaults(defaultValues)` | 更新默认值                       |
+| `withHandler(handler)`       | 把内部状态对象交给处理函数       |
+| `clear()`                    | 清空并恢复默认值                 |
 
 ### `createNamespace(name, defaultValues?)`
 
 和 `createContext()` 类似，但多一个 `name` 字段，适合多命名空间并存的场景。
 
 <a id="core-environment"></a>
+
 ## `@stratix/core/environment`
 
 ### `get(key, defaultValue?, transform?)`
@@ -352,30 +368,31 @@ const port = get('APP_PORT', '3000', (value) => Number(value));
 
 参数：
 
-| 参数 | 类型 | 说明 |
-|---|---|---|
-| `key` | `string` | 环境变量名 |
-| `defaultValue` | `string` | 默认值 |
-| `transform` | `(value: string) => T` | 自定义转换函数 |
+| 参数           | 类型                   | 说明           |
+| -------------- | ---------------------- | -------------- |
+| `key`          | `string`               | 环境变量名     |
+| `defaultValue` | `string`               | 默认值         |
+| `transform`    | `(value: string) => T` | 自定义转换函数 |
 
 返回值：`string | T | undefined`
 
 ### 其他环境 API
 
-| API | 作用 |
-|---|---|
-| `getBoolean(key, defaultValue?)` | 把 `true/1/yes` 视为 `true` |
-| `getNumber(key, defaultValue?)` | 转数字，失败时退默认值 |
-| `getArray(key, defaultValue?, separator?)` | 按分隔符拆数组 |
-| `getObject(key, defaultValue?)` | 把 JSON 字符串转成对象 |
-| `required(key, message?)` | 必填，不存在就抛错 |
-| `hasEnv(key)` | 检查是否存在 |
-| `getAll()` | 获取环境变量副本 |
-| `set(key, value)` | 只在当前运行时写入 `process.env` |
-| `getNodeEnv()` | 获取 `NODE_ENV` |
-| `isDevelopment()` / `isProduction()` / `isTest()` | 判断环境 |
+| API                                               | 作用                             |
+| ------------------------------------------------- | -------------------------------- |
+| `getBoolean(key, defaultValue?)`                  | 把 `true/1/yes` 视为 `true`      |
+| `getNumber(key, defaultValue?)`                   | 转数字，失败时退默认值           |
+| `getArray(key, defaultValue?, separator?)`        | 按分隔符拆数组                   |
+| `getObject(key, defaultValue?)`                   | 把 JSON 字符串转成对象           |
+| `required(key, message?)`                         | 必填，不存在就抛错               |
+| `hasEnv(key)`                                     | 检查是否存在                     |
+| `getAll()`                                        | 获取环境变量副本                 |
+| `set(key, value)`                                 | 只在当前运行时写入 `process.env` |
+| `getNodeEnv()`                                    | 获取 `NODE_ENV`                  |
+| `isDevelopment()` / `isProduction()` / `isTest()` | 判断环境                         |
 
 <a id="core-data"></a>
+
 ## `@stratix/core/data`
 
 ### 高频对象工具
@@ -414,31 +431,32 @@ const summary = pick(user, ['id', 'name']);
 
 ### 高频合并工具
 
-| API | 作用 |
-|---|---|
-| `assign(target, ...sources)` | 浅合并，后面的覆盖前面的 |
-| `defaults(target, ...sources)` | 只补缺失字段 |
-| `deepClone(value)` | 深拷贝 |
-| `deepMerge(target, source)` | 深度合并 |
-| `immutableDeepMerge(target, source)` | 返回新的深度合并结果 |
+| API                                  | 作用                     |
+| ------------------------------------ | ------------------------ |
+| `assign(target, ...sources)`         | 浅合并，后面的覆盖前面的 |
+| `defaults(target, ...sources)`       | 只补缺失字段             |
+| `deepClone(value)`                   | 深拷贝                   |
+| `deepMerge(target, source)`          | 深度合并                 |
+| `immutableDeepMerge(target, source)` | 返回新的深度合并结果     |
 
 ### 高频数组与比较工具
 
-| API | 作用 |
-|---|---|
-| `chunk(array, size?)` | 分块 |
-| `compact(array)` | 去假值 |
-| `difference(array, ...values)` | 差集 |
-| `flatten(array, depth?)` | 扁平化 |
-| `groupBy(array, iteratee)` | 分组 |
-| `keyBy(array, iteratee)` | 生成映射 |
-| `take(array, count)` | 取前 N 项 |
-| `unique(array)` | 去重 |
-| `isEmpty(value)` | 检查空值 |
-| `isNotEmpty(value)` | 非空检查 |
-| `isEqual(value, other)` | 深度比较 |
+| API                            | 作用      |
+| ------------------------------ | --------- |
+| `chunk(array, size?)`          | 分块      |
+| `compact(array)`               | 去假值    |
+| `difference(array, ...values)` | 差集      |
+| `flatten(array, depth?)`       | 扁平化    |
+| `groupBy(array, iteratee)`     | 分组      |
+| `keyBy(array, iteratee)`       | 生成映射  |
+| `take(array, count)`           | 取前 N 项 |
+| `unique(array)`                | 去重      |
+| `isEmpty(value)`               | 检查空值  |
+| `isNotEmpty(value)`            | 非空检查  |
+| `isEqual(value, other)`        | 深度比较  |
 
 <a id="core-async"></a>
+
 ## `@stratix/core/async`
 
 ### `sleep(ms)`
@@ -452,7 +470,9 @@ await sleep(500);
 ```
 
 ### `executeParallel(promises, options?)`
+
 ### `executeSequential(promises, options?)`
+
 ### `executeMixed(promises, options?)`
 
 这三组 API 用于批量执行异步任务。
@@ -460,35 +480,35 @@ await sleep(500);
 ```ts
 import { executeParallel } from '@stratix/core/async';
 
-const result = await executeParallel([
-  () => repo.getById('1'),
-  () => repo.getById('2')
-], {
-  timeout: 3000,
-  failFast: false
-});
+const result = await executeParallel(
+  [() => repo.getById('1'), () => repo.getById('2')],
+  {
+    timeout: 3000,
+    failFast: false
+  }
+);
 ```
 
 参数：
 
-| 参数 | 类型 | 说明 |
-|---|---|---|
-| `promises` | `Array<() => Promise<T>>` | 任务函数数组 |
-| `options.concurrency` | `number` | `executeMixed()` 时常用的并发限制 |
-| `options.timeout` | `number` | 单任务超时 |
-| `options.signal` | `AbortSignal` | 取消信号 |
-| `options.failFast` | `boolean` | 出错时是否立即停止 |
+| 参数                  | 类型                      | 说明                              |
+| --------------------- | ------------------------- | --------------------------------- |
+| `promises`            | `Array<() => Promise<T>>` | 任务函数数组                      |
+| `options.concurrency` | `number`                  | `executeMixed()` 时常用的并发限制 |
+| `options.timeout`     | `number`                  | 单任务超时                        |
+| `options.signal`      | `AbortSignal`             | 取消信号                          |
+| `options.failFast`    | `boolean`                 | 出错时是否立即停止                |
 
 返回值：`PromiseResult<T>`
 
-| 字段 | 说明 |
-|---|---|
-| `results` | 成功结果数组 |
-| `errors` | 失败错误数组 |
-| `stats.total` | 总任务数 |
-| `stats.successful` | 成功数量 |
-| `stats.failed` | 失败数量 |
-| `stats.duration` | 总耗时 |
+| 字段               | 说明         |
+| ------------------ | ------------ |
+| `results`          | 成功结果数组 |
+| `errors`           | 失败错误数组 |
+| `stats.total`      | 总任务数     |
+| `stats.successful` | 成功数量     |
+| `stats.failed`     | 失败数量     |
+| `stats.duration`   | 总耗时       |
 
 选择建议：
 
@@ -508,61 +528,63 @@ const queue = new SmartQueue({
   autoStart: true
 });
 
-const taskId = await queue.add(
-  async () => processOrder('o_1'),
-  { priority: TaskPriority.High, retries: 2 }
-);
+const taskId = await queue.add(async () => processOrder('o_1'), {
+  priority: TaskPriority.High,
+  retries: 2
+});
 ```
 
 `QueueConfig`：
 
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| `maxConcurrency` | `number` | 最大并发数 |
-| `maxQueueSize` | `number` | 队列最大长度 |
-| `backpressureThreshold` | `number` | 背压阈值 |
-| `autoStart` | `boolean` | 创建后自动启动 |
-| `defaultTimeout` | `number` | 默认超时 |
-| `defaultRetries` | `number` | 默认重试次数 |
+| 字段                    | 类型      | 说明           |
+| ----------------------- | --------- | -------------- |
+| `maxConcurrency`        | `number`  | 最大并发数     |
+| `maxQueueSize`          | `number`  | 队列最大长度   |
+| `backpressureThreshold` | `number`  | 背压阈值       |
+| `autoStart`             | `boolean` | 创建后自动启动 |
+| `defaultTimeout`        | `number`  | 默认超时       |
+| `defaultRetries`        | `number`  | 默认重试次数   |
 
 常用方法：
 
-| 方法 | 作用 |
-|---|---|
-| `add(fn, options?)` | 加任务并返回任务 ID |
-| `start()` / `stop()` / `pause()` | 控制队列 |
-| `cancel(taskId)` | 取消任务 |
-| `getTaskStatus(taskId)` | 查状态 |
-| `getStats()` | 查统计 |
-| `waitForTask(taskId)` | 等某个任务完成 |
-| `waitForAll()` | 等全部完成 |
+| 方法                             | 作用                |
+| -------------------------------- | ------------------- |
+| `add(fn, options?)`              | 加任务并返回任务 ID |
+| `start()` / `stop()` / `pause()` | 控制队列            |
+| `cancel(taskId)`                 | 取消任务            |
+| `getTaskStatus(taskId)`          | 查状态              |
+| `getStats()`                     | 查统计              |
+| `waitForTask(taskId)`            | 等某个任务完成      |
+| `waitForAll()`                   | 等全部完成          |
 
 <a id="core-auth"></a>
+
 ## `@stratix/core/auth`
 
 这一组 API 假设用户身份由网关通过请求头透传进来。
 
 ### 核心类型
 
-| 类型 | 说明 |
-|---|---|
-| `UserIdentity` | 解析后的用户身份 |
-| `IdentityHeaders` | 身份请求头结构 |
-| `IdentityErrorType` | 鉴权错误类型 |
-| `IdentityValidationResult` | 请求头解析结果 |
-| `IdentityContext` | 请求内身份上下文 |
-| `OnRequestPermissionHookOptions` | 权限 Hook 配置 |
+| 类型                             | 说明             |
+| -------------------------------- | ---------------- |
+| `UserIdentity`                   | 解析后的用户身份 |
+| `IdentityHeaders`                | 身份请求头结构   |
+| `IdentityErrorType`              | 鉴权错误类型     |
+| `IdentityValidationResult`       | 请求头解析结果   |
+| `IdentityContext`                | 请求内身份上下文 |
+| `OnRequestPermissionHookOptions` | 权限 Hook 配置   |
 
 ### 权限函数
 
-| API | 作用 |
-|---|---|
-| `hasPermission(user, permission)` | 判断是否有指定权限 |
-| `hasRole(user, role)` | 判断是否有指定角色 |
-| `hasUserType(user, userType)` | 判断用户类型 |
+| API                                | 作用                          |
+| ---------------------------------- | ----------------------------- |
+| `hasPermission(user, permission)`  | 判断是否有指定权限            |
+| `hasRole(user, role)`              | 判断是否有指定角色            |
+| `hasUserType(user, userType)`      | 判断用户类型                  |
 | `onRequestPermissionHook(options)` | 生成 Fastify `onRequest` Hook |
 
 <a id="core-logger"></a>
+
 ## `@stratix/core/logger`
 
 ### `createLogger(options?, destination?)`
@@ -577,16 +599,17 @@ const taskId = await queue.add(
 
 参数：
 
-| 参数 | 类型 | 说明 |
-|---|---|---|
-| `options` | `StratixRunOptions` | 启动参数，可带 logger 配置 |
-| `extraStream` | `any` | 额外日志流 |
+| 参数          | 类型                | 说明                       |
+| ------------- | ------------------- | -------------------------- |
+| `options`     | `StratixRunOptions` | 启动参数，可带 logger 配置 |
+| `extraStream` | `any`               | 额外日志流                 |
 
 ### `getLogger()`
 
 获取当前统一 logger；如果统一 logger 还没初始化，会回退到 `console`。
 
 <a id="core-utils"></a>
+
 ## `@stratix/core/utils`
 
 这是一个聚合出口。  
@@ -617,15 +640,15 @@ const taskId = await queue.add(
 
 `ErrorUtils` 是一组函数式错误处理工具，常用的有：
 
-| API | 作用 |
-|---|---|
-| `extractMessage(error)` | 从未知错误里提取消息 |
-| `wrapError(error, options)` | 给错误补上下文并返回新错误 |
-| `safeExecute(fn, options)` | 失败时返回默认值 |
-| `safeExecuteSync(fn, options)` | 同步版本安全执行 |
-| `createErrorWrapper(context, logger?)` | 创建预绑定上下文的包装器 |
+| API                                                      | 作用                           |
+| -------------------------------------------------------- | ------------------------------ |
+| `extractMessage(error)`                                  | 从未知错误里提取消息           |
+| `wrapError(error, options)`                              | 给错误补上下文并返回新错误     |
+| `safeExecute(fn, options)`                               | 失败时返回默认值               |
+| `safeExecuteSync(fn, options)`                           | 同步版本安全执行               |
+| `createErrorWrapper(context, logger?)`                   | 创建预绑定上下文的包装器       |
 | `createSafeRunner(component, logger?, defaultLogLevel?)` | 创建预绑定组件名的安全运行函数 |
-| `formatForLogging(error, context?)` | 生成结构化日志对象 |
+| `formatForLogging(error, context?)`                      | 生成结构化日志对象             |
 
 #### `withErrorHandling(fn, context, logger?)`
 
@@ -637,26 +660,22 @@ const taskId = await queue.add(
 
 参数：
 
-| 参数 | 类型 | 说明 |
-|---|---|---|
-| `fn` | `() => Promise<T>` | 要执行的异步任务 |
-| `options.maxRetries` | `number` | 最大重试次数 |
-| `options.delay` | `number` | 初始延迟，默认 `1000` |
-| `options.backoff` | `'linear' \| 'exponential'` | 退避策略 |
-| `options.logger` | `Logger` | 可选日志器 |
-| `options.context` | `string` | 可选上下文名 |
+| 参数                 | 类型                        | 说明                  |
+| -------------------- | --------------------------- | --------------------- |
+| `fn`                 | `() => Promise<T>`          | 要执行的异步任务      |
+| `options.maxRetries` | `number`                    | 最大重试次数          |
+| `options.delay`      | `number`                    | 初始延迟，默认 `1000` |
+| `options.backoff`    | `'linear' \| 'exponential'` | 退避策略              |
+| `options.logger`     | `Logger`                    | 可选日志器            |
+| `options.context`    | `string`                    | 可选上下文名          |
 
 <a id="complete-exports"></a>
+
 ## 完整导出清单
 
 ### `@stratix/core`
 
 - `Stratix`
-- `ApplicationBootstrap`
-- `BootstrapPhase`
-- `ApplicationDiscoveryPipeline`
-- `ApplicationDiscoveryConfig`
-- `ApplicationDiscoveryResult`
 - `Controller`
 - `Service`
 - `Repository`
@@ -676,28 +695,12 @@ const taskId = await queue.add(
 - `ROUTE_METADATA_KEY`
 - `CONTROLLER_METADATA_KEY`
 - `MetadataManager`
-- `getControllerRouteContracts`
-- `validateRouteContracts`
-- `generateOpenApiDocument`
-- `recordDIRegistration`
-- `createDIGraph`
-- `diagnoseDIGraph`
-- `runDIDiagnostics`
-- `extractConstructorDependencies`
-- `withRegisterAutoDI`
-- `ConventionBasedLifecycleManager`
-- `FASTIFY_LIFECYCLE_METHODS`
-- `ensureAwilixPlugin`
-- `performAutoRegistration`
-- `registerControllerRoutes`
-- `registerServiceAdapters`
-- `processModulesUnified`
-- `processSingleModule`
-- `processPluginParameters`
-- `resolveBasePath`
-- `getCallerFilePath`
-- `getPluginName`
-- `isAsyncPlugin`
+- `HttpError`
+- `ConfigurationError`
+- `DiscoveryError`
+- `RegistrationError`
+- `PluginLoadError`
+- `StratixError`
 - `createLogger`
 - `getLogger`
 - `LoggerFactory`
@@ -710,6 +713,69 @@ const taskId = await queue.add(
 - `loadConfigFromFile`
 - `saveConfigToFile`
 - `FileScanner`
+
+### `@stratix/core/plugin`
+
+- `withRegisterAutoDI`
+- `fp`
+- `RESOLVER`
+- `Lifetime`
+- `asFunction`
+- `asValue`
+- `AwilixContainer`
+- `FastifyInstance`
+- `FastifyPluginAsync`
+- `FastifyPluginOptions`
+- `FastifyReply`
+- `FastifyRequest`
+- `processPluginParameters`
+- `resolveBasePath`
+- `getPluginName`
+- `AutoDIConfig`
+
+### `@stratix/core/contracts`
+
+- `getControllerRouteContracts`
+- `validateRouteContracts`
+- `generateOpenApiDocument`
+- `RouteContract`
+- `RouteContractDiagnostic`
+- `OpenApiDocument`
+
+### `@stratix/core/diagnostics`
+
+- `recordDIRegistration`
+- `createDIGraph`
+- `diagnoseDIGraph`
+- `runDIDiagnostics`
+- `extractConstructorDependencies`
+- `DIRegistrationRecord`
+- `DIRegistrationConfidence`
+- `DIGraph`
+- `DIDiagnostic`
+
+### `@stratix/core/experimental`
+
+- `createRegistrationPlan`
+- `recordRegistrationPlan`
+- `registerRegistrationPlanToken`
+
+### `@stratix/core/internal`
+
+- `ApplicationBootstrap`
+- `BootstrapPhase`
+- `BootstrapStatus`
+- `ApplicationDiscoveryRegistrar`
+- `ApplicationDiscoveryPipeline`
+- `ApplicationDiscoveryConfig`
+- `ApplicationDiscoveryResult`
+- `LoadedProductionManifest`
+- `ProductionManifest`
+- `ProductionManifestV1`
+- `ProductionManifestV2`
+- `registerControllerRoutes`
+
+`@stratix/core/internal` 是 Stratix 维护包和迁移工具的白名单出口，不是插件作者的稳定扩展面。`performAutoRegistration`、`registerServiceAdapters`、`processModulesUnified`、`processSingleModule`、`ConventionBasedLifecycleManager` 和 `FASTIFY_LIFECYCLE_METHODS` 属于实现细节，不从 `@stratix/core/internal` 承诺导出。
 
 ### `@stratix/core/context`
 

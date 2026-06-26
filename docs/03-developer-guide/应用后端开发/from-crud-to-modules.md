@@ -358,7 +358,7 @@ stratix add preset queue
 stratix generate business-repository order-sync
 ```
 
-`@stratix/tasks` 即将废弃，不再作为 1.1.0 新项目默认方案。已有项目如果依赖 tasks，应把迁移作为单独工作项，不要在模块化重构时顺手扩散。
+`@stratix/tasks` 已从当前仓库移除，不再作为 1.1.0 新项目方案。已有项目如果依赖 tasks，应把迁移作为单独工作项，不要在模块化重构时顺手扩散。
 
 如果你希望按域管理长流程，把队列 consumer、checkpoint repository 和编排 service 放在同一个业务模块里。框架负责发现带组件装饰器的 service / repository / controller；队列消费入口仍应由 queue 插件或应用启动流程明确注册。
 

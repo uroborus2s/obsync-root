@@ -629,6 +629,194 @@ describe('application discovery bootstrap integration', () => {
     expect(app.diContainer.hasRegistration('globOnlyService')).toBe(false);
   });
 
+  it('registers from the default .stratix production manifest path without an explicit discovery rootDir', async () => {
+    const root = await mkdtemp(
+      join(tmpdir(), 'stratix-bootstrap-default-manifest-root-')
+    );
+    await mkdir(join(root, '.stratix'));
+    await mkdir(join(root, 'src'));
+    await mkdir(join(root, 'dist'));
+    const sourceContent = [
+      `import { Controller, Get, Service } from '${coreImport}';`,
+      'class DefaultManifestService {',
+      "  name() { return 'default-root'; }",
+      '}',
+      'Service()(DefaultManifestService);',
+      'class DefaultManifestController {',
+      '  constructor(defaultManifestService) {',
+      '    this.defaultManifestService = defaultManifestService;',
+      '  }',
+      '  check() { return { service: this.defaultManifestService.name() }; }',
+      '}',
+      'Controller()(DefaultManifestController);',
+      'Get("/default-manifest")(',
+      '  DefaultManifestController.prototype,',
+      "  'check',",
+      "  Object.getOwnPropertyDescriptor(DefaultManifestController.prototype, 'check')",
+      ');',
+      'export { DefaultManifestService, DefaultManifestController };'
+    ].join('\n');
+    const compiledContent = sourceContent;
+    await writeFile(join(root, 'src', 'default-manifest.ts'), sourceContent);
+    await writeFile(
+      join(root, 'dist', 'default-manifest.mjs'),
+      compiledContent
+    );
+    const manifestPath = join(root, '.stratix', 'production-manifest.json');
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          schemaVersion: 2,
+          generatedAt: '2026-06-20T00:00:00.000Z',
+          generator: {
+            name: '@stratix/forge',
+            version: '1.1.0',
+            command: 'build-manifest'
+          },
+          runtime: {
+            packageName: '@stratix/core',
+            compatibleVersions: ['1.1.x'],
+            node: '>=24.0.0'
+          },
+          project: {
+            kind: 'app',
+            type: 'api',
+            runtime: 'web',
+            presets: []
+          },
+          discovery: {
+            rootDir: '.',
+            patterns: ['src/**/*.ts'],
+            routing: {
+              enabled: true
+            }
+          },
+          registrationPlan: {
+            id: 'production-manifest:default-root-app',
+            source: 'production-manifest',
+            owner: {
+              type: 'manifest',
+              name: 'default-root-app'
+            },
+            tokens: [
+              {
+                token: 'defaultManifestService',
+                kind: 'service',
+                registrationType: 'class',
+                scope: 'root',
+                visibility: 'public',
+                lifetime: 'SINGLETON',
+                injectionMode: 'CLASSIC',
+                dependencies: [],
+                source: 'src/default-manifest.ts',
+                metadata: {
+                  className: 'DefaultManifestService',
+                  sourceFile: 'src/default-manifest.ts',
+                  compiledFile: 'dist/default-manifest.mjs'
+                }
+              }
+            ],
+            routes: [
+              {
+                method: 'GET',
+                path: '/default-manifest',
+                controllerName: 'DefaultManifestController',
+                handlerName: 'check',
+                token: 'defaultManifestController',
+                scope: 'root',
+                source: 'src/default-manifest.ts',
+                metadata: {
+                  operationId: 'DefaultManifestController_check',
+                  sourceFile: 'src/default-manifest.ts',
+                  compiledFile: 'dist/default-manifest.mjs'
+                }
+              }
+            ],
+            adapters: [],
+            lifecycle: [],
+            diagnostics: []
+          },
+          artifacts: {
+            algorithm: 'sha256',
+            files: [
+              {
+                sourceFile: 'src/default-manifest.ts',
+                sourceHash: sha256(sourceContent),
+                compiledFile: 'dist/default-manifest.mjs',
+                compiledHash: sha256(compiledContent)
+              }
+            ]
+          },
+          routes: [
+            {
+              method: 'GET',
+              path: '/default-manifest',
+              operationId: 'DefaultManifestController_check',
+              controllerName: 'DefaultManifestController',
+              handlerName: 'check',
+              sourceFile: 'src/default-manifest.ts',
+              compiledFile: 'dist/default-manifest.mjs'
+            }
+          ],
+          di: {
+            tokens: [
+              {
+                token: 'defaultManifestService',
+                className: 'DefaultManifestService',
+                dependencies: [],
+                sourceFile: 'src/default-manifest.ts',
+                compiledFile: 'dist/default-manifest.mjs'
+              }
+            ],
+            issues: []
+          },
+          modules: [],
+          moduleIssues: [],
+          plugins: []
+        },
+        null,
+        2
+      )
+    );
+
+    const app = await Stratix.run({
+      type: 'cli',
+      gracefulShutdown: false,
+      config: {
+        server: {},
+        plugins: [],
+        autoLoad: {},
+        discovery: {
+          enabled: true,
+          routing: {
+            enabled: true,
+            prefix: '/api'
+          },
+          productionManifest: {
+            enabled: true,
+            path: manifestPath,
+            strict: true,
+            skipRuntimeDiscovery: true,
+            registerFromManifest: true
+          }
+        }
+      }
+    });
+    apps.push(app);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/default-manifest'
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ service: 'default-root' });
+    expect(app.diContainer.hasRegistration('defaultManifestService')).toBe(
+      true
+    );
+  });
+
   it('applies production observability and security presets', async () => {
     const app = await Stratix.run({
       type: 'cli',

@@ -18,7 +18,9 @@ function parseArgs(args: string[]): ParsedArgs {
       'yes',
       'dry-run',
       'strict',
-      'verbose'
+      'verbose',
+      'force',
+      'allow-deprecated'
     ],
     string: [
       'preset',

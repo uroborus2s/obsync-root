@@ -3,7 +3,8 @@
  * 使用 Redis 存储 WPS API 访问令牌，支持降级到内存存储
  */
 
-import { RESOLVER, type Logger } from '@stratix/core';
+import type { Logger } from '@stratix/core';
+import { RESOLVER } from '@stratix/core/plugin';
 import type { RedisAdapter } from '@stratix/redis';
 import type { AccessToken } from '../types/index.js';
 import type {

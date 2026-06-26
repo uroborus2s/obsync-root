@@ -54,6 +54,7 @@ export interface PresetManifest {
   version: string;
   displayName: string;
   description: string;
+  deprecated?: boolean;
   appliesTo: Array<{
     kind: 'app' | 'plugin';
     types?: string[];
@@ -275,6 +276,7 @@ export function parsePresetManifest(value: unknown): PresetManifest {
     version: expectString(value.version, 'version'),
     displayName: expectString(value.displayName, 'displayName'),
     description: expectString(value.description, 'description'),
+    deprecated: booleanValue(value.deprecated, false),
     appliesTo,
     requires: stringArray(value.requires),
     conflicts: stringArray(value.conflicts),

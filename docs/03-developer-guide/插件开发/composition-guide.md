@@ -29,7 +29,7 @@
 ### 长流程与后台执行
 
 - 推荐组合：`@stratix/core` + `@stratix/database`，需要异步消费时加 `@stratix/redis` + `@stratix/queue`
-- 说明：状态、checkpoint 和一致性边界放在 repository；队列负责异步消费。`@stratix/tasks` 即将废弃，只作为历史迁移项处理。
+- 说明：状态、checkpoint 和一致性边界放在 repository；队列负责异步消费。`@stratix/tasks` 已从当前仓库移除，只作为外部历史迁移项处理。
 
 ### WPS 集成
 

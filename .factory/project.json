@@ -17,10 +17,13 @@
     "node": ">=24.0.0",
     "pnpm": ">=10.33.0"
   },
-  "currentStage": "PHASE_6_LOCAL_95_CONTROLLED_RELEASE",
-  "recommendedNextStage": "Run the first remote GitHub Actions quality gate, then publish with maintainer npm credentials",
+  "currentStage": "PHASE_6_DEVELOPMENT_HARDENING_RELEASE_DEFERRED",
+  "recommendedNextStage": "Finish local development hardening, rerun the fixed closed-door rubric, then handle remote CI and npm publish as the final release phase",
   "sourceOfTruth": {
-    "stableCollaboration": ["AGENTS.md", "GEMINI.md"],
+    "stableCollaboration": [
+      "AGENTS.md",
+      "GEMINI.md"
+    ],
     "humanDocs": "docs/",
     "aiMemory": ".factory/memory/",
     "changeControl": ".factory/workitems/"
@@ -35,18 +38,23 @@
       "@stratix/ossp",
       "@stratix/queue",
       "@stratix/redis",
-      "@stratix/tasks",
       "@stratix/testing",
       "@stratix/was-v7"
     ],
-    "archivedLegacyPackages": ["@stratix/utils"],
-    "previewSamples": ["examples/web-admin-preview"]
+    "archivedLegacyPackages": [
+      "@stratix/utils",
+      "@stratix/tasks"
+    ],
+    "previewSamples": [
+      "examples/web-admin-preview"
+    ]
   },
   "qualityGate": {
-    "checkedAt": "2026-06-19",
-    "status": "passed_local_95_controlled_release",
-    "scope": "Local production-grade score for supported 1.1.x packages and @stratix/core critical runtime paths; this is not a 95% global coverage claim and not a high-confidence GA claim before remote CI and npm publish evidence.",
-    "excludedPackages": ["@stratix/tasks"],
+    "checkedAt": "2026-06-23",
+    "status": "tasks_removed_release_gate_verified_release_deferred",
+    "scope": "Local development hardening evidence for @stratix/core critical runtime paths. Release, remote CI, npm publish, final release notes, and GA wording are intentionally deferred until all local development issues are closed. This is not a 95% global coverage claim, not a final closed-door rescore, and not a high-confidence GA claim.",
+    "scorePolicy": "Numeric scores are not revised during the active hardening batch. Re-score only after the fixed three-role rubric reruns against changed executable evidence.",
+    "excludedPackages": [],
     "scores": {
       "architecture": 95,
       "implementation": 95,
@@ -56,27 +64,156 @@
       "qa": 95
     }
   },
-  "releaseSurface": {
-    "checkedAt": "2026-06-19",
-    "npmRegistry": {
-      "@stratix/core": {
-        "published": true,
-        "version": "0.8.2",
-        "modifiedAt": "2026-01-07T12:57:22.097Z",
-        "exactLocalVersionPublished": false
-      },
-      "notFound": [
-        "@stratix/create",
-        "@stratix/database",
-        "@stratix/devtools",
-        "@stratix/forge",
-        "@stratix/ossp",
-        "@stratix/queue",
-        "@stratix/redis",
-        "@stratix/tasks",
-        "@stratix/testing",
-        "@stratix/was-v7"
+  "closedDoorReview": {
+    "checkedAt": "2026-06-20",
+    "rubricVersion": "core-rc-remediation-v1",
+    "status": "local_development_hardening_after_problem_3_4_remediation",
+    "scope": "Three-role @stratix/core backend framework risk review after the first and second remediation batches plus local problem 3 / problem 4 remediation evidence; this is a risk score under a fixed rubric, not the local release-gate score and not a global coverage claim.",
+    "baselineBeforeRemediation": {
+      "checkedAt": "2026-06-19",
+      "composite": 82,
+      "status": "RC / controlled release"
+    },
+    "postBatch12Scores": {
+      "technicalManagement": 90,
+      "testManagement": 82,
+      "frameworkArchitecture": 88,
+      "composite": 87
+    },
+    "postProblem34Remediation": {
+      "status": "local_verified_without_rescore",
+      "scorePolicy": "Problem 3 and problem 4 remediation is recorded as evidence only. Composite scores must not change until the same fixed three-role rubric is rerun and cites this changed evidence.",
+      "summary": "Root @stratix/core exports are narrowed to stable application APIs; plugin, contracts, diagnostics, experimental, service, and internal APIs are exposed through explicit package subpaths. Request identity, observability, and security bootstrap responsibilities are extracted; AutoDI strict mode rejects anonymous plugins while accepting named plugins; DI graph nodes expose confidence; route contracts support runtime prefixes; config schema no longer uses z.any/catchall(z.any); workspace pack gates validate exported subpath files.",
+      "evidence": [
+        "packages/core/package.json exports ./plugin, ./contracts, ./diagnostics, ./experimental, ./service, and ./internal",
+        "packages/core/src/index.ts no longer exports bootstrap, plugin/DI runtime helpers, contracts, diagnostics, or internal route registration helpers from the root entrypoint",
+        "supported ecosystem packages and generated plugin templates import plugin/DI contracts from @stratix/core/plugin instead of the root API; @stratix/tasks is removed from the workspace",
+        "ApplicationBootstrap request identity handling is delegated to packages/core/src/bootstrap/request-identity.ts",
+        "ApplicationBootstrap error handling, request context, plugin load ordering, eager initialization, lifecycle shutdown, observability, and security hook installers are delegated to focused bootstrap modules",
+        "route contracts can include runtime prefixes and DI graph nodes carry explicit/inferred/unknown confidence",
+        "packages/core/src/config/schema.ts validates typed autoLoad, plugin functions, observability providers, rate-limit providers, and Fastify server extensions without z.any/catchall(z.any)",
+        "packages/forge workspace release pack validation includes package exports import/types subpath files",
+        "packages/forge project and workspace release gate docs checks reuse pnpm run docs:validate instead of invoking uvx directly",
+        "packages/core/scripts/smoke-packed-api.mjs installs the packed tarball into a temporary consumer project and imports documented subpaths",
+        "packages/core/package.json lists pino-pretty as a runtime dependency because the default development logger transport loads it"
+      ],
+      "localVerification": [
+        {
+          "command": "pnpm --filter @stratix/core exec vitest run src/__tests__/public-api-contract.test.ts src/bootstrap/__tests__/application-runtime-stability.test.ts src/plugin/__tests__/auto-di-plugin.test.ts src/contracts/__tests__/route-contract.test.ts src/diagnostics/__tests__/di.test.ts",
+          "status": "passed",
+          "summary": "5 files / 22 tests after edge-case additions"
+        },
+        {
+          "command": "pnpm --filter @stratix/core exec vitest run src/bootstrap/__tests__/config-validation.test.ts",
+          "status": "passed",
+          "summary": "1 file / 10 tests"
+        },
+        {
+          "command": "pnpm --filter @stratix/forge test",
+          "status": "passed",
+          "summary": "54 tests, including exported subpath tarball smoke gates and release gate docs check delegation"
+        },
+        {
+          "command": "pnpm --filter @stratix/core exec tsc -p tsconfig.json --noEmit",
+          "status": "passed"
+        },
+        {
+          "command": "pnpm --filter @stratix/core run build",
+          "status": "passed"
+        },
+        {
+          "command": "pnpm --filter @stratix/core run test:coverage",
+          "status": "passed",
+          "summary": "34 files / 261 tests; global lines 47.14%, functions 41.36%, branches 38.87%, statements 46.32%; application-bootstrap.ts lines 75.65%, functions 96.07%, branches 55.33%, statements 75.73%"
+        },
+        {
+          "command": "pnpm run smoke:core-api",
+          "status": "passed",
+          "summary": "packed @stratix/core tarball installed in a temporary consumer and imported root/auth/context/contracts/data/diagnostics/environment/internal/logger/plugin/service subpaths"
+        },
+        {
+          "command": "pnpm run typecheck:supported",
+          "status": "passed",
+          "summary": "rerun passed after avoiding concurrent dist-clean/build race"
+        },
+        {
+          "command": "pnpm lint",
+          "status": "passed",
+          "summary": "11 supported lint tasks; warnings only"
+        },
+        {
+          "command": "pnpm run build:supported",
+          "status": "passed",
+          "summary": "10 supported packages"
+        },
+        {
+          "command": "pnpm run test:supported",
+          "status": "passed",
+          "summary": "12 supported test tasks; core 34 files / 261 tests"
+        },
+        {
+          "command": "pnpm --filter @stratix/core pack --pack-destination /tmp",
+          "status": "passed",
+          "summary": "/tmp/stratix-core-1.1.0.tgz includes new subpath dist and declaration files"
+        },
+        {
+          "command": "pnpm run docs:validate",
+          "status": "passed",
+          "summary": "87 pages / 0 contracts; scripts/docs-validate.mjs falls back to a temporary uv runtime when uvx is absent"
+        },
+        {
+          "command": "git diff --check",
+          "status": "passed",
+          "summary": "no whitespace errors"
+        }
       ]
+    },
+    "scoreChangeRule": "Scores may only change when executable evidence, source code, release gates, CI gates, tests, or documented scope changes. Re-review must use the same rubric and cite changed evidence.",
+    "historicalReleaseVerification": {
+      "status": "historical_evidence_release_phase_deferred",
+      "qualityRelease": {
+        "command": "pnpm run quality:release",
+        "status": "passed",
+        "evidence": "supported build/typecheck/lint/test, core coverage, docs validation, security audit, and release gate dry-run passed"
+      },
+      "releaseGate": {
+        "command": "pnpm run release:gate",
+        "status": "passed",
+        "evidence": "offline install, supported build/test, docs, security audit, pack, API surface, release-surface, exact tags, and registry reconciliation passed"
+      }
+    },
+    "remainingExternalEvidence": [
+      "First remote GitHub Actions quality-gate run",
+      "npm publish with maintainer credentials",
+      "Future optional global coverage uplift beyond the current executable ratchet"
+    ],
+    "releaseDeferral": {
+      "status": "deferred_until_local_development_issues_are_closed",
+      "deferredItems": [
+        "remote GitHub Actions quality-gate evidence",
+        "npm publish and exact-version registry write evidence",
+        "final release notes and GA/RC wording"
+      ]
+    }
+  },
+  "releaseSurface": {
+    "checkedAt": "2026-06-23",
+    "npmRegistry": {
+      "checkedAt": "2026-06-20",
+      "registry": "https://registry.npmjs.org",
+      "supportedExactVersionsAvailable": {
+        "@stratix/core": "1.1.0",
+        "@stratix/create": "1.1.0",
+        "@stratix/database": "1.1.0",
+        "@stratix/devtools": "1.0.0-beta.1",
+        "@stratix/forge": "1.1.0",
+        "@stratix/ossp": "0.0.1-beta.3",
+        "@stratix/queue": "1.0.0-beta.2",
+        "@stratix/redis": "1.0.0-beta.2",
+        "@stratix/testing": "1.0.0-beta.1",
+        "@stratix/was-v7": "1.0.0-beta.36"
+      },
+      "excludedPackages": []
     },
     "gitTags": {
       "@stratix/core": "@stratix/core@1.1.0",
@@ -90,19 +227,37 @@
       "@stratix/testing": "@stratix/testing@1.0.0-beta.1",
       "@stratix/was-v7": "@stratix/was-v7@1.0.0-beta.36"
     },
-    "assessment": "Supported package manifest versions, public package metadata, exact release tags, tarball/API/docs/security gates, supported workspace release-surface checks, and public npmjs exact-version availability are aligned. @stratix/tasks is frozen/deprecated and excluded from the 1.1.x release surface."
-    },
-    "verification": {
-        "checkedAt": "2026-06-19",
-        "quality": [
-            {
-                "command": "pnpm run quality:release",
-                "status": "passed",
-                "summary": "supported build/typecheck/test, core coverage, docs, security audit, and workspace release gate dry-run passed",
-                "reason": "Local P2+ production hardening gate passed with 10 supported build tasks, explicit supported typecheck, 12 supported test turbo tasks, core coverage ratchet at lines 45.09/functions 39.27/branches 35.69/statements 44.27, docs validation at 86 pages / 0 contracts, no high production audit vulnerabilities, and workspace release gate dry-run passed; docs validation required elevated local uv cache access"
-            }
-        ],
-        "install": [
+    "assessment": "Supported package manifest versions, public package metadata, exact release tags, tarball/API/docs/security gates, workspace release-surface checks, and public npmjs exact-version availability are aligned for the 10 remaining public packages. @stratix/tasks has been physically removed from the workspace, presets, lockfile importer, release gate exclusions, and publish surface."
+  },
+  "verification": {
+    "checkedAt": "2026-06-23",
+    "quality": [
+      {
+        "command": "pnpm run release:gate",
+        "status": "passed",
+        "summary": "post-@stratix/tasks hard-delete full release gate passed",
+        "reason": "2026-06-23 full gate passed offline install, supported build/test, docs, security audit, 10 package pack checks, 10 API surface checks, release-surface metadata, exact tags, and public npmjs exact-version registry reconciliation. @stratix/tasks was not in the workspace or registry check list."
+      },
+      {
+        "command": "pnpm run quality:release",
+        "status": "passed",
+        "summary": "post-@stratix/tasks hard-delete quality gate passed",
+        "reason": "2026-06-23 rerun passed after removing packages/tasks, create/forge tasks presets, root tasks exclusion filters, and release gate exclusion logic. The dry-run release surface lists 10 remaining public packages and no @stratix/tasks exclusion."
+      },
+      {
+        "command": "pnpm run quality:release",
+        "status": "passed",
+        "summary": "supported build/typecheck/lint/test, core coverage, packed core API smoke, docs validation, security audit, and workspace release gate dry-run passed",
+        "reason": "2026-06-20 development hardening rerun passed with 10 supported build tasks, explicit supported typecheck, 11 supported lint tasks, 12 supported test turbo tasks, core coverage ratchet at 34 files / 261 tests, packed core API smoke, docs validation at 87 pages / 0 contracts through scripts/docs-validate.mjs, no high production audit vulnerabilities, and workspace release gate dry-run passed. This is a local dry-run quality gate, not npm publish or remote CI evidence."
+      },
+      {
+        "command": "pnpm run release:gate",
+        "status": "passed",
+        "summary": "offline-install/build/test/docs/security/pack/api/release-surface/registry",
+        "reason": "Full workspace release gate passed with offline install, supported build/test, docs validation, security audit, 10 package tarball checks, 10 package API surface checks, metadata release-surface checks, exact tag checks, and npmjs exact-version availability checks"
+      }
+    ],
+    "install": [
       {
         "command": "CI=true pnpm install --frozen-lockfile --ignore-scripts",
         "status": "passed",
@@ -141,19 +296,19 @@
         "command": "pnpm build",
         "status": "passed",
         "summary": "delegates to build:supported",
-        "reason": "Supported build excludes deprecated @stratix/tasks and passes across 10 supported packages after adding @stratix/create and renaming the local toolchain package to @stratix/forge"
+        "reason": "Supported build passes across the 10 remaining public workspace packages after adding @stratix/create and renaming the local toolchain package to @stratix/forge"
       },
       {
         "command": "pnpm run build:supported",
         "status": "passed",
         "summary": "10 successful / 10 supported packages",
-        "reason": "@stratix/tasks is explicitly excluded from the default quality gate"
+        "reason": "All remaining public workspace packages are included in the default quality gate"
       },
       {
         "command": "pnpm build:all",
         "status": "failed",
-        "summary": "expected to fail while @stratix/tasks remains deprecated/out of supported scope",
-        "reason": "Deprecated @stratix/tasks still imports the removed DatabaseAPI and still calls the old BaseRepository constructor shape; tasks migration was intentionally out of scope"
+        "summary": "stale before @stratix/tasks physical removal",
+        "reason": "@stratix/tasks was physically removed instead of migrated; build:all is no longer expected to fail because of tasks"
       },
       {
         "command": "pnpm --filter @stratix/core build",
@@ -191,7 +346,7 @@
         "command": "pnpm lint",
         "status": "passed",
         "summary": "11 successful / 11 supported lint tasks",
-        "reason": "Supported lint excludes deprecated @stratix/tasks, uses ESLint 10 flat-config parser wiring, and passes after removing stale duplicate DevTools client files plus unused code references"
+        "reason": "Supported lint covers the remaining workspace packages, uses ESLint 10 flat-config parser wiring, and passes after removing stale duplicate DevTools client files plus unused code references"
       }
     ],
     "test": [
@@ -199,37 +354,43 @@
         "command": "pnpm test",
         "status": "passed",
         "summary": "delegates to test:supported",
-        "reason": "Supported test profile excludes deprecated @stratix/tasks and passes across supported packages"
+        "reason": "Supported test profile covers the remaining workspace packages and passes"
       },
       {
         "command": "pnpm run test:supported",
         "status": "passed",
         "summary": "12 successful turbo tasks",
-        "reason": "Supported package test profile passes across 10 packages after adding @stratix/create and keeping @stratix/tasks excluded"
+        "reason": "Supported package test profile passes across the 10 remaining public workspace packages after adding @stratix/create"
       },
       {
         "command": "pnpm --filter @stratix/core test",
         "status": "passed",
-        "summary": "31 files / 224 tests",
+        "summary": "34 files / 261 tests",
         "reason": "Core package tests pass with route contract/OpenAPI helpers, unified error envelope, response schema failure normalization, plan-first DI diagnostics, plugin adapter RegistrationPlan metadata, discovery schema validation, DI graph coverage, production manifest startup consumption, manifest-driven registration, production manifest v2 integrity/compiled-file registration, observability/security provider and health contributor coverage, runtime stability coverage, and ApplicationDiscoveryRegistrar extraction"
       },
       {
         "command": "pnpm --filter @stratix/core run test:coverage",
         "status": "passed",
-        "summary": "global lines 45.09%, functions 39.27%, branches 35.69%, statements 44.27%",
-        "reason": "Coverage gate uses a current executable ratchet plus high thresholds on bootstrap/discovery critical paths instead of an unreachable global threshold; P2+ provider and plugin-manifest hardening remains above the ratchet lines 43, functions 38, branches 34, statements 42"
+        "summary": "global lines 47.14%, functions 41.36%, branches 38.87%, statements 46.32%; application-bootstrap.ts lines 75.65%, functions 96.07%, branches 55.33%, statements 75.73%",
+        "reason": "Coverage gate uses a current executable ratchet plus high thresholds on bootstrap/discovery critical paths instead of an unreachable global threshold; development-stage bootstrap decomposition remains above the ratchet lines 43, functions 38, branches 34, statements 42"
+      },
+      {
+        "command": "pnpm run smoke:core-api",
+        "status": "passed",
+        "summary": "packed @stratix/core tarball installed in a temporary consumer and imported root/auth/context/contracts/data/diagnostics/environment/internal/logger/plugin/service subpaths",
+        "reason": "Packed consumer smoke verifies package.json exports and runtime dependencies; it caught and fixed the pino-pretty runtime dependency gap"
       },
       {
         "command": "pnpm --filter @stratix/create test",
         "status": "passed",
-        "summary": "3 tests",
+        "summary": "6 tests",
         "reason": "Create tests cover app/plugin creation boundaries, generated plugin governance manifests, @stratix/forge devDependency generation, and app/plugin template listing"
       },
       {
         "command": "pnpm --filter @stratix/forge test",
         "status": "passed",
-        "summary": "51 tests",
-        "reason": "Forge tests cover doctor di, di graph JSON/Mermaid output, module manifest/doctor/graph governance, plugin manifest doctor/graph governance with adapter-backed provides validation, production build-manifest v2 generation, production manifest artifact-hash release gate validation, project/workspace release gate, release pack artifact validation, registry exact-version validation, OpenAPI generation, advanced typed client generation with path/query/body/header/auth/hooks, command help, and generated resource DI/schema checks"
+        "summary": "54 tests",
+        "reason": "Forge tests cover doctor di, di graph JSON/Mermaid output, module manifest/doctor/graph governance, plugin manifest doctor/graph governance with adapter-backed provides validation, production build-manifest v2 generation, production manifest artifact-hash release gate validation, project/workspace release gate docs delegation, release pack artifact validation, registry exact-version validation, OpenAPI generation, advanced typed client generation with path/query/body/header/auth/hooks, command help, and generated resource DI/schema checks"
       },
       {
         "command": "pnpm --filter @stratix/devtools test",
@@ -247,7 +408,7 @@
         "command": "pnpm --filter @stratix/database exec vitest run",
         "status": "passed",
         "summary": "8 files / 49 tests",
-        "reason": "Database quality-gate regressions pass; @stratix/tasks old DatabaseAPI imports were intentionally not migrated"
+        "reason": "Database quality-gate regressions pass; @stratix/tasks was physically removed instead of migrated"
       },
       {
         "command": "pnpm --filter @stratix/was-v7 test",
@@ -263,10 +424,10 @@
     ],
     "docs": [
       {
-        "command": "uvx --from docs-stratego docs-stratego source validate --repo-path .",
+        "command": "pnpm run docs:validate",
         "status": "passed",
-                "summary": "86 pages / 0 contracts",
-        "reason": "Docs navigation validates after adding the core breaking-upgrade report, concept-model evolution plan, implementation plan, test plan, release gate, Phase 2 extended status, create/forge split, Phase 5 production baseline, and developer-guide cleanup"
+        "summary": "87 pages / 0 contracts",
+        "reason": "Docs navigation validates through scripts/docs-validate.mjs after adding the core breaking-upgrade report, concept-model evolution plan, implementation plan, test plan, release gate, Phase 2 extended status, create/forge split, Phase 5 production baseline, and developer-guide cleanup"
       },
       {
         "command": "rg -n \"@Executor|EXECUTOR_METADATA_KEY|registerTaskExecutor|registerExecutorDomain|processExecutorRegistration|Executor\\\\b|executors/|plugin-executor|performApplicationAutoDI|applicationAutoDI|discoverAndProcessApplicationModules|generate executor|createSafeExecutor|executor\" docs/03-developer-guide -g '*.md'",
@@ -399,7 +560,7 @@
       {
         "command": "node packages/forge/dist/bin/stratix.js release gate --scope workspace --dry-run",
         "status": "passed",
-        "summary": "10 supported packages, @stratix/tasks excluded, 6 checks",
+        "summary": "10 supported packages, 6 checks",
         "reason": "Built forge can plan Phase 6 workspace release-readiness checks without requiring a production manifest"
       },
       {
@@ -429,7 +590,7 @@
     ]
   },
   "phaseBaseline": {
-    "stage": "PHASE_6_RELEASE_READY",
+    "stage": "PHASE_6_DEVELOPMENT_HARDENING_RELEASE_DEFERRED",
     "entrySatisfied": [
       "Current-state evidence collected",
       "docs/ and .factory/ bootstrapped",
@@ -437,9 +598,13 @@
       "Template preview sample moved out of workspace",
       "Phase 5 production baseline completed",
       "Workspace release gate dry-run implemented",
-      "Workspace release gate execution passed with offline install"
+      "Workspace release gate execution passed with offline install",
+      "Core development-stage coverage and packed API smoke now pass after problem 3 / problem 4 hardening"
     ],
-    "exitBlockedBy": []
+    "exitBlockedBy": [
+      "Fixed-rubric closed-door re-review has not yet been rerun after the latest development hardening evidence",
+      "Remote GitHub Actions first run, npm publish, final release notes, and GA/RC wording are deferred to the final release phase"
+    ]
   },
   "currentWorkitems": [
     "BUG-002",

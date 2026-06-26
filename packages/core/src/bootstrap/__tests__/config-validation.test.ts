@@ -141,6 +141,198 @@ describe('configuration validation contract', () => {
     await app.stop();
   });
 
+  it('accepts typed autoLoad configuration instead of arbitrary values', async () => {
+    const app = await Stratix.run({
+      type: 'cli',
+      gracefulShutdown: false,
+      config: {
+        server: {},
+        plugins: [],
+        autoLoad: {
+          services: {
+            pattern: 'src/**/*.service.ts',
+            registrationOptions: {
+              lifetime: 'SINGLETON',
+              injectionMode: 'CLASSIC',
+              enabled: true
+            },
+            exclude: ['**/*.test.ts']
+          },
+          custom: {
+            jobs: {
+              pattern: 'src/**/*.job.ts',
+              recursive: true
+            }
+          }
+        },
+        discovery: { enabled: false }
+      }
+    });
+
+    expect(app.config.autoLoad.services?.pattern).toBe('src/**/*.service.ts');
+    expect(app.config.autoLoad.custom?.jobs?.recursive).toBe(true);
+
+    await app.stop();
+  });
+
+  it('rejects invalid typed configuration extension points', async () => {
+    await expect(
+      Stratix.run({
+        type: 'cli',
+        gracefulShutdown: false,
+        config: {
+          server: {},
+          plugins: [
+            {
+              name: 'invalid-plugin',
+              plugin: { register() {} }
+            }
+          ],
+          autoLoad: {},
+          discovery: { enabled: false }
+        } as unknown as StratixConfig
+      })
+    ).rejects.toThrow(ConfigurationError);
+
+    await expect(
+      Stratix.run({
+        type: 'cli',
+        gracefulShutdown: false,
+        config: {
+          server: {},
+          plugins: [],
+          autoLoad: {
+            services: { enabled: true }
+          },
+          discovery: { enabled: false }
+        } as unknown as StratixConfig
+      })
+    ).rejects.toThrow(ConfigurationError);
+
+    await expect(
+      Stratix.run({
+        type: 'cli',
+        gracefulShutdown: false,
+        config: {
+          server: {},
+          plugins: [],
+          autoLoad: {},
+          discovery: { enabled: false },
+          observability: {
+            enabled: true,
+            metrics: {
+              enabled: true,
+              provider: { recordRequest: 'not-a-function' }
+            }
+          },
+          security: {
+            enabled: true,
+            rateLimit: {
+              enabled: true,
+              provider: {}
+            }
+          }
+        } as unknown as StratixConfig
+      })
+    ).rejects.toThrow(ConfigurationError);
+  });
+
+  it('rejects unknown keys inside Stratix-owned nested configuration objects', async () => {
+    await expect(
+      Stratix.run({
+        type: 'cli',
+        gracefulShutdown: false,
+        config: {
+          server: {},
+          plugins: [],
+          autoLoad: {},
+          discovery: {
+            enabled: false,
+            unknownDiscoveryKey: true
+          }
+        } as unknown as StratixConfig
+      })
+    ).rejects.toThrow(ConfigurationError);
+
+    await expect(
+      Stratix.run({
+        type: 'cli',
+        gracefulShutdown: false,
+        config: {
+          server: {},
+          plugins: [],
+          autoLoad: {},
+          discovery: {
+            enabled: false,
+            routing: {
+              enabled: true,
+              unknownRoutingKey: true
+            }
+          }
+        } as unknown as StratixConfig
+      })
+    ).rejects.toThrow(ConfigurationError);
+
+    await expect(
+      Stratix.run({
+        type: 'cli',
+        gracefulShutdown: false,
+        config: {
+          server: {},
+          plugins: [],
+          autoLoad: {},
+          discovery: { enabled: false },
+          observability: {
+            enabled: true,
+            metrics: {
+              enabled: true,
+              unknownMetricsKey: true
+            }
+          }
+        } as unknown as StratixConfig
+      })
+    ).rejects.toThrow(ConfigurationError);
+
+    await expect(
+      Stratix.run({
+        type: 'cli',
+        gracefulShutdown: false,
+        config: {
+          server: {},
+          plugins: [],
+          autoLoad: {},
+          discovery: { enabled: false },
+          security: {
+            enabled: true,
+            rateLimit: {
+              enabled: true,
+              unknownRateLimitKey: true
+            }
+          }
+        } as unknown as StratixConfig
+      })
+    ).rejects.toThrow(ConfigurationError);
+  });
+
+  it('keeps server configuration open for Fastify options', async () => {
+    const app = await Stratix.run({
+      type: 'cli',
+      gracefulShutdown: false,
+      config: {
+        server: {
+          keepAliveTimeout: 1000
+        },
+        plugins: [],
+        autoLoad: {},
+        discovery: { enabled: false }
+      } as StratixConfig
+    });
+
+    expect(app.config.server.keepAliveTimeout).toBe(1000);
+
+    await app.stop();
+  });
+
   it('rejects removed container configuration', async () => {
     await expect(
       Stratix.run({

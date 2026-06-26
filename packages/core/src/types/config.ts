@@ -123,7 +123,7 @@ export interface LoggerConfig {
     maxFiles?: number;
   };
   /** 自定义传输配置 */
-  transport?: any;
+  transport?: unknown;
   /** 是否启用请求日志 */
   enableRequestLogging?: boolean;
   /** 是否启用性能监控 */
@@ -165,9 +165,7 @@ export interface StratixRequestObservation {
 }
 
 export interface StratixMetricsProvider {
-  recordRequest?(
-    event: StratixRequestObservation
-  ): Promise<void> | void;
+  recordRequest?(event: StratixRequestObservation): Promise<void> | void;
   snapshot?(): Promise<unknown> | unknown;
 }
 
@@ -337,7 +335,7 @@ export interface StratixApplication {
   stop(): Promise<void>;
 
   /** 重启方法 */
-  restart(options?: any): Promise<void>;
+  restart(options?: any): Promise<StratixApplication>;
 
   /** 添加关闭处理器 */
   addShutdownHandler(handler: () => Promise<void>): void;

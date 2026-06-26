@@ -9,9 +9,9 @@ import {
   type Resolver
 } from 'awilix';
 import type { FastifyInstance, RouteOptions } from 'fastify';
+import { registerControllerRoutes } from '@stratix/core/internal';
+import { fp } from '@stratix/core/plugin';
 import {
-  fp,
-  registerControllerRoutes,
   Stratix,
   type ApplicationDiscoveryConfig,
   type PluginConfig,

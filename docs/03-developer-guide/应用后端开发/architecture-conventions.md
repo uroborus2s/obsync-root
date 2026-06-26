@@ -152,7 +152,7 @@ export default function createConfig(
 ## 后台流程
 
 - 后台流程优先通过 service 编排、repository 持久化状态、queue 消费来表达。
-- `@stratix/tasks` 不再作为 1.1.0 新项目默认方案。
+- `@stratix/tasks` 已从当前仓库移除，不再作为 1.1.0 新项目方案。
 - 长流程不要长时间持有数据库事务，应使用短事务 + checkpoint 的方式收口状态。
 
 ## 新手最应该死记住的 6 条规则

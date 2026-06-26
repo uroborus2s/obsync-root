@@ -5,8 +5,11 @@
  * 遵循 Stratix 框架的 Adapter 层规范
  */
 
-import type { FastifyInstance, FastifyPluginOptions } from '@stratix/core';
-import { withRegisterAutoDI } from '@stratix/core';
+import type {
+  FastifyInstance,
+  FastifyPluginOptions
+} from '@stratix/core/plugin';
+import { withRegisterAutoDI } from '@stratix/core/plugin';
 import { deepMerge } from '@stratix/core/data';
 
 /**
@@ -94,7 +97,26 @@ export default withRegisterAutoDI<OsspPluginOptions>(ossp, {
         debug: false
       },
       options || {}
-    ) as T
+    ) as T,
+  parameterValidator: <T>(options: T): boolean => {
+    const opts = options as Partial<OsspPluginOptions>;
+    if (typeof opts.endPoint !== 'string' || opts.endPoint.trim() === '') {
+      return false;
+    }
+
+    if (typeof opts.accessKey !== 'string' || opts.accessKey.trim() === '') {
+      return false;
+    }
+
+    if (typeof opts.secretKey !== 'string' || opts.secretKey.trim() === '') {
+      return false;
+    }
+
+    return (
+      opts.accessKey.trim() !== 'minioadmin' &&
+      opts.secretKey.trim() !== 'minioadmin'
+    );
+  }
 });
 
 // 导出核心接口和类型

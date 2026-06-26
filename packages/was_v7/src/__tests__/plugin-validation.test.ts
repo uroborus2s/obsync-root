@@ -2,8 +2,8 @@ import { createContainer } from 'awilix';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WasV7PluginOptions } from '../plugin.js';
 
-vi.mock('@stratix/core', async (importActual) => {
-  const actual = await importActual<typeof import('@stratix/core')>();
+vi.mock('@stratix/core/plugin', async (importActual) => {
+  const actual = await importActual<typeof import('@stratix/core/plugin')>();
   return {
     ...actual,
     withRegisterAutoDI:
@@ -90,8 +90,10 @@ describe('WPS V7 插件参数验证', () => {
   it.each([
     ['空白 appId', { appId: '   ' }],
     ['非字符串 appId', { appId: 123 as any }],
+    ['占位 appId', { appId: 'your-app-id' }],
     ['空白 appSecret', { appSecret: '   ' }],
     ['非字符串 appSecret', { appSecret: 123 as any }],
+    ['占位 appSecret', { appSecret: 'your-app-secret' }],
     ['生产 HTTP baseUrl', { baseUrl: 'http://api.example.com', debug: false }],
     ['无效 baseUrl', { baseUrl: 'invalid-url' }],
     ['负数 timeout', { timeout: -1000 }],

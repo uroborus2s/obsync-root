@@ -7,6 +7,7 @@ interface ValidatePresetSetOptions {
   templateManifest: TemplateManifest;
   presetIds: string[];
   presetManifests: PresetManifest[];
+  allowDeprecated?: boolean;
 }
 
 function appliesToTarget(
@@ -32,7 +33,8 @@ export function validatePresetSet({
   type,
   templateManifest,
   presetIds,
-  presetManifests
+  presetManifests,
+  allowDeprecated = false
 }: ValidatePresetSetOptions): void {
   const activePresetIds = new Set(presetIds);
 
@@ -50,6 +52,12 @@ export function validatePresetSet({
   }
 
   for (const presetManifest of presetManifests) {
+    if (presetManifest.deprecated === true && !allowDeprecated) {
+      throw new CliError(
+        `Preset "${presetManifest.id}" is deprecated. Pass --allow-deprecated only for legacy migration.`
+      );
+    }
+
     if (!appliesToTarget(presetManifest, kind, type)) {
       throw new CliError(
         `Preset "${presetManifest.id}" does not apply to ${kind}:${type}.`

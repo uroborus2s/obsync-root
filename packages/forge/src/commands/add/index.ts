@@ -64,7 +64,7 @@ export async function addCommand(
 
   if (target !== 'preset' || !presetId) {
     throw new CliError(
-      'Usage: stratix add preset <preset-id> [--install|--no-install]'
+      'Usage: stratix add preset <preset-id> [--install|--no-install] [--allow-deprecated]'
     );
   }
 
@@ -82,7 +82,8 @@ export async function addCommand(
     type: manifest.type,
     templateManifest,
     presetIds: nextPresets,
-    presetManifests
+    presetManifests,
+    allowDeprecated: argv['allow-deprecated'] === true
   });
   const merged = mergeContributions([templateManifest, ...presetManifests]);
   const packageName = JSON.parse(

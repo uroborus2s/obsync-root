@@ -64,6 +64,9 @@ export interface AutoDIConfig {
    */
   parameterValidator?: <T>(options: T) => boolean;
 
+  /** 严格模式。启用后匿名插件会 fail-fast，避免 unknownPlugin token 冲突。 */
+  strict?: boolean;
+
   /** 调试模式 */
   debug?: boolean;
 }

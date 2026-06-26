@@ -2,6 +2,7 @@ import type { AwilixContainer } from 'awilix';
 import type { RegistrationPlanRecordMetadata } from '../registration/index.js';
 
 export type DIRegistrationType = 'class' | 'function' | 'value' | 'unknown';
+export type DIRegistrationConfidence = 'explicit' | 'inferred' | 'unknown';
 export type DIDiagnosticSeverity = 'error' | 'warning';
 
 export interface DIRegistrationRecord {
@@ -19,6 +20,7 @@ export interface DIGraphNode {
   token: string;
   dependencies: string[];
   registrationType: DIRegistrationType;
+  confidence: DIRegistrationConfidence;
   lifetime?: string;
   injectionMode?: string;
   source?: string;
@@ -161,6 +163,7 @@ export function createDIGraph(container: AwilixContainer): DIGraph {
     dependencies:
       record.dependencies || extractConstructorDependencies(record.target),
     registrationType: record.registrationType,
+    confidence: record.dependencies ? 'explicit' : 'inferred',
     lifetime: record.lifetime,
     injectionMode: record.injectionMode,
     source: record.source,
@@ -179,6 +182,7 @@ export function createDIGraph(container: AwilixContainer): DIGraph {
       token,
       dependencies: [],
       registrationType: 'unknown',
+      confidence: 'unknown',
       lifetime: registration?.lifetime,
       injectionMode: registration?.injectionMode
     });

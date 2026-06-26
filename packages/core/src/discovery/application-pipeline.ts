@@ -310,7 +310,9 @@ export class ApplicationDiscoveryPipeline {
         registerRegistrationPlanToken(container, registrationPlan, planToken);
       } else {
         const lifetime = toLifetime(component.diOptions?.lifetime);
-        const injectionMode = toInjectionMode(component.diOptions?.injectionMode);
+        const injectionMode = toInjectionMode(
+          component.diOptions?.injectionMode
+        );
         const resolver = asClass(component.value, {
           lifetime,
           injectionMode

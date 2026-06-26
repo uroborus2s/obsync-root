@@ -1,4 +1,4 @@
-import type { AwilixContainer } from '@stratix/core';
+import type { AwilixContainer } from '@stratix/core/plugin';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createWpsDBSheetAdapter } from '../../adapters/dbsheet.adapter.js';
 import type { HttpClientService } from '../../services/httpClientService.js';

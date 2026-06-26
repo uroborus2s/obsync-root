@@ -90,6 +90,7 @@ async function createFromManifest(
   packageManager: SupportedPackageManager,
   selectedPresets: string[],
   shouldInstall: boolean,
+  allowDeprecatedPresets: boolean,
   output: CliOutput
 ): Promise<void> {
   const templateManifest = loadTemplateManifest(templateBucket, templateType);
@@ -108,7 +109,8 @@ async function createFromManifest(
     type: templateType,
     templateManifest,
     presetIds,
-    presetManifests
+    presetManifests,
+    allowDeprecated: allowDeprecatedPresets
   });
   const templateContribution = mergeContributions([
     ...(baseManifest ? [baseManifest] : []),
@@ -208,6 +210,7 @@ interface ResolvedInitOptions {
   projectName: string;
   selectedPresets: string[];
   shouldInstall: boolean;
+  allowDeprecatedPresets: boolean;
   templateType: string;
 }
 
@@ -245,6 +248,7 @@ async function resolveInitOptions(
   const providedProjectName = argv._[3];
   const packageManager = (argv.pm || 'pnpm') as SupportedPackageManager;
   const selectedPresets = parsePresetList(argv.preset);
+  const allowDeprecatedPresets = argv['allow-deprecated'] === true;
   const installWasSpecified =
     argv.install === true || argv['no-install'] === true;
   const shouldInstall = argv.install === true || argv['no-install'] !== true;
@@ -260,6 +264,7 @@ async function resolveInitOptions(
       projectName: providedProjectName,
       selectedPresets,
       shouldInstall,
+      allowDeprecatedPresets,
       templateType: providedTemplateType
     };
   }
@@ -331,6 +336,7 @@ async function resolveInitOptions(
       projectName,
       selectedPresets: interactivePresets,
       shouldInstall: interactiveShouldInstall,
+      allowDeprecatedPresets,
       templateType
     };
   } finally {
@@ -393,6 +399,7 @@ export async function initCommand(
     projectName,
     selectedPresets,
     shouldInstall,
+    allowDeprecatedPresets,
     templateType
   } = await resolveInitOptions(argv, output, context);
 
@@ -418,6 +425,7 @@ export async function initCommand(
     packageManager,
     selectedPresets,
     shouldInstall,
+    allowDeprecatedPresets,
     output
   );
 }

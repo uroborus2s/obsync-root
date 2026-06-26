@@ -10,6 +10,7 @@ export interface ProductionManifestDiscoveryConfig {
   path?: string;
   skipRuntimeDiscovery?: boolean;
   registerFromManifest?: boolean;
+  compiledOnly?: boolean;
   strict?: boolean;
 }
 
@@ -139,6 +140,10 @@ export interface ProductionManifestRegistrationPlan {
     message: string;
     entry: unknown;
   }>;
+}
+
+export interface ProductionManifestRegistrationPlanOptions {
+  compiledOnly?: boolean;
 }
 
 const DEFAULT_PRODUCTION_MANIFEST_PATH = '.stratix/production-manifest.json';
@@ -378,6 +383,7 @@ export function loadProductionManifest(
 
   const manifest = parsed.data as ProductionManifest;
   assertManifestHasNoUnresolvedIssues(manifest, config, sourceFile);
+  assertProductionManifestCompiledOnly(manifest, config, sourceFile);
   assertProductionManifestV2Integrity(manifest, config, sourceFile, rootDir);
 
   return {
@@ -411,7 +417,8 @@ export function collectProductionManifestSourceFiles(
 }
 
 export function createProductionManifestRegistrationPlan(
-  manifest: ProductionManifest
+  manifest: ProductionManifest,
+  options: ProductionManifestRegistrationPlanOptions = {}
 ): ProductionManifestRegistrationPlan {
   const sourceFiles = new Set<string>();
   const tokenEntries: ProductionManifestRegistrationPlan['tokenEntries'] = [];
@@ -420,11 +427,17 @@ export function createProductionManifestRegistrationPlan(
 
   if (manifest.schemaVersion === 2) {
     for (const token of manifest.registrationPlan.tokens) {
-      const sourceFile = productionManifestPlanTokenFile(token);
+      const sourceFile = productionManifestPlanTokenFile(
+        token,
+        options.compiledOnly === true
+      );
       if (!sourceFile) {
         issues.push({
           section: 'registrationPlan.tokens',
-          message: `Registration plan token ${token.token} is missing sourceFile or compiledFile`,
+          message:
+            options.compiledOnly === true
+              ? `Registration plan token ${token.token} is missing compiledFile`
+              : `Registration plan token ${token.token} is missing sourceFile or compiledFile`,
           entry: token
         });
         continue;
@@ -439,11 +452,17 @@ export function createProductionManifestRegistrationPlan(
     }
 
     for (const route of manifest.registrationPlan.routes) {
-      const sourceFile = productionManifestPlanRouteFile(route);
+      const sourceFile = productionManifestPlanRouteFile(
+        route,
+        options.compiledOnly === true
+      );
       if (!sourceFile) {
         issues.push({
           section: 'registrationPlan.routes',
-          message: `Registration plan route ${route.method} ${route.path} is missing sourceFile or compiledFile`,
+          message:
+            options.compiledOnly === true
+              ? `Registration plan route ${route.method} ${route.path} is missing compiledFile`
+              : `Registration plan route ${route.method} ${route.path} is missing sourceFile or compiledFile`,
           entry: route
         });
         continue;
@@ -534,8 +553,13 @@ function metadataString(
 }
 
 function productionManifestPlanTokenFile(
-  token: RegistrationPlan['tokens'][number]
+  token: RegistrationPlan['tokens'][number],
+  compiledOnly: boolean = false
 ): string | undefined {
+  if (compiledOnly) {
+    return metadataString(token.metadata, 'compiledFile');
+  }
+
   return (
     metadataString(token.metadata, 'compiledFile') ||
     metadataString(token.metadata, 'sourceFile') ||
@@ -544,8 +568,13 @@ function productionManifestPlanTokenFile(
 }
 
 function productionManifestPlanRouteFile(
-  route: RegistrationPlan['routes'][number]
+  route: RegistrationPlan['routes'][number],
+  compiledOnly: boolean = false
 ): string | undefined {
+  if (compiledOnly) {
+    return metadataString(route.metadata, 'compiledFile');
+  }
+
   return (
     metadataString(route.metadata, 'compiledFile') ||
     metadataString(route.metadata, 'sourceFile') ||
@@ -591,6 +620,57 @@ function assertManifestHasNoUnresolvedIssues(
       registrationPlanErrors
     }
   );
+}
+
+function assertProductionManifestCompiledOnly(
+  manifest: ProductionManifest,
+  config: ProductionManifestDiscoveryConfig,
+  sourceFile: string
+): void {
+  if (config.strict === false || config.compiledOnly !== true) {
+    return;
+  }
+
+  if (manifest.schemaVersion !== 2) {
+    throw new ConfigurationError(
+      `Production manifest compiled-only mode requires schemaVersion 2: ${sourceFile}`,
+      {
+        sourceFile,
+        schemaVersion: manifest.schemaVersion
+      }
+    );
+  }
+
+  const plan = createProductionManifestRegistrationPlan(manifest, {
+    compiledOnly: true
+  });
+  const issues: Array<{
+    file?: string;
+    section: string;
+    message: string;
+    entry?: unknown;
+  }> = [...plan.issues];
+
+  for (const artifact of manifest.artifacts.files) {
+    if (!artifact.compiledFile || !artifact.compiledHash) {
+      issues.push({
+        file: artifact.sourceFile,
+        section: 'artifacts.files',
+        message:
+          'Production manifest compiled-only mode requires compiledFile and compiledHash'
+      });
+    }
+  }
+
+  if (issues.length > 0) {
+    throw new ConfigurationError(
+      `Production manifest compiled-only validation failed: ${sourceFile}`,
+      {
+        sourceFile,
+        issues
+      }
+    );
+  }
 }
 
 function assertProductionManifestV2Integrity(

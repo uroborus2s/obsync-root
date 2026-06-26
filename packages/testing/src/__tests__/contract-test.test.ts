@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { RouteContract } from '@stratix/core';
-import { ERROR_ENVELOPE_SCHEMA, createErrorEnvelope } from '@stratix/core';
+import type { RouteContract } from '@stratix/core/contracts';
+import {
+  ERROR_ENVELOPE_SCHEMA,
+  createErrorEnvelope
+} from '@stratix/core/contracts';
 import { contractTest, ContractTestError } from '../contract-test.js';
 
 const userContract: RouteContract = {

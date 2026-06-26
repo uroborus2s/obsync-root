@@ -1,4 +1,4 @@
-import { AwilixContainer, RESOLVER } from '@stratix/core';
+import { RESOLVER, type AwilixContainer } from '@stratix/core/plugin';
 import { createHash, createHmac } from 'crypto';
 import type { SignatureParams, WpsConfig } from '../types/index.js';
 

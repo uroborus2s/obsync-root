@@ -54,6 +54,10 @@ export interface RouteContractValidationOptions {
   requireOperationId?: boolean;
 }
 
+export interface RouteContractExtractionOptions {
+  prefix?: string;
+}
+
 export interface OpenApiDocumentOptions {
   title: string;
   version: string;
@@ -72,6 +76,16 @@ function toOpenApiPath(path: string): string {
   return path.replace(/:([A-Za-z0-9_]+)/g, '{$1}');
 }
 
+function joinRoutePrefix(prefix: string | undefined, path: string): string {
+  if (!prefix) {
+    return path;
+  }
+
+  const normalizedPrefix = prefix === '/' ? '' : prefix.replace(/\/+$/, '');
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return `${normalizedPrefix}${normalizedPath}` || '/';
+}
+
 function normalizeRouteOptions(
   options: RouteShorthandOptions | undefined
 ): RouteContractOptions | undefined {
@@ -79,7 +93,8 @@ function normalizeRouteOptions(
 }
 
 export function getControllerRouteContracts(
-  controllerClass: new (...args: any[]) => any
+  controllerClass: new (...args: any[]) => any,
+  options: RouteContractExtractionOptions = {}
 ): RouteContract[] {
   const controllerOptions =
     MetadataManager.getControllerOptions(controllerClass);
@@ -88,18 +103,19 @@ export function getControllerRouteContracts(
     : undefined;
 
   return MetadataManager.getRouteMetadata(controllerClass).map((route) => {
-    const options = normalizeRouteOptions(route.options);
-    const schema = options?.schema;
+    const routeOptions = normalizeRouteOptions(route.options);
+    const schema = routeOptions?.schema;
     const tags = Array.isArray(schema?.tags) ? schema.tags : controllerTags;
+    const path = joinRoutePrefix(options.prefix, route.path);
 
     return {
       method: route.method,
-      path: route.path,
-      openApiPath: toOpenApiPath(route.path),
+      path,
+      openApiPath: toOpenApiPath(path),
       controllerName: controllerClass.name,
       handlerName: route.propertyKey,
       schema,
-      options,
+      options: routeOptions,
       tags
     };
   });

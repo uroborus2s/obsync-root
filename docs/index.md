@@ -187,6 +187,9 @@ mkdocs:
             - title: Core 闭门复评与演进报告
               path: 04-project-development/02-discovery/core-closed-door-review-20260619.md
               access: private
+            - title: Core 三角色闭门评审报告
+              path: 04-project-development/02-discovery/core-closed-door-review-20260619-subagent-current.md
+              access: private
             - title: Database 插件评审与评分报告
               path: 04-project-development/02-discovery/database-plugin-review-report.md
               access: private

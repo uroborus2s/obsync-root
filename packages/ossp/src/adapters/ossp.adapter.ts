@@ -5,7 +5,8 @@
  * 遵循 Stratix 框架的适配器模式规范
  */
 
-import type { AwilixContainer, Logger } from '@stratix/core';
+import type { Logger } from '@stratix/core';
+import type { AwilixContainer } from '@stratix/core/plugin';
 import type { Readable } from 'node:stream';
 import type { OsspPluginOptions } from '../index.js';
 import type {

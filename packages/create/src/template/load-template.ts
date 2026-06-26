@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { CliError } from '../core/errors.js';
 import { readJsonFile, readTextFile } from '../utils/fs.js';
 import {
   parsePresetManifest,
@@ -32,6 +33,9 @@ export function loadPresetManifest(name: string): PresetManifest {
     name,
     'manifest.json'
   );
+  if (!fs.existsSync(manifestPath)) {
+    throw new CliError(`Preset "${name}" was not found.`);
+  }
   return parsePresetManifest(readJsonFile(manifestPath));
 }
 

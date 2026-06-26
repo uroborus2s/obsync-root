@@ -242,13 +242,6 @@ function seedFakeReleaseGateBins(rootDir: string): string {
   );
   fs.chmodSync(path.join(binDir, 'npm'), 0o755);
 
-  fs.writeFileSync(
-    path.join(binDir, 'uvx'),
-    ['#!/usr/bin/env node', 'process.exit(0);'].join('\n'),
-    'utf8'
-  );
-  fs.chmodSync(path.join(binDir, 'uvx'), 0o755);
-
   return binDir;
 }
 
@@ -534,6 +527,48 @@ describe('@stratix/forge', () => {
       ),
       /IOrderItemRepository/
     );
+  });
+
+  it('refuses to overwrite generated resources unless --force is provided', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+
+    await runCreate(['app', 'api', 'overwrite-resource-app', '--no-install'], {
+      cwd,
+      output
+    });
+
+    const projectDir = path.join(cwd, 'overwrite-resource-app');
+    const controllerPath = path.join(
+      projectDir,
+      'src',
+      'controllers',
+      'OrderItemController.ts'
+    );
+
+    await runCli(['generate', 'resource', 'order-item'], {
+      cwd: projectDir,
+      output
+    });
+    fs.appendFileSync(controllerPath, '\n// user edit\n', 'utf8');
+
+    await assert.rejects(
+      runCli(['generate', 'resource', 'order-item'], {
+        cwd: projectDir,
+        output
+      }),
+      (error) =>
+        error instanceof CliError &&
+        error.message.includes('already exists') &&
+        error.message.includes('--force')
+    );
+    assert.match(readText(controllerPath), /user edit/);
+
+    await runCli(['generate', 'resource', 'order-item', '--force'], {
+      cwd: projectDir,
+      output
+    });
+    assert.doesNotMatch(readText(controllerPath), /user edit/);
   });
 
   it('generates an admin page resource for web-admin projects', async () => {
@@ -1353,7 +1388,9 @@ describe('@stratix/forge', () => {
     );
     assert.ok(
       output.messages.some((message) =>
-        message.message.includes('Discovered adapter tokens: brokenPluginClient')
+        message.message.includes(
+          'Discovered adapter tokens: brokenPluginClient'
+        )
       )
     );
   });
@@ -1721,10 +1758,6 @@ describe('@stratix/forge', () => {
 
     seedWorkspaceRoot(cwd);
     seedReleaseWorkspacePackage(cwd, 'core');
-    seedWorkspacePackage(cwd, 'tasks', {
-      name: '@stratix/tasks',
-      version: '1.1.0'
-    });
 
     await runCli(['release', 'gate', '--scope', 'workspace', '--dry-run'], {
       cwd,
@@ -1739,11 +1772,6 @@ describe('@stratix/forge', () => {
     assert.ok(
       output.messages.some((message) =>
         message.message.includes('@stratix/core@1.1.0')
-      )
-    );
-    assert.ok(
-      output.messages.some((message) =>
-        message.message.includes('@stratix/tasks excluded')
       )
     );
     assert.equal(
@@ -1813,6 +1841,41 @@ describe('@stratix/forge', () => {
     );
   });
 
+  it('fails workspace release plan when exported package subpaths leave dist', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+
+    seedWorkspaceRoot(cwd);
+    seedReleaseWorkspacePackage(cwd, 'core', {
+      exports: {
+        '.': {
+          import: './dist/index.js',
+          types: './dist/index.d.ts'
+        },
+        './plugin': {
+          import: './src/public/plugin.ts',
+          types: './dist/types/public/plugin.d.ts'
+        }
+      }
+    });
+
+    await assert.rejects(
+      runCli(['release', 'gate', '--scope', 'workspace', '--dry-run'], {
+        cwd,
+        output
+      }),
+      (error) =>
+        error instanceof CliError &&
+        error.message.includes('Release workspace API surface is invalid')
+    );
+
+    assert.ok(
+      output.messages.some((message) =>
+        message.message.includes('exports must point into dist/')
+      )
+    );
+  });
+
   it('fails workspace release gate when a package tarball misses entry files', async () => {
     const cwd = createTempRoot();
     const output = createMemoryOutput();
@@ -1846,6 +1909,59 @@ describe('@stratix/forge', () => {
     assert.ok(
       output.messages.some((message) =>
         message.message.includes('missing package entry files')
+      )
+    );
+  });
+
+  it('fails workspace release gate when a package tarball misses exported subpath files', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+    const binDir = seedFakeReleaseGateBins(cwd);
+    const originalPath = process.env.PATH;
+    const originalFiles = process.env.STRATIX_FAKE_PACK_FILES;
+
+    seedWorkspaceRoot(cwd);
+    seedReleaseWorkspacePackage(cwd, 'core', {
+      exports: {
+        '.': {
+          import: './dist/index.js',
+          types: './dist/index.d.ts'
+        },
+        './plugin': {
+          import: './dist/public/plugin.js',
+          types: './dist/types/public/plugin.d.ts'
+        }
+      }
+    });
+
+    process.env.PATH = `${binDir}${path.delimiter}${originalPath}`;
+    process.env.STRATIX_FAKE_PACK_FILES = JSON.stringify([
+      'package.json',
+      'dist/index.js',
+      'dist/index.d.ts',
+      'dist/public/plugin.js'
+    ]);
+
+    try {
+      await assert.rejects(
+        runCli(['release', 'gate', '--scope', 'workspace'], {
+          cwd,
+          output
+        }),
+        CliError
+      );
+    } finally {
+      process.env.PATH = originalPath;
+      if (originalFiles === undefined) {
+        delete process.env.STRATIX_FAKE_PACK_FILES;
+      } else {
+        process.env.STRATIX_FAKE_PACK_FILES = originalFiles;
+      }
+    }
+
+    assert.ok(
+      output.messages.some((message) =>
+        message.message.includes('dist/types/public/plugin.d.ts')
       )
     );
   });

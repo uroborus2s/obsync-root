@@ -12,7 +12,7 @@ import {
   renderManifestFile,
   renderStringTemplate
 } from '../../template/render-files.js';
-import { ensureDirectory, writeTextFile } from '../../utils/fs.js';
+import { ensureDirectory, fileExists, writeTextFile } from '../../utils/fs.js';
 import {
   pluralize,
   routePathFromName,
@@ -132,6 +132,7 @@ export async function generateCommand(
   }
 
   const variables = generationVariables(resourceName);
+  const force = argv.force === true;
 
   for (const templateName of compositeResourceTypes(
     resourceType,
@@ -146,6 +147,11 @@ export async function generateCommand(
         rootDir,
         renderStringTemplate(file.destination, variables)
       );
+      if (fileExists(destination) && !force) {
+        throw new CliError(
+          `Target file already exists: ${path.relative(rootDir, destination)}. Use --force to overwrite.`
+        );
+      }
       ensureDirectory(path.dirname(destination));
       writeTextFile(destination, rendered);
       output.success(`Generated ${path.relative(rootDir, destination)}`);

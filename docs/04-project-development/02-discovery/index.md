@@ -17,4 +17,9 @@
 
 - [Core 框架评审与评分报告](./core-framework-review-report.md)
 - [Core 闭门复评与演进报告](./core-closed-door-review-20260619.md)
+- [Core 三角色闭门评审报告](./core-closed-door-review-20260619-subagent-current.md)
 - [Database 插件评审与评分报告](./database-plugin-review-report.md)
+
+## 修复闭环
+
+- 2026-06-20 `CR-CORE-20260620` 已记录闭门评审 batch 1/2 修复范围、固定评分口径和本地验证证据；正式当前状态以 [当前真实状态分析](./current-state-analysis.md) 为准。

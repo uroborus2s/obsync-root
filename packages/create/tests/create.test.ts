@@ -85,6 +85,58 @@ describe('@stratix/create', () => {
     );
   });
 
+  it('rejects removed tasks preset', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+
+    await assert.rejects(
+      runCreate(
+        ['app', 'api', 'legacy-task-app', '--preset', 'tasks', '--no-install'],
+        {
+          cwd,
+          output
+        }
+      ),
+      (error) =>
+        error instanceof Error &&
+        error.message.includes('Preset "tasks" was not found')
+    );
+
+    assert.equal(fs.existsSync(path.join(cwd, 'legacy-task-app')), false);
+  });
+
+  it('maps generated config to flat environment variables from .env.example', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+
+    await runCreate(
+      [
+        'app',
+        'api',
+        'env-config-app',
+        '--preset',
+        'database,redis,ossp,was-v7',
+        '--no-install'
+      ],
+      {
+        cwd,
+        output
+      }
+    );
+
+    const generatedConfig = fs.readFileSync(
+      path.join(cwd, 'env-config-app', 'src', 'config', 'stratix.generated.ts'),
+      'utf8'
+    );
+
+    assert.match(generatedConfig, /process\.env\.DB_HOST/);
+    assert.match(generatedConfig, /process\.env\.REDIS_HOST/);
+    assert.match(generatedConfig, /process\.env\.OSSP_ACCESS_KEY/);
+    assert.match(generatedConfig, /process\.env\.WPS_APP_SECRET/);
+    assert.doesNotMatch(generatedConfig, /minioadmin/);
+    assert.doesNotMatch(generatedConfig, /your-app-secret/);
+  });
+
   it('lists only creation templates and presets', async () => {
     const cwd = createTempRoot();
     const output = createMemoryOutput();

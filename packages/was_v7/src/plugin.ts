@@ -2,7 +2,7 @@ import {
   withRegisterAutoDI,
   type FastifyInstance,
   type FastifyPluginAsync
-} from '@stratix/core';
+} from '@stratix/core/plugin';
 import type { WpsConfig } from './types/index.js';
 
 /**
@@ -101,12 +101,24 @@ const stratixWasV7Plugin: FastifyPluginAsync<any> = withRegisterAutoDI(
           return false;
         }
 
+        if (opts.appId.trim() === 'your-app-id') {
+          console.error('❌ appId must not use the public placeholder value');
+          return false;
+        }
+
         // 验证 appSecret 格式
         if (
           typeof opts.appSecret !== 'string' ||
           opts.appSecret.trim().length === 0
         ) {
           console.error('❌ appSecret must be a non-empty string');
+          return false;
+        }
+
+        if (opts.appSecret.trim() === 'your-app-secret') {
+          console.error(
+            '❌ appSecret must not use the public placeholder value'
+          );
           return false;
         }
 

@@ -1,12 +1,7 @@
 // @stratix/core 适配器注册模块
 // 负责服务适配器的发现、验证和注册
 
-import {
-  isClass,
-  isFunction,
-  listModules,
-  type AwilixContainer
-} from 'awilix';
+import { isClass, isFunction, listModules, type AwilixContainer } from 'awilix';
 import { isAbsolute, resolve } from 'node:path';
 import { ConfigurationError } from '../errors/index.js';
 import { getLogger } from '../logger/index.js';

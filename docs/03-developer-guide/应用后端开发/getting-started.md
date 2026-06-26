@@ -15,7 +15,7 @@
 - `@stratix/create` 负责创建应用和插件项目
 - `@stratix/forge` 负责项目内生成骨架、补 preset、做健康检查和生成 OpenAPI
 - `@stratix/database`、`@stratix/redis`、`@stratix/queue`、`@stratix/ossp`、`@stratix/was-v7` 等生态插件负责基础设施能力
-- `@stratix/tasks` 即将废弃，新项目不要把它作为默认基础设施引入
+- `@stratix/tasks` 已从当前仓库移除，新项目不要引入
 
 你现在不需要先理解框架内部原理。第一阶段的目标只有三个：
 

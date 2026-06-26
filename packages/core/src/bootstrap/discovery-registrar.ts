@@ -1,7 +1,7 @@
 import type { AwilixContainer } from 'awilix';
 import type { FastifyInstance } from 'fastify';
 import fs from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, resolve } from 'node:path';
 import type { Logger } from 'pino';
 import { ApplicationDiscoveryPipeline } from '../discovery/application-pipeline.js';
 import type { ApplicationDiscoveryConfig } from '../discovery/interfaces.js';
@@ -42,7 +42,7 @@ export class ApplicationDiscoveryRegistrar {
     }
 
     const productionManifest = loadProductionManifest(
-      discoveryConfig.rootDir || this.options.getAppRoot(),
+      this.resolveProductionManifestLoadRoot(discoveryConfig, manifestConfig),
       manifestConfig
     );
 
@@ -80,7 +80,9 @@ export class ApplicationDiscoveryRegistrar {
     }
 
     try {
-      this.options.logger?.debug('🚀 Starting application discovery pipeline...');
+      this.options.logger?.debug(
+        '🚀 Starting application discovery pipeline...'
+      );
 
       const appRoot = this.options.getAppRoot();
       const sourceRoot = fs.existsSync(resolve(appRoot, 'src'))
@@ -113,19 +115,21 @@ export class ApplicationDiscoveryRegistrar {
     productionManifest: LoadedProductionManifest
   ): Promise<void> {
     if (discoveryConfig.productionManifest?.registerFromManifest === true) {
-      const registrationPlan =
-        createProductionManifestRegistrationPlan(productionManifest);
+      const registrationPlan = createProductionManifestRegistrationPlan(
+        productionManifest,
+        {
+          compiledOnly: discoveryConfig.productionManifest.compiledOnly === true
+        }
+      );
       this.assertProductionManifestRegistrationPlan(
         productionManifest,
         discoveryConfig.productionManifest,
         registrationPlan
       );
-      const manifestRoot =
-        discoveryConfig.rootDir ||
-        resolve(
-          dirname(productionManifest.sourceFile),
-          productionManifest.discovery.rootDir || '.'
-        );
+      const manifestRoot = this.resolveProductionManifestRoot(
+        discoveryConfig,
+        productionManifest
+      );
 
       if (registrationPlan.sourceFiles.length > 0) {
         this.options.logger?.info(
@@ -188,6 +192,43 @@ export class ApplicationDiscoveryRegistrar {
         issues: registrationPlan.issues
       }
     );
+  }
+
+  private resolveProductionManifestRoot(
+    discoveryConfig: NonNullable<StratixConfig['discovery']>,
+    productionManifest: LoadedProductionManifest
+  ): string {
+    const manifestDiscoveryRoot = productionManifest.discovery.rootDir || '.';
+    if (discoveryConfig.rootDir) {
+      return resolve(discoveryConfig.rootDir, manifestDiscoveryRoot);
+    }
+
+    const manifestDirectory = dirname(productionManifest.sourceFile);
+    const projectRoot =
+      basename(manifestDirectory) === '.stratix'
+        ? dirname(manifestDirectory)
+        : this.options.getAppRoot();
+    return resolve(projectRoot, manifestDiscoveryRoot);
+  }
+
+  private resolveProductionManifestLoadRoot(
+    discoveryConfig: NonNullable<StratixConfig['discovery']>,
+    manifestConfig: NonNullable<
+      NonNullable<StratixConfig['discovery']>['productionManifest']
+    >
+  ): string {
+    if (discoveryConfig.rootDir) {
+      return discoveryConfig.rootDir;
+    }
+
+    if (manifestConfig.path && isAbsolute(manifestConfig.path)) {
+      const manifestDirectory = dirname(manifestConfig.path);
+      if (basename(manifestDirectory) === '.stratix') {
+        return dirname(manifestDirectory);
+      }
+    }
+
+    return this.options.getAppRoot();
   }
 
   private assertProductionManifestRegistrationResult(

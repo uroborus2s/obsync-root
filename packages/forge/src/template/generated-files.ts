@@ -124,8 +124,8 @@ function createPluginIndexTs(context: GeneratedProjectContext): string {
   const pluginFunctionName = createPluginFunctionName(context.projectName);
   const optionsTypeName = `${toPascalCase(context.type)}PluginOptions`;
 
-  return `import type { FastifyInstance } from '@stratix/core';
-import { withRegisterAutoDI } from '@stratix/core';
+  return `import type { FastifyInstance } from '@stratix/core/plugin';
+import { withRegisterAutoDI } from '@stratix/core/plugin';
 import type { ${optionsTypeName} } from './config/plugin-config.js';
 
 async function ${pluginFunctionName}(
@@ -179,9 +179,6 @@ function presetImports(presets: string[]): string[] {
   if (presets.includes('queue')) {
     imports.push(`import queuePlugin from '@stratix/queue';`);
   }
-  if (presets.includes('tasks')) {
-    imports.push(`import tasksPlugin from '@stratix/tasks';`);
-  }
   if (presets.includes('ossp')) {
     imports.push(`import osspPlugin from '@stratix/ossp';`);
   }
@@ -204,11 +201,12 @@ function presetPluginEntries(presets: string[]): string[] {
         connections: {
           default: {
             type: 'mysql' as const,
-            host: databaseConfig.host || 'localhost',
-            port: Number(databaseConfig.port || 3306),
-            database: databaseConfig.database || 'app',
-            username: databaseConfig.username || 'root',
-            password: databaseConfig.password || ''
+            host: databaseConfig.host || process.env.DB_HOST || 'localhost',
+            port: Number(databaseConfig.port || process.env.DB_PORT || 3306),
+            database: databaseConfig.database || process.env.DB_NAME || 'app',
+            username:
+              databaseConfig.username || process.env.DB_USERNAME || 'root',
+            password: databaseConfig.password || process.env.DB_PASSWORD || ''
           }
         }
       }
@@ -220,10 +218,10 @@ function presetPluginEntries(presets: string[]): string[] {
       plugin: redisPlugin,
       options: {
         single: {
-          host: redisConfig.host || 'localhost',
-          port: Number(redisConfig.port || 6379),
-          password: redisConfig.password || undefined,
-          db: Number(redisConfig.db || 0)
+          host: redisConfig.host || process.env.REDIS_HOST || 'localhost',
+          port: Number(redisConfig.port || process.env.REDIS_PORT || 6379),
+          password: redisConfig.password || process.env.REDIS_PASSWORD || undefined,
+          db: Number(redisConfig.db || process.env.REDIS_DB || 0)
         }
       }
     }`);
@@ -235,21 +233,14 @@ function presetPluginEntries(presets: string[]): string[] {
       options: {}
     }`);
   }
-  if (presets.includes('tasks')) {
-    entries.push(`    {
-      name: '@stratix/tasks',
-      plugin: tasksPlugin,
-      options: {}
-    }`);
-  }
   if (presets.includes('ossp')) {
     entries.push(`    {
       name: '@stratix/ossp',
       plugin: osspPlugin,
       options: {
-        endPoint: osspConfig.endPoint || 'localhost',
-        accessKey: osspConfig.accessKey || 'minioadmin',
-        secretKey: osspConfig.secretKey || 'minioadmin'
+        endPoint: osspConfig.endPoint || process.env.OSSP_ENDPOINT || 'localhost',
+        accessKey: osspConfig.accessKey || process.env.OSSP_ACCESS_KEY,
+        secretKey: osspConfig.secretKey || process.env.OSSP_SECRET_KEY
       }
     }`);
   }
@@ -258,9 +249,12 @@ function presetPluginEntries(presets: string[]): string[] {
       name: '@stratix/was-v7',
       plugin: wasV7Plugin,
       options: {
-        appId: wasV7Config.appId || 'your-app-id',
-        appSecret: wasV7Config.appSecret || 'your-app-secret',
-        baseUrl: wasV7Config.baseUrl || 'https://openapi.wps.cn'
+        appId: wasV7Config.appId || process.env.WPS_APP_ID,
+        appSecret: wasV7Config.appSecret || process.env.WPS_APP_SECRET,
+        baseUrl:
+          wasV7Config.baseUrl ||
+          process.env.WPS_BASE_URL ||
+          'https://openapi.wps.cn'
       }
     }`);
   }

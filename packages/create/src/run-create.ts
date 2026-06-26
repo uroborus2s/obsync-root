@@ -23,7 +23,7 @@ function normalizeArgs(args: string[]): string[] {
 
 function parseArgs(args: string[]): ParsedArgs {
   return parseCliArgs(normalizeArgs(args), {
-    boolean: ['help', 'install', 'no-install', 'yes'],
+    boolean: ['help', 'install', 'no-install', 'yes', 'allow-deprecated'],
     string: ['preset', 'pm'],
     alias: {
       h: 'help'
@@ -45,6 +45,7 @@ Options:
   --pm <pm>             Package manager: pnpm, npm, or yarn
   --install             Install dependencies after creation
   --no-install          Skip dependency installation
+  --allow-deprecated    Allow deprecated presets for legacy migration only
   --yes                 Fail instead of prompting for missing arguments
   --help                Show this help message`);
 }

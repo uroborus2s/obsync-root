@@ -226,7 +226,9 @@ function toLifetime(lifetime?: string): LifetimeType {
 }
 
 function toInjectionMode(injectionMode?: string): InjectionModeType {
-  return injectionMode === 'PROXY' ? InjectionMode.PROXY : InjectionMode.CLASSIC;
+  return injectionMode === 'PROXY'
+    ? InjectionMode.PROXY
+    : InjectionMode.CLASSIC;
 }
 
 function createResolverFromPlanToken(

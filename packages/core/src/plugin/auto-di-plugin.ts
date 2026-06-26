@@ -2,13 +2,14 @@
 // 主要的withRegisterAutoDI函数实现
 
 import { deepMerge } from '../utils/data/index.js';
-import { isDevelopment } from '../utils/environment/index.js';
+import { isDevelopment, isProduction } from '../utils/environment/index.js';
 import type {
   FastifyInstance,
   FastifyPluginAsync,
   FastifyPluginCallback,
   FastifyPluginOptions
 } from 'fastify';
+import { ConfigurationError } from '../errors/index.js';
 import { getLogger } from '../logger/index.js';
 import { recordRegistrationPlan } from '../registration/index.js';
 
@@ -61,6 +62,7 @@ const DEFAULT_AUTO_DI_CONFIG: AutoDIConfig = {
     errorHandling: 'throw',
     debug: false
   },
+  strict: false,
   debug: false
 };
 
@@ -93,6 +95,7 @@ export function withRegisterAutoDI<
     try {
       // 1. 获取插件名称（从插件函数名称中获取）
       const pluginName = getPluginName(plugin);
+      assertNamedPlugin(pluginName, mergedConfig);
 
       // 2. 🎯 处理插件参数
       let processedOptions: T;
@@ -164,6 +167,11 @@ export function withRegisterAutoDI<
       const moduleProcessingResult = await discoverAndProcessModules(
         pluginContext,
         fastify
+      );
+      handleModuleProcessingErrors(
+        moduleProcessingResult,
+        mergedConfig,
+        pluginName
       );
       const pluginRegistrationPlan = createPluginAutoDIRegistrationPlan(
         pluginContext,
@@ -304,6 +312,53 @@ export function withRegisterAutoDI<
       throw error;
     }
   };
+}
+
+function assertNamedPlugin(pluginName: string, config: AutoDIConfig): void {
+  if (pluginName !== 'unknownPlugin') {
+    return;
+  }
+
+  if (config.strict !== true && !isProduction()) {
+    return;
+  }
+
+  throw new ConfigurationError(
+    'AutoDI strict mode requires a named plugin function; anonymous plugins would use the unsafe unknownPlugin token prefix.'
+  );
+}
+
+function handleModuleProcessingErrors(
+  moduleProcessingResult: ModuleProcessingResult,
+  config: AutoDIConfig,
+  pluginName: string
+): void {
+  if (moduleProcessingResult.errors.length === 0) {
+    return;
+  }
+
+  const strategy = config.lifecycle?.errorHandling || 'throw';
+  if (strategy === 'ignore') {
+    return;
+  }
+
+  const message = `AutoDI module processing failed for plugin "${pluginName}"`;
+  if (strategy === 'log') {
+    const logger = getLogger();
+    logger.error(
+      {
+        pluginName,
+        errors: moduleProcessingResult.errors
+      },
+      message
+    );
+    return;
+  }
+
+  throw new ConfigurationError(message, {
+    pluginName,
+    errors: moduleProcessingResult.errors
+  });
 }
 
 /**

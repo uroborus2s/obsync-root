@@ -5,8 +5,8 @@
  * Follows the Stratix framework's Adapter layer specification.
  */
 
-import type { FastifyInstance } from '@stratix/core';
-import { withRegisterAutoDI } from '@stratix/core';
+import type { FastifyInstance } from '@stratix/core/plugin';
+import { withRegisterAutoDI } from '@stratix/core/plugin';
 import { deepMerge } from '@stratix/core/data';
 import type { QueuePluginOptions } from './types/index.js';
 

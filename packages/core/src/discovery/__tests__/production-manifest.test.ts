@@ -17,6 +17,8 @@ describe('production manifest', () => {
     sourceHash?: string;
     compiledHash?: string;
     writeCompiled?: boolean;
+    includeCompiledArtifact?: boolean;
+    includeCompiledMetadata?: boolean;
   }) {
     const root = await mkdtemp(join(tmpdir(), 'stratix-manifest-v2-'));
     await mkdir(join(root, 'src'), { recursive: true });
@@ -29,6 +31,25 @@ describe('production manifest', () => {
     }
 
     const manifestPath = join(root, 'production-manifest.json');
+    const includeCompiledArtifact = options.includeCompiledArtifact !== false;
+    const includeCompiledMetadata = options.includeCompiledMetadata !== false;
+    const artifactFile: Record<string, unknown> = {
+      sourceFile: 'src/health.ts',
+      sourceHash: options.sourceHash || sha256(sourceContent)
+    };
+    if (includeCompiledArtifact) {
+      artifactFile.compiledFile = 'dist/health.js';
+      artifactFile.compiledHash =
+        options.compiledHash || sha256(compiledContent);
+    }
+    const planMetadata: Record<string, unknown> = {
+      className: 'HealthService',
+      sourceFile: 'src/health.ts'
+    };
+    if (includeCompiledMetadata) {
+      planMetadata.compiledFile = 'dist/health.js';
+    }
+
     await writeFile(
       manifestPath,
       JSON.stringify(
@@ -74,11 +95,7 @@ describe('production manifest', () => {
                 visibility: 'public',
                 dependencies: [],
                 source: 'src/health.ts',
-                metadata: {
-                  className: 'HealthService',
-                  sourceFile: 'src/health.ts',
-                  compiledFile: 'dist/health.js'
-                }
+                metadata: planMetadata
               }
             ],
             routes: [],
@@ -88,14 +105,7 @@ describe('production manifest', () => {
           },
           artifacts: {
             algorithm: 'sha256',
-            files: [
-              {
-                sourceFile: 'src/health.ts',
-                sourceHash: options.sourceHash || sha256(sourceContent),
-                compiledFile: 'dist/health.js',
-                compiledHash: options.compiledHash || sha256(compiledContent)
-              }
-            ]
+            files: [artifactFile]
           },
           routes: [],
           di: {
@@ -183,5 +193,60 @@ describe('production manifest', () => {
     });
 
     expect(manifest?.schemaVersion).toBe(2);
+  });
+
+  it('uses only compiled files when compiled-only registration is requested', async () => {
+    const { root, manifestPath } = await writeManifestFixture({});
+
+    const manifest = loadProductionManifest(root, {
+      enabled: true,
+      path: manifestPath,
+      strict: true,
+      compiledOnly: true
+    });
+
+    const plan = createProductionManifestRegistrationPlan(manifest!, {
+      compiledOnly: true
+    });
+
+    expect(plan.sourceFiles).toEqual(['dist/health.js']);
+    expect(plan.issues).toEqual([]);
+  });
+
+  it('fails strict compiled-only loading when artifacts do not declare compiled hashes', async () => {
+    const { root, manifestPath } = await writeManifestFixture({
+      includeCompiledArtifact: false
+    });
+
+    expect(() =>
+      loadProductionManifest(root, {
+        enabled: true,
+        path: manifestPath,
+        strict: true,
+        compiledOnly: true
+      })
+    ).toThrow(ConfigurationError);
+  });
+
+  it('reports registration-plan issues when compiled-only entries lack compiled files', async () => {
+    const { root, manifestPath } = await writeManifestFixture({
+      includeCompiledMetadata: false
+    });
+
+    const manifest = loadProductionManifest(root, {
+      enabled: true,
+      path: manifestPath,
+      strict: true
+    });
+    const plan = createProductionManifestRegistrationPlan(manifest!, {
+      compiledOnly: true
+    });
+
+    expect(plan.issues).toEqual([
+      expect.objectContaining({
+        section: 'registrationPlan.tokens',
+        message: expect.stringContaining('compiledFile')
+      })
+    ]);
   });
 });

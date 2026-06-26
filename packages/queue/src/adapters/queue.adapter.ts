@@ -1,4 +1,5 @@
-import { AwilixContainer, Logger } from '@stratix/core';
+import type { Logger } from '@stratix/core';
+import type { AwilixContainer } from '@stratix/core/plugin';
 import { type RedisAdapter } from '@stratix/redis';
 import type { QueueOptions, WorkerOptions } from 'bullmq';
 import { Job, Processor, Queue, Worker } from 'bullmq';

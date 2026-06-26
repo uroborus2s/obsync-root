@@ -111,6 +111,74 @@ describe('route contracts', () => {
     });
   });
 
+  it('can extract prefix-aware route contracts for runtime-prefixed APIs', () => {
+    @Controller({ tags: ['Users'] })
+    class UserController {
+      @Get('/users/:id', {
+        schema: {
+          operationId: 'getUser',
+          response: {
+            200: {
+              type: 'object',
+              properties: {
+                id: { type: 'string' }
+              }
+            }
+          }
+        }
+      })
+      getUser() {}
+    }
+
+    const [contract] = getControllerRouteContracts(UserController, {
+      prefix: '/api/v1'
+    });
+    const document = generateOpenApiDocument([contract], {
+      title: 'Prefixed API',
+      version: '1.0.0'
+    });
+
+    expect(contract).toMatchObject({
+      path: '/api/v1/users/:id',
+      openApiPath: '/api/v1/users/{id}'
+    });
+    expect(document.paths['/api/v1/users/{id}'].get.operationId).toBe(
+      'getUser'
+    );
+  });
+
+  it('normalizes route contract prefixes the same way as runtime routes', () => {
+    @Controller()
+    class StatusController {
+      @Get('status', {
+        schema: {
+          operationId: 'getStatus',
+          response: {
+            200: {
+              type: 'object',
+              properties: {
+                ok: { type: 'boolean' }
+              }
+            }
+          }
+        }
+      })
+      status() {}
+    }
+
+    const [contract] = getControllerRouteContracts(StatusController, {
+      prefix: '/api/v1/'
+    });
+    const document = generateOpenApiDocument([contract], {
+      title: 'Status API',
+      version: '1.0.0'
+    });
+
+    expect(contract.path).toBe('/api/v1/status');
+    expect(contract.openApiPath).toBe('/api/v1/status');
+    expect(document.paths['/api/v1/status'].get.operationId).toBe('getStatus');
+  });
+
   it('reports contract diagnostics for routes without schemas or responses', () => {
     @Controller()
     class UnsafeController {

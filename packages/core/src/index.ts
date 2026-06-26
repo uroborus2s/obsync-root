@@ -1,18 +1,16 @@
-// Stratix Core - 主入口文件
-// 导出所有公共API
+// Stratix Core - stable application-developer entrypoint.
+// Plugin-author, diagnostics, contracts, experimental and internal APIs are
+// exposed through explicit package subpaths instead of the root export.
 
 // 主要类和接口
-export { Stratix } from './stratix.js';
+export { Stratix, runApp } from './stratix.js';
 export * from './types/index.js';
 
-// Bootstrap 功能
-export * from './bootstrap/index.js';
-export * from './contracts/index.js';
-export * from './diagnostics/index.js';
 export * as experimental from './experimental/index.js';
 export {
   ConfigurationError,
   DiscoveryError,
+  HttpError,
   PluginLoadError,
   RegistrationError,
   StratixError
@@ -54,62 +52,6 @@ export {
   type ValidationRule
 } from './decorators/index.js';
 
-// 高级功能模块 - 插件
-export {
-  // 生命周期管理
-  ConventionBasedLifecycleManager,
-  FASTIFY_LIFECYCLE_METHODS,
-  // 模块发现和分类
-  diagnoseServiceAdapterTokens,
-  ensureAwilixPlugin,
-  getCallerFilePath,
-  getPluginName,
-  isAsyncPlugin,
-  // 服务发现和注册
-  performAutoRegistration,
-  // 统一模块处理器
-  processModulesUnified,
-  processPluginParameters,
-  processSingleModule,
-  registerControllerClassRoutes,
-  // 控制器注册
-  registerControllerRoutes,
-  // 适配器注册
-  registerServiceAdapters,
-  resolveBasePath,
-  // 主要的自动依赖注入插件
-  withRegisterAutoDI,
-  // 工具函数和类型
-  type AutoDIConfig,
-  type FastifyLifecycleMethod,
-  type LifecycleMethodResult,
-  type LifecyclePhaseResult,
-  type ModuleClassificationResult,
-  type ModuleInfo,
-  type ModuleProcessingResult,
-  type PluginContainerContext,
-  type RouteConfig,
-  type ServiceAdapter,
-  type ServiceAdapterClass,
-  type ServiceAdapterDiagnostic,
-  type ServiceConfig
-} from './plugin/index.js';
-
-// 应用级 discovery
-export {
-  ApplicationDiscoveryPipeline,
-  type ApplicationDiscoveryConfig,
-  type ApplicationDiscoveryResult,
-  type LoadedProductionManifest,
-  type ProductionManifest,
-  type ProductionManifestArtifacts,
-  type ProductionManifestGenerator,
-  type ProductionManifestRuntime,
-  type ProductionManifestV1,
-  type ProductionManifestV2,
-  type ProductionManifestDiscoveryConfig
-} from './discovery/index.js';
-
 // Service 层功能模块
 export * from './service/index.js';
 export * as async from './utils/async/index.js';
@@ -122,19 +64,7 @@ export * from './utils/crypto.js';
 export * from './utils/file-scanner.js';
 export { createLogger, getLogger, LoggerFactory } from './logger/index.js';
 
-export { default as fp } from 'fastify-plugin';
+export type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
-export { RESOLVER } from 'awilix';
-
-export type {
-  FastifyInstance,
-  FastifyPluginAsync,
-  FastifyPluginOptions,
-  FastifyReply,
-  FastifyRequest
-} from 'fastify';
-
-export { Lifetime, asFunction, asValue } from 'awilix';
-export type { AwilixContainer, InjectorFunction } from 'awilix';
 export type { Logger } from './logger/index.js';
 export type { LoggerOptions } from 'pino';

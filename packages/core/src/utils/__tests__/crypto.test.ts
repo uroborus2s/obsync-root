@@ -46,9 +46,9 @@ describe('crypto utilities', () => {
     process.env.NODE_ENV = 'production';
     process.env.STRATIX_ENCRYPTION_KEY = '12345678901234567890123456789012';
 
-    expect(() =>
-      encrypt('production secret', { useDefaultKey: true })
-    ).toThrow('default encryption key');
+    expect(() => encrypt('production secret', { useDefaultKey: true })).toThrow(
+      'default encryption key'
+    );
   });
 });
 

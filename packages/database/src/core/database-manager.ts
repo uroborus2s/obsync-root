@@ -1,7 +1,8 @@
 // @stratix/database 增强数据库管理器
 // 基于新的双层生命周期架构和简化的5个核心生命周期阶段
 
-import { Logger, RESOLVER } from '@stratix/core';
+import type { Logger } from '@stratix/core';
+import { RESOLVER } from '@stratix/core/plugin';
 import { isDevelopment } from '@stratix/core/environment';
 import {
   eitherFold,

@@ -2,8 +2,8 @@ import { Ajv, type ErrorObject } from 'ajv';
 import type {
   RouteContract,
   RouteContractValidationOptions
-} from '@stratix/core';
-import { validateRouteContracts } from '@stratix/core';
+} from '@stratix/core/contracts';
+import { validateRouteContracts } from '@stratix/core/contracts';
 
 export interface ContractTestRequest {
   method: string;

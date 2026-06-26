@@ -1,4 +1,5 @@
-import type { AwilixContainer, Logger } from '@stratix/core';
+import type { Logger } from '@stratix/core';
+import type { AwilixContainer } from '@stratix/core/plugin';
 import { Cluster, Redis, type RedisOptions } from 'ioredis';
 import { RedisPluginOptions } from '../index.js';
 
