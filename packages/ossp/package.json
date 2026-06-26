@@ -1,6 +1,6 @@
 {
   "name": "@stratix/ossp",
-  "version": "0.0.1-beta.3",
+  "version": "1.1.0-beta.0",
   "description": "Stratix OSS Plugin with MinIO and Aliyun OSS support, multi-provider architecture and complete object storage operations",
   "main": "dist/index.js",
   "types": "dist/types/index.d.ts",

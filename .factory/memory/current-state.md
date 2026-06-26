@@ -261,7 +261,7 @@
   - `@stratix/database@1.1.0`
   - `@stratix/devtools@1.0.0-beta.1`
   - `@stratix/forge@1.1.0`
-  - `@stratix/ossp@0.0.1-beta.3`
+  - `@stratix/ossp@1.1.0-beta.0`
   - `@stratix/queue@1.0.0-beta.2`
   - `@stratix/redis@1.0.0-beta.2`
   - `@stratix/testing@1.0.0-beta.1`

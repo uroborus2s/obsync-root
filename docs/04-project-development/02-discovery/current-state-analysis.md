@@ -37,7 +37,7 @@
 | `@stratix/database`          | package |         1.1.0 | public        | repository-first 数据库插件                                                                           | `@stratix/core`                      |
 | `@stratix/devtools`          | package |  1.0.0-beta.1 | public        | 开发观测与辅助工具                                                                                    | `@stratix/core`                      |
 | `@stratix/forge`             | package |         1.1.0 | public        | 项目内工程中枢：generate、doctor、di graph、OpenAPI/typed client、start、config；自身保持零运行时依赖 | -                                    |
-| `@stratix/ossp`              | package |  0.0.1-beta.3 | public        | 对象存储插件                                                                                          | `@stratix/core`                      |
+| `@stratix/ossp`              | package | 1.1.0-beta.0 | public        | 对象存储插件                                                                                          | `@stratix/core`                      |
 | `@stratix/queue`             | package |  1.0.0-beta.2 | public        | 队列插件                                                                                              | `@stratix/core`, `@stratix/redis`    |
 | `@stratix/redis`             | package |  1.0.0-beta.2 | public        | Redis 插件                                                                                            | `@stratix/core`                      |
 | `@stratix/testing`           | package |  1.0.0-beta.1 | public        | 官方测试平台入口，已具备 smoke 与 `contractTest()` 基线                                               | `@stratix/core`                      |
@@ -101,7 +101,7 @@
 | `@stratix/forge`    |         1.1.0 | `@stratix/forge@1.1.0`           | 404                            | 新增公开工具链包；exact tag 后可首次发布 |
 | `@stratix/database` |         1.1.0 | `@stratix/database@1.1.0`        | 404                            | exact tag 后可首次发布                   |
 | `@stratix/devtools` |  1.0.0-beta.1 | `@stratix/devtools@1.0.0-beta.1` | 404                            | exact tag 后可首次发布                   |
-| `@stratix/ossp`     |  0.0.1-beta.3 | `@stratix/ossp@0.0.1-beta.3`     | 404                            | exact tag 后可首次发布                   |
+| `@stratix/ossp`     | 1.1.0-beta.0 | `@stratix/ossp@1.1.0-beta.0`     | latest `0.0.1-beta.3`；`1.1.0-beta.0` 未发布 | exact tag 后可发布 |
 | `@stratix/queue`    |  1.0.0-beta.2 | `@stratix/queue@1.0.0-beta.2`    | 404                            | exact tag 后可首次发布                   |
 | `@stratix/redis`    |  1.0.0-beta.2 | `@stratix/redis@1.0.0-beta.2`    | 404                            | exact tag 后可首次发布                   |
 | `@stratix/testing`  |  1.0.0-beta.1 | `@stratix/testing@1.0.0-beta.1`  | 404                            | exact tag 后可首次发布                   |

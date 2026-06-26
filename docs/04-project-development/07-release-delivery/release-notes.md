@@ -34,7 +34,7 @@ Phase 6 supported packages:
 - `@stratix/database@1.1.0`
 - `@stratix/devtools@1.0.0-beta.1`
 - `@stratix/forge@1.1.0`
-- `@stratix/ossp@0.0.1-beta.3`
+- `@stratix/ossp@1.1.0-beta.0`
 - `@stratix/queue@1.0.0-beta.2`
 - `@stratix/redis@1.0.0-beta.2`
 - `@stratix/testing@1.0.0-beta.1`
@@ -46,7 +46,7 @@ Phase 6 supported packages:
 
 - public npmjs 上仅 `@stratix/core` 存在历史公开版本，latest 为 `0.8.2`，修改时间 `2026-01-07T12:57:22.097Z`。
 - public npmjs 上 `@stratix/core@1.1.0` 未发布。
-- public npmjs 上 `@stratix/create`、`@stratix/database`、`@stratix/devtools`、`@stratix/forge`、`@stratix/ossp`、`@stratix/queue`、`@stratix/redis`、`@stratix/testing`、`@stratix/was-v7` 当前返回 404。
+- public npmjs 上 `@stratix/ossp` 已有旧 beta 版本，`@stratix/ossp@1.1.0-beta.0` 未发布；`@stratix/create`、`@stratix/database`、`@stratix/devtools`、`@stratix/forge`、`@stratix/queue`、`@stratix/redis`、`@stratix/testing`、`@stratix/was-v7` 当前返回 404。
 - `stratix release gate --scope workspace --include-registry` 固定查询 public npmjs 的 exact package version；404 代表该版本尚未占用，允许继续发布准备；如果 exact version 已存在则阻断发布。
 - 本地全局 npm scope registry 可能指向私有/镜像地址；Phase 6 registry gate 不使用该配置作为 public release surface 事实源。
 
@@ -86,7 +86,7 @@ Phase 6 workspace release gate 覆盖：
 - `@stratix/database@1.1.0`
 - `@stratix/devtools@1.0.0-beta.1`
 - `@stratix/forge@1.1.0`
-- `@stratix/ossp@0.0.1-beta.3`
+- `@stratix/ossp@1.1.0-beta.0`
 - `@stratix/queue@1.0.0-beta.2`
 - `@stratix/redis@1.0.0-beta.2`
 - `@stratix/testing@1.0.0-beta.1`
