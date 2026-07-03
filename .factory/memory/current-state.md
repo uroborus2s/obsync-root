@@ -20,7 +20,7 @@
   - Release status: RC-candidate evidence is present; GA/public release still requires exact release tags pointing at the final release commit, pushed tags, maintainer npm publish, and final release wording.
 - Stable docs were missing before this baseline; `docs/`, `.factory/`, `AGENTS.md`, `GEMINI.md` are now present.
 - Developer guides now include beginner-oriented paths for backend apps, plugins, and the create/forge scaffold model.
-- `@stratix/ossp` now supports Aliyun OSS through the official `ali-oss` SDK in addition to MinIO.
+- `@stratix/ossp` now supports Aliyun OSS through the official `ali-oss` SDK in addition to MinIO, and documents SeaweedFS usage through the existing MinIO/S3-compatible adapter path.
 - `@stratix/database` has started a database-only clean breaking refactor: `DatabaseAPI` was removed from the package, module-level database manager/global connection helpers were removed, and `BaseRepository` now requires an explicit `DatabaseConnectionProvider`.
 - `@stratix/core` has completed a package-level breaking discovery refactor: application discovery is now driven by `config.discovery` and `ApplicationDiscoveryPipeline`, while old application-level discovery entry points were removed from the root export surface.
 - Phase 1 of the Core concept-model evolution is implemented: `executor` has been removed from `@stratix/core` decorators, metadata, discovery, plugin registration, public exports, and from create/forge generator/template surfaces without compatibility adapters.

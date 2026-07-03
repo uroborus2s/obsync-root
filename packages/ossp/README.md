@@ -4,7 +4,7 @@
 
 ## 特性
 
-- 🚀 **多提供商支持**: 已支持 MinIO、阿里云 OSS，AWS S3 等其他提供商按需扩展
+- 🚀 **多提供商支持**: 已支持 MinIO、阿里云 OSS；SeaweedFS 可通过 MinIO/S3-compatible 配置接入，AWS S3 等其他提供商按需扩展
 - 🔧 **完整功能**: 文件上传、下载、删除、复制、移动等完整OSS操作
 - 📦 **存储桶管理**: 创建、删除、列表、统计等存储桶管理功能
 - 🔗 **预签名URL**: 支持生成预签名上传/下载URL
@@ -45,6 +45,29 @@ await fastify.register(ossp, {
   useSSL: false,
   accessKey: 'your-access-key',
   secretKey: 'your-secret-key',
+  region: 'us-east-1'
+});
+```
+
+#### SeaweedFS 配置
+
+SeaweedFS S3 gateway 兼容 S3 API，当前先复用 MinIO provider 连接：
+
+```typescript
+import Fastify from 'fastify';
+import ossp from '@stratix/ossp';
+import { OSSProvider } from '@stratix/ossp';
+
+const fastify = Fastify();
+
+await fastify.register(ossp, {
+  provider: OSSProvider.MINIO,
+  endPoint: 'localhost',
+  port: 8333,
+  useSSL: false,
+  pathStyle: true,
+  accessKey: 'your-seaweedfs-access-key',
+  secretKey: 'your-seaweedfs-secret-key',
   region: 'us-east-1'
 });
 ```
@@ -305,6 +328,20 @@ interface OsspPluginOptions {
   useSSL: false,
   accessKey: 'your-minio-access-key',
   secretKey: 'your-minio-secret-key'
+}
+```
+
+### SeaweedFS（通过 MinIO provider）
+```typescript
+{
+  provider: OSSProvider.MINIO,
+  endPoint: 'localhost',
+  port: 8333,
+  useSSL: false,
+  pathStyle: true,
+  accessKey: 'your-seaweedfs-access-key',
+  secretKey: 'your-seaweedfs-secret-key',
+  region: 'us-east-1'
 }
 ```
 
