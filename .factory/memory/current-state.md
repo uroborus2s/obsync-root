@@ -1,6 +1,6 @@
 # Current State
 
-- Snapshot date: 2026-07-04
+- Snapshot date: 2026-07-05
 - Recommended software-factory stage: `PHASE_6_BASELINE_CLOSED_RELEASE_DEFERRED`
 - Repository type: historical Stratix source monorepo
 - Toolchain baseline:
@@ -80,6 +80,7 @@
 - The physical source directory for `@stratix/forge` is now `packages/forge`; `packages/cli` is not retained as a compatibility directory.
 - `.stratix/project.json` is now the create/forge handoff contract at `schemaVersion: 2`; create writes the template contribution snapshot, allowed presets, and managed files mode, while forge reads the manifest/presets/resource templates instead of app/plugin creation templates.
 - 2026-07-04 `TASK-001` is closed after the historical project baseline was completed with the create/forge CLI interface matrix, release checklist, deployment guide refresh, operations runbook, implementation plan refresh, and requirements traceability closure. Remaining release work is external release-owner evidence: final exact tags, pushed tags, npm publish, and final release wording.
+- 2026-07-05 `TASK-ECO-001` through `TASK-ECO-015` are implemented in `@stratix/forge`: `stratix ecosystem` now supports search, inspect, catalog list, and Fastify adapter generation with dry-run and write modes. This changes the forge release target from `1.1.0` to `1.1.1`; exact tag, registry, and publish evidence must be regenerated for that package.
 
 ## Verified Facts
 
@@ -184,7 +185,9 @@
   - 2026-06-20 targeted suite: 6 tests, including deprecated preset blocking and flat environment-variable mapping
 - `pnpm --filter @stratix/create exec tsc -p tsconfig.json --noEmit` passes.
 - `pnpm --filter @stratix/create run build` passes.
-- `pnpm --filter @stratix/forge test` passes:
+- `pnpm --filter @stratix/forge test` passes after ecosystem CLI implementation:
+  - 2026-07-05 targeted suite: 63 tests, including Fastify Markdown parsing, registry token redaction, source-filtered search, inspect, catalog list, adapt dry-run, and adapter file writing
+- `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit` passes after ecosystem CLI implementation.
 - `pnpm --filter @stratix/forge exec tsx --test tests/run-cli.test.ts` passes:
   - 2026-06-20 targeted suite: 54 tests, including generated resource overwrite protection with `--force` and release gate docs check delegation
 - `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit` passes.
@@ -261,7 +264,7 @@
   - `@stratix/create@1.1.0`
   - `@stratix/database@1.1.0`
   - `@stratix/devtools@1.0.0-beta.1`
-  - `@stratix/forge@1.1.0`
+  - `@stratix/forge@1.1.1`
   - `@stratix/ossp@1.1.0-beta.0`
   - `@stratix/queue@1.0.0-beta.2`
   - `@stratix/redis@1.0.0-beta.2`

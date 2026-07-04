@@ -6,8 +6,8 @@
 **主要读者：** 架构 | 开发 | 维护者  
 **上游输入：** 当前状态分析 | 技术选型  
 **下游输出：** 实施计划 | 发布计划 | 用户指南  
-**关联 ID：** `API-001` ~ `API-018`
-**最后更新：** 2026-07-04
+**关联 ID：** `API-001` ~ `API-019`
+**最后更新：** 2026-07-05
 
 ## 1. 当前对外接口面
 
@@ -31,6 +31,7 @@
 | `API-016` | Release gate                            | `stratix release gate`                     | Project scope 与 workspace scope 均已完成；workspace gate 覆盖 offline install、build/test/docs/security/pack/API/release-surface/registry |
 | `API-017` | `stratix` 项目工程 CLI                  | 命令行                                     | `@stratix/forge` 负责 project-local generate、doctor、graph、openapi、build-manifest、release、start、config、list |
 | `API-018` | `.stratix/project.json`                 | create/forge handoff manifest              | schemaVersion 2 已作为 create 输出和 forge 读取的交接契约 |
+| `API-019` | `stratix ecosystem`                     | 命令行                                     | `@stratix/forge@1.1.1` 提供插件搜索、取证、catalog 列表和 Fastify adapter 生成 |
 
 ## 2. CLI 接口矩阵
 
@@ -48,6 +49,10 @@
 | `stratix` | `start` | 启动 Stratix 应用 | 用于项目本地运行入口，不替代发布门禁 |
 | `stratix` | `config encrypt/decrypt/validate/generate-key` | 管理敏感配置加密与校验 | 密钥和输出文件由调用方显式传入 |
 | `stratix` | `list` | 查看 forge 可用模板与 preset | 用于项目维护，不创建 app/plugin |
+| `stratix` | `ecosystem search <query>` | 聚合 Stratix catalog、Fastify 官方生态 Markdown 和 npm registry 结果 | 支持 `--source stratix,fastify,npm`、`--format table|json`、`--limit`；输出证据和 signals，不输出 AI 推荐结论 |
+| `stratix` | `ecosystem inspect <package>` | 查询指定包的 npm、GitHub、Stratix 证据 | registry 从本机 `.npmrc` 读取，token 只记录是否存在，不输出原值 |
+| `stratix` | `ecosystem catalog list` | 列出内置 Stratix catalog 与 Fastify catalog | 支持 `--source stratix,fastify` 和 table/json 输出 |
+| `stratix` | `ecosystem adapt <package> --name <name> --target <dir>` | 生成 Fastify plugin 的 Stratix adapter wrapper | `--dry-run` 只输出计划；实际写入 `src/index.ts`、`src/config/plugin-config.ts`、`.stratix/plugin.json`、`tests/smoke.test.ts` |
 
 ## 3. 当前缺口
 
@@ -76,3 +81,4 @@
 | 2026-06-18 | 记录 Phase 5 Observability/Security preset、DevTools production views、Release gate 与 manifest-driven registration API 面 | Codex  |
 | 2026-06-18 | 记录 Phase 6 workspace release gate API 面                                                                                 | Codex  |
 | 2026-07-04 | 补齐 create/forge CLI 接口矩阵，更新 API 缺口为发布外部证据和后续质量提升项                                               | Codex  |
+| 2026-07-05 | 新增 `stratix ecosystem` CLI 接口面，记录 search/inspect/catalog/adapt 命令边界                                           | Codex  |

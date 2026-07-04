@@ -20,3 +20,19 @@
 - 需要长流程或定时执行时，优先用 `@stratix/database` 收口 checkpoint / 状态表，需要异步消费再加 `@stratix/queue`；`@stratix/tasks` 已从当前仓库移除。
 - 需要对象存储时用 `@stratix/ossp`。
 - 需要 WPS 开放平台能力时用 `@stratix/was-v7`，并准备 Redis 作为 token 缓存。
+
+## CLI catalog 与外部生态
+
+`@stratix/forge@1.1.1` 提供 `stratix ecosystem` 命令，用于查询内置 Stratix catalog、Fastify 官方生态 Markdown、npm registry 和 GitHub 元数据：
+
+```bash
+stratix ecosystem catalog list --source stratix --format json
+stratix ecosystem search redis --source stratix,fastify,npm --format json
+stratix ecosystem inspect @stratix/redis --format json
+```
+
+当候选包来自 Fastify 而不是原生 Stratix 插件时，`requiresAdapter` signal 会标记需要 adapter wrapper。生成 adapter 时必须显式指定包名，CLI 不会自动选择候选包：
+
+```bash
+stratix ecosystem adapt @fastify/cors --name cors --target ./plugins/cors-adapter
+```

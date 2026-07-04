@@ -28,7 +28,7 @@
   - `@stratix/create@1.1.0`
   - `@stratix/core@1.1.0`
   - `@stratix/database@1.1.0`
-  - `@stratix/forge@1.1.0`
+  - `@stratix/forge@1.1.1`
 - 工具链已从 core 中独立：创建 app/plugin 优先通过 `@stratix/create`，项目内生成、诊断、OpenAPI、配置等工程化动作优先通过 `@stratix/forge`。
 - `@stratix/database@1.1.0` 采用 repository-first 模型，应用侧数据库访问优先 `BaseRepository`。
 - Stratix 应用与插件默认遵守 `controller -> service -> repository` 分层。

@@ -1,7 +1,7 @@
 # Stratix Core 概念模型与生产级框架完整演进方案
 
 - 文档编号：`EVO-CORE-CONCEPT-20260617`
-- 适用版本：当前仓库 `@stratix/core@1.1.0`、`@stratix/create@1.1.0`、`@stratix/forge@1.1.0`、`@stratix/database@1.1.0`
+- 适用版本：当前仓库 `@stratix/core@1.1.0`、`@stratix/create@1.1.0`、`@stratix/forge@1.1.1`、`@stratix/database@1.1.0`
 - 范围：`@stratix/core`、`@stratix/create`、`@stratix/forge`、`@stratix/database`、`@stratix/testing`、`@stratix/tasks`、插件生态、文档与质量门
 - 升级原则：破坏性升级；不兼容旧概念；不保留旧 API 适配层；以最新契约和最新设计为准
 - 目标：把 Stratix 演进为契约驱动、诊断友好、测试优先、可观测、可发布的标准生产级 Node.js 后端框架

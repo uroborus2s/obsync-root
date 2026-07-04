@@ -98,7 +98,7 @@
 | ------------------- | ------------: | -------------------------------- | ------------------------------ | ---------------------------------------- |
 | `@stratix/core`     |         1.1.0 | `@stratix/core@1.1.0`            | latest `0.8.2`；`1.1.0` 未发布 | exact tag 后可进入 public publish        |
 | `@stratix/create`   |         1.1.0 | `@stratix/create@1.1.0`          | 404                            | 新增公开包；exact tag 后可首次发布       |
-| `@stratix/forge`    |         1.1.0 | `@stratix/forge@1.1.0`           | 404                            | 新增公开工具链包；exact tag 后可首次发布 |
+| `@stratix/forge`    |         1.1.1 | `@stratix/forge@1.1.1`           | 待重新验证                     | 新增 ecosystem CLI；需重新 exact tag 与 registry 验证 |
 | `@stratix/database` |         1.1.0 | `@stratix/database@1.1.0`        | 404                            | exact tag 后可首次发布                   |
 | `@stratix/devtools` |  1.0.0-beta.1 | `@stratix/devtools@1.0.0-beta.1` | 404                            | exact tag 后可首次发布                   |
 | `@stratix/ossp`     | 1.1.0-beta.0 | `@stratix/ossp@1.1.0-beta.0`     | latest `0.0.1-beta.3`；`1.1.0-beta.0` 未发布 | exact tag 后可发布 |

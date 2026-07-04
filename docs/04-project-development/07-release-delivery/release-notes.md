@@ -7,7 +7,7 @@
 **上游输入：** 当前状态分析 | Phase 6 发布准备门禁 | release gate 日志
 **下游输出：** 发布核对清单 | 版本标签 | npm publish 操作
 **关联 ID：** `CR-001`, `TASK-004`, `BUG-003`, `REL-001`
-**最后更新：** 2026-06-26
+**最后更新：** 2026-07-05
 
 ## 1. 本次说明性质
 
@@ -33,7 +33,7 @@ Phase 6 supported packages:
 - `@stratix/create@1.1.0`
 - `@stratix/database@1.1.0`
 - `@stratix/devtools@1.0.0-beta.1`
-- `@stratix/forge@1.1.0`
+- `@stratix/forge@1.1.1`
 - `@stratix/ossp@1.1.0-beta.0`
 - `@stratix/queue@1.0.0-beta.2`
 - `@stratix/redis@1.0.0-beta.2`
@@ -85,7 +85,7 @@ Phase 6 workspace release gate 覆盖：
 - `@stratix/create@1.1.0`
 - `@stratix/database@1.1.0`
 - `@stratix/devtools@1.0.0-beta.1`
-- `@stratix/forge@1.1.0`
+- `@stratix/forge@1.1.1`
 - `@stratix/ossp@1.1.0-beta.0`
 - `@stratix/queue@1.0.0-beta.2`
 - `@stratix/redis@1.0.0-beta.2`
@@ -105,3 +105,4 @@ node packages/forge/dist/bin/stratix.js release gate --scope workspace --include
 | 2026-03-28 | 发布面现状说明初版                                                                                            | Codex  |
 | 2026-06-18 | 更新为 Phase 6 发布准备说明：supported scope、registry exact-version gate、pack artifact gate、tasks 冻结决策 | Codex  |
 | 2026-06-26 | 记录远端 Quality Gate P0、本地修复、run `28234054546` 通过，以及 GA 前仍需 exact tags / npm publish 证据      | Codex  |
+| 2026-07-05 | `@stratix/forge` 新增 `stratix ecosystem` search/inspect/catalog/adapt，发布目标版本调整为 `1.1.1`              | Codex  |

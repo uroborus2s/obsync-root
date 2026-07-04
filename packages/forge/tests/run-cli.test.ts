@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
 import { CliError } from '../src/core/errors.js';
 import type { CliOutput } from '../src/core/output.js';
+import { parseFastifyPlugins } from '../src/commands/ecosystem/fastify-source.js';
 import { runCli } from '../src/run-cli.js';
 import { runCreate } from '../../create/src/run-create.ts';
 
@@ -2618,5 +2619,337 @@ describe('@stratix/forge', () => {
     );
 
     assert.doesNotMatch(source, /from '@stratix\/core'/);
+  });
+
+  it('parses Fastify ecosystem markdown categories', () => {
+    const candidates = parseFastifyPlugins(
+      [
+        '#### [Core](#core)',
+        '- [`@fastify/redis`](https://github.com/fastify/fastify-redis) Fastify Redis',
+        '  connection plugin.',
+        '#### [Community](#community)',
+        '- [`fastify-redis-channels`](https://github.com/hearit-io/fastify-redis-channels) Redis channels plugin.',
+        '#### [Community Tools](#community-tools)',
+        '- [`fastify-cli`](https://github.com/fastify/fastify-cli) CLI tool.'
+      ].join('\n')
+    );
+
+    const redis = candidates.find((entry) => entry.name === '@fastify/redis');
+    const channels = candidates.find(
+      (entry) => entry.name === 'fastify-redis-channels'
+    );
+
+    assert.equal(redis?.fastifyCategory, 'core');
+    assert.equal(redis?.signals.fastifyCore, true);
+    assert.match(redis?.description || '', /connection plugin/);
+    assert.equal(channels?.fastifyCategory, 'community');
+    assert.equal(channels?.signals.fastifyCore, false);
+    assert.equal(channels?.signals.requiresAdapter, true);
+    assert.equal(
+      candidates.some((entry) => entry.name === 'fastify-cli'),
+      false
+    );
+  });
+
+  it('exposes ecosystem help', async () => {
+    const output = createMemoryOutput();
+
+    await runCli(['ecosystem', '--help'], { output });
+
+    assert.ok(
+      output.messages.some((message) =>
+        message.message.includes('Usage: stratix ecosystem')
+      )
+    );
+    assert.ok(
+      output.messages.some((message) => message.message.includes('search'))
+    );
+  });
+
+  it('lists ecosystem catalogs as json', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes('raw.githubusercontent.com/fastify/fastify')) {
+        return new Response(
+          [
+            '#### [Core](#core)',
+            '- [`@fastify/redis`](https://github.com/fastify/fastify-redis) Fastify Redis plugin.'
+          ].join('\n'),
+          { status: 200 }
+        );
+      }
+      return new Response('', { status: 404 });
+    }) as typeof fetch;
+
+    try {
+      const output = createMemoryOutput();
+
+      await runCli(
+        [
+          'ecosystem',
+          'catalog',
+          'list',
+          '--source',
+          'stratix,fastify',
+          '--format',
+          'json'
+        ],
+        { output }
+      );
+
+      const payload = JSON.parse(output.messages.at(-1)?.message || '[]');
+      assert.ok(
+        payload.some(
+          (entry: { name: string }) => entry.name === '@stratix/redis'
+        )
+      );
+      assert.ok(
+        payload.some(
+          (entry: { name: string }) => entry.name === '@fastify/redis'
+        )
+      );
+      assert.equal(
+        payload.find(
+          (entry: { name: string }) => entry.name === '@stratix/redis'
+        ).score,
+        1
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('filters ecosystem search sources', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () => {
+      throw new Error('search --source stratix should not call fetch');
+    }) as typeof fetch;
+
+    try {
+      const output = createMemoryOutput();
+      await runCli(
+        [
+          'ecosystem',
+          'search',
+          'redis',
+          '--source',
+          'stratix',
+          '--format',
+          'json'
+        ],
+        { output }
+      );
+
+      const payload = JSON.parse(output.messages.at(-1)?.message || '[]');
+      assert.ok(
+        payload.every(
+          (entry: { ecosystem: string }) => entry.ecosystem === 'stratix'
+        )
+      );
+      assert.ok(
+        payload.some(
+          (entry: { name: string }) => entry.name === '@stratix/redis'
+        )
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('searches ecosystem candidates as json without leaking registry tokens', async () => {
+    const cwd = createTempRoot();
+    fs.writeFileSync(
+      path.join(cwd, '.npmrc'),
+      [
+        '@stratix:registry=https://packages.aliyun.com/private/npm/',
+        '//packages.aliyun.com/private/npm/:_authToken=secret-token'
+      ].join('\n'),
+      'utf8'
+    );
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes('/-/v1/search')) {
+        return new Response(
+          JSON.stringify({
+            objects: [
+              {
+                package: {
+                  name: '@fastify/redis',
+                  version: '7.0.0',
+                  description: 'Redis plugin for Fastify',
+                  links: {
+                    repository: 'https://github.com/fastify/fastify-redis'
+                  },
+                  keywords: ['fastify', 'redis']
+                },
+                score: {
+                  final: 0.8
+                }
+              }
+            ]
+          }),
+          { status: 200 }
+        );
+      }
+
+      if (url.includes('api.github.com/repos/fastify/fastify-redis')) {
+        return new Response(
+          JSON.stringify({
+            archived: false,
+            pushed_at: '2026-01-01T00:00:00Z',
+            stargazers_count: 1200,
+            license: { spdx_id: 'MIT' },
+            topics: ['fastify', 'redis']
+          }),
+          { status: 200 }
+        );
+      }
+
+      return new Response('{}', { status: 404 });
+    }) as typeof fetch;
+
+    try {
+      const output = createMemoryOutput();
+      await runCli(
+        ['ecosystem', 'search', 'redis', '--format', 'json', '--limit', '5'],
+        { cwd, output }
+      );
+
+      const payload = JSON.parse(output.messages.at(-1)?.message || '[]');
+      const names = payload.map((entry: { name: string }) => entry.name);
+      assert.ok(names.includes('@stratix/redis'));
+      assert.ok(names.includes('@fastify/redis'));
+      assert.equal(
+        payload.find(
+          (entry: { name: string }) => entry.name === '@stratix/redis'
+        ).signals.stratixNative,
+        true
+      );
+      assert.doesNotMatch(JSON.stringify(payload), /secret-token/);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('inspects ecosystem evidence for a package', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes('/@fastify%2fredis')) {
+        return new Response(
+          JSON.stringify({
+            name: '@fastify/redis',
+            version: '7.0.0',
+            description: 'Redis plugin for Fastify',
+            repository: {
+              url: 'git+https://github.com/fastify/fastify-redis.git'
+            },
+            keywords: ['fastify', 'redis']
+          }),
+          { status: 200 }
+        );
+      }
+      if (url.includes('api.github.com/repos/fastify/fastify-redis')) {
+        return new Response(
+          JSON.stringify({
+            archived: false,
+            pushed_at: '2026-01-01T00:00:00Z',
+            stargazers_count: 1200,
+            license: { spdx_id: 'MIT' },
+            topics: ['fastify', 'redis']
+          }),
+          { status: 200 }
+        );
+      }
+      return new Response('{}', { status: 404 });
+    }) as typeof fetch;
+
+    try {
+      const output = createMemoryOutput();
+      await runCli(
+        ['ecosystem', 'inspect', '@fastify/redis', '--format', 'json'],
+        { output }
+      );
+
+      const payload = JSON.parse(output.messages.at(-1)?.message || '{}');
+      assert.equal(payload.name, '@fastify/redis');
+      assert.equal(payload.evidence.npm.version, '7.0.0');
+      assert.equal(payload.evidence.github.stars, 1200);
+      assert.equal(payload.signals.fastifyCore, true);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('prints ecosystem adapt dry-run without writing files', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+
+    await runCli(
+      [
+        'ecosystem',
+        'adapt',
+        '@fastify/cors',
+        '--name',
+        'cors',
+        '--target',
+        'cors-adapter',
+        '--dry-run',
+        '--format',
+        'json'
+      ],
+      { cwd, output }
+    );
+
+    const payload = JSON.parse(output.messages.at(-1)?.message || '{}');
+    assert.deepEqual(
+      payload.files.map((entry: { path: string }) => entry.path),
+      [
+        'src/index.ts',
+        'src/config/plugin-config.ts',
+        '.stratix/plugin.json',
+        'tests/smoke.test.ts'
+      ]
+    );
+    assert.equal(fs.existsSync(path.join(cwd, 'cors-adapter')), false);
+  });
+
+  it('writes ecosystem adapter files', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+
+    await runCli(
+      [
+        'ecosystem',
+        'adapt',
+        '@fastify/cors',
+        '--name',
+        'cors',
+        '--target',
+        'cors-adapter'
+      ],
+      { cwd, output }
+    );
+
+    const projectDir = path.join(cwd, 'cors-adapter');
+    const indexTs = readText(path.join(projectDir, 'src', 'index.ts'));
+    const manifest = readJson(path.join(projectDir, '.stratix', 'plugin.json'));
+
+    assert.match(indexTs, /import fastifyPlugin from '@fastify\/cors'/);
+    assert.match(indexTs, /fastify\.register\(fastifyPlugin, options\)/);
+    assert.equal(
+      fs.existsSync(path.join(projectDir, 'src', 'config', 'plugin-config.ts')),
+      true
+    );
+    assert.equal(
+      fs.existsSync(path.join(projectDir, 'tests', 'smoke.test.ts')),
+      true
+    );
+    assert.equal(manifest.schemaVersion, 1);
+    assert.equal(manifest.name, 'cors-adapter');
+    assert.equal(manifest.externalPackage, '@fastify/cors');
   });
 });

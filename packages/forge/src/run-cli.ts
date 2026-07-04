@@ -36,6 +36,11 @@ function parseArgs(args: string[]): ParsedArgs {
       'input',
       'manifest',
       'scope',
+      'source',
+      'limit',
+      'registry',
+      'name',
+      'target',
       'length',
       'title',
       'version'
@@ -58,6 +63,7 @@ Commands:
   doctor    Validate a Stratix project
   di        Inspect Stratix DI graph
   graph     Inspect Stratix module and plugin graphs
+  ecosystem Search and inspect Stratix/Fastify/npm plugin ecosystem
   openapi   Generate OpenAPI artifacts from Stratix route schemas
   build-manifest  Generate a production manifest artifact
   release   Run production release gates
@@ -111,6 +117,11 @@ export async function runCli(
       case 'graph':
         await import('./commands/graph/index.js').then(({ graphCommand }) =>
           graphCommand(argv, output)
+        );
+        break;
+      case 'ecosystem':
+        await import('./commands/ecosystem/index.js').then(
+          ({ ecosystemCommand }) => ecosystemCommand(argv, output)
         );
         break;
       case 'openapi':

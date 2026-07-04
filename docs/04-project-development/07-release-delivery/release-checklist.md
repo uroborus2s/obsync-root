@@ -7,7 +7,7 @@
 **上游输入：** 发布说明 | 当前状态分析 | workspace release gate  
 **下游输出：** 发布执行记录 | npm publish 证据 | 最终发布说明  
 **关联 ID：** `REL-001`, `TASK-004`, `CR-001`  
-**最后更新：** 2026-07-04
+**最后更新：** 2026-07-05
 
 ## 1. 发布前状态判定
 
@@ -39,7 +39,7 @@ pnpm run release:gate
 - `@stratix/create@1.1.0`
 - `@stratix/database@1.1.0`
 - `@stratix/devtools@1.0.0-beta.1`
-- `@stratix/forge@1.1.0`
+- `@stratix/forge@1.1.1`
 - `@stratix/ossp@1.1.0-beta.0`
 - `@stratix/queue@1.0.0-beta.2`
 - `@stratix/redis@1.0.0-beta.2`
@@ -82,3 +82,4 @@ pnpm run release:gate
 | 日期 | 变更内容 | 变更人 |
 |---|---|---|
 | 2026-07-04 | 建立 Phase 6 发布检查清单，补齐 exact tag、registry、publish 与证据回写要求 | Codex |
+| 2026-07-05 | `@stratix/forge` 新增 ecosystem CLI 后，发布目标版本调整为 `1.1.1` | Codex |

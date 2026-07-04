@@ -207,7 +207,7 @@
     }
   },
   "releaseSurface": {
-    "checkedAt": "2026-06-26",
+    "checkedAt": "2026-07-05",
     "npmRegistry": {
       "checkedAt": "2026-06-20",
       "registry": "https://registry.npmjs.org",
@@ -216,7 +216,7 @@
         "@stratix/create": "1.1.0",
         "@stratix/database": "1.1.0",
         "@stratix/devtools": "1.0.0-beta.1",
-        "@stratix/forge": "1.1.0",
+        "@stratix/forge": "1.1.1",
         "@stratix/ossp": "1.1.0-beta.0",
         "@stratix/queue": "1.0.0-beta.2",
         "@stratix/redis": "1.0.0-beta.2",
@@ -230,14 +230,14 @@
       "@stratix/create": "@stratix/create@1.1.0",
       "@stratix/database": "@stratix/database@1.1.0",
       "@stratix/devtools": "@stratix/devtools@1.0.0-beta.1",
-      "@stratix/forge": "@stratix/forge@1.1.0",
+      "@stratix/forge": "@stratix/forge@1.1.1",
       "@stratix/ossp": "@stratix/ossp@1.1.0-beta.0",
       "@stratix/queue": "@stratix/queue@1.0.0-beta.2",
       "@stratix/redis": "@stratix/redis@1.0.0-beta.2",
       "@stratix/testing": "@stratix/testing@1.0.0-beta.1",
       "@stratix/was-v7": "@stratix/was-v7@1.0.0-beta.36"
     },
-    "assessment": "Supported package manifest versions, public package metadata, tarball/API/docs/security gates, workspace release-surface checks, remote Quality Gate run 28234054546, and public npmjs exact-version availability are aligned for the 10 remaining public packages at RC-candidate level. @stratix/tasks has been physically removed from the workspace, presets, lockfile importer, release gate exclusions, and publish surface. As of 2026-06-26, exact versions are still unpublished on public npmjs, exact tags must point at the final release commit and be pushed to origin, and npm publish evidence is still pending before GA/public release wording."
+    "assessment": "Supported package manifest versions, public package metadata, tarball/API/docs/security gates, workspace release-surface checks, remote Quality Gate run 28234054546, and public npmjs exact-version availability were aligned for the 2026-06-26 RC-candidate baseline. @stratix/tasks has been physically removed from the workspace, presets, lockfile importer, release gate exclusions, and publish surface. As of 2026-07-05, @stratix/forge has moved to 1.1.1 for the ecosystem CLI; exact tag, registry reconciliation, release gate, and publish evidence must be regenerated for the final release commit before GA/public release wording."
   },
   "verification": {
     "checkedAt": "2026-06-26",

@@ -13,7 +13,7 @@
 - `@stratix/create@1.1.0`
 - `@stratix/core@1.1.0`
 - `@stratix/database@1.1.0`
-- `@stratix/forge@1.1.0`
+- `@stratix/forge@1.1.1`
 
 ## Important Engineering Constraints
 

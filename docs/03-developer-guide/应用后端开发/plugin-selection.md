@@ -115,6 +115,26 @@ stratix generate business-repository order
 - 优先从最小组合起步，按场景逐步增加基础设施。
 - 当插件之间存在依赖时，注册顺序遵循“基础设施在前，消费方在后”。
 
+## 用 CLI 查找插件
+
+`@stratix/forge@1.1.1` 起，项目内可以用确定性 CLI 先查证据，再决定是否采用插件：
+
+```bash
+stratix ecosystem search redis --source stratix,fastify,npm --format table
+stratix ecosystem inspect @fastify/redis --format json
+stratix ecosystem catalog list --source stratix,fastify --format table
+```
+
+这些命令只输出候选包、来源证据和固定 signals，例如 `stratixNative`、`fastifyCore`、`requiresAdapter`、`archived`。它不会替你做 AI 推荐，也不会输出本机 registry token。
+
+如果要把 Fastify 插件包装成 Stratix plugin，先 dry-run 看生成内容：
+
+```bash
+stratix ecosystem adapt @fastify/cors --name cors --target ./plugins/cors-adapter --dry-run
+```
+
+确认后去掉 `--dry-run`，CLI 会写入 `src/index.ts`、`src/config/plugin-config.ts`、`.stratix/plugin.json` 和 `tests/smoke.test.ts`。
+
 ## 一个简单的决策顺序
 
 如果你还不知道怎么选，可以按下面的顺序判断：
