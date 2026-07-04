@@ -81,6 +81,7 @@
 - `.stratix/project.json` is now the create/forge handoff contract at `schemaVersion: 2`; create writes the template contribution snapshot, allowed presets, and managed files mode, while forge reads the manifest/presets/resource templates instead of app/plugin creation templates.
 - 2026-07-04 `TASK-001` is closed after the historical project baseline was completed with the create/forge CLI interface matrix, release checklist, deployment guide refresh, operations runbook, implementation plan refresh, and requirements traceability closure. Remaining release work is external release-owner evidence: final exact tags, pushed tags, npm publish, and final release wording.
 - 2026-07-05 `TASK-ECO-001` through `TASK-ECO-015` are implemented in `@stratix/forge`: `stratix ecosystem` now supports search, inspect, catalog list, and Fastify adapter generation with dry-run and write modes. This changes the forge release target from `1.1.0` to `1.1.1`; exact tag, registry, and publish evidence must be regenerated for that package.
+- 2026-07-05 `@stratix/forge@1.1.1` was published to the configured Aliyun `@stratix` npm registry. Verification command `pnpm view @stratix/forge@1.1.1 version --registry=https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/` returned `1.1.1`. This is private Aliyun registry evidence, not public npmjs GA evidence.
 
 ## Verified Facts
 
@@ -241,6 +242,7 @@
 - Core concept-model evolution docs record the startup/discovery/DI flow, breaking removal of `executor` from `@stratix/core` without compatibility adapters, `@stratix/tasks` removal, Module as a code-project governance boundary, `@stratix/testing` as a first-class independent testing platform, and the production-grade roadmap for Contract-first APIs, DI diagnostics, create/forge tooling, observability, security, plugin manifest, production manifest, DevTools, and 95+ quality gates.
 - `@stratix/create` and `@stratix/forge` can build and run their help/list smoke paths on the Node 24 baseline.
 - `pnpm --filter @stratix/forge pack --pack-destination /tmp` passes; forge now only retains `templates/resources` and `templates/presets`.
+- `pnpm --filter @stratix/forge pack --pack-destination /tmp` passes for `@stratix/forge@1.1.1`; tarball `/tmp/stratix-forge-1.1.1.tgz` includes `dist/commands/ecosystem/*`.
 - `@stratix/devtools`, `@stratix/testing`, and `@stratix/was-v7` package manifests/build scripts now satisfy the Phase 6 pack artifact gate.
 - `examples/web-admin-preview` can install independently, build, test, and preview on the upgraded frontend stack.
 - `pnpm --filter @stratix/database build` passes after the database-only clean breaking refactor.

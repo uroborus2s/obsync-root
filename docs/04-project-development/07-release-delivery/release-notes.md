@@ -50,6 +50,17 @@ Phase 6 supported packages:
 - `stratix release gate --scope workspace --include-registry` 固定查询 public npmjs 的 exact package version；404 代表该版本尚未占用，允许继续发布准备；如果 exact version 已存在则阻断发布。
 - 本地全局 npm scope registry 可能指向私有/镜像地址；Phase 6 registry gate 不使用该配置作为 public release surface 事实源。
 
+### 3.1 阿里云私库增量发布
+
+2026-07-05，`@stratix/forge@1.1.1` 已发布到配置的阿里云 `@stratix` npm registry：
+
+```bash
+pnpm publish --registry=https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/ --no-git-checks
+pnpm view @stratix/forge@1.1.1 version --registry=https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/
+```
+
+反查结果返回 `1.1.1`。该证据只代表阿里云私库发布完成，不代表 public npmjs 发布完成。
+
 ## 4. 发布门禁
 
 Phase 6 workspace release gate 覆盖：
@@ -106,3 +117,4 @@ node packages/forge/dist/bin/stratix.js release gate --scope workspace --include
 | 2026-06-18 | 更新为 Phase 6 发布准备说明：supported scope、registry exact-version gate、pack artifact gate、tasks 冻结决策 | Codex  |
 | 2026-06-26 | 记录远端 Quality Gate P0、本地修复、run `28234054546` 通过，以及 GA 前仍需 exact tags / npm publish 证据      | Codex  |
 | 2026-07-05 | `@stratix/forge` 新增 `stratix ecosystem` search/inspect/catalog/adapt，发布目标版本调整为 `1.1.1`              | Codex  |
+| 2026-07-05 | 记录 `@stratix/forge@1.1.1` 阿里云私有 npm registry 发布和反查证据                                             | Codex  |

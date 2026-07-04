@@ -112,6 +112,7 @@
 - public npmjs 上尚不存在本轮 supported package 的 exact versions；`@stratix/core` 只有历史公开版本 `0.8.2`。
 - Phase 6 发布口径以本地 package manifest + 指向 final release commit 的 exact git tags + public npmjs exact-version availability 为准。
 - npm publish 仍是需要发布者凭证的外部操作，不由仓库重构自动执行。
+- 2026-07-05 增量事实：`@stratix/forge@1.1.1` 已发布到配置的阿里云 `@stratix` 私有 npm registry，`pnpm view @stratix/forge@1.1.1 version --registry=https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/` 返回 `1.1.1`；这不等同于 public npmjs GA 发布。
 
 ## 5. 安装、构建、测试、运行验证
 

@@ -225,6 +225,14 @@
       },
       "excludedPackages": []
     },
+    "privateRegistry": {
+      "checkedAt": "2026-07-05",
+      "registry": "https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/",
+      "publishedExactVersions": {
+        "@stratix/forge": "1.1.1"
+      },
+      "verification": "pnpm view @stratix/forge@1.1.1 version returned 1.1.1 from the configured Aliyun @stratix registry"
+    },
     "gitTags": {
       "@stratix/core": "@stratix/core@1.1.0",
       "@stratix/create": "@stratix/create@1.1.0",
@@ -237,7 +245,7 @@
       "@stratix/testing": "@stratix/testing@1.0.0-beta.1",
       "@stratix/was-v7": "@stratix/was-v7@1.0.0-beta.36"
     },
-    "assessment": "Supported package manifest versions, public package metadata, tarball/API/docs/security gates, workspace release-surface checks, remote Quality Gate run 28234054546, and public npmjs exact-version availability were aligned for the 2026-06-26 RC-candidate baseline. @stratix/tasks has been physically removed from the workspace, presets, lockfile importer, release gate exclusions, and publish surface. As of 2026-07-05, @stratix/forge has moved to 1.1.1 for the ecosystem CLI; exact tag, registry reconciliation, release gate, and publish evidence must be regenerated for the final release commit before GA/public release wording."
+    "assessment": "Supported package manifest versions, public package metadata, tarball/API/docs/security gates, workspace release-surface checks, remote Quality Gate run 28234054546, and public npmjs exact-version availability were aligned for the 2026-06-26 RC-candidate baseline. @stratix/tasks has been physically removed from the workspace, presets, lockfile importer, release gate exclusions, and publish surface. As of 2026-07-05, @stratix/forge has moved to 1.1.1 for the ecosystem CLI and was published to the configured Aliyun @stratix registry. Public npmjs exact tag, registry reconciliation, release gate, and publish evidence must still be regenerated for the final public release commit before GA/public release wording."
   },
   "verification": {
     "checkedAt": "2026-06-26",
