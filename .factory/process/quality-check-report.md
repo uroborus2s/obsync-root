@@ -1,7 +1,7 @@
 # Quality Check Report
 
-- Checked at: 2026-06-26
-- Overall status: `REMOTE_CI_PASSED_RELEASE_EVIDENCE_PENDING`
+- Checked at: 2026-07-04
+- Overall status: `BASELINE_CLOSED_RELEASE_OWNER_EVIDENCE_PENDING`
 
 ## Current Gate Summary
 
@@ -9,6 +9,7 @@
 - Previous failed run `28231936087` missed create/forge `admin-mock` `.env.example.tpl` template files because `.gitignore` ignored `.env.*` and did not allow `.env.example.tpl`.
 - Remediation: `.gitignore` allows `.env.example.tpl`; both required template files are included in Git.
 - Remote install, build, typecheck, lint, tests, core coverage, packed API smoke, docs, security audit, and release dry-run passed in run `28234054546`.
+- Local docs-stratego validation passed after TASK-001 documentation closure: 89 pages / 0 contracts.
 
 ## Historical Passing Signals
 
@@ -20,7 +21,7 @@ These signals are retained as historical evidence. Latest remote `Quality Gate` 
 - Root `pnpm test` through `test:supported`
 - `pnpm run build:supported` passed across 10 supported packages
 - `pnpm run test:supported` passed across 12 turbo tasks
-- `uvx --from docs-stratego docs-stratego source validate --repo-path .` passed, 85 pages / 0 contracts
+- `/opt/homebrew/Cellar/uv/0.9.18/bin/uvx --from docs-stratego docs-stratego source validate --repo-path .` passed, 89 pages / 0 contracts
 - Core, forge, and devtools package tarballs can be produced under `/tmp`
 - Preview sample `CI=true pnpm install --ignore-workspace --frozen-lockfile`
 - `@stratix/create` and `@stratix/forge` build/test/typecheck on the Node 24 baseline

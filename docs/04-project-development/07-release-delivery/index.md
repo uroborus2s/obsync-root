@@ -11,3 +11,4 @@
 
 - 发布文档要和实际包版本、标签和发布面保持一致。
 - 任何断裂性变更都要在发布说明里明确说明迁移影响。
+- 发布前按 `release-checklist.md` 重跑本地门禁、exact tag、registry 与 npm publish 检查。

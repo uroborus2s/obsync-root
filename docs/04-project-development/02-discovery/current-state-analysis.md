@@ -7,7 +7,7 @@
 **上游输入：** 现有代码 | `package.json` | 包 README | git tags | npm registry | 命令验证  
 **下游输出：** PRD | 需求分析 | 技术选型 | 实施计划  
 **关联 ID：** `REQ-001`, `REQ-002`, `BUG-001`, `BUG-002`, `BUG-003`, `BUG-004`, `CR-001`  
-**最后更新：** 2026-06-20
+**最后更新：** 2026-07-04
 
 ## 1. 证据基础
 
@@ -189,7 +189,7 @@
 | `node packages/forge/dist/bin/stratix.js list templates`                                                                                                                                                                                                                                                                              | passed                  | forge 只列出项目内 resource/module 生成模板，模板清单中不再包含 executor 或 plugin-executor 模板                                |
 | `node packages/forge/dist/bin/stratix.js list presets`                                                                                                                                                                                                                                                                                | passed                  | preset 清单不再包含 `tasks`                                                                                                      |
 | `rg -n "@Executor\|EXECUTOR_METADATA_KEY\|registerTaskExecutor\|registerExecutorDomain\|processExecutorRegistration\|Executor\\b\|executors/\|plugin-executor\|performApplicationAutoDI\|applicationAutoDI\|discoverAndProcessApplicationModules\|generate executor\|createSafeExecutor\|executor" docs/03-developer-guide -g '*.md'` | passed                  | 开发者指南不再暴露已删除 executor/API 教程路径                                                                                  |
-| `pnpm run docs:validate`                                                                                                                                                                                                                                                                                                              | passed                  | 87 pages / 0 contracts；入口通过 `scripts/docs-validate.mjs` 执行 docs-stratego，缺少全局 `uvx` 时使用临时 uv 运行环境          |
+| `/opt/homebrew/Cellar/uv/0.9.18/bin/uvx --from docs-stratego docs-stratego source validate --repo-path .`                                                                                                                                                                                                                             | passed                  | 2026-07-04 TASK-001 文档收口后校验通过，89 pages / 0 contracts；本次未使用 root pnpm wrapper，因为当前 Codex 沙箱 PATH 未向 lifecycle scripts 暴露 `node` |
 | `git diff --check`                                                                                                                                                                                                                                                                                                                    | passed                  | 本阶段补丁无 whitespace 错误                                                                                                    |
 | `pnpm preview --host 127.0.0.1 --port 4273`（`examples/web-admin-preview`）                                                                                                                                                                                                                                                           | passed after permission | 本地成功启动，监听 `http://127.0.0.1:4273/`                                                                                     |
 
@@ -228,12 +228,12 @@
 
 ## 7. 对当前阶段的判断
 
-建议把软件工厂当前阶段定为 `PHASE_6_DEVELOPMENT_HARDENING_RELEASE_DEFERRED`。
+建议把软件工厂当前阶段定为 `PHASE_6_BASELINE_CLOSED_RELEASE_DEFERRED`。
 
 理由：
 
 - Phase 1-5 的 core/runtime/tooling 能力已完成并通过对应包级验证
-- 问题 3/4 之后的开发阶段硬化正在关闭架构、API、测试、文档和缺陷一致性问题
+- 问题 3/4 之后的开发阶段硬化已完成当前 workitem 收口；`TASK-001` 已补齐 CLI 接口、发布检查清单和运维手册
 - 当前复评必须优先使用本地可执行证据：core typecheck、core coverage ratchet、packed API smoke、public API contract、config/schema 正负测试与 runtime stability 测试
 - 历史 `95/100` 只能视为旧 supported release-scope 口径，不能直接复用为本轮开发硬化后的最终评分，也不能写成全包覆盖率或 GA 事实
 - `@stratix/tasks` 已物理移除，不再作为本轮发布阻断项或 publish 候选
@@ -241,7 +241,7 @@
 
 发布操作前至少需要完成：
 
-- `.github/workflows/quality-gate.yml` 在本次 `.env.example.tpl` 模板跟踪修复提交上完整通过
+- 确认 `.github/workflows/quality-gate.yml` 在最终发布 commit 上完整通过
 - 10 个 exact release tags 指向 final release commit 并推送到 origin
 - 由维护者使用 npm 凭证执行 public npm publish
 
@@ -252,7 +252,7 @@
 - `BUG-003`: 离线安装基线已恢复，可转 CLOSED
 - `BUG-004`: supported workspace test profile 本地已恢复；远端 Quality Gate run `28234054546` 已在 `.env.example.tpl` 模板跟踪修复后通过
 - `CR-001`: README、exact tag 规则、public npmjs registry 事实与本地版本声明已对齐，可转 CLOSED
-- `TASK-001`: 完成历史项目 requirements upgrade 与设计基线补齐
+- `TASK-001`: 历史项目 requirements upgrade 与设计基线已补齐并关闭
 - `TASK-002`: 统一根级验证命令和 CI profile 已建立；最新远端 Quality Gate 绿灯证据为 run `28234054546`
 
 ## 9. 变更记录
@@ -290,3 +290,4 @@
 | 2026-06-20 | 开发态复验补齐：`pnpm lint`、`pnpm run typecheck:supported`、`pnpm run build:supported`、`pnpm run test:supported`、`pnpm --filter @stratix/core run test:coverage`、`pnpm run smoke:core-api`、`pnpm run docs:validate` 与 `pnpm run quality:release` 均通过；`docs:validate` 改为仓库内包装脚本，forge project/workspace release gate docs 检查也统一委托该入口，避免开发机缺少全局 `uvx` 时产生假失败                                                                                                                  | Codex  |
 | 2026-06-23 | 硬删除 `@stratix/tasks`：移除 `packages/tasks`、create/forge `tasks` preset 模板、根脚本中的 tasks 排除过滤和 release gate 排除分支；刷新 `pnpm-lock.yaml`；`pnpm --filter @stratix/create test` 5 项、`pnpm --filter @stratix/forge test` 54 项、create/forge typecheck、`pnpm run quality:release` 和 `pnpm run release:gate` 均通过，发布面为 10 个公共包且不再包含 tasks                                                                                                            | Codex  |
 | 2026-06-26 | 修复远端 Quality Gate P0：`.gitignore` 放行 `.env.example.tpl`，确保 create/forge `admin-mock` preset 需要的 `.env.example.tpl` 模板可进入 Git；run `28234054546` 已通过，发布结论更新为 RC 候选但非 GA                                                                                                            | Codex  |
+| 2026-07-04 | 关闭 `TASK-001` 文档基线：补齐 create/forge CLI 接口矩阵、发布检查清单、运维手册、部署运行说明和需求追踪矩阵；docs-stratego 校验 89 页 / 0 contracts 通过；当前阶段更新为基线关闭、发布外部证据 deferred                                                                                                                                                                                                                                                        | Codex  |

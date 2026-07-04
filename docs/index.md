@@ -275,6 +275,9 @@ mkdocs:
             - title: 发布说明
               path: 04-project-development/07-release-delivery/release-notes.md
               access: private
+            - title: 发布检查清单
+              path: 04-project-development/07-release-delivery/release-checklist.md
+              access: private
             - title: Core 发布门禁
               path: 04-project-development/07-release-delivery/core-breaking-upgrade-release-gate.md
               access: private
@@ -285,6 +288,9 @@ mkdocs:
               access: private
             - title: 部署指南
               path: 04-project-development/08-operations-maintenance/deployment-guide.md
+              access: private
+            - title: 运维手册
+              path: 04-project-development/08-operations-maintenance/operations-runbook.md
               access: private
         - title: 演进复盘
           children:

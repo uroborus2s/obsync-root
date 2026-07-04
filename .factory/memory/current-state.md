@@ -1,7 +1,7 @@
 # Current State
 
-- Snapshot date: 2026-06-26
-- Recommended software-factory stage: `PHASE_6_DEVELOPMENT_HARDENING_RELEASE_DEFERRED`
+- Snapshot date: 2026-07-04
+- Recommended software-factory stage: `PHASE_6_BASELINE_CLOSED_RELEASE_DEFERRED`
 - Repository type: historical Stratix source monorepo
 - Toolchain baseline:
   - Node `24.14.1`
@@ -33,7 +33,7 @@
 - `@stratix/devtools` exposes Phase 5 production views for routes, DI, plugins, redacted config, health, and traces.
 - `@stratix/forge` exposes `stratix release gate` for production manifest release checks and `stratix release gate --scope workspace` for monorepo release-readiness planning.
 - `@stratix/tasks` has been physically removed from the workspace and create/forge preset templates; it is no longer a package, preset, release-surface entry, or publish candidate.
-- Phase 6 workspace release gate exists and has historical local passing evidence, but the active 2026-06-20 work mode is development hardening with release work deferred until all local code, test, documentation, and defect items are closed.
+- Phase 6 workspace release gate exists and has historical local passing evidence. As of 2026-07-04, local code/test/documentation/defect workitems are closed; release work is deferred to exact tags, pushed tags, npm publish, and final GA/RC wording.
 - Root release gating is now tightened so `release` must pass supported build, supported typecheck, supported test, core coverage ratchet, docs validation, security audit, release gate dry-run, and offline workspace release gate before `changeset publish`.
 - GitHub Actions CI has a `Quality Gate` workflow for PRs and pushes to `main` / `1.1.0`; it installs with pnpm and runs the supported build/typecheck/test/coverage/docs/security gates plus workspace release gate dry-run. Run `28234054546` passed after the `.env.example.tpl` tracking fix.
 - 2026-06-20 review-thread remediation completed batch 1 and batch 2 locally:
@@ -79,6 +79,7 @@
 - The toolchain split is implemented: `@stratix/create` owns app/plugin creation, `@stratix/forge` owns project-local generate/doctor/di/openapi/start/config workflows, and neither package depends on `@stratix/core`.
 - The physical source directory for `@stratix/forge` is now `packages/forge`; `packages/cli` is not retained as a compatibility directory.
 - `.stratix/project.json` is now the create/forge handoff contract at `schemaVersion: 2`; create writes the template contribution snapshot, allowed presets, and managed files mode, while forge reads the manifest/presets/resource templates instead of app/plugin creation templates.
+- 2026-07-04 `TASK-001` is closed after the historical project baseline was completed with the create/forge CLI interface matrix, release checklist, deployment guide refresh, operations runbook, implementation plan refresh, and requirements traceability closure. Remaining release work is external release-owner evidence: final exact tags, pushed tags, npm publish, and final release wording.
 
 ## Verified Facts
 
@@ -229,8 +230,8 @@
 - `rg -n "Executor|executor|EXECUTOR|@Executor|registerTaskExecutor|registerExecutorDomain|TaskExecutor|executorModules|executorConfigs" packages/core/src packages/forge/src packages/forge/templates packages/create/src packages/create/templates -g '!**/__tests__/**' -g '!**/*.test.ts' -g '!**/*.spec.ts'` returns no production matches.
 - `rg --files packages/core/src packages/core/dist packages/forge/templates packages/create/templates | rg -i 'executor'` returns no path matches.
 - `tar -tf /tmp/stratix-core-1.1.0.tgz | rg -i 'executor'` returns no path matches.
-- `pnpm run docs:validate` passes:
-  - 87 pages
+- `/opt/homebrew/Cellar/uv/0.9.18/bin/uvx --from docs-stratego docs-stratego source validate --repo-path .` passes after the 2026-07-04 TASK-001 documentation closure:
+  - 89 pages
   - 0 contracts
 - `rg -n "@Executor|EXECUTOR_METADATA_KEY|registerTaskExecutor|registerExecutorDomain|processExecutorRegistration|Executor\\b|executors/|plugin-executor|performApplicationAutoDI|applicationAutoDI|discoverAndProcessApplicationModules|generate executor|createSafeExecutor|executor" docs/03-developer-guide -g '*.md'` returns no matches; developer guides no longer teach removed executor APIs or paths.
 - `git diff --check` passes after Phase 2 docs synchronization.
@@ -271,9 +272,9 @@
 
 ## Immediate Priorities
 
-1. Finish local development hardening and rerun the fixed three-role rubric with only changed executable evidence.
-2. Remaining development-stage risk areas are public-subpath coverage depth, longer reliability/performance regression suites, and any further bootstrap decomposition beyond the new request/observability/security split.
-3. Release-stage evidence is intentionally deferred until local development issues are closed: exact release tags must point at the final release commit and be pushed, npm publish must be executed with maintainer credentials, and final release notes/GA wording must be updated from that evidence.
+1. Rerun the fixed three-role rubric only if score wording changes or new executable evidence is introduced.
+2. Remaining quality-uplift areas are public-subpath coverage depth, longer reliability/performance regression suites, and any further bootstrap decomposition beyond the new request/observability/security split.
+3. Release-stage evidence is intentionally deferred to release-owner actions: exact release tags must point at the final release commit and be pushed, npm publish must be executed with maintainer credentials, and final release notes/GA wording must be updated from that evidence.
 
 ## Canonical Detailed Report
 

@@ -16,8 +16,8 @@
     "node": ">=24.0.0",
     "pnpm": ">=11.0.0"
   },
-  "currentStage": "PHASE_6_DEVELOPMENT_HARDENING_RELEASE_DEFERRED",
-  "recommendedNextStage": "Finish local development hardening, rerun the fixed closed-door rubric, then handle exact tags and npm publish as the final release phase",
+  "currentStage": "PHASE_6_BASELINE_CLOSED_RELEASE_DEFERRED",
+  "recommendedNextStage": "Rerun the fixed closed-door rubric if score wording changes, then handle exact tags, pushed tags, npm publish, and final release wording as the release-owner phase",
   "sourceOfTruth": {
     "stableCollaboration": [
       "AGENTS.md",
@@ -193,14 +193,14 @@
       }
     },
     "remainingExternalEvidence": [
-      "First remote GitHub Actions quality-gate run",
+      "Exact release tags pointing at the final release commit and pushed to origin",
       "npm publish with maintainer credentials",
       "Future optional global coverage uplift beyond the current executable ratchet"
     ],
     "releaseDeferral": {
-      "status": "deferred_until_local_development_issues_are_closed",
+      "status": "deferred_until_release_owner_actions",
       "deferredItems": [
-        "remote GitHub Actions quality-gate evidence",
+        "exact release tags pointing at the final release commit and pushed to origin",
         "npm publish and exact-version registry write evidence",
         "final release notes and GA/RC wording"
       ]
@@ -458,10 +458,10 @@
     ],
     "docs": [
       {
-        "command": "pnpm run docs:validate",
+        "command": "/opt/homebrew/Cellar/uv/0.9.18/bin/uvx --from docs-stratego docs-stratego source validate --repo-path .",
         "status": "passed",
-        "summary": "87 pages / 0 contracts",
-        "reason": "Docs navigation validates through scripts/docs-validate.mjs after adding the core breaking-upgrade report, concept-model evolution plan, implementation plan, test plan, release gate, Phase 2 extended status, create/forge split, Phase 5 production baseline, and developer-guide cleanup"
+        "summary": "89 pages / 0 contracts",
+        "reason": "Docs navigation validates after closing TASK-001 with the create/forge CLI interface matrix, release checklist, operations runbook, implementation plan refresh, and traceability closure. The root pnpm wrapper was not used for this 2026-07-04 check because the Codex sandbox PATH did not expose node to lifecycle scripts."
       },
       {
         "command": "rg -n \"@Executor|EXECUTOR_METADATA_KEY|registerTaskExecutor|registerExecutorDomain|processExecutorRegistration|Executor\\\\b|executors/|plugin-executor|performApplicationAutoDI|applicationAutoDI|discoverAndProcessApplicationModules|generate executor|createSafeExecutor|executor\" docs/03-developer-guide -g '*.md'",
@@ -624,7 +624,7 @@
     ]
   },
   "phaseBaseline": {
-    "stage": "PHASE_6_DEVELOPMENT_HARDENING_RELEASE_DEFERRED",
+    "stage": "PHASE_6_BASELINE_CLOSED_RELEASE_DEFERRED",
     "entrySatisfied": [
       "Current-state evidence collected",
       "docs/ and .factory/ bootstrapped",
@@ -633,15 +633,13 @@
       "Phase 5 production baseline completed",
       "Workspace release gate dry-run implemented",
       "Workspace release gate execution passed with offline install",
-      "Core development-stage coverage and packed API smoke now pass after problem 3 / problem 4 hardening"
+      "Core development-stage coverage and packed API smoke now pass after problem 3 / problem 4 hardening",
+      "TASK-001 documentation baseline closed with CLI interface, release checklist, and operations runbook"
     ],
     "exitBlockedBy": [
-      "Fixed-rubric closed-door re-review has not yet been rerun after the latest development hardening evidence",
       "Exact release tags must point at the final release commit and be pushed to origin before publish",
       "npm publish, final release notes, and GA/RC wording are deferred to the final release phase"
     ]
   },
-  "currentWorkitems": [
-    "TASK-001"
-  ]
+  "currentWorkitems": []
 }
