@@ -80,8 +80,8 @@
 - The physical source directory for `@stratix/forge` is now `packages/forge`; `packages/cli` is not retained as a compatibility directory.
 - `.stratix/project.json` is now the create/forge handoff contract at `schemaVersion: 2`; create writes the template contribution snapshot, allowed presets, and managed files mode, while forge reads the manifest/presets/resource templates instead of app/plugin creation templates.
 - 2026-07-04 `TASK-001` is closed after the historical project baseline was completed with the create/forge CLI interface matrix, release checklist, deployment guide refresh, operations runbook, implementation plan refresh, and requirements traceability closure. Remaining release work is external release-owner evidence: final exact tags, pushed tags, npm publish, and final release wording.
-- 2026-07-05 `TASK-ECO-001` through `TASK-ECO-015` are implemented in `@stratix/forge`: `stratix ecosystem` now supports search, inspect, catalog list, and Fastify adapter generation with dry-run and write modes. This changes the forge release target from `1.1.0` to `1.1.1`; exact tag, registry, and publish evidence must be regenerated for that package.
-- 2026-07-05 `@stratix/forge@1.1.1` was published to the configured Aliyun `@stratix` npm registry. Verification command `pnpm view @stratix/forge@1.1.1 version --registry=https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/` returned `1.1.1`. This is private Aliyun registry evidence, not public npmjs GA evidence.
+- 2026-07-05 `TASK-ECO-001` through `TASK-ECO-015` are implemented in `@stratix/forge`: `stratix ecosystem` now supports search, inspect, catalog list, and Fastify adapter generation with dry-run and write modes. Follow-up P1/P2 remediation fixed scoped registry resolution, search ordering, inspect registry evidence, and catalog packaging; this changes the forge release target to `1.1.2`.
+- 2026-07-05 `@stratix/forge@1.1.2` was published to the configured Aliyun `@stratix` npm registry. Verification command `pnpm view @stratix/forge@1.1.2 version --registry=https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/` returned `1.1.2`. Public npmjs version query for `@stratix/forge@1.1.2` also returned `1.1.2`; the `@stratix/forge@1.1.2` exact git tag was not created in this update.
 
 ## Verified Facts
 
@@ -242,7 +242,7 @@
 - Core concept-model evolution docs record the startup/discovery/DI flow, breaking removal of `executor` from `@stratix/core` without compatibility adapters, `@stratix/tasks` removal, Module as a code-project governance boundary, `@stratix/testing` as a first-class independent testing platform, and the production-grade roadmap for Contract-first APIs, DI diagnostics, create/forge tooling, observability, security, plugin manifest, production manifest, DevTools, and 95+ quality gates.
 - `@stratix/create` and `@stratix/forge` can build and run their help/list smoke paths on the Node 24 baseline.
 - `pnpm --filter @stratix/forge pack --pack-destination /tmp` passes; forge now only retains `templates/resources` and `templates/presets`.
-- `pnpm --filter @stratix/forge pack --pack-destination /tmp` passes for `@stratix/forge@1.1.1`; tarball `/tmp/stratix-forge-1.1.1.tgz` includes `dist/commands/ecosystem/*`.
+- `pnpm --filter @stratix/forge pack --pack-destination /tmp/stratix-forge-1.1.2-review-pack` passes for `@stratix/forge@1.1.2`; tarball `/tmp/stratix-forge-1.1.2-review-pack/stratix-forge-1.1.2.tgz` includes `dist/commands/ecosystem/*` and `dist/commands/ecosystem/catalog/stratix.json`.
 - `@stratix/devtools`, `@stratix/testing`, and `@stratix/was-v7` package manifests/build scripts now satisfy the Phase 6 pack artifact gate.
 - `examples/web-admin-preview` can install independently, build, test, and preview on the upgraded frontend stack.
 - `pnpm --filter @stratix/database build` passes after the database-only clean breaking refactor.
@@ -261,18 +261,18 @@
 
 ## Release Surface
 
-- Public npmjs verification on 2026-06-19 found all 10 supported exact versions are not published and available:
+- Public npmjs verification on 2026-06-19 found the baseline supported exact versions were not published and available; 2026-07-05 follow-up verification returned `1.1.2` for `@stratix/forge@1.1.2`:
   - `@stratix/core@1.1.0`
   - `@stratix/create@1.1.0`
   - `@stratix/database@1.1.0`
   - `@stratix/devtools@1.0.0-beta.1`
-  - `@stratix/forge@1.1.1`
+  - `@stratix/forge@1.1.2`
   - `@stratix/ossp@1.1.0-beta.0`
   - `@stratix/queue@1.0.0-beta.2`
   - `@stratix/redis@1.0.0-beta.2`
   - `@stratix/testing@1.0.0-beta.1`
   - `@stratix/was-v7@1.0.0-beta.36`
-- Phase 6 exact release tags are present for the 10 supported packages, but final release tags must point at the final release commit before publish.
+- Phase 6 exact release tags from the baseline are not current for `@stratix/forge`; local tag verification on 2026-07-05 only found `@stratix/forge@1.1.0`, so `@stratix/forge@1.1.2` must still be tagged and pushed before final GA/public release wording.
 - `@stratix/tasks` is physically removed from source, workspace discovery, presets, and release/publish gates.
 
 ## Immediate Priorities

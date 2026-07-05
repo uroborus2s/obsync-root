@@ -209,14 +209,14 @@
   "releaseSurface": {
     "checkedAt": "2026-07-05",
     "npmRegistry": {
-      "checkedAt": "2026-06-20",
+      "checkedAt": "2026-07-05",
       "registry": "https://registry.npmjs.org",
       "supportedExactVersionsAvailable": {
         "@stratix/core": "1.1.0",
         "@stratix/create": "1.1.0",
         "@stratix/database": "1.1.0",
         "@stratix/devtools": "1.0.0-beta.1",
-        "@stratix/forge": "1.1.1",
+        "@stratix/forge": "1.1.2",
         "@stratix/ossp": "1.1.0-beta.0",
         "@stratix/queue": "1.0.0-beta.2",
         "@stratix/redis": "1.0.0-beta.2",
@@ -229,23 +229,23 @@
       "checkedAt": "2026-07-05",
       "registry": "https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/",
       "publishedExactVersions": {
-        "@stratix/forge": "1.1.1"
+        "@stratix/forge": "1.1.2"
       },
-      "verification": "pnpm view @stratix/forge@1.1.1 version returned 1.1.1 from the configured Aliyun @stratix registry"
+      "verification": "pnpm publish --registry=https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/ published @stratix/forge@1.1.2; pnpm view @stratix/forge@1.1.2 version returned 1.1.2 from the configured Aliyun @stratix registry"
     },
     "gitTags": {
       "@stratix/core": "@stratix/core@1.1.0",
       "@stratix/create": "@stratix/create@1.1.0",
       "@stratix/database": "@stratix/database@1.1.0",
       "@stratix/devtools": "@stratix/devtools@1.0.0-beta.1",
-      "@stratix/forge": "@stratix/forge@1.1.1",
+      "@stratix/forge": "@stratix/forge@1.1.2",
       "@stratix/ossp": "@stratix/ossp@1.1.0-beta.0",
       "@stratix/queue": "@stratix/queue@1.0.0-beta.2",
       "@stratix/redis": "@stratix/redis@1.0.0-beta.2",
       "@stratix/testing": "@stratix/testing@1.0.0-beta.1",
       "@stratix/was-v7": "@stratix/was-v7@1.0.0-beta.36"
     },
-    "assessment": "Supported package manifest versions, public package metadata, tarball/API/docs/security gates, workspace release-surface checks, remote Quality Gate run 28234054546, and public npmjs exact-version availability were aligned for the 2026-06-26 RC-candidate baseline. @stratix/tasks has been physically removed from the workspace, presets, lockfile importer, release gate exclusions, and publish surface. As of 2026-07-05, @stratix/forge has moved to 1.1.1 for the ecosystem CLI and was published to the configured Aliyun @stratix registry. Public npmjs exact tag, registry reconciliation, release gate, and publish evidence must still be regenerated for the final public release commit before GA/public release wording."
+    "assessment": "Supported package manifest versions, public package metadata, tarball/API/docs/security gates, workspace release-surface checks, remote Quality Gate run 28234054546, and public npmjs exact-version availability were aligned for the 2026-06-26 RC-candidate baseline. @stratix/tasks has been physically removed from the workspace, presets, lockfile importer, release gate exclusions, and publish surface. As of 2026-07-05, @stratix/forge has moved to 1.1.2 for the ecosystem CLI P1/P2 remediation and was published to the configured Aliyun @stratix registry; Aliyun and public npmjs version queries both returned 1.1.2 for @stratix/forge. The @stratix/forge@1.1.2 exact git tag was not created in this update; local tag verification only found @stratix/forge@1.1.0, so final exact tag and pushed tag evidence must still be regenerated before GA/public release wording."
   },
   "verification": {
     "checkedAt": "2026-06-26",
