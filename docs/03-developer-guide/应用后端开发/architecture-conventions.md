@@ -120,12 +120,14 @@ Stratix 会自动扫描应用代码，但只有带 Stratix 元数据的类会接
 import type { StratixConfig } from '@stratix/core';
 
 export default function createConfig(
-  sensitiveConfig: Record<string, string> = {}
+  sensitiveConfig: Record<string, any> = {}
 ): StratixConfig {
+  const serverConfig = sensitiveConfig.server || {};
+
   return {
     server: {
-      host: '0.0.0.0',
-      port: Number(process.env.PORT || 3000)
+      host: serverConfig.host || '0.0.0.0',
+      port: Number(serverConfig.port || 3000)
     },
     plugins: [],
     autoLoad: {},

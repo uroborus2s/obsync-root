@@ -179,6 +179,42 @@ describe('route contracts', () => {
     expect(document.paths['/api/v1/status'].get.operationId).toBe('getStatus');
   });
 
+  it('reads operationId from Fastify route config', () => {
+    @Controller()
+    class StatusController {
+      @Get('/status', {
+        config: {
+          operationId: 'StatusController_check'
+        },
+        schema: {
+          response: {
+            200: {
+              type: 'object',
+              properties: {
+                ok: { type: 'boolean' }
+              }
+            }
+          }
+        }
+      })
+      status() {}
+    }
+
+    const [contract] = getControllerRouteContracts(StatusController);
+    const diagnostics = validateRouteContracts([contract], {
+      requireOperationId: true
+    });
+    const document = generateOpenApiDocument([contract], {
+      title: 'Status API',
+      version: '1.0.0'
+    });
+
+    expect(diagnostics).toEqual([]);
+    expect(document.paths['/status'].get.operationId).toBe(
+      'StatusController_check'
+    );
+  });
+
   it('reports contract diagnostics for routes without schemas or responses', () => {
     @Controller()
     class UnsafeController {

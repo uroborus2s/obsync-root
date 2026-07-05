@@ -10,9 +10,7 @@
   "managedFilesMode": "project-only",
   "allowedPresets": ["admin-mock", "testing"],
   "contributes": {
-    "directories": [
-      "src"
-    ],
+    "directories": ["src"],
     "files": [
       {
         "source": ".gitignore.tpl",
@@ -29,6 +27,10 @@
       {
         "source": "components.json.tpl",
         "destination": "components.json"
+      },
+      {
+        "source": "pnpm-workspace.yaml.tpl",
+        "destination": "pnpm-workspace.yaml"
       },
       {
         "source": "index.html.tpl",

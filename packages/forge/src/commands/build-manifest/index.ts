@@ -6,7 +6,10 @@ import type { ParsedArgs } from '../../core/args.js';
 import { CliError } from '../../core/errors.js';
 import type { CliOutput } from '../../core/output.js';
 import { analyzeSourceDI } from '../doctor/di-source-analysis.js';
-import { analyzeSourceRoutes } from '../openapi/source-route-analysis.js';
+import {
+  analyzeSourceRoutes,
+  sourceRouteOperationId
+} from '../openapi/source-route-analysis.js';
 import { analyzeProjectModules } from '../../modules/module-analysis.js';
 import { loadProjectManifest } from '../../project/load-project-manifest.js';
 import { readJsonFile, writeJsonFile } from '../../utils/fs.js';
@@ -270,7 +273,7 @@ export async function buildManifestCommand(
     path: contract.path,
     openApiPath: contract.openApiPath,
     operationId:
-      contract.schema?.operationId ||
+      sourceRouteOperationId(contract) ||
       `${contract.controllerName}_${contract.handlerName}`,
     controllerName: contract.controllerName,
     handlerName: contract.handlerName,

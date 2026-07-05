@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "vitest run --config vitest.config.ts",
     "test:coverage": "vitest run --config vitest.config.ts --coverage",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "security:audit": "pnpm audit --prod --audit-level high"
   },
   "dependencies": {
     "@assistant-ui/react": "^0.14.21",

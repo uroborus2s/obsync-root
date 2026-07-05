@@ -201,12 +201,11 @@ function presetPluginEntries(presets: string[]): string[] {
         connections: {
           default: {
             type: 'mysql' as const,
-            host: databaseConfig.host || process.env.DB_HOST || 'localhost',
-            port: Number(databaseConfig.port || process.env.DB_PORT || 3306),
-            database: databaseConfig.database || process.env.DB_NAME || 'app',
-            username:
-              databaseConfig.username || process.env.DB_USERNAME || 'root',
-            password: databaseConfig.password || process.env.DB_PASSWORD || ''
+            host: databaseConfig.host || 'localhost',
+            port: Number(databaseConfig.port || 3306),
+            database: databaseConfig.database || 'app',
+            username: databaseConfig.username || 'root',
+            password: databaseConfig.password || ''
           }
         }
       }
@@ -218,10 +217,10 @@ function presetPluginEntries(presets: string[]): string[] {
       plugin: redisPlugin,
       options: {
         single: {
-          host: redisConfig.host || process.env.REDIS_HOST || 'localhost',
-          port: Number(redisConfig.port || process.env.REDIS_PORT || 6379),
-          password: redisConfig.password || process.env.REDIS_PASSWORD || undefined,
-          db: Number(redisConfig.db || process.env.REDIS_DB || 0)
+          host: redisConfig.host || 'localhost',
+          port: Number(redisConfig.port || 6379),
+          password: redisConfig.password || undefined,
+          db: Number(redisConfig.db || 0)
         }
       }
     }`);
@@ -238,9 +237,9 @@ function presetPluginEntries(presets: string[]): string[] {
       name: '@stratix/ossp',
       plugin: osspPlugin,
       options: {
-        endPoint: osspConfig.endPoint || process.env.OSSP_ENDPOINT || 'localhost',
-        accessKey: osspConfig.accessKey || process.env.OSSP_ACCESS_KEY,
-        secretKey: osspConfig.secretKey || process.env.OSSP_SECRET_KEY
+        endPoint: osspConfig.endPoint || 'localhost',
+        accessKey: osspConfig.accessKey,
+        secretKey: osspConfig.secretKey
       }
     }`);
   }
@@ -249,12 +248,9 @@ function presetPluginEntries(presets: string[]): string[] {
       name: '@stratix/was-v7',
       plugin: wasV7Plugin,
       options: {
-        appId: wasV7Config.appId || process.env.WPS_APP_ID,
-        appSecret: wasV7Config.appSecret || process.env.WPS_APP_SECRET,
-        baseUrl:
-          wasV7Config.baseUrl ||
-          process.env.WPS_BASE_URL ||
-          'https://openapi.wps.cn'
+        appId: wasV7Config.appId,
+        appSecret: wasV7Config.appSecret,
+        baseUrl: wasV7Config.baseUrl || 'https://openapi.wps.cn'
       }
     }`);
   }
@@ -290,10 +286,12 @@ ${imports}
 export function createGeneratedConfig(
   sensitiveConfig: Record<string, any> = {}
 ): StratixConfig {
-${databaseConfig}${redisConfig}${osspConfig}${wasV7Config}  return {
+${databaseConfig}${redisConfig}${osspConfig}${wasV7Config}  const serverConfig = sensitiveConfig.server || {};
+
+  return {
     server: {
-      host: '0.0.0.0',
-      port: Number(process.env.PORT || 3000)
+      host: serverConfig.host || '0.0.0.0',
+      port: Number(serverConfig.port || 3000)
     },
 	    plugins: [
 	${pluginEntries}
@@ -383,6 +381,12 @@ function createEnvExample(contribution: Contribution): string {
   return lines.length > 0 ? lines.join('\n') + '\n' : '';
 }
 
+function createPnpmWorkspaceYaml(): string {
+  return `allowBuilds:
+  esbuild: true
+`;
+}
+
 export function createManagedFiles(
   context: GeneratedProjectContext,
   projectManifest: ProjectManifest,
@@ -407,6 +411,10 @@ export function createManagedFiles(
     {
       destination: 'tsconfig.json',
       content: createTsConfig()
+    },
+    {
+      destination: 'pnpm-workspace.yaml',
+      content: createPnpmWorkspaceYaml()
     },
     {
       destination: '.env.example',

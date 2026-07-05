@@ -141,6 +141,17 @@ Options:
   --help     Show this help message`);
 }
 
+function dependencyMatches(
+  dep: string,
+  expected: string,
+  actual: unknown
+): boolean {
+  if (dep === '@stratix/forge') {
+    return typeof actual === 'string' && actual.trim().length > 0;
+  }
+  return actual === expected;
+}
+
 async function doctorDICommand(output: CliOutput): Promise<void> {
   const { rootDir } = loadProjectManifest(process.cwd());
   const { issues } = analyzeSourceDI(rootDir);
@@ -265,13 +276,13 @@ export async function doctorCommand(
   for (const [dep, version] of Object.entries(
     merged.dependencies?.runtime || {}
   )) {
-    if (packageJson.dependencies?.[dep] !== version) {
+    if (!dependencyMatches(dep, version, packageJson.dependencies?.[dep])) {
       issues.push(`Dependency mismatch: ${dep} expected ${version}`);
     }
   }
 
   for (const [dep, version] of Object.entries(merged.dependencies?.dev || {})) {
-    if (packageJson.devDependencies?.[dep] !== version) {
+    if (!dependencyMatches(dep, version, packageJson.devDependencies?.[dep])) {
       issues.push(`Dev dependency mismatch: ${dep} expected ${version}`);
     }
   }

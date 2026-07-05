@@ -1,5 +1,5 @@
+import fs from 'node:fs';
 import path from 'node:path';
-import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import type { ParsedArgs } from '../../core/args.js';
 import { CliError } from '../../core/errors.js';
@@ -22,15 +22,66 @@ interface StratixCoreModule {
   };
 }
 
+function packageJsonPath(projectDir: string, packageName: string): string {
+  return path.join(
+    projectDir,
+    'node_modules',
+    ...packageName.split('/'),
+    'package.json'
+  );
+}
+
+function importEntryFromPackageJson(packageJson: Record<string, any>): string {
+  const exportsField = packageJson.exports;
+  const rootExport =
+    exportsField &&
+    typeof exportsField === 'object' &&
+    !Array.isArray(exportsField)
+      ? exportsField['.'] || exportsField
+      : exportsField;
+
+  if (typeof rootExport === 'string') {
+    return rootExport;
+  }
+
+  if (rootExport && typeof rootExport === 'object') {
+    for (const condition of ['import', 'default', 'module']) {
+      if (typeof rootExport[condition] === 'string') {
+        return rootExport[condition];
+      }
+    }
+  }
+
+  if (typeof packageJson.module === 'string') {
+    return packageJson.module;
+  }
+  if (typeof packageJson.main === 'string') {
+    return packageJson.main;
+  }
+
+  throw new CliError(
+    '@stratix/core package.json does not declare an importable entrypoint.'
+  );
+}
+
 async function loadProjectStratixCore(
   projectDir: string
 ): Promise<StratixCoreModule> {
   let resolvedPath: string;
 
   try {
-    const projectRequire = createRequire(path.join(projectDir, 'package.json'));
-    resolvedPath = projectRequire.resolve('@stratix/core');
-  } catch {
+    const manifestPath = packageJsonPath(projectDir, '@stratix/core');
+    const packageJson = JSON.parse(
+      fs.readFileSync(manifestPath, 'utf8')
+    ) as Record<string, any>;
+    resolvedPath = path.resolve(
+      path.dirname(manifestPath),
+      importEntryFromPackageJson(packageJson)
+    );
+  } catch (error) {
+    if (error instanceof CliError) {
+      throw error;
+    }
     throw new CliError(
       'Cannot resolve @stratix/core from the current project. Please install the project dependencies before running stratix start.'
     );

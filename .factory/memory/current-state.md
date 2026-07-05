@@ -82,6 +82,7 @@
 - 2026-07-04 `TASK-001` is closed after the historical project baseline was completed with the create/forge CLI interface matrix, release checklist, deployment guide refresh, operations runbook, implementation plan refresh, and requirements traceability closure. Remaining release work is external release-owner evidence: final exact tags, pushed tags, npm publish, and final release wording.
 - 2026-07-05 `TASK-ECO-001` through `TASK-ECO-015` are implemented in `@stratix/forge`: `stratix ecosystem` now supports search, inspect, catalog list, and Fastify adapter generation with dry-run and write modes. Follow-up P1/P2 remediation fixed scoped registry resolution, search ordering, inspect registry evidence, and catalog packaging; this changes the forge release target to `1.1.2`.
 - 2026-07-05 `@stratix/forge@1.1.2` was published to the configured Aliyun `@stratix` npm registry. Verification command `pnpm view @stratix/forge@1.1.2 version --registry=https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/` returned `1.1.2`. Public npmjs version query for `@stratix/forge@1.1.2` also returned `1.1.2`; the `@stratix/forge@1.1.2` exact git tag was not created in this update.
+- 2026-07-05 `BUG-005` is resolved locally for published-consumer template regressions: generated API/resource operationIds now live under Fastify route `config`, contract/OpenAPI/manifest extraction still reads legacy `schema.operationId`, `stratix start` loads ESM-only `@stratix/core` from the target project import entry, `doctor` no longer blocks `@stratix/forge` toolchain upgrades from old scaffold snapshots, official templates generate `security:audit`, generated app config no longer reads ordinary business env vars, `stratix config <subcommand> --help` exits successfully, and generated projects include pnpm 11 `allowBuilds.esbuild: true`.
 
 ## Verified Facts
 
@@ -191,6 +192,8 @@
 - `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit` passes after ecosystem CLI implementation.
 - `pnpm --filter @stratix/forge exec tsx --test tests/run-cli.test.ts` passes:
   - 2026-06-20 targeted suite: 54 tests, including generated resource overwrite protection with `--force` and release gate docs check delegation
+- `pnpm --filter @stratix/forge test` passes after `BUG-005`:
+  - 2026-07-05 targeted suite: 67 tests, including ESM-only core start resolution, config subcommand help, forge dependency upgrade doctor compatibility, operationId extraction from route config, generated security scripts, and pnpm 11 generated project config coverage
 - `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit` passes.
 - `pnpm --filter @stratix/forge run build` passes after advanced typed client generation support.
 - `pnpm --filter @stratix/devtools test` passes:

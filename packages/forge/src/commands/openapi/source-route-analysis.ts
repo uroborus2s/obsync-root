@@ -19,6 +19,11 @@ export interface SourceRouteSchema {
   [key: string]: unknown;
 }
 
+export interface SourceRouteConfig {
+  operationId?: string;
+  [key: string]: unknown;
+}
+
 export interface SourceRouteContract {
   method: string;
   path: string;
@@ -26,6 +31,7 @@ export interface SourceRouteContract {
   controllerName: string;
   handlerName: string;
   schema?: SourceRouteSchema;
+  config?: SourceRouteConfig;
   tags?: string[];
   sourceFile: string;
 }
@@ -203,6 +209,7 @@ function parseRouteCall(
 ): {
   path: string;
   schema?: SourceRouteSchema;
+  config?: SourceRouteConfig;
 } {
   const pathArg = call.arguments[0];
   const routePath =
@@ -223,20 +230,29 @@ function parseRouteCall(
   }
 
   const schemaExpression = objectProperty(ts, optionsArg, 'schema');
-  if (!schemaExpression) {
-    return { path: routePath };
+  const configExpression = objectProperty(ts, optionsArg, 'config');
+  let schema: SourceRouteSchema | undefined;
+  let config: SourceRouteConfig | undefined;
+
+  if (schemaExpression) {
+    if (!ts.isObjectLiteralExpression(schemaExpression)) {
+      throw new CliError(
+        `Route schema must be a static object literal: ${schemaExpression.getText()}`
+      );
+    }
+    schema = literalValue(ts, schemaExpression) as SourceRouteSchema;
   }
 
-  if (!ts.isObjectLiteralExpression(schemaExpression)) {
-    throw new CliError(
-      `Route schema must be a static object literal: ${schemaExpression.getText()}`
-    );
+  if (configExpression) {
+    if (!ts.isObjectLiteralExpression(configExpression)) {
+      throw new CliError(
+        `Route config must be a static object literal: ${configExpression.getText()}`
+      );
+    }
+    config = literalValue(ts, configExpression) as SourceRouteConfig;
   }
 
-  return {
-    path: routePath,
-    schema: literalValue(ts, schemaExpression) as SourceRouteSchema
-  };
+  return { path: routePath, schema, config };
 }
 
 function classNameOf(node: any, filePath: string): string {
@@ -312,6 +328,7 @@ export function analyzeSourceRoutes(rootDir: string): SourceRouteContract[] {
             controllerName,
             handlerName: methodNameOf(ts, member),
             schema: route.schema,
+            config: route.config,
             tags: Array.isArray(route.schema?.tags)
               ? route.schema.tags.map(String)
               : undefined,
@@ -347,6 +364,12 @@ function diagnosticFor(
   };
 }
 
+export function sourceRouteOperationId(
+  contract: Pick<SourceRouteContract, 'config' | 'schema'>
+): string | undefined {
+  return contract.schema?.operationId || contract.config?.operationId;
+}
+
 export function validateSourceRouteContracts(
   contracts: SourceRouteContract[],
   options: {
@@ -375,7 +398,7 @@ export function validateSourceRouteContracts(
     }
 
     const operationId =
-      contract.schema?.operationId ||
+      sourceRouteOperationId(contract) ||
       `${contract.controllerName}_${contract.handlerName}`;
     const existingOperationId = operationIds.get(operationId);
     if (existingOperationId) {
@@ -414,7 +437,7 @@ export function validateSourceRouteContracts(
       );
     }
 
-    if (options.requireOperationId && !contract.schema?.operationId) {
+    if (options.requireOperationId && !sourceRouteOperationId(contract)) {
       diagnostics.push(
         diagnosticFor(
           'ROUTE_OPERATION_ID_MISSING',
@@ -533,7 +556,7 @@ export function generateSourceOpenApiDocument(
     const pathItem = (document.paths[contract.openApiPath] ||= {});
     const operation: Record<string, unknown> = {
       operationId:
-        contract.schema?.operationId ||
+        sourceRouteOperationId(contract) ||
         `${contract.controllerName}_${contract.handlerName}`,
       responses: buildResponses(contract.schema)
     };

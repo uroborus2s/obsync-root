@@ -269,7 +269,12 @@ function seedProjectCoreModule(rootDir: string): string {
       {
         name: '@stratix/core',
         type: 'module',
-        exports: './index.js'
+        exports: {
+          '.': {
+            import: './index.js',
+            types: './index.d.ts'
+          }
+        }
       },
       null,
       2
@@ -336,7 +341,7 @@ describe('@stratix/forge', () => {
       manifest.template.contribution.dependencies.dev['@stratix/forge']
     );
     assert.equal(packageJson.dependencies['@stratix/core'], '^1.1.0');
-    assert.equal(packageJson.devDependencies['@stratix/forge'], '^1.1.0');
+    assert.equal(packageJson.devDependencies['@stratix/forge'], '^1.1.2');
     assert.equal(packageJson.devDependencies['@stratix/cli'], undefined);
     assert.doesNotMatch(generatedConfig, /applicationAutoDI/);
     assert.match(generatedConfig, /discovery:\s*\{/);
@@ -374,6 +379,14 @@ describe('@stratix/forge', () => {
     assert.equal(packageJson.name, 'demo-admin');
     assert.equal(packageJson.dependencies['@stratix/core'], undefined);
     assert.match(packageJson.scripts.dev, /^vite$/);
+    assert.equal(
+      packageJson.scripts['security:audit'],
+      'pnpm audit --prod --audit-level high'
+    );
+    assert.match(
+      readText(path.join(projectDir, 'pnpm-workspace.yaml')),
+      /allowBuilds:\n  esbuild: true/
+    );
     assert.match(
       readText(path.join(projectDir, 'src', 'main.tsx')),
       /createRouter/
@@ -479,7 +492,7 @@ describe('@stratix/forge', () => {
     assert.equal(packageJson.name, '@demo/data-plugin');
     assert.equal(packageJson.dependencies['@stratix/core'], '^1.1.0');
     assert.equal(packageJson.dependencies['@stratix/database'], '^1.1.0');
-    assert.equal(packageJson.devDependencies['@stratix/forge'], '^1.1.0');
+    assert.equal(packageJson.devDependencies['@stratix/forge'], '^1.1.2');
     assert.equal(packageJson.devDependencies['@stratix/cli'], undefined);
     assert.match(pluginIndex, /withRegisterAutoDI<DataPluginOptions>/);
     assert.match(pluginIndex, /async function dataPlugin/);
@@ -923,6 +936,41 @@ describe('@stratix/forge', () => {
         message.message.includes(
           'Service layer must not access database plugin directly'
         )
+      )
+    );
+  });
+
+  it('doctor allows upgraded forge devDependency over old scaffold snapshots', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+
+    await runCreate(['app', 'api', 'doctor-upgrade-app', '--no-install'], {
+      cwd,
+      output
+    });
+
+    const projectDir = path.join(cwd, 'doctor-upgrade-app');
+    const manifestPath = path.join(projectDir, '.stratix', 'project.json');
+    const packageJsonPath = path.join(projectDir, 'package.json');
+    const manifest = readJson(manifestPath);
+    const packageJson = readJson(packageJsonPath);
+    manifest.template.contribution.dependencies.dev['@stratix/forge'] =
+      '^1.1.0';
+    packageJson.devDependencies['@stratix/forge'] = '^1.1.2';
+    fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    fs.writeFileSync(
+      packageJsonPath,
+      `${JSON.stringify(packageJson, null, 2)}\n`
+    );
+
+    await runCli(['doctor'], {
+      cwd: projectDir,
+      output
+    });
+
+    assert.ok(
+      output.messages.some((message) =>
+        message.message.includes('Doctor checks passed.')
       )
     );
   });
@@ -1685,6 +1733,13 @@ describe('@stratix/forge', () => {
     );
 
     const projectDir = path.join(cwd, 'release-gate-no-security');
+    const packageJsonPath = path.join(projectDir, 'package.json');
+    const packageJson = readJson(packageJsonPath);
+    delete packageJson.scripts['security:audit'];
+    fs.writeFileSync(
+      packageJsonPath,
+      `${JSON.stringify(packageJson, null, 2)}\n`
+    );
     seedProjectTypescript(projectDir);
     const manifestFile = path.join(
       projectDir,
@@ -2227,6 +2282,10 @@ describe('@stratix/forge', () => {
     assert.equal(document.info.title, 'OpenAPI App');
     assert.equal(document.info.version, '1.2.3');
     assert.equal(
+      document.paths['/health'].get.operationId,
+      'HealthController_check'
+    );
+    assert.equal(
       document.paths['/health'].get.responses['200'].content['application/json']
         .schema.properties.success.type,
       'boolean'
@@ -2610,6 +2669,23 @@ describe('@stratix/forge', () => {
     assert.match(
       keyOutput.messages.at(-1)?.message || '',
       /^[A-Za-z0-9+/]+={0,2}$/
+    );
+  });
+
+  it('prints config subcommand help without treating it as an error', async () => {
+    const output = createMemoryOutput();
+
+    await runCli(['config', 'encrypt', '--help'], {
+      cwd: createTempRoot(),
+      output
+    });
+
+    assert.ok(
+      output.messages.some(
+        (message) =>
+          message.level === 'log' &&
+          message.message.includes('Usage: stratix config encrypt <file>')
+      )
     );
   });
 

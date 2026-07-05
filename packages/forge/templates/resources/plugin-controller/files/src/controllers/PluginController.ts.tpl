@@ -11,8 +11,10 @@ export default class {{pascalName}}Controller {
   constructor(private readonly {{camelName}}Service: {{pascalName}}Service) {}
 
   @Get('/plugins/{{pluralKebabName}}', {
+    config: {
+      operationId: '{{pascalName}}Controller_list'
+    },
     schema: {
-      operationId: '{{pascalName}}Controller_list',
       response: {
         200: {
           type: 'object',

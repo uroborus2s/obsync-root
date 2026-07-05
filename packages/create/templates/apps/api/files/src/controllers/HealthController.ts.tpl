@@ -11,8 +11,10 @@ export default class HealthController {
   constructor(private readonly healthService: HealthService) {}
 
   @Get('/health', {
+    config: {
+      operationId: 'HealthController_check'
+    },
     schema: {
-      operationId: 'HealthController_check',
       response: {
         200: {
           type: 'object',

@@ -17,10 +17,16 @@ export interface RouteContractSchema {
   [key: string]: unknown;
 }
 
+export interface RouteContractConfig {
+  operationId?: string;
+  [key: string]: unknown;
+}
+
 export interface RouteContractOptions extends Omit<
   RouteShorthandOptions,
-  'schema'
+  'config' | 'schema'
 > {
+  config?: RouteContractConfig;
   schema?: RouteContractSchema;
 }
 
@@ -92,6 +98,10 @@ function normalizeRouteOptions(
   return options as RouteContractOptions | undefined;
 }
 
+function routeOperationId(contract: RouteContract): string | undefined {
+  return contract.schema?.operationId || contract.options?.config?.operationId;
+}
+
 export function getControllerRouteContracts(
   controllerClass: new (...args: any[]) => any,
   options: RouteContractExtractionOptions = {}
@@ -156,7 +166,7 @@ export function validateRouteContracts(
       });
     }
 
-    if (options.requireOperationId && !contract.schema?.operationId) {
+    if (options.requireOperationId && !routeOperationId(contract)) {
       diagnostics.push({
         code: 'ROUTE_OPERATION_ID_MISSING',
         severity: 'warning',
@@ -294,7 +304,7 @@ export function generateOpenApiDocument(
     const pathItem = (document.paths[contract.openApiPath] ||= {});
     const operation: Record<string, unknown> = {
       operationId:
-        contract.schema?.operationId ||
+        routeOperationId(contract) ||
         `${contract.controllerName}_${contract.handlerName}`,
       responses: buildResponses(contract.schema)
     };

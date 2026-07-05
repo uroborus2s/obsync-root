@@ -19,10 +19,7 @@
   "currentStage": "PHASE_6_BASELINE_CLOSED_RELEASE_DEFERRED",
   "recommendedNextStage": "Rerun the fixed closed-door rubric if score wording changes, then handle exact tags, pushed tags, npm publish, and final release wording as the release-owner phase",
   "sourceOfTruth": {
-    "stableCollaboration": [
-      "AGENTS.md",
-      "GEMINI.md"
-    ],
+    "stableCollaboration": ["AGENTS.md", "GEMINI.md"],
     "humanDocs": "docs/",
     "aiMemory": ".factory/memory/",
     "changeControl": ".factory/workitems/"
@@ -40,13 +37,8 @@
       "@stratix/testing",
       "@stratix/was-v7"
     ],
-    "archivedLegacyPackages": [
-      "@stratix/utils",
-      "@stratix/tasks"
-    ],
-    "previewSamples": [
-      "examples/web-admin-preview"
-    ]
+    "archivedLegacyPackages": ["@stratix/utils", "@stratix/tasks"],
+    "previewSamples": ["examples/web-admin-preview"]
   },
   "qualityGate": {
     "checkedAt": "2026-06-26",
@@ -246,6 +238,35 @@
       "@stratix/was-v7": "@stratix/was-v7@1.0.0-beta.36"
     },
     "assessment": "Supported package manifest versions, public package metadata, tarball/API/docs/security gates, workspace release-surface checks, remote Quality Gate run 28234054546, and public npmjs exact-version availability were aligned for the 2026-06-26 RC-candidate baseline. @stratix/tasks has been physically removed from the workspace, presets, lockfile importer, release gate exclusions, and publish surface. As of 2026-07-05, @stratix/forge has moved to 1.1.2 for the ecosystem CLI P1/P2 remediation and was published to the configured Aliyun @stratix registry; Aliyun and public npmjs version queries both returned 1.1.2 for @stratix/forge. The @stratix/forge@1.1.2 exact git tag was not created in this update; local tag verification only found @stratix/forge@1.1.0, so final exact tag and pushed tag evidence must still be regenerated before GA/public release wording."
+  },
+  "postReleaseConsumerRemediation": {
+    "checkedAt": "2026-07-05",
+    "workitem": "BUG-005",
+    "status": "resolved_locally",
+    "scope": "create/forge generated projects, Node 24, pnpm 11, @stratix/core ESM-only exports, @stratix/forge 1.1.2 upgrade path",
+    "fixes": [
+      "API/resource template operationId moved to Fastify route config while core/forge still read legacy schema.operationId",
+      "stratix start resolves target project @stratix/core from package import entry instead of createRequire().resolve",
+      "doctor allows @stratix/forge toolchain dependency upgrades over old scaffold snapshots",
+      "official app/plugin/web-admin templates generate security:audit",
+      "generated app configuration reads server and plugin options from sensitiveConfig instead of ordinary business env vars",
+      "stratix config subcommand help returns complete usage with exit 0",
+      "pnpm 11 allowBuilds.esbuild is configured for the root workspace and generated projects"
+    ],
+    "verification": [
+      "pnpm --filter @stratix/create test",
+      "pnpm --filter @stratix/core exec vitest run src/contracts/__tests__/route-contract.test.ts",
+      "pnpm --filter @stratix/forge test",
+      "pnpm --filter @stratix/create exec tsc -p tsconfig.json --noEmit",
+      "pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit",
+      "pnpm --filter @stratix/core exec tsc -p tsconfig.json --noEmit",
+      "pnpm --filter @stratix/create build",
+      "pnpm --filter @stratix/forge build",
+      "pnpm --filter @stratix/core build",
+      "env UV_CACHE_DIR=/private/tmp/stratix-uv-cache UV_TOOL_DIR=/private/tmp/stratix-uv-tools pnpm run docs:validate",
+      "git diff --check",
+      "generated API project pnpm install/build/doctor/config-help/strict-openapi smoke"
+    ]
   },
   "verification": {
     "checkedAt": "2026-06-26",

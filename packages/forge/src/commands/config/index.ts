@@ -17,8 +17,54 @@ function getStringArg(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }
 
-function configHelp(): string {
-  return `Usage: stratix config <encrypt|decrypt|validate|generate-key> [options]`;
+function configHelp(subcommand?: string): string {
+  switch (subcommand) {
+    case 'encrypt':
+      return `Usage: stratix config encrypt <file> [options]
+
+Options:
+  --key <key>       Encryption key
+  --output <file>   Write encrypted config to a file
+  --format <env|json>
+                   Output format when --output is used, defaults to env
+  --verbose         Print verbose crypto diagnostics
+  --help            Show this help message`;
+    case 'decrypt':
+      return `Usage: stratix config decrypt <encrypted-string> [options]
+
+Options:
+  --key <key>       Encryption key
+  --output <file>   Write decrypted config to a file
+  --format <json|env>
+                   Output format when --output is used, defaults to json
+  --verbose         Print verbose crypto diagnostics
+  --help            Show this help message`;
+    case 'validate':
+      return `Usage: stratix config validate <file> [options]
+
+Options:
+  --required <keys> Comma-separated required top-level keys
+  --strict          Reject unknown top-level keys
+  --help            Show this help message`;
+    case 'generate-key':
+      return `Usage: stratix config generate-key [options]
+
+Options:
+  --length <bytes>  Key length in bytes, defaults to 32
+  --format <format> Key format: hex or base64, defaults to hex
+  --help            Show this help message`;
+    default:
+      return `Usage: stratix config <encrypt|decrypt|validate|generate-key> [options]
+
+Commands:
+  config encrypt       Encrypt a JSON config file
+  config decrypt       Decrypt an encrypted config string
+  config validate      Validate a JSON config file
+  config generate-key  Generate a random key
+
+Options:
+  --help               Show this help message`;
+  }
 }
 
 export async function configCommand(
@@ -26,6 +72,10 @@ export async function configCommand(
   output: CliOutput
 ): Promise<void> {
   const subcommand = argv._[1];
+  if (argv.help || subcommand === 'help') {
+    output.log(configHelp(subcommand === 'help' ? argv._[2] : subcommand));
+    return;
+  }
 
   switch (subcommand) {
     case 'encrypt':
