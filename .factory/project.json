@@ -203,7 +203,7 @@
     "npmRegistry": {
       "checkedAt": "2026-07-05",
       "registry": "https://registry.npmjs.org",
-      "supportedExactVersionsAvailable": {
+      "supportedExactVersionsObserved": {
         "@stratix/core": "1.1.0",
         "@stratix/create": "1.1.0",
         "@stratix/database": "1.1.0",
@@ -237,12 +237,12 @@
       "@stratix/testing": "@stratix/testing@1.0.0-beta.1",
       "@stratix/was-v7": "@stratix/was-v7@1.0.0-beta.36"
     },
-    "assessment": "Supported package manifest versions, public package metadata, tarball/API/docs/security gates, workspace release-surface checks, remote Quality Gate run 28234054546, and public npmjs exact-version availability were aligned for the 2026-06-26 RC-candidate baseline. @stratix/tasks has been physically removed from the workspace, presets, lockfile importer, release gate exclusions, and publish surface. As of 2026-07-05, @stratix/forge has moved to 1.1.2 for the ecosystem CLI P1/P2 remediation and was published to the configured Aliyun @stratix registry; Aliyun and public npmjs version queries both returned 1.1.2 for @stratix/forge. The @stratix/forge@1.1.2 exact git tag was not created in this update; local tag verification only found @stratix/forge@1.1.0, so final exact tag and pushed tag evidence must still be regenerated before GA/public release wording."
+    "assessment": "Supported package manifest versions, public package metadata, tarball/API/docs/security gates, workspace release-surface checks, and remote Quality Gate run 28234054546 were aligned for the 2026-06-26 RC-candidate baseline. @stratix/tasks has been physically removed from the workspace, presets, lockfile importer, release gate exclusions, and publish surface. As of 2026-07-05, @stratix/forge has moved to 1.1.2 for the ecosystem CLI P1/P2 remediation and was published to the configured Aliyun @stratix registry; Aliyun and public npmjs version queries both returned 1.1.2 for @stratix/forge. Current exact-version registry observations are evidence of registry state, not an availability claim. The @stratix/forge@1.1.2 exact git tag was not created in this update; local tag verification only found @stratix/forge@1.1.0, so final exact tag and pushed tag evidence must still be regenerated before GA/public release wording."
   },
   "postReleaseConsumerRemediation": {
     "checkedAt": "2026-07-05",
     "workitem": "BUG-005",
-    "status": "resolved_locally",
+    "status": "resolved_locally_after_qc",
     "scope": "create/forge generated projects, Node 24, pnpm 11, @stratix/core ESM-only exports, @stratix/forge 1.1.2 upgrade path",
     "fixes": [
       "API/resource template operationId moved to Fastify route config while core/forge still read legacy schema.operationId",
@@ -250,8 +250,10 @@
       "doctor allows @stratix/forge toolchain dependency upgrades over old scaffold snapshots",
       "official app/plugin/web-admin templates generate security:audit",
       "generated app configuration reads server and plugin options from sensitiveConfig instead of ordinary business env vars",
+      "gateway and preset templates no longer emit ordinary business env keys or read process.env.UPSTREAM_URL",
       "stratix config subcommand help returns complete usage with exit 0",
-      "pnpm 11 allowBuilds.esbuild is configured for the root workspace and generated projects"
+      "pnpm 11 allowBuilds.esbuild is configured for the root workspace and generated projects",
+      "root and GitHub quality gates include generated API consumer smoke"
     ],
     "verification": [
       "pnpm --filter @stratix/create test",
@@ -263,6 +265,8 @@
       "pnpm --filter @stratix/create build",
       "pnpm --filter @stratix/forge build",
       "pnpm --filter @stratix/core build",
+      "pnpm run smoke:generated-api",
+      "env UV_CACHE_DIR=/private/tmp/stratix-uv-cache-quality-final4 UV_TOOL_DIR=/private/tmp/stratix-uv-tools-quality-final4 pnpm run quality:release",
       "env UV_CACHE_DIR=/private/tmp/stratix-uv-cache UV_TOOL_DIR=/private/tmp/stratix-uv-tools pnpm run docs:validate",
       "git diff --check",
       "generated API project pnpm install/build/doctor/config-help/strict-openapi smoke"

@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
 import { CliError } from '../src/core/errors.js';
 import type { CliOutput } from '../src/core/output.js';
+import type { ProjectManifest } from '../src/schemas/project.js';
 import { parseFastifyPlugins } from '../src/commands/ecosystem/fastify-source.js';
 import { runCli } from '../src/run-cli.js';
 import { runCreate } from '../../create/src/run-create.ts';
@@ -35,6 +36,9 @@ interface TestPrompter {
   ): Promise<boolean>;
   close?(): void | Promise<void>;
 }
+
+const BUSINESS_ENV_KEYS =
+  /^(PORT|HOST|UPSTREAM_URL|DB_|DATABASE_|REDIS_|OSSP_|WPS_)/m;
 
 function createMemoryOutput(): MemoryOutput {
   const messages: Array<{ level: string; message: string }> = [];
@@ -825,10 +829,12 @@ describe('@stratix/forge', () => {
 
     const projectDir = path.join(cwd, 'preset-app');
 
-    await runCli(['add', 'preset', 'redis', '--no-install'], {
-      cwd: projectDir,
-      output
-    });
+    for (const preset of ['database', 'redis', 'ossp', 'was-v7']) {
+      await runCli(['add', 'preset', preset, '--no-install'], {
+        cwd: projectDir,
+        output
+      });
+    }
 
     const manifest = readJson(
       path.join(projectDir, '.stratix', 'project.json')
@@ -839,10 +845,54 @@ describe('@stratix/forge', () => {
     );
     const envExample = readText(path.join(projectDir, '.env.example'));
 
+    assert.ok(manifest.presets.includes('database'));
     assert.ok(manifest.presets.includes('redis'));
+    assert.ok(manifest.presets.includes('ossp'));
+    assert.ok(manifest.presets.includes('was-v7'));
+    assert.equal(packageJson.dependencies['@stratix/database'], '^1.1.0');
     assert.equal(packageJson.dependencies['@stratix/redis'], '^1.0.0-beta.2');
+    assert.equal(packageJson.dependencies['@stratix/ossp'], '^0.0.1-beta.3');
+    assert.equal(packageJson.dependencies['@stratix/was-v7'], '^1.0.0-beta.36');
+    assert.match(
+      generatedConfig,
+      /import databasePlugin from '@stratix\/database';/
+    );
     assert.match(generatedConfig, /import redisPlugin from '@stratix\/redis';/);
-    assert.match(envExample, /REDIS_HOST=localhost/);
+    assert.match(generatedConfig, /import osspPlugin from '@stratix\/ossp';/);
+    assert.match(
+      generatedConfig,
+      /import wasV7Plugin from '@stratix\/was-v7';/
+    );
+    assert.doesNotMatch(envExample, BUSINESS_ENV_KEYS);
+  });
+
+  it('adds gateway-core preset without ordinary env config', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+
+    await runCreate(['app', 'gateway', 'gateway-preset-app', '--no-install'], {
+      cwd,
+      output
+    });
+
+    const projectDir = path.join(cwd, 'gateway-preset-app');
+    const manifestPath = path.join(projectDir, '.stratix', 'project.json');
+    const manifest = readJson<ProjectManifest>(manifestPath);
+    manifest.presets = manifest.presets.filter(
+      (preset) => preset !== 'gateway-core'
+    );
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
+
+    await runCli(['add', 'preset', 'gateway-core', '--no-install'], {
+      cwd: projectDir,
+      output
+    });
+
+    const nextManifest = readJson<ProjectManifest>(manifestPath);
+    const envExample = readText(path.join(projectDir, '.env.example'));
+
+    assert.ok(nextManifest.presets.includes('gateway-core'));
+    assert.doesNotMatch(envExample, BUSINESS_ENV_KEYS);
   });
 
   it('adds testing preset to a web-admin project without restoring server scaffold files', async () => {
@@ -2417,11 +2467,7 @@ describe('@stratix/forge', () => {
     assert.ok(
       allMessages.some((message) => message.startsWith('resource:controller'))
     );
-    assert.ok(
-      allMessages.includes(
-        'database - Add @stratix/database and default database environment keys'
-      )
-    );
+    assert.ok(allMessages.includes('database - Add @stratix/database'));
     assert.equal(
       allMessages.some((message) => message.includes('app:base')),
       false
@@ -2673,20 +2719,25 @@ describe('@stratix/forge', () => {
   });
 
   it('prints config subcommand help without treating it as an error', async () => {
-    const output = createMemoryOutput();
+    const cwd = createTempRoot();
+    const subcommands = ['encrypt', 'decrypt', 'validate', 'generate-key'];
 
-    await runCli(['config', 'encrypt', '--help'], {
-      cwd: createTempRoot(),
-      output
-    });
+    for (const subcommand of subcommands) {
+      const output = createMemoryOutput();
 
-    assert.ok(
-      output.messages.some(
-        (message) =>
-          message.level === 'log' &&
-          message.message.includes('Usage: stratix config encrypt <file>')
-      )
-    );
+      await runCli(['config', subcommand, '--help'], {
+        cwd,
+        output
+      });
+
+      assert.ok(
+        output.messages.some(
+          (message) =>
+            message.level === 'log' &&
+            message.message.includes(`Usage: stratix config ${subcommand}`)
+        )
+      );
+    }
   });
 
   it('keeps config command decoupled from @stratix/core utility exports', () => {

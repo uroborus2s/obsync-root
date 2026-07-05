@@ -35,7 +35,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10.33.0
+          version: 11.9.0
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v5
@@ -60,6 +60,9 @@ jobs:
 
       - name: Smoke packed core API
         run: pnpm run smoke:core-api
+
+      - name: Smoke generated API consumer
+        run: pnpm run smoke:generated-api
 
       - name: Validate docs
         run: pnpm run docs:validate

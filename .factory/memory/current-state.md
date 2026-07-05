@@ -5,7 +5,7 @@
 - Repository type: historical Stratix source monorepo
 - Toolchain baseline:
   - Node `24.14.1`
-  - pnpm `11.9.0` from system `PATH`; no project `packageManager` pin
+  - pnpm `11.9.0`; root `package.json` declares `packageManager: pnpm@11.9.0`
   - TypeScript `6.0.3`
 - Workspace reality:
   - 10 public `@stratix/*` packages
@@ -82,7 +82,7 @@
 - 2026-07-04 `TASK-001` is closed after the historical project baseline was completed with the create/forge CLI interface matrix, release checklist, deployment guide refresh, operations runbook, implementation plan refresh, and requirements traceability closure. Remaining release work is external release-owner evidence: final exact tags, pushed tags, npm publish, and final release wording.
 - 2026-07-05 `TASK-ECO-001` through `TASK-ECO-015` are implemented in `@stratix/forge`: `stratix ecosystem` now supports search, inspect, catalog list, and Fastify adapter generation with dry-run and write modes. Follow-up P1/P2 remediation fixed scoped registry resolution, search ordering, inspect registry evidence, and catalog packaging; this changes the forge release target to `1.1.2`.
 - 2026-07-05 `@stratix/forge@1.1.2` was published to the configured Aliyun `@stratix` npm registry. Verification command `pnpm view @stratix/forge@1.1.2 version --registry=https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/` returned `1.1.2`. Public npmjs version query for `@stratix/forge@1.1.2` also returned `1.1.2`; the `@stratix/forge@1.1.2` exact git tag was not created in this update.
-- 2026-07-05 `BUG-005` is resolved locally for published-consumer template regressions: generated API/resource operationIds now live under Fastify route `config`, contract/OpenAPI/manifest extraction still reads legacy `schema.operationId`, `stratix start` loads ESM-only `@stratix/core` from the target project import entry, `doctor` no longer blocks `@stratix/forge` toolchain upgrades from old scaffold snapshots, official templates generate `security:audit`, generated app config no longer reads ordinary business env vars, `stratix config <subcommand> --help` exits successfully, and generated projects include pnpm 11 `allowBuilds.esbuild: true`.
+- 2026-07-05 `BUG-005` is resolved locally for published-consumer template regressions after QC follow-up: generated API/resource operationIds now live under Fastify route `config`, contract/OpenAPI/manifest extraction still reads legacy `schema.operationId`, `stratix start` loads ESM-only `@stratix/core` from the target project import entry, `doctor` no longer blocks `@stratix/forge` toolchain upgrades from old scaffold snapshots, official templates generate `security:audit`, generated app config and gateway/preset templates no longer read or emit ordinary business env vars, `stratix config <subcommand> --help` exits successfully, generated projects include pnpm 11 `allowBuilds.esbuild: true`, and `pnpm run smoke:generated-api` is part of local/CI quality gates.
 
 ## Verified Facts
 
@@ -112,20 +112,21 @@
   - delegates to `node scripts/docs-validate.mjs`
   - the wrapper runs `docs-stratego source validate --repo-path .` through existing `uvx`/`uv`, or through a temporary `/tmp` uv runtime when `uvx` is absent
 - `@stratix/forge` project/workspace release gate docs checks now delegate to `pnpm run docs:validate` instead of invoking `uvx` directly, so release and development docs validation use the same entrypoint.
-- Root `pnpm run quality:release` requires supported build/typecheck/lint/test, core coverage ratchet, packed core API smoke, docs validation, security audit, and release gate dry-run.
+- Root `pnpm run quality:release` requires supported build/typecheck/lint/test, core coverage ratchet, packed core API smoke, generated API consumer smoke, docs validation, security audit, and release gate dry-run.
+  - 2026-07-05 BUG-005 QC follow-up rerun passed with `UV_CACHE_DIR=/private/tmp/stratix-uv-cache-quality-final4` and `UV_TOOL_DIR=/private/tmp/stratix-uv-tools-quality-final4`; supported build/typecheck/lint/test, core coverage, packed core API smoke, generated API consumer smoke, docs validation, security audit, and release gate dry-run completed.
   - 2026-06-20 development-stage rerun passed after bootstrap/API/docs hardening.
-  - Verified results: 10 supported build tasks, supported typecheck, 11 supported lint tasks, 12 supported test tasks, core coverage ratchet at 34 files / 261 tests, packed core API smoke, 87 docs pages / 0 contracts, no high production audit vulnerabilities, and workspace release gate dry-run passed.
+  - Verified results: 10 supported build tasks, supported typecheck, 11 supported lint tasks, 12 supported test tasks, core coverage ratchet, packed core API smoke, generated API consumer smoke, 89 docs pages / 0 contracts, no high production audit vulnerabilities, and workspace release gate dry-run passed.
   - This is local dry-run quality evidence; remote CI run `28234054546` has passed after the 2026-06-26 P0 template tracking fix, while final exact tags, registry reconciliation release gate execution, npm publish, and release notes remain final release-stage work.
 - Root `pnpm run release` requires `quality:release`, offline+registry workspace `release:gate`, and then `changeset publish`.
 - Root `pnpm run release:gate` includes `--include-offline-install --include-registry`; registry reconciliation is no longer optional for the real local release gate.
-- `.github/workflows/quality-gate.yml` defines PR and `main` / `1.1.0` push CI for install, supported build, supported typecheck, supported lint, supported test, core coverage ratchet, docs validation, security audit, and release gate dry-run; run `28234054546` passed after the tracked `.env.example.tpl` remediation, while run `28231936087` remains the prior failed evidence.
+- `.github/workflows/quality-gate.yml` defines PR and `main` / `1.1.0` push CI on pnpm 11.9.0 for install, supported build, supported typecheck, supported lint, supported test, core coverage ratchet, packed core API smoke, generated API consumer smoke, docs validation, security audit, and release gate dry-run; run `28234054546` passed before the generated consumer smoke gate was added, while run `28231936087` remains the prior failed evidence.
 - Root `pnpm run release:gate:dry-run` passes for the 10 remaining public workspace packages and planned build/test/docs/security/pack/api/release-surface checks.
 - Root `pnpm run release:gate` passes with elevated local cache access:
   - offline install, supported build/test, docs, security audit, pack, API surface, release-surface, exact tag, and registry reconciliation checks passed
   - all 10 supported package tarball artifacts validated
   - public npmjs reports all 10 supported exact versions as unpublished and available
 - 2026-06-23 post-`@stratix/tasks` removal gates pass:
-  - `pnpm --filter @stratix/create test`: 5 tests, including removed tasks preset rejection
+  - `pnpm --filter @stratix/create test`: 6 tests, including removed tasks preset rejection and generated env guard coverage
   - `pnpm --filter @stratix/forge test`: 54 tests
   - `pnpm --filter @stratix/create exec tsc -p tsconfig.json --noEmit`: passed
   - `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit`: passed
@@ -193,7 +194,7 @@
 - `pnpm --filter @stratix/forge exec tsx --test tests/run-cli.test.ts` passes:
   - 2026-06-20 targeted suite: 54 tests, including generated resource overwrite protection with `--force` and release gate docs check delegation
 - `pnpm --filter @stratix/forge test` passes after `BUG-005`:
-  - 2026-07-05 targeted suite: 67 tests, including ESM-only core start resolution, config subcommand help, forge dependency upgrade doctor compatibility, operationId extraction from route config, generated security scripts, and pnpm 11 generated project config coverage
+  - 2026-07-05 targeted suite: 68 tests, including ESM-only core start resolution, config subcommand help, forge dependency upgrade doctor compatibility, operationId extraction from route config, generated security scripts, preset env scanning, and pnpm 11 generated project config coverage
 - `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit` passes.
 - `pnpm --filter @stratix/forge run build` passes after advanced typed client generation support.
 - `pnpm --filter @stratix/devtools test` passes:

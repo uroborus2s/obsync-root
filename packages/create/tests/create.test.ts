@@ -40,6 +40,9 @@ function readJson<T>(filePath: string): T {
   return JSON.parse(fs.readFileSync(filePath, 'utf8')) as T;
 }
 
+const BUSINESS_ENV_KEYS =
+  /^(PORT|HOST|UPSTREAM_URL|DB_|DATABASE_|REDIS_|OSSP_|WPS_)/m;
+
 describe('@stratix/create', () => {
   it('creates an api application with forge as the project toolchain', async () => {
     const cwd = createTempRoot();
@@ -90,7 +93,7 @@ describe('@stratix/create', () => {
     );
     assert.doesNotMatch(
       fs.readFileSync(path.join(cwd, 'demo-api', '.env.example'), 'utf8'),
-      /^(PORT|HOST)=/m
+      BUSINESS_ENV_KEYS
     );
     assert.match(
       fs.readFileSync(
@@ -151,6 +154,10 @@ describe('@stratix/create', () => {
       path.join(cwd, 'env-config-app', 'src', 'config', 'stratix.generated.ts'),
       'utf8'
     );
+    const envExample = fs.readFileSync(
+      path.join(cwd, 'env-config-app', '.env.example'),
+      'utf8'
+    );
 
     assert.match(
       generatedConfig,
@@ -161,8 +168,33 @@ describe('@stratix/create', () => {
     assert.match(generatedConfig, /accessKey: osspConfig\.accessKey/);
     assert.match(generatedConfig, /appSecret: wasV7Config\.appSecret/);
     assert.doesNotMatch(generatedConfig, /process\.env\./);
+    assert.doesNotMatch(envExample, BUSINESS_ENV_KEYS);
     assert.doesNotMatch(generatedConfig, /minioadmin/);
     assert.doesNotMatch(generatedConfig, /your-app-secret/);
+  });
+
+  it('keeps gateway and preset business config out of ordinary env files', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+
+    await runCreate(['app', 'gateway', 'gateway-app', '--no-install'], {
+      cwd,
+      output
+    });
+
+    const projectDir = path.join(cwd, 'gateway-app');
+    const envExample = fs.readFileSync(
+      path.join(projectDir, '.env.example'),
+      'utf8'
+    );
+    const proxyRegistry = fs.readFileSync(
+      path.join(projectDir, 'src', 'services', 'ProxyRegistryService.ts'),
+      'utf8'
+    );
+
+    assert.doesNotMatch(envExample, BUSINESS_ENV_KEYS);
+    assert.doesNotMatch(proxyRegistry, /process\.env\./);
+    assert.match(proxyRegistry, /target: 'http:\/\/127\.0\.0\.1:3001'/);
   });
 
   it('lists only creation templates and presets', async () => {

@@ -9,21 +9,6 @@
       "runtime": {
         "@stratix/ossp": "^0.0.1-beta.3"
       }
-    },
-    "env": [
-      {
-        "key": "OSSP_ENDPOINT",
-        "default": "localhost",
-        "description": "OSSP endpoint"
-      },
-      {
-        "key": "OSSP_ACCESS_KEY",
-        "description": "OSSP access key"
-      },
-      {
-        "key": "OSSP_SECRET_KEY",
-        "description": "OSSP secret key"
-      }
-    ]
+    }
   }
 }

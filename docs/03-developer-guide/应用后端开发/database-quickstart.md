@@ -167,7 +167,7 @@ pnpm dev
 如果这里就失败，先不要继续写 repository。优先排查：
 
 1. `src/stratix.config.ts` 是否真的把数据库配置传给了 `createGeneratedConfig(...)`
-2. `.env` 是否存在并且键名拼写正确
+2. `STRATIX_SENSITIVE_CONFIG` 和 `STRATIX_ENCRYPTION_KEY` 是否由外层进程注入，且加密密钥一致
 3. 数据库服务本身是否可连
 
 ## 下一步该做什么

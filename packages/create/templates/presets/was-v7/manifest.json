@@ -9,21 +9,6 @@
       "runtime": {
         "@stratix/was-v7": "^1.0.0-beta.36"
       }
-    },
-    "env": [
-      {
-        "key": "WPS_APP_ID",
-        "description": "WAS V7 app id"
-      },
-      {
-        "key": "WPS_APP_SECRET",
-        "description": "WAS V7 app secret"
-      },
-      {
-        "key": "WPS_BASE_URL",
-        "default": "https://openapi.wps.cn",
-        "description": "WAS V7 base URL"
-      }
-    ]
+    }
   }
 }
