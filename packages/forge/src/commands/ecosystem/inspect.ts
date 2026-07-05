@@ -1,6 +1,10 @@
 import { fetchGithubEvidence } from './github-source.js';
 import { fetchNpmPackage } from './npm-source.js';
-import { readRegistryConfig } from './registry-config.js';
+import {
+  readRegistryConfig,
+  registryEvidence,
+  resolvePackageRegistry
+} from './registry-config.js';
 import { withSignals } from './signals.js';
 import { inspectStratixCatalog } from './stratix-source.js';
 import type { Candidate } from './types.js';
@@ -14,7 +18,11 @@ export async function inspectEcosystemPackage(options: {
   evidence: Record<string, unknown>;
 }> {
   const registry = readRegistryConfig(options.cwd);
-  const registryUrl = options.registry || registry.registry;
+  const registryUrl = resolvePackageRegistry(
+    registry,
+    options.name,
+    options.registry
+  );
   const stratix = inspectStratixCatalog(options.name);
   const npm = await fetchNpmPackage(options.name, registryUrl).catch(
     () => undefined
@@ -93,10 +101,7 @@ export async function inspectEcosystemPackage(options: {
         }
       }),
       registry: {
-        registry: registry.registry,
-        stratixRegistry: registry.stratixRegistry,
-        hasToken: registry.hasToken,
-        sources: registry.sources
+        ...registryEvidence(registry, registryUrl)
       }
     }
   };

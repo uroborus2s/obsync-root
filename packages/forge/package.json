@@ -1,6 +1,6 @@
 {
   "name": "@stratix/forge",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Official forge toolchain for generating, validating, and maintaining Stratix applications and plugins",
   "type": "module",
   "main": "dist/index.js",
@@ -17,8 +17,9 @@
   ],
   "scripts": {
     "clean": "rimraf dist",
-    "build": "pnpm run clean && tsc",
-    "prepublishOnly": "pnpm run clean && pnpm run build",
+    "build": "pnpm run clean && tsc && pnpm run copy:ecosystem-catalog",
+    "copy:ecosystem-catalog": "node ./scripts/copy-ecosystem-catalog.mjs",
+    "prepublishOnly": "pnpm run build",
     "test": "node --experimental-transform-types --loader ./tests/ts-loader.mjs --test tests/run-cli.test.ts",
     "test:watch": "node --experimental-transform-types --loader ./tests/ts-loader.mjs --test --watch tests/run-cli.test.ts",
     "lint": "eslint --ext .ts src tests",

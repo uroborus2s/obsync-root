@@ -1,4 +1,8 @@
-import { readRegistryConfig } from './registry-config.js';
+import {
+  readRegistryConfig,
+  registryEvidence,
+  resolveSearchRegistry
+} from './registry-config.js';
 import { searchFastifyPlugins } from './fastify-source.js';
 import { fetchGithubEvidence } from './github-source.js';
 import { searchNpmRegistry } from './npm-source.js';
@@ -35,6 +39,22 @@ function mergeCandidates(candidates: Candidate[]): Candidate[] {
   return [...merged.values()];
 }
 
+function sourceRank(candidate: Candidate): number {
+  if (candidate.signals.stratixNative) {
+    return 0;
+  }
+  if (
+    candidate.ecosystem === 'fastify' &&
+    candidate.fastifyCategory === 'core'
+  ) {
+    return 1;
+  }
+  if (candidate.ecosystem === 'fastify') {
+    return 2;
+  }
+  return 3;
+}
+
 export async function searchEcosystem(options: {
   query: string;
   limit: number;
@@ -43,7 +63,7 @@ export async function searchEcosystem(options: {
   sources?: EcosystemSource[];
 }): Promise<{ registry: RegistryConfig; candidates: Candidate[] }> {
   const registry = readRegistryConfig(options.cwd);
-  const registryUrl = options.registry || registry.registry;
+  const registryUrl = resolveSearchRegistry(registry, options.registry);
   const sources = options.sources || ['stratix', 'fastify', 'npm'];
   const [stratix, fastify, npm] = await Promise.all([
     sources.includes('stratix')
@@ -62,9 +82,8 @@ export async function searchEcosystem(options: {
   ]);
   const merged = mergeCandidates([...stratix, ...fastify, ...npm])
     .sort((left, right) => {
-      if (left.signals.stratixNative !== right.signals.stratixNative) {
-        return left.signals.stratixNative ? -1 : 1;
-      }
+      const rankDelta = sourceRank(left) - sourceRank(right);
+      if (rankDelta !== 0) return rankDelta;
       return right.score - left.score || left.name.localeCompare(right.name);
     })
     .slice(0, options.limit);
@@ -98,5 +117,5 @@ export async function searchEcosystem(options: {
     })
   );
 
-  return { registry, candidates };
+  return { registry: registryEvidence(registry, registryUrl), candidates };
 }

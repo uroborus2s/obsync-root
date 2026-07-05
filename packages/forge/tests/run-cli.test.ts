@@ -2762,6 +2762,7 @@ describe('@stratix/forge', () => {
     fs.writeFileSync(
       path.join(cwd, '.npmrc'),
       [
+        'registry=https://registry.npmjs.org/',
         '@stratix:registry=https://packages.aliyun.com/private/npm/',
         '//packages.aliyun.com/private/npm/:_authToken=secret-token'
       ].join('\n'),
@@ -2769,12 +2770,25 @@ describe('@stratix/forge', () => {
     );
 
     const originalFetch = globalThis.fetch;
+    let searchUrl = '';
     globalThis.fetch = (async (input: string | URL | Request) => {
       const url = String(input);
       if (url.includes('/-/v1/search')) {
+        searchUrl = url;
         return new Response(
           JSON.stringify({
             objects: [
+              {
+                package: {
+                  name: 'redis',
+                  version: '5.0.0',
+                  description: 'Generic Redis client',
+                  keywords: ['redis']
+                },
+                score: {
+                  final: 500
+                }
+              },
               {
                 package: {
                   name: '@fastify/redis',
@@ -2786,7 +2800,7 @@ describe('@stratix/forge', () => {
                   keywords: ['fastify', 'redis']
                 },
                 score: {
-                  final: 0.8
+                  final: 100
                 }
               }
             ]
@@ -2820,8 +2834,16 @@ describe('@stratix/forge', () => {
 
       const payload = JSON.parse(output.messages.at(-1)?.message || '[]');
       const names = payload.map((entry: { name: string }) => entry.name);
+      assert.equal(
+        searchUrl.startsWith('https://registry.npmjs.org/-/v1/search'),
+        true
+      );
       assert.ok(names.includes('@stratix/redis'));
       assert.ok(names.includes('@fastify/redis'));
+      assert.ok(
+        names.indexOf('@fastify/redis') < names.indexOf('redis'),
+        'Fastify official catalog results should rank before generic npm results'
+      );
       assert.equal(
         payload.find(
           (entry: { name: string }) => entry.name === '@stratix/redis'
@@ -2835,10 +2857,22 @@ describe('@stratix/forge', () => {
   });
 
   it('inspects ecosystem evidence for a package', async () => {
+    const cwd = createTempRoot();
+    fs.writeFileSync(
+      path.join(cwd, '.npmrc'),
+      [
+        'registry=https://registry.example.invalid/',
+        '@stratix:registry=https://packages.aliyun.com/private/npm/'
+      ].join('\n'),
+      'utf8'
+    );
+
     const originalFetch = globalThis.fetch;
+    let metadataUrl = '';
     globalThis.fetch = (async (input: string | URL | Request) => {
       const url = String(input);
       if (url.includes('/@fastify%2fredis')) {
+        metadataUrl = url;
         return new Response(
           JSON.stringify({
             name: '@fastify/redis',
@@ -2870,18 +2904,102 @@ describe('@stratix/forge', () => {
     try {
       const output = createMemoryOutput();
       await runCli(
-        ['ecosystem', 'inspect', '@fastify/redis', '--format', 'json'],
-        { output }
+        [
+          'ecosystem',
+          'inspect',
+          '@fastify/redis',
+          '--registry',
+          'https://registry.npmjs.org/',
+          '--format',
+          'json'
+        ],
+        { cwd, output }
       );
 
       const payload = JSON.parse(output.messages.at(-1)?.message || '{}');
+      assert.equal(
+        metadataUrl.startsWith('https://registry.npmjs.org/@fastify%2fredis'),
+        true
+      );
       assert.equal(payload.name, '@fastify/redis');
       assert.equal(payload.evidence.npm.version, '7.0.0');
       assert.equal(payload.evidence.github.stars, 1200);
+      assert.equal(
+        payload.evidence.registry.registry,
+        'https://registry.npmjs.org/'
+      );
       assert.equal(payload.signals.fastifyCore, true);
     } finally {
       globalThis.fetch = originalFetch;
     }
+  });
+
+  it('uses scoped registry for Stratix package inspection without leaking tokens', async () => {
+    const cwd = createTempRoot();
+    fs.writeFileSync(
+      path.join(cwd, '.npmrc'),
+      [
+        'registry=https://registry.npmjs.org/',
+        '@stratix:registry=https://packages.aliyun.com/private/npm/',
+        '//packages.aliyun.com/private/npm/:_authToken=secret-token'
+      ].join('\n'),
+      'utf8'
+    );
+
+    const originalFetch = globalThis.fetch;
+    let metadataUrl = '';
+    globalThis.fetch = (async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes('/@stratix%2fredis')) {
+        metadataUrl = url;
+        return new Response(
+          JSON.stringify({
+            name: '@stratix/redis',
+            version: '1.0.0-beta.2',
+            description: 'Redis adapter plugin',
+            keywords: ['stratix', 'redis']
+          }),
+          { status: 200 }
+        );
+      }
+      return new Response('{}', { status: 404 });
+    }) as typeof fetch;
+
+    try {
+      const output = createMemoryOutput();
+      await runCli(
+        ['ecosystem', 'inspect', '@stratix/redis', '--format', 'json'],
+        { cwd, output }
+      );
+
+      const payload = JSON.parse(output.messages.at(-1)?.message || '{}');
+      assert.equal(
+        metadataUrl.startsWith(
+          'https://packages.aliyun.com/private/npm/@stratix%2fredis'
+        ),
+        true
+      );
+      assert.equal(
+        payload.evidence.registry.registry,
+        'https://packages.aliyun.com/private/npm/'
+      );
+      assert.equal(payload.evidence.registry.hasToken, true);
+      assert.doesNotMatch(JSON.stringify(payload), /secret-token/);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('copies the Stratix ecosystem catalog during the forge build', () => {
+    const packageJson = readJson(path.join(process.cwd(), 'package.json'));
+
+    assert.match(packageJson.scripts.build, /copy:ecosystem-catalog/);
+    assert.equal(
+      fs.existsSync(
+        path.join(process.cwd(), 'scripts', 'copy-ecosystem-catalog.mjs')
+      ),
+      true
+    );
   });
 
   it('prints ecosystem adapt dry-run without writing files', async () => {

@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { RegistryConfig } from './types.js';
 
-const DEFAULT_REGISTRY = 'https://registry.npmjs.org/';
+export const DEFAULT_REGISTRY = 'https://registry.npmjs.org/';
 
 function parseNpmrc(source: string): Record<string, string> {
   const result: Record<string, string> = {};
@@ -25,7 +25,9 @@ function parseNpmrc(source: string): Record<string, string> {
   return result;
 }
 
-function normalizeRegistry(value: string | undefined): string | undefined {
+export function normalizeRegistry(
+  value: string | undefined
+): string | undefined {
   if (!value) return undefined;
   return value.endsWith('/') ? value : `${value}/`;
 }
@@ -43,10 +45,7 @@ export function readRegistryConfig(cwd = process.cwd()): RegistryConfig {
     sources.push(file);
   }
 
-  const registry =
-    normalizeRegistry(merged['@stratix:registry']) ||
-    normalizeRegistry(merged.registry) ||
-    DEFAULT_REGISTRY;
+  const registry = normalizeRegistry(merged.registry) || DEFAULT_REGISTRY;
   const hasToken = Object.keys(merged).some((key) =>
     /:_authToken$|:_auth$|:username$|:_password$/.test(key)
   );
@@ -58,5 +57,38 @@ export function readRegistryConfig(cwd = process.cwd()): RegistryConfig {
     }),
     hasToken,
     sources
+  };
+}
+
+export function resolvePackageRegistry(
+  config: RegistryConfig,
+  packageName: string,
+  override?: string
+): string {
+  if (override) {
+    return normalizeRegistry(override) || DEFAULT_REGISTRY;
+  }
+  if (packageName.startsWith('@stratix/') && config.stratixRegistry) {
+    return config.stratixRegistry;
+  }
+  return config.registry;
+}
+
+export function resolveSearchRegistry(
+  config: RegistryConfig,
+  override?: string
+): string {
+  return override
+    ? normalizeRegistry(override) || DEFAULT_REGISTRY
+    : config.registry;
+}
+
+export function registryEvidence(
+  config: RegistryConfig,
+  effectiveRegistry: string
+): RegistryConfig {
+  return {
+    ...config,
+    registry: effectiveRegistry
   };
 }
