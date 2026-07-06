@@ -38,7 +38,7 @@ import type { FC } from 'react';
 export const Thread: FC = () => {
   return (
     <ThreadPrimitive.Root
-      className='aui-root aui-thread-root @container bg-background flex h-full flex-col'
+      className='aui-root aui-thread-root @container bg-background flex h-full min-h-0 flex-col'
       style={{
         ['--thread-max-width' as string]: '44rem',
         ['--composer-radius' as string]: '24px',
@@ -47,7 +47,7 @@ export const Thread: FC = () => {
     >
       <ThreadPrimitive.Viewport
         turnAnchor='top'
-        className='aui-thread-viewport relative flex flex-1 flex-col overflow-x-auto overflow-y-scroll scroll-smooth px-4 pt-4'
+        className='aui-thread-viewport relative flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-scroll scroll-smooth px-4 pt-4'
       >
         <AuiIf condition={(s) => s.thread.isEmpty}>
           <ThreadWelcome />

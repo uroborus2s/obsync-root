@@ -45,7 +45,7 @@ export function AppWorkbench({ open, onOpenChange }: AppWorkbenchProps) {
     return (
       <Sheet onOpenChange={onOpenChange} open={open}>
         <SheetContent
-          className='w-full max-w-[24rem] p-0 sm:max-w-[26rem]'
+          className='h-dvh max-h-dvh w-full max-w-[24rem] overflow-hidden p-0 sm:max-w-[26rem]'
           side='right'
         >
           <SheetHeader className='sr-only'>

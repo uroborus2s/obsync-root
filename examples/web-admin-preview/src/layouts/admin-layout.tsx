@@ -42,8 +42,8 @@ export function AdminLayout() {
       }
     >
       <AppSidebar />
-      <SidebarInset className='min-h-svh'>
-        <div className='flex min-h-svh min-w-0 flex-col bg-background'>
+      <SidebarInset className='h-svh'>
+        <div className='flex h-svh min-w-0 flex-col bg-background'>
           <AppHeader
             assistantOpen={workbenchOpen}
             breadcrumbItems={breadcrumbItems}
@@ -52,7 +52,7 @@ export function AdminLayout() {
           />
           <div className='flex min-h-0 min-w-0 flex-1 overflow-hidden'>
             <main
-              className='min-w-0 flex-1 overflow-x-hidden px-5 py-5 md:px-7 md:py-6'
+              className='min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-5 py-5 md:px-7 md:py-6'
               id='main-content'
             >
               <Outlet />

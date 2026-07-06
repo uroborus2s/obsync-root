@@ -37,8 +37,8 @@ function AssistantPanelShell({ onClose }: AssistantPanelProps) {
   const runtime = useThreadRuntime();
 
   return (
-    <div className='bg-background flex h-full flex-col'>
-      <div className='border-border/70 flex min-h-20 items-center gap-3 border-b px-4'>
+    <div className='bg-background flex h-full min-h-0 flex-col overflow-hidden'>
+      <div className='border-border/70 flex min-h-20 shrink-0 items-center gap-3 border-b px-4'>
         <div className='flex min-w-0 flex-1 items-start gap-3'>
           <div className='bg-primary/10 text-primary mt-0.5 flex size-10 items-center justify-center rounded-2xl'>
             <Bot />
@@ -75,7 +75,7 @@ function AssistantPanelShell({ onClose }: AssistantPanelProps) {
         ) : null}
       </div>
 
-      <div className='min-h-0 flex-1'>
+      <div className='min-h-0 flex-1 overflow-hidden'>
         <Thread />
       </div>
     </div>
