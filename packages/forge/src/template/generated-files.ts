@@ -264,8 +264,12 @@ function presetPluginEntries(presets: string[]): string[] {
   return entries;
 }
 
-function createGeneratedConfigTs(context: GeneratedProjectContext): string {
-  const imports = presetImports(context.presets).join('\n');
+function createStratixConfigTs(context: GeneratedProjectContext): string {
+  const imports = [
+    `import type { StratixConfig } from '@stratix/core';`,
+    `import { fileURLToPath } from 'node:url';`,
+    ...presetImports(context.presets)
+  ].join('\n');
   const databaseConfig = context.presets.includes('database')
     ? `  const databaseConfig = sensitiveConfig.database || {};\n`
     : '';
@@ -278,49 +282,35 @@ function createGeneratedConfigTs(context: GeneratedProjectContext): string {
   const wasV7Config = context.presets.includes('was-v7')
     ? `  const wasV7Config = sensitiveConfig.wasV7 || {};\n`
     : '';
-  const pluginEntries = presetPluginEntries(context.presets).join(',\n');
+  const pluginEntries = presetPluginEntries(context.presets)
+    .map((entry) => entry.replace(/^    /gm, '      '))
+    .join(',\n');
+  const pluginsConfig = pluginEntries ? `[\n${pluginEntries}\n    ]` : '[]';
 
-  return `import type { StratixConfig } from '@stratix/core';
-${imports}
+  return `${imports}
 
-export function createGeneratedConfig(
+export default function createStratixConfig(
   sensitiveConfig: Record<string, any> = {}
 ): StratixConfig {
 ${databaseConfig}${redisConfig}${osspConfig}${wasV7Config}  const serverConfig = sensitiveConfig.server || {};
+  const sourceRoot = fileURLToPath(new URL('.', import.meta.url));
 
   return {
     server: {
       host: serverConfig.host || '0.0.0.0',
       port: Number(serverConfig.port || 3000)
     },
-	    plugins: [
-	${pluginEntries}
-	    ],
-	    autoLoad: {},
-	    discovery: {
-	      enabled: true,
-	      rootDir: process.cwd(),
-	      patterns: ['src/**/*.ts'],
-	      routing: {
-	        enabled: true
-	      }
-	    }
-	  };
-	}
-`;
-}
-
-function createStratixConfigTs(): string {
-  return `import type { StratixConfig } from '@stratix/core';
-import { createGeneratedConfig } from './config/stratix.generated.js';
-
-export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
-  const config = createGeneratedConfig(sensitiveConfig);
-
-  return {
-    ...config
+    plugins: ${pluginsConfig},
+    autoLoad: {},
+    discovery: {
+      enabled: true,
+      rootDir: sourceRoot,
+      routing: {
+        enabled: true
+      }
+    }
   };
-};
+}
 `;
 }
 
@@ -430,11 +420,7 @@ export function createManagedFiles(
       },
       {
         destination: path.join('src', 'stratix.config.ts'),
-        content: createStratixConfigTs()
-      },
-      {
-        destination: path.join('src', 'config', 'stratix.generated.ts'),
-        content: createGeneratedConfigTs(context)
+        content: createStratixConfigTs(context)
       }
     );
   } else {

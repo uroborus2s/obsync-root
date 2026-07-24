@@ -72,10 +72,10 @@ describe('@stratix/create', () => {
     assert.equal(manifest.schemaVersion, 2);
     assert.equal(
       manifest.template.contribution.dependencies.dev['@stratix/forge'],
-      '^1.1.2'
+      '^1.1.4'
     );
     assert.equal(packageJson.dependencies['@stratix/core'], '^1.1.0');
-    assert.equal(packageJson.devDependencies['@stratix/forge'], '^1.1.2');
+    assert.equal(packageJson.devDependencies['@stratix/forge'], '^1.1.4');
     assert.equal(packageJson.devDependencies['@stratix/cli'], undefined);
     assert.equal(
       packageJson.scripts['security:audit'],
@@ -83,6 +83,12 @@ describe('@stratix/create', () => {
     );
     assert.ok(
       fs.existsSync(path.join(cwd, 'demo-api', '.stratix', 'project.json'))
+    );
+    assert.equal(
+      fs.existsSync(
+        path.join(cwd, 'demo-api', 'src', 'config', 'stratix.generated.ts')
+      ),
+      false
     );
     assert.match(
       fs.readFileSync(
@@ -131,7 +137,7 @@ describe('@stratix/create', () => {
     assert.equal(fs.existsSync(path.join(cwd, 'legacy-task-app')), false);
   });
 
-  it('maps generated config to sensitiveConfig without business env fallbacks', async () => {
+  it('maps app config to sensitiveConfig without business env fallbacks', async () => {
     const cwd = createTempRoot();
     const output = createMemoryOutput();
 
@@ -150,8 +156,8 @@ describe('@stratix/create', () => {
       }
     );
 
-    const generatedConfig = fs.readFileSync(
-      path.join(cwd, 'env-config-app', 'src', 'config', 'stratix.generated.ts'),
+    const appConfig = fs.readFileSync(
+      path.join(cwd, 'env-config-app', 'src', 'stratix.config.ts'),
       'utf8'
     );
     const envExample = fs.readFileSync(
@@ -159,18 +165,29 @@ describe('@stratix/create', () => {
       'utf8'
     );
 
-    assert.match(
-      generatedConfig,
-      /const serverConfig = sensitiveConfig\.server/
-    );
-    assert.match(generatedConfig, /databaseConfig\.host \|\| 'localhost'/);
-    assert.match(generatedConfig, /redisConfig\.host \|\| 'localhost'/);
-    assert.match(generatedConfig, /accessKey: osspConfig\.accessKey/);
-    assert.match(generatedConfig, /appSecret: wasV7Config\.appSecret/);
-    assert.doesNotMatch(generatedConfig, /process\.env\./);
+    assert.match(appConfig, /const serverConfig = sensitiveConfig\.server/);
+    assert.match(appConfig, /databaseConfig\.host \|\| 'localhost'/);
+    assert.match(appConfig, /redisConfig\.host \|\| 'localhost'/);
+    assert.match(appConfig, /accessKey: osspConfig\.accessKey/);
+    assert.match(appConfig, /appSecret: wasV7Config\.appSecret/);
+    assert.match(appConfig, /rootDir: sourceRoot/);
+    assert.doesNotMatch(appConfig, /patterns: \['src\/\*\*\/\*\.ts'\]/);
+    assert.doesNotMatch(appConfig, /process\.env\./);
     assert.doesNotMatch(envExample, BUSINESS_ENV_KEYS);
-    assert.doesNotMatch(generatedConfig, /minioadmin/);
-    assert.doesNotMatch(generatedConfig, /your-app-secret/);
+    assert.doesNotMatch(appConfig, /minioadmin/);
+    assert.doesNotMatch(appConfig, /your-app-secret/);
+    assert.equal(
+      fs.existsSync(
+        path.join(
+          cwd,
+          'env-config-app',
+          'src',
+          'config',
+          'stratix.generated.ts'
+        )
+      ),
+      false
+    );
   });
 
   it('keeps gateway and preset business config out of ordinary env files', async () => {

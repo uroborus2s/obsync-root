@@ -1,6 +1,6 @@
 {
   "name": "@stratix/create",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Lightweight Stratix project and plugin creation entrypoint",
   "type": "module",
   "main": "dist/index.js",

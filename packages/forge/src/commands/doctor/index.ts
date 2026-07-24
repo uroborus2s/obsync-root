@@ -253,11 +253,7 @@ export async function doctorCommand(
   }
 
   if (manifest.kind === 'app') {
-    for (const requiredFile of [
-      'src/index.ts',
-      'src/stratix.config.ts',
-      'src/config/stratix.generated.ts'
-    ]) {
+    for (const requiredFile of ['src/index.ts', 'src/stratix.config.ts']) {
       if (!fileExists(path.join(rootDir, requiredFile))) {
         issues.push(`Missing managed file: ${requiredFile}`);
       }

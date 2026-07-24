@@ -335,8 +335,8 @@ describe('@stratix/forge', () => {
       path.join(projectDir, '.stratix', 'project.json')
     );
     const packageJson = readJson(path.join(projectDir, 'package.json'));
-    const generatedConfig = readText(
-      path.join(projectDir, 'src', 'config', 'stratix.generated.ts')
+    const appConfig = readText(
+      path.join(projectDir, 'src', 'stratix.config.ts')
     );
 
     assert.equal(manifest.schemaVersion, 2);
@@ -347,10 +347,16 @@ describe('@stratix/forge', () => {
       manifest.template.contribution.dependencies.dev['@stratix/forge']
     );
     assert.equal(packageJson.dependencies['@stratix/core'], '^1.1.0');
-    assert.equal(packageJson.devDependencies['@stratix/forge'], '^1.1.2');
+    assert.equal(packageJson.devDependencies['@stratix/forge'], '^1.1.4');
     assert.equal(packageJson.devDependencies['@stratix/cli'], undefined);
-    assert.doesNotMatch(generatedConfig, /applicationAutoDI/);
-    assert.match(generatedConfig, /discovery:\s*\{/);
+    assert.equal(
+      fs.existsSync(
+        path.join(projectDir, 'src', 'config', 'stratix.generated.ts')
+      ),
+      false
+    );
+    assert.doesNotMatch(appConfig, /applicationAutoDI/);
+    assert.match(appConfig, /discovery:\s*\{/);
     assert.match(
       readText(path.join(projectDir, 'src', 'index.ts')),
       /await Stratix\.run\(\)/
@@ -498,7 +504,7 @@ describe('@stratix/forge', () => {
     assert.equal(packageJson.name, '@demo/data-plugin');
     assert.equal(packageJson.dependencies['@stratix/core'], '^1.1.0');
     assert.equal(packageJson.dependencies['@stratix/database'], '^1.1.0');
-    assert.equal(packageJson.devDependencies['@stratix/forge'], '^1.1.2');
+    assert.equal(packageJson.devDependencies['@stratix/forge'], '^1.1.4');
     assert.equal(packageJson.devDependencies['@stratix/cli'], undefined);
     assert.match(pluginIndex, /withRegisterAutoDI<DataPluginOptions>/);
     assert.match(pluginIndex, /async function dataPlugin/);
@@ -842,8 +848,8 @@ describe('@stratix/forge', () => {
       path.join(projectDir, '.stratix', 'project.json')
     );
     const packageJson = readJson(path.join(projectDir, 'package.json'));
-    const generatedConfig = readText(
-      path.join(projectDir, 'src', 'config', 'stratix.generated.ts')
+    const appConfig = readText(
+      path.join(projectDir, 'src', 'stratix.config.ts')
     );
     const envExample = readText(path.join(projectDir, '.env.example'));
 
@@ -855,15 +861,15 @@ describe('@stratix/forge', () => {
     assert.equal(packageJson.dependencies['@stratix/redis'], '^1.0.0-beta.2');
     assert.equal(packageJson.dependencies['@stratix/ossp'], '^0.0.1-beta.3');
     assert.equal(packageJson.dependencies['@stratix/was-v7'], '^1.0.0-beta.36');
-    assert.match(
-      generatedConfig,
-      /import databasePlugin from '@stratix\/database';/
-    );
-    assert.match(generatedConfig, /import redisPlugin from '@stratix\/redis';/);
-    assert.match(generatedConfig, /import osspPlugin from '@stratix\/ossp';/);
-    assert.match(
-      generatedConfig,
-      /import wasV7Plugin from '@stratix\/was-v7';/
+    assert.match(appConfig, /import databasePlugin from '@stratix\/database';/);
+    assert.match(appConfig, /import redisPlugin from '@stratix\/redis';/);
+    assert.match(appConfig, /import osspPlugin from '@stratix\/ossp';/);
+    assert.match(appConfig, /import wasV7Plugin from '@stratix\/was-v7';/);
+    assert.equal(
+      fs.existsSync(
+        path.join(projectDir, 'src', 'config', 'stratix.generated.ts')
+      ),
+      false
     );
     assert.doesNotMatch(envExample, BUSINESS_ENV_KEYS);
   });
@@ -1008,7 +1014,7 @@ describe('@stratix/forge', () => {
     const packageJson = readJson(packageJsonPath);
     manifest.template.contribution.dependencies.dev['@stratix/forge'] =
       '^1.1.0';
-    packageJson.devDependencies['@stratix/forge'] = '^1.1.2';
+    packageJson.devDependencies['@stratix/forge'] = '^1.1.4';
     fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
     fs.writeFileSync(
       packageJsonPath,
