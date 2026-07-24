@@ -61,6 +61,13 @@ pnpm view @stratix/forge@1.1.1 version --registry=https://packages.aliyun.com/68
 
 反查结果返回 `1.1.1`。该证据只代表阿里云私库发布完成，不代表 public npmjs 发布完成。
 
+2026-07-24，`BUG-007` 修正 Database 对 Core 的发布兼容范围，并将
+`@stratix/database@1.1.1` 发布到同一 Aliyun registry。精确版本、`latest`
+dist-tag 和发布后的 `@stratix/core@^1.1.0` peer 反查一致。用户级
+`@stratix:registry` 会覆盖普通 `--registry` 的 scoped package 查询；使用
+`NPM_CONFIG_USERCONFIG=/dev/null` 中和该配置后，真实 public npmjs 返回
+404，因此本次只形成 Aliyun 私库发布证据。
+
 ## 4. 发布门禁
 
 Phase 6 workspace release gate 覆盖：
@@ -118,3 +125,4 @@ node packages/forge/dist/bin/stratix.js release gate --scope workspace --include
 | 2026-06-26 | 记录远端 Quality Gate P0、本地修复、run `28234054546` 通过，以及 GA 前仍需 exact tags / npm publish 证据      | Codex  |
 | 2026-07-05 | `@stratix/forge` 新增 `stratix ecosystem` search/inspect/catalog/adapt，发布目标版本调整为 `1.1.1`              | Codex  |
 | 2026-07-05 | 记录 `@stratix/forge@1.1.1` 阿里云私有 npm registry 发布和反查证据                                             | Codex  |
+| 2026-07-24 | 记录 `@stratix/database@1.1.1` Core peer 修复、Aliyun 私库发布与 public npmjs 404 反查证据                        | Codex  |

@@ -201,12 +201,11 @@
   "releaseSurface": {
     "checkedAt": "2026-07-24",
     "npmRegistry": {
-      "checkedAt": "2026-07-05",
+      "checkedAt": "2026-07-24",
       "registry": "https://registry.npmjs.org",
       "supportedExactVersionsObserved": {
         "@stratix/core": "1.1.0",
         "@stratix/create": "1.1.0",
-        "@stratix/database": "1.1.0",
         "@stratix/devtools": "1.0.0-beta.1",
         "@stratix/forge": "1.1.2",
         "@stratix/ossp": "1.1.0-beta.0",
@@ -215,6 +214,10 @@
         "@stratix/testing": "1.0.0-beta.1",
         "@stratix/was-v7": "1.0.0-beta.36"
       },
+      "notPublishedObserved": [
+        "@stratix/database"
+      ],
+      "verificationNote": "The @stratix/database public npmjs query was run with NPM_CONFIG_USERCONFIG=/dev/null because the user-level @stratix:registry overrides ordinary --registry for scoped packages; public npmjs returned 404.",
       "excludedPackages": []
     },
     "privateRegistry": {
@@ -223,9 +226,10 @@
       "publishedExactVersions": {
         "@stratix/core": "1.1.2",
         "@stratix/create": "1.1.2",
-        "@stratix/forge": "1.1.4"
+        "@stratix/forge": "1.1.4",
+        "@stratix/database": "1.1.1"
       },
-      "verification": "pnpm publish --no-git-checks used the configured Aliyun @stratix registry and published @stratix/core@1.1.2, @stratix/create@1.1.2, and @stratix/forge@1.1.4; exact pnpm view queries returned 1.1.2, 1.1.2, and 1.1.4, and each latest dist-tag points at that version"
+      "verification": "pnpm publish --no-git-checks used the configured Aliyun @stratix registry and published @stratix/core@1.1.2, @stratix/create@1.1.2, @stratix/forge@1.1.4, and @stratix/database@1.1.1; exact version and latest dist-tag queries returned those versions, and database 1.1.1 exposes @stratix/core peer ^1.1.0"
     },
     "gitTags": {
       "@stratix/core": "@stratix/core@1.1.0",
@@ -239,7 +243,7 @@
       "@stratix/testing": "@stratix/testing@1.0.0-beta.1",
       "@stratix/was-v7": "@stratix/was-v7@1.0.0-beta.36"
     },
-    "assessment": "Supported package manifests, tarball/API/docs/security gates, and workspace release-surface checks pass locally. On 2026-07-24 the configured Aliyun @stratix registry accepted @stratix/core@1.1.2, @stratix/create@1.1.2, and @stratix/forge@1.1.4; exact-version and latest dist-tag queries confirmed all three. This is private-registry publication evidence for those versions only. Exact git tags were not created or pushed, and the remaining supported packages were not republished in this update."
+    "assessment": "Supported package manifests, tarball/API/docs/security gates, and workspace release-surface checks pass locally. On 2026-07-24 the configured Aliyun @stratix registry accepted @stratix/core@1.1.2, @stratix/create@1.1.2, @stratix/forge@1.1.4, and @stratix/database@1.1.1; exact-version and latest dist-tag queries confirmed those versions, and database exposes core peer ^1.1.0. This is private-registry publication evidence for those versions only. The database public npmjs query with user scope config disabled returned 404. Exact git tags were not created or pushed, and the remaining supported packages were not republished in this update."
   },
   "postReleaseConsumerRemediation": {
     "checkedAt": "2026-07-05",

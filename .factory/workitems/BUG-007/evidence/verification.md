@@ -86,3 +86,17 @@ Core coverage 和 smoke 已通过。按沙箱授权在沙箱外完整重跑，ex
   public npm registry reconciliation；本次是已授权的 Aliyun 私库增量发布，
   不创建或推送 public release tag。
 - public npmjs 发布未运行，明确不在授权范围。
+
+## 发布后反查
+
+- 发布命令：
+  `pnpm --filter @stratix/database publish --no-git-checks
+  --registry=<Aliyun>`，exit 0；输出
+  `Published package @stratix/database@1.1.1`。
+- Aliyun 精确版本：`1.1.1`。
+- Aliyun `latest`：`1.1.1`。
+- Aliyun 发布元数据中的 Core peer：`^1.1.0`。
+- 发布候选 Git commit：`d5ecd76`。
+- 用户级 `@stratix:registry` 会覆盖普通 `--registry` 的 scoped package
+  查询；使用 `NPM_CONFIG_USERCONFIG=/dev/null` 中和用户配置后，真实 public
+  npmjs 查询返回 404。因此本次 public npmjs 未写入。

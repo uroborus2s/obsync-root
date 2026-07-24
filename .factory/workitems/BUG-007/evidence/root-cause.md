@@ -5,9 +5,12 @@
 
 ## Registry 证据
 
-- public npmjs：`@stratix/database@1.1.0` Core peer 为 `1.1.0`。
 - 配置的 Aliyun registry：`@stratix/database@1.1.0` Core peer 为 `1.1.0`。
-- 两个 registry 的 `latest` 均为 `1.1.0`。
+- 配置的 Aliyun registry：发布前 `latest` 为 `1.1.0`。
+- 早期带普通 `--registry=https://registry.npmjs.org` 的 scoped package 查询仍
+  被用户级 `@stratix:registry` 覆盖，实际命中 Aliyun。使用
+  `NPM_CONFIG_USERCONFIG=/dev/null` 中和用户配置后，真实 public npmjs 返回
+  404。该修正不影响 tarball 根因。
 
 ## Tarball RED
 
