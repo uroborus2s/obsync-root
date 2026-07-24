@@ -325,6 +325,12 @@
     "checkedAt": "2026-07-24",
     "quality": [
       {
+        "command": "env CI=true NPM_CONFIG_USERCONFIG=/dev/null NPM_CONFIG_CACHE=/tmp/stratix-cr003-npm-cache UV_CACHE_DIR=/tmp/stratix-cr003-uv-cache UV_TOOL_DIR=/tmp/stratix-cr003-uv-tools pnpm run quality:release",
+        "status": "passed",
+        "summary": "CR-003 Database optional-driver peer release-quality gate passed",
+        "reason": "Database keeps Core required and marks better-sqlite3, mysql2, pg, tarn, and tedious as optional peers; 10-package build, typecheck, Oxlint, supported tests including Database 9 files / 50 tests, Core coverage, both smokes, 89-page docs validation, security audit, and workspace release dry-run passed."
+      },
+      {
         "command": "GitHub Actions Quality Gate runs 30072899893 and 30072911232",
         "status": "failed_before_bug008_remediation",
         "summary": "push and pull_request gates failed in generated API consumer smoke",
@@ -541,8 +547,8 @@
       {
         "command": "pnpm --filter @stratix/database exec vitest run",
         "status": "passed",
-        "summary": "8 files / 49 tests",
-        "reason": "Database quality-gate regressions pass; @stratix/tasks was physically removed instead of migrated"
+        "summary": "9 files / 50 tests",
+        "reason": "Database quality-gate regressions and the optional-driver peer metadata contract pass"
       },
       {
         "command": "pnpm --filter @stratix/was-v7 test",

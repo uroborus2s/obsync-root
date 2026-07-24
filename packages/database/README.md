@@ -1,6 +1,6 @@
 # @stratix/database
 
-`@stratix/database@1.1.0` 是面向仓储优先应用的 Stratix 数据库插件。
+`@stratix/database` 是面向仓储优先应用的 Stratix 数据库插件。
 这一版本的公共编程模型以 `BaseRepository` 为中心。
 
 ## 1.1.0 的变化
@@ -20,6 +20,17 @@
 ```bash
 pnpm add @stratix/database
 ```
+
+数据库驱动是可选 peer，请按实际使用的方言安装：
+
+```bash
+pnpm add pg              # PostgreSQL
+pnpm add mysql2          # MySQL
+pnpm add better-sqlite3  # SQLite
+pnpm add tedious tarn    # MSSQL（当前仍为实验性支持）
+```
+
+`@stratix/core` 仍是必需 peer；未使用的数据库方言不需要安装对应驱动。
 
 ## 基础用法
 

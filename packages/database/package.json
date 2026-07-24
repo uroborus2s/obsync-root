@@ -57,6 +57,23 @@
     "tarn": "^3.0.2",
     "tedious": "^19.2.1"
   },
+  "peerDependenciesMeta": {
+    "better-sqlite3": {
+      "optional": true
+    },
+    "mysql2": {
+      "optional": true
+    },
+    "pg": {
+      "optional": true
+    },
+    "tarn": {
+      "optional": true
+    },
+    "tedious": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@stratix/core": "workspace:*",
     "@types/better-sqlite3": "^7.6.13",

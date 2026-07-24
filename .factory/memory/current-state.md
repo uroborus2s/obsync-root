@@ -88,6 +88,7 @@
 - 2026-07-24 `CR-002` supersedes the temporary TypeScript 6 ceiling: all direct TypeScript declarations use `7.0.2`, the active ESLint ecosystem is removed, and lint uses Oxlint `1.75.0` plus `oxlint-tsgolint` `7.0.2001`. Forge static route analysis now uses `oxc-parser@0.141.0` because TypeScript 7 no longer exposes the JavaScript Compiler API used by the old implementation. Vitest remains targeted to Vite `8.0.16` for Core legacy-decorator compatibility; the DevTools client independently builds with Vite `8.1.5`.
 - 2026-07-24 `BUG-007` 已关闭并发布到配置的 Aliyun `@stratix` registry：`@stratix/database@1.1.1` 的 Core peer 从精确版本修正为 `^1.1.0`；Database 49/49 tests、完整 `quality:release`、真实 publish、精确版本和 `latest` 反查均通过。禁用用户级 scope registry 后，真实 public npmjs 查询返回 404，本次未写入 public npmjs。
 - 2026-07-24 `BUG-008` 本地修复并验证：PR #1 的 push run `30072899893` 和 pull_request run `30072911232` 因 generated consumer smoke 隐式依赖用户级 Aliyun registry，在无该配置的 GitHub runner 上从 npmjs 安装不到 `@stratix/core@^1.1.0`。smoke 现在通过临时 `pnpm-workspace.yaml` override 使用 workspace Core，模板仍声明 `^1.1.0`；禁用用户 npm 配置并显式使用 npmjs 的 smoke 与完整 `quality:release` 均通过，远端复验待修复提交推送。
+- 2026-07-24 `CR-003` 本地实现并验证：`@stratix/database` 保持 Core 为必需 peer，将 `better-sqlite3`、`mysql2`、`pg`、`tarn`、`tedious` 标为 optional peers；tarball、无驱动 strict consumer、Database 50/50 tests 和完整 `quality:release` 通过。版本仍为 `1.1.1`，未发布 registry。
 
 ## Verified Facts
 
@@ -262,8 +263,8 @@
 - `examples/web-admin-preview` can install independently, build, test, and preview on the upgraded frontend stack.
 - `pnpm --filter @stratix/database build` passes after the database-only clean breaking refactor.
 - `pnpm --filter @stratix/database exec vitest run` passes after the database quality-gate refactor:
-  - 8 test files
-  - 49 tests
+  - 9 test files
+  - 50 tests
 - `pnpm --filter @stratix/database lint` passes through type-aware Oxlint.
 - `pnpm --filter @stratix/was-v7 test` passes:
   - 11 test files
