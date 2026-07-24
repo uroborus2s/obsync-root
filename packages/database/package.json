@@ -15,8 +15,8 @@
     "test:coverage": "vitest --coverage",
     "test:integration": "vitest run tests/integration.test.ts",
     "test:unit": "vitest run tests/*.test.ts --exclude tests/integration.test.ts",
-    "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint src/**/*.ts --fix"
+    "lint": "oxlint --type-aware src",
+    "lint:fix": "oxlint --type-aware --fix src"
   },
   "keywords": [
     "stratix",

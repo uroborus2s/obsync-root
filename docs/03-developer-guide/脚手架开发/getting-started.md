@@ -64,15 +64,17 @@ cd my-admin
 在生成出来的应用目录里执行：
 
 ```bash
-pnpm install --ignore-workspace
+pnpm install
 pnpm build
+pnpm lint
 pnpm test
 pnpm preview --host 127.0.0.1 --port 4273
 ```
 
 说明：
 
-- `--ignore-workspace` 用于把生成出来的应用当成独立前端工程恢复依赖。
+- 生成的应用包含自己的 `pnpm-workspace.yaml`，用于隔离父级 workspace 并精确放行 Vite/SWC 构建脚本。
+- `pnpm lint` 使用 TypeScript 7 + Oxlint；Vite 和 Vitest 分别负责构建与测试。
 - 当前已验证 `examples/web-admin-preview` 可以通过 `install`、`build`、`test`、`preview`。
 
 ## 6. 开发时最常用的命令

@@ -78,7 +78,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "lint": "eslint --ext .ts src",
+    "lint": "oxlint --type-aware src",
     "format": "prettier --write \"src/**/*.ts\""
   },
   "files": [

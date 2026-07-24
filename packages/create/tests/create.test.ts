@@ -76,7 +76,12 @@ describe('@stratix/create', () => {
     );
     assert.equal(packageJson.dependencies['@stratix/core'], '^1.1.0');
     assert.equal(packageJson.devDependencies['@stratix/forge'], '^1.1.4');
+    assert.equal(packageJson.devDependencies.typescript, '^7.0.2');
+    assert.equal(packageJson.devDependencies.oxlint, '^1.75.0');
+    assert.equal(packageJson.devDependencies['oxlint-tsgolint'], '^7.0.2001');
     assert.equal(packageJson.devDependencies['@stratix/cli'], undefined);
+    assert.equal(packageJson.devDependencies.eslint, undefined);
+    assert.equal(packageJson.scripts.lint, 'oxlint --type-aware .');
     assert.equal(
       packageJson.scripts['security:audit'],
       'pnpm audit --prod --audit-level high'
@@ -84,6 +89,7 @@ describe('@stratix/create', () => {
     assert.ok(
       fs.existsSync(path.join(cwd, 'demo-api', '.stratix', 'project.json'))
     );
+    assert.ok(fs.existsSync(path.join(cwd, 'demo-api', '.oxlintrc.json')));
     assert.equal(
       fs.existsSync(
         path.join(cwd, 'demo-api', 'src', 'config', 'stratix.generated.ts')
@@ -114,6 +120,38 @@ describe('@stratix/create', () => {
           message.level === 'success' &&
           message.message.includes('Created Stratix app: demo-api')
       )
+    );
+  });
+
+  it('creates a web-admin application with TypeScript 7 and Oxlint only', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+
+    await runCreate(['app', 'web-admin', 'demo-admin', '--no-install'], {
+      cwd,
+      output
+    });
+
+    const projectDir = path.join(cwd, 'demo-admin');
+    const packageJson = readJson<{
+      scripts: Record<string, string>;
+      devDependencies: Record<string, string>;
+    }>(path.join(projectDir, 'package.json'));
+
+    assert.equal(packageJson.scripts.lint, 'oxlint --type-aware .');
+    assert.equal(packageJson.devDependencies.typescript, '^7.0.2');
+    assert.equal(packageJson.devDependencies.oxlint, '^1.75.0');
+    assert.equal(packageJson.devDependencies['oxlint-tsgolint'], '^7.0.2001');
+    assert.equal(packageJson.devDependencies.eslint, undefined);
+    assert.equal(packageJson.devDependencies['typescript-eslint'], undefined);
+    assert.equal(
+      packageJson.devDependencies['@typescript-eslint/parser'],
+      undefined
+    );
+    assert.ok(fs.existsSync(path.join(projectDir, '.oxlintrc.json')));
+    assert.equal(
+      fs.existsSync(path.join(projectDir, 'eslint.config.mjs')),
+      false
     );
   });
 
@@ -247,6 +285,10 @@ describe('@stratix/create', () => {
       requires: string[];
       health: boolean;
     }>(path.join(cwd, 'cache-plugin', '.stratix', 'plugin.json'));
+    const packageJson = readJson<{
+      scripts: Record<string, string>;
+      devDependencies: Record<string, string>;
+    }>(path.join(cwd, 'cache-plugin', 'package.json'));
 
     assert.equal(pluginManifest.schemaVersion, 1);
     assert.equal(pluginManifest.name, '@demo/cache-plugin');
@@ -255,5 +297,9 @@ describe('@stratix/create', () => {
     assert.deepEqual(pluginManifest.provides, ['cachePluginApi']);
     assert.deepEqual(pluginManifest.requires, ['@stratix/database']);
     assert.equal(pluginManifest.health, true);
+    assert.equal(packageJson.scripts.lint, 'oxlint --type-aware .');
+    assert.equal(packageJson.devDependencies.typescript, '^7.0.2');
+    assert.equal(packageJson.devDependencies.oxlint, '^1.75.0');
+    assert.ok(fs.existsSync(path.join(cwd, 'cache-plugin', '.oxlintrc.json')));
   });
 });

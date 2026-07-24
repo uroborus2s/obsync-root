@@ -33,8 +33,9 @@
   - `node packages/forge/dist/bin/stratix.js --help`
   - `node packages/forge/dist/bin/stratix.js release gate --scope workspace --dry-run`
 - 模板预览样例：
-  - 在 `examples/web-admin-preview` 内执行 `pnpm install --ignore-workspace`
+  - 在 `examples/web-admin-preview` 内执行 `pnpm install`
   - 再执行 `pnpm build`
+  - 执行 `pnpm lint`
   - 预览启动 `pnpm preview --host 127.0.0.1 --port 4273`
 
 ## 3. 当前运行约束

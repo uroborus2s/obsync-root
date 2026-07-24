@@ -13,7 +13,7 @@
 
 - `@stratix/core` 负责 runtime、DI、discovery、route contract 和核心诊断能力。
 - `@stratix/database@1.1.0` 在应用侧以 `BaseRepository` 为公共编程模型。
-- `@stratix/create` 是轻量创建入口，只负责 app/plugin 创建；`@stratix/forge` 是项目内工程入口，负责 generate、doctor、di、openapi、start、config 等命令。二者都必须保持零运行时依赖，不依赖 `@stratix/core` 或任何项目包。
+- `@stratix/create` 是轻量创建入口，只负责 app/plugin 创建并保持零运行时依赖；`@stratix/forge` 是项目内工程入口，负责 generate、doctor、di、openapi、start、config 等命令。Forge 可以依赖同源 Oxc parser 完成 TypeScript 静态分析，但二者都不得依赖 `@stratix/core` 或任何 Stratix 项目包。
 - `@stratix/testing` 是独立的一等测试平台入口，不并入 core；当前已具备 smoke 与 `contractTest()` 基线。
 - `@stratix/tasks` 已从当前 workspace、preset 模板和发布面物理移除，不作为 core 设计依赖，也不作为默认质量门的一部分。
 

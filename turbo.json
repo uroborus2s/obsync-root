@@ -25,8 +25,7 @@
         "*.js",
         "*.ts",
         "*.tsx",
-        ".eslintrc*",
-        "eslint.config.*"
+        ".oxlintrc.json"
       ]
     },
     "test": {

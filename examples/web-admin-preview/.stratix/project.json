@@ -21,12 +21,16 @@
           "destination": ".gitignore"
         },
         {
-          "source": "eslint.config.mjs.tpl",
-          "destination": "eslint.config.mjs"
+          "source": ".oxlintrc.json.tpl",
+          "destination": ".oxlintrc.json"
         },
         {
           "source": "package.json.tpl",
           "destination": "package.json"
+        },
+        {
+          "source": "pnpm-workspace.yaml.tpl",
+          "destination": "pnpm-workspace.yaml"
         },
         {
           "source": "components.json.tpl",

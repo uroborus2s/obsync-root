@@ -6,7 +6,8 @@
 - Toolchain baseline:
   - Node `24.14.1`
   - pnpm `11.9.0`; root `package.json` declares `packageManager: pnpm@11.9.0`
-  - TypeScript `6.0.3`
+  - TypeScript `7.0.2`
+  - Oxlint `1.75.0` with `oxlint-tsgolint` `7.0.2001`
 - Workspace reality:
   - 10 public `@stratix/*` packages
   - 0 workspace apps
@@ -84,7 +85,7 @@
 - 2026-07-05 `@stratix/forge@1.1.2` was published to the configured Aliyun `@stratix` npm registry. Verification command `pnpm view @stratix/forge@1.1.2 version --registry=https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/` returned `1.1.2`. Public npmjs version query for `@stratix/forge@1.1.2` also returned `1.1.2`; the `@stratix/forge@1.1.2` exact git tag was not created in this update.
 - 2026-07-05 `BUG-005` is resolved locally for published-consumer template regressions after QC follow-up: generated API/resource operationIds now live under Fastify route `config`, contract/OpenAPI/manifest extraction still reads legacy `schema.operationId`, `stratix start` loads ESM-only `@stratix/core` from the target project import entry, `doctor` no longer blocks `@stratix/forge` toolchain upgrades from old scaffold snapshots, official templates generate `security:audit`, generated app config and gateway/preset templates no longer read or emit ordinary business env vars, `stratix config <subcommand> --help` exits successfully, generated projects include pnpm 11 `allowBuilds.esbuild: true`, and `pnpm run smoke:generated-api` is part of local/CI quality gates.
 - 2026-07-24 `BUG-006` is closed and published to the configured Aliyun `@stratix` registry as `@stratix/core@1.1.2`, `@stratix/create@1.1.2`, and `@stratix/forge@1.1.4`: Forge and Core parse raw, hex, and base64 AES-256 keys through the same strict 32-byte contract; Forge config CLI accepts keys only through `STRATIX_ENCRYPTION_KEY`; the Forge CLI -> env artifact -> Core decrypt regression passes. Ciphertext created by the old Forge environment-key SHA-256 path must be decrypted with the old Forge behavior and re-encrypted; no fallback decryption was added.
-- 2026-07-24 all direct third-party workspace dependencies were refreshed. TypeScript stays at `6.0.3` because `typescript-eslint@8.65.0` supports TypeScript `<6.1`; Vitest is upgraded to `4.1.10` but its Vite dependency is targeted to `8.0.16` because `8.1.5` leaves Core's legacy decorators untransformed. The DevTools client independently builds with Vite `8.1.5`.
+- 2026-07-24 `CR-002` supersedes the temporary TypeScript 6 ceiling: all direct TypeScript declarations use `7.0.2`, the active ESLint ecosystem is removed, and lint uses Oxlint `1.75.0` plus `oxlint-tsgolint` `7.0.2001`. Forge static route analysis now uses `oxc-parser@0.141.0` because TypeScript 7 no longer exposes the JavaScript Compiler API used by the old implementation. Vitest remains targeted to Vite `8.0.16` for Core legacy-decorator compatibility; the DevTools client independently builds with Vite `8.1.5`.
 
 ## Verified Facts
 
@@ -99,7 +100,7 @@
   - `pnpm list --depth -1 --filter './packages/*'` reports 10 public workspace packages and no `@stratix/tasks`
 - `CI=true pnpm install --frozen-lockfile --ignore-scripts` passes after removing `packages/utils` from the workspace lockfile.
 - Root `CI=true pnpm install --frozen-lockfile --ignore-scripts` passes with system `PATH` pnpm `11.9.0`.
-- Preview sample `CI=true pnpm install --ignore-workspace --frozen-lockfile` passes.
+- Preview sample `CI=true pnpm install --frozen-lockfile` passes with its local `pnpm-workspace.yaml` native-build allowlist.
 - Root `pnpm build` delegates to `build:supported` and now covers every remaining workspace package.
 - Root `pnpm build:supported` passes across the 10 remaining workspace packages.
 - Root `pnpm lint` delegates to `lint:supported` and passes:
@@ -260,7 +261,7 @@
 - `pnpm --filter @stratix/database exec vitest run` passes after the database quality-gate refactor:
   - 8 test files
   - 49 tests
-- `pnpm --filter @stratix/database lint` passes after the workspace ESLint 10 flat-config parser wiring fix.
+- `pnpm --filter @stratix/database lint` passes through type-aware Oxlint.
 - `pnpm --filter @stratix/was-v7 test` passes:
   - 11 test files
   - 120 tests
@@ -268,7 +269,7 @@
   - `CI=true pnpm --filter @stratix/ossp exec vitest run src/__tests__/aliyun-oss-adapter.test.ts src/__tests__/exports.test.ts src/__tests__/plugin-validation.test.ts`: 3 files / 8 tests
   - `pnpm --filter @stratix/was-v7 exec vitest run src/__tests__/plugin-validation.test.ts`: 21 tests
 - `@stratix/devtools`, `@stratix/ossp`, `@stratix/queue`, and `@stratix/testing` now have smoke tests so the supported root test profile is not broken by no-test packages.
-- The upgraded toolchain still emits peer warnings because `@typescript-eslint` does not yet declare TypeScript 6 support and `eslint-plugin-import` does not yet declare ESLint 10 support.
+- No active ESLint package or peer compatibility warning remains. Oxlint retains explicit parity rules and two low-noise type-aware rules; existing `no-console`, React hook, and Fast Refresh findings remain non-blocking warnings.
 
 ## Release Surface
 

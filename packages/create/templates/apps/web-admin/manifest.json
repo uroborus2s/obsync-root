@@ -17,8 +17,8 @@
         "destination": ".gitignore"
       },
       {
-        "source": "eslint.config.mjs.tpl",
-        "destination": "eslint.config.mjs"
+        "source": ".oxlintrc.json.tpl",
+        "destination": ".oxlintrc.json"
       },
       {
         "source": "package.json.tpl",

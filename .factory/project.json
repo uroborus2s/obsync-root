@@ -303,21 +303,29 @@
   },
   "dependencyBaseline": {
     "checkedAt": "2026-07-24",
-    "status": "upgraded_and_locally_verified",
-    "scope": "All direct third-party dependencies declared by the root workspace and workspace packages",
+    "status": "typescript_7_oxlint_migration_verified",
+    "scope": "All active root, workspace package, generator-template, and preview-sample TypeScript and lint declarations",
     "compatibilityConstraints": [
-      "TypeScript remains on 6.0.3 because typescript-eslint 8.65.0 supports TypeScript <6.1",
+      "All direct TypeScript declarations use 7.0.2; the active ESLint and typescript-eslint dependency/configuration surface is removed in favor of Oxlint 1.75.0 plus oxlint-tsgolint 7.0.2001",
+      "Forge static route analysis uses oxc-parser 0.141.0 because the TypeScript 7 package no longer exposes the JavaScript Compiler API used by the previous implementation",
       "Vitest 4.1.10 resolves Vite 8.0.16 through a targeted override because Vite 8.1.5 leaves legacy decorators untransformed in Core tests; the DevTools client builds with Vite 8.1.5"
     ],
     "verification": [
       "CI=true pnpm install --frozen-lockfile",
+      "examples/web-admin-preview: CI=true pnpm install --frozen-lockfile",
       "pnpm run quality:release",
-      "supported build/typecheck/lint/test, Core coverage, packed/generated API smokes, docs validation, production security audit, and workspace release dry-run passed"
+      "TypeScript 7 build/typecheck, type-aware Oxlint, 12 supported test tasks, Core coverage, packed/generated API smokes, 89-page docs validation, production security audit, and 10-package workspace release dry-run passed"
     ]
   },
   "verification": {
-    "checkedAt": "2026-06-26",
+    "checkedAt": "2026-07-24",
     "quality": [
+      {
+        "command": "pnpm run quality:release",
+        "status": "passed",
+        "summary": "TypeScript 7 and Oxlint migration release-quality gate passed",
+        "reason": "2026-07-24 CR-002 rerun passed 10-package build, TypeScript 7 typecheck, type-aware Oxlint, 12 supported test tasks, Core 34 files / 263 tests and coverage ratchet, packed Core API smoke, generated API consumer smoke, 89-page docs validation, zero known production audit vulnerabilities, and 10-package workspace release gate dry-run."
+      },
       {
         "command": "GitHub Actions Quality Gate run 28234054546",
         "status": "passed_after_local_remediation",
@@ -389,16 +397,16 @@
         "reason": "Frozen offline install passes on the current pnpm store; lockfile is up to date and no resolution is required"
       },
       {
-        "command": "CI=true pnpm install --ignore-workspace --no-frozen-lockfile",
+        "command": "CI=true pnpm install --no-frozen-lockfile",
         "workdir": "examples/web-admin-preview",
         "status": "passed",
-        "reason": "Preview sample lockfile was refreshed on the upgraded frontend dependency stack"
+        "reason": "Preview sample lockfile was refreshed with its local pnpm-workspace allowBuilds policy on the TypeScript 7 and Oxlint frontend stack"
       },
       {
-        "command": "CI=true pnpm install --ignore-workspace --frozen-lockfile",
+        "command": "CI=true pnpm install --frozen-lockfile",
         "workdir": "examples/web-admin-preview",
         "status": "passed",
-        "reason": "Refreshed preview-sample lockfile is internally consistent after the upgrade"
+        "reason": "Refreshed preview-sample lockfile and local native-build policy are internally consistent after the migration"
       }
     ],
     "build": [
@@ -455,8 +463,8 @@
       {
         "command": "pnpm lint",
         "status": "passed",
-        "summary": "11 successful / 11 supported lint tasks",
-        "reason": "Supported lint covers the remaining workspace packages, uses ESLint 10 flat-config parser wiring, and passes after removing stale duplicate DevTools client files plus unused code references"
+        "summary": "type-aware Oxlint completed with warnings only",
+        "reason": "The root quality gate builds all supported packages and runs Oxlint 1.75.0 with oxlint-tsgolint 7.0.2001; no ESLint package, flat config, plugin, parser, or resolver remains active"
       }
     ],
     "test": [
@@ -475,7 +483,7 @@
       {
         "command": "pnpm --filter @stratix/core test",
         "status": "passed",
-        "summary": "34 files / 261 tests",
+        "summary": "34 files / 263 tests",
         "reason": "Core package tests pass with route contract/OpenAPI helpers, unified error envelope, response schema failure normalization, plan-first DI diagnostics, plugin adapter RegistrationPlan metadata, discovery schema validation, DI graph coverage, production manifest startup consumption, manifest-driven registration, production manifest v2 integrity/compiled-file registration, observability/security provider and health contributor coverage, runtime stability coverage, and ApplicationDiscoveryRegistrar extraction"
       },
       {
@@ -493,14 +501,14 @@
       {
         "command": "pnpm --filter @stratix/create test",
         "status": "passed",
-        "summary": "6 tests",
-        "reason": "Create tests cover app/plugin creation boundaries, generated plugin governance manifests, @stratix/forge devDependency generation, and app/plugin template listing"
+        "summary": "7 tests",
+        "reason": "Create tests cover app/plugin creation boundaries, generated plugin governance manifests, TypeScript 7/Oxlint-only generated manifests and configs, @stratix/forge devDependency generation, and app/plugin template listing"
       },
       {
         "command": "pnpm --filter @stratix/forge test",
         "status": "passed",
-        "summary": "54 tests",
-        "reason": "Forge tests cover doctor di, di graph JSON/Mermaid output, module manifest/doctor/graph governance, plugin manifest doctor/graph governance with adapter-backed provides validation, production build-manifest v2 generation, production manifest artifact-hash release gate validation, project/workspace release gate docs delegation, release pack artifact validation, registry exact-version validation, OpenAPI generation, advanced typed client generation with path/query/body/header/auth/hooks, command help, and generated resource DI/schema checks"
+        "summary": "70 tests",
+        "reason": "Forge tests cover static route analysis through oxc-parser on TypeScript 7 projects, doctor/graph governance, production manifests, release gates, OpenAPI generation, config encryption, command help, and generated resource DI/schema checks"
       },
       {
         "command": "pnpm --filter @stratix/devtools test",

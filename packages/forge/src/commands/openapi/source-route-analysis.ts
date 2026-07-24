@@ -1,6 +1,6 @@
 import fs from 'node:fs';
-import { createRequire } from 'node:module';
 import path from 'node:path';
+import { parseSync, Visitor } from 'oxc-parser';
 import { CliError } from '../../core/errors.js';
 
 export type JsonSchemaObject = Record<string, unknown>;
@@ -70,17 +70,6 @@ const ROUTE_DECORATORS = new Map<string, string>([
   ['Options', 'OPTIONS']
 ]);
 
-function loadProjectTypeScript(rootDir: string): any {
-  try {
-    const projectRequire = createRequire(path.join(rootDir, 'package.json'));
-    return projectRequire('typescript');
-  } catch {
-    throw new CliError(
-      'stratix openapi generate requires the target project to install typescript.'
-    );
-  }
-}
-
 function collectTypeScriptFiles(rootDir: string): string[] {
   if (!fs.existsSync(rootDir)) {
     return [];
@@ -105,165 +94,209 @@ function collectTypeScriptFiles(rootDir: string): string[] {
   return files;
 }
 
-function decoratorsOf(ts: any, node: any): readonly any[] {
-  return ts.canHaveDecorators(node) ? ts.getDecorators(node) || [] : [];
+function decoratorsOf(node: any): readonly any[] {
+  return Array.isArray(node.decorators) ? node.decorators : [];
 }
 
-function decoratorCall(ts: any, decorator: any): any | null {
-  return ts.isCallExpression(decorator.expression)
+function decoratorCall(decorator: any): any | null {
+  return decorator.expression?.type === 'CallExpression'
     ? decorator.expression
     : null;
 }
 
-function expressionName(ts: any, expression: any): string | null {
-  if (ts.isIdentifier(expression)) {
-    return expression.text;
+function expressionName(expression: any): string | null {
+  if (expression?.type === 'Identifier') {
+    return expression.name;
   }
-  if (ts.isPropertyAccessExpression(expression)) {
-    return expression.name.text;
+  if (
+    expression?.type === 'MemberExpression' &&
+    expression.property?.type === 'Identifier'
+  ) {
+    return expression.property.name;
   }
   return null;
 }
 
-function propertyName(ts: any, name: any): string {
-  if (
-    ts.isIdentifier(name) ||
-    ts.isStringLiteral(name) ||
-    ts.isNumericLiteral(name)
-  ) {
-    return name.text;
-  }
-  throw new CliError(`Unsupported schema property name: ${name.getText()}`);
+function nodeText(source: string, node: any): string {
+  return source.slice(node?.start ?? 0, node?.end ?? 0);
 }
 
-function literalValue(ts: any, node: any): unknown {
-  if (ts.isObjectLiteralExpression(node)) {
+function unwrapExpression(node: any): any {
+  let current = node;
+  while (
+    current &&
+    [
+      'ChainExpression',
+      'ParenthesizedExpression',
+      'TSAsExpression',
+      'TSNonNullExpression',
+      'TSSatisfiesExpression',
+      'TSTypeAssertion'
+    ].includes(current.type)
+  ) {
+    current = current.expression;
+  }
+  return current;
+}
+
+function propertyName(name: any, source: string): string {
+  if (name?.type === 'Identifier') {
+    return name.name;
+  }
+  if (
+    name?.type === 'Literal' &&
+    (typeof name.value === 'string' || typeof name.value === 'number')
+  ) {
+    return String(name.value);
+  }
+  throw new CliError(
+    `Unsupported schema property name: ${nodeText(source, name)}`
+  );
+}
+
+function literalValue(node: any, source: string): unknown {
+  const expression = unwrapExpression(node);
+
+  if (expression?.type === 'ObjectExpression') {
     return Object.fromEntries(
-      node.properties.map((property: any) => {
-        if (!ts.isPropertyAssignment(property)) {
+      expression.properties.map((property: any) => {
+        if (property.type !== 'Property' || property.kind !== 'init') {
           throw new CliError(
-            `Only static property assignments are supported in route schemas: ${property.getText()}`
+            `Only static property assignments are supported in route schemas: ${nodeText(source, property)}`
           );
         }
 
         return [
-          propertyName(ts, property.name),
-          literalValue(ts, property.initializer)
+          propertyName(property.key, source),
+          literalValue(property.value, source)
         ];
       })
     );
   }
 
-  if (ts.isArrayLiteralExpression(node)) {
-    return node.elements.map((element: any) => literalValue(ts, element));
+  if (expression?.type === 'ArrayExpression') {
+    return expression.elements.map((element: any) =>
+      element === null ? null : literalValue(element, source)
+    );
   }
 
-  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
-    return node.text;
-  }
-
-  if (ts.isNumericLiteral(node)) {
-    return Number(node.text);
-  }
-
-  if (node.kind === ts.SyntaxKind.TrueKeyword) {
-    return true;
-  }
-
-  if (node.kind === ts.SyntaxKind.FalseKeyword) {
-    return false;
-  }
-
-  if (node.kind === ts.SyntaxKind.NullKeyword) {
-    return null;
+  if (expression?.type === 'Literal') {
+    if (
+      expression.value === null ||
+      ['string', 'number', 'boolean'].includes(typeof expression.value)
+    ) {
+      return expression.value;
+    }
   }
 
   if (
-    ts.isPrefixUnaryExpression(node) &&
-    node.operator === ts.SyntaxKind.MinusToken &&
-    ts.isNumericLiteral(node.operand)
+    expression?.type === 'TemplateLiteral' &&
+    expression.expressions.length === 0
   ) {
-    return -Number(node.operand.text);
+    return expression.quasis[0]?.value.cooked ?? '';
+  }
+
+  if (
+    expression?.type === 'UnaryExpression' &&
+    expression.operator === '-' &&
+    expression.argument?.type === 'Literal' &&
+    typeof expression.argument.value === 'number'
+  ) {
+    return -expression.argument.value;
   }
 
   throw new CliError(
-    `Route schemas must be static object literals; unsupported value: ${node.getText()}`
+    `Route schemas must be static object literals; unsupported value: ${nodeText(source, expression)}`
   );
 }
 
-function objectProperty(ts: any, node: any, key: string): any | undefined {
+function objectProperty(
+  node: any,
+  key: string,
+  source: string
+): any | undefined {
   for (const property of node.properties) {
-    if (!ts.isPropertyAssignment(property)) {
+    if (property.type !== 'Property' || property.kind !== 'init') {
       continue;
     }
-    if (propertyName(ts, property.name) === key) {
-      return property.initializer;
+    if (propertyName(property.key, source) === key) {
+      return property.value;
     }
   }
   return undefined;
 }
 
 function parseRouteCall(
-  ts: any,
-  call: any
+  call: any,
+  source: string
 ): {
   path: string;
   schema?: SourceRouteSchema;
   config?: SourceRouteConfig;
 } {
-  const pathArg = call.arguments[0];
+  const pathArg = unwrapExpression(call.arguments[0]);
   const routePath =
-    pathArg &&
-    (ts.isStringLiteral(pathArg) || ts.isNoSubstitutionTemplateLiteral(pathArg))
-      ? pathArg.text
-      : '/';
-  const optionsArg = call.arguments[1];
+    pathArg?.type === 'Literal' && typeof pathArg.value === 'string'
+      ? pathArg.value
+      : pathArg?.type === 'TemplateLiteral' && pathArg.expressions.length === 0
+        ? pathArg.quasis[0]?.value.cooked || '/'
+        : '/';
+  const optionsArg = unwrapExpression(call.arguments[1]);
 
   if (!optionsArg) {
     return { path: routePath };
   }
 
-  if (!ts.isObjectLiteralExpression(optionsArg)) {
+  if (optionsArg.type !== 'ObjectExpression') {
     throw new CliError(
-      `Route options must be static object literals: ${optionsArg.getText()}`
+      `Route options must be static object literals: ${nodeText(source, optionsArg)}`
     );
   }
 
-  const schemaExpression = objectProperty(ts, optionsArg, 'schema');
-  const configExpression = objectProperty(ts, optionsArg, 'config');
+  const schemaExpression = unwrapExpression(
+    objectProperty(optionsArg, 'schema', source)
+  );
+  const configExpression = unwrapExpression(
+    objectProperty(optionsArg, 'config', source)
+  );
   let schema: SourceRouteSchema | undefined;
   let config: SourceRouteConfig | undefined;
 
   if (schemaExpression) {
-    if (!ts.isObjectLiteralExpression(schemaExpression)) {
+    if (schemaExpression.type !== 'ObjectExpression') {
       throw new CliError(
-        `Route schema must be a static object literal: ${schemaExpression.getText()}`
+        `Route schema must be a static object literal: ${nodeText(source, schemaExpression)}`
       );
     }
-    schema = literalValue(ts, schemaExpression) as SourceRouteSchema;
+    schema = literalValue(schemaExpression, source) as SourceRouteSchema;
   }
 
   if (configExpression) {
-    if (!ts.isObjectLiteralExpression(configExpression)) {
+    if (configExpression.type !== 'ObjectExpression') {
       throw new CliError(
-        `Route config must be a static object literal: ${configExpression.getText()}`
+        `Route config must be a static object literal: ${nodeText(source, configExpression)}`
       );
     }
-    config = literalValue(ts, configExpression) as SourceRouteConfig;
+    config = literalValue(configExpression, source) as SourceRouteConfig;
   }
 
   return { path: routePath, schema, config };
 }
 
 function classNameOf(node: any, filePath: string): string {
-  return node.name?.text || path.basename(filePath, path.extname(filePath));
+  return node.id?.name || path.basename(filePath, path.extname(filePath));
 }
 
-function methodNameOf(ts: any, node: any): string {
-  if (ts.isIdentifier(node.name) || ts.isStringLiteral(node.name)) {
-    return node.name.text;
+function methodNameOf(node: any, source: string): string {
+  if (node.key?.type === 'Identifier') {
+    return node.key.name;
   }
-  throw new CliError(`Unsupported route handler name: ${node.name.getText()}`);
+  if (node.key?.type === 'Literal' && typeof node.key.value === 'string') {
+    return node.key.value;
+  }
+  throw new CliError(
+    `Unsupported route handler name: ${nodeText(source, node.key)}`
+  );
 }
 
 function toOpenApiPath(routePath: string): string {
@@ -271,74 +304,67 @@ function toOpenApiPath(routePath: string): string {
 }
 
 export function analyzeSourceRoutes(rootDir: string): SourceRouteContract[] {
-  const ts = loadProjectTypeScript(rootDir);
   const contracts: SourceRouteContract[] = [];
 
   for (const filePath of collectTypeScriptFiles(path.join(rootDir, 'src'))) {
     const source = fs.readFileSync(filePath, 'utf8');
-    const sourceFile = ts.createSourceFile(
-      filePath,
-      source,
-      ts.ScriptTarget.Latest,
-      true,
-      ts.ScriptKind.TS
-    );
-
-    function visit(node: any): void {
-      if (!ts.isClassDeclaration(node)) {
-        ts.forEachChild(node, visit);
-        return;
-      }
-
-      const controllerDecorator = decoratorsOf(ts, node)
-        .map((decorator) => decoratorCall(ts, decorator))
-        .some(
-          (call) => call && expressionName(ts, call.expression) === 'Controller'
-        );
-      if (!controllerDecorator) {
-        return;
-      }
-
-      const controllerName = classNameOf(node, filePath);
-
-      for (const member of node.members) {
-        if (!ts.isMethodDeclaration(member)) {
-          continue;
-        }
-
-        for (const decorator of decoratorsOf(ts, member)) {
-          const call = decoratorCall(ts, decorator);
-          if (!call) {
-            continue;
-          }
-
-          const decoratorName = expressionName(ts, call.expression);
-          const method = decoratorName
-            ? ROUTE_DECORATORS.get(decoratorName)
-            : undefined;
-          if (!method) {
-            continue;
-          }
-
-          const route = parseRouteCall(ts, call);
-          contracts.push({
-            method,
-            path: route.path,
-            openApiPath: toOpenApiPath(route.path),
-            controllerName,
-            handlerName: methodNameOf(ts, member),
-            schema: route.schema,
-            config: route.config,
-            tags: Array.isArray(route.schema?.tags)
-              ? route.schema.tags.map(String)
-              : undefined,
-            sourceFile: path.relative(rootDir, filePath)
-          });
-        }
-      }
+    const result = parseSync(filePath, source);
+    if (result.errors.length > 0) {
+      throw new CliError(
+        `Unable to parse ${path.relative(rootDir, filePath)}: ${result.errors[0]?.message || 'unknown syntax error'}`
+      );
     }
 
-    visit(sourceFile);
+    const visitor = new Visitor({
+      ClassDeclaration(node: any): void {
+        const controllerDecorator = decoratorsOf(node)
+          .map((decorator) => decoratorCall(decorator))
+          .some((call) => call && expressionName(call.callee) === 'Controller');
+        if (!controllerDecorator) {
+          return;
+        }
+
+        const controllerName = classNameOf(node, filePath);
+
+        for (const member of node.body.body) {
+          if (member.type !== 'MethodDefinition' || member.kind !== 'method') {
+            continue;
+          }
+
+          for (const decorator of decoratorsOf(member)) {
+            const call = decoratorCall(decorator);
+            if (!call) {
+              continue;
+            }
+
+            const decoratorName = expressionName(call.callee);
+            const method = decoratorName
+              ? ROUTE_DECORATORS.get(decoratorName)
+              : undefined;
+            if (!method) {
+              continue;
+            }
+
+            const route = parseRouteCall(call, source);
+            contracts.push({
+              method,
+              path: route.path,
+              openApiPath: toOpenApiPath(route.path),
+              controllerName,
+              handlerName: methodNameOf(member, source),
+              schema: route.schema,
+              config: route.config,
+              tags: Array.isArray(route.schema?.tags)
+                ? route.schema.tags.map(String)
+                : undefined,
+              sourceFile: path.relative(rootDir, filePath)
+            });
+          }
+        }
+      }
+    });
+
+    visitor.visit(result.program);
   }
 
   return contracts.sort((left, right) =>

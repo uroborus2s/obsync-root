@@ -1,4 +1,3 @@
-import type { LucideProps } from 'lucide-react';
 import {
   BarChart3,
   Bot,
@@ -11,7 +10,8 @@ import {
   ShieldCheck,
   Sparkles,
   Users,
-  type LucideIcon
+  type LucideIcon,
+  type LucideProps
 } from 'lucide-react';
 
 import type { NavigationIcon } from '@/app/config/navigation';

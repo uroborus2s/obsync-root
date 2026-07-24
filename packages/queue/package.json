@@ -12,8 +12,8 @@
     "test": "vitest",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",
-    "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint src/**/*.ts --fix"
+    "lint": "oxlint --type-aware src",
+    "lint:fix": "oxlint --type-aware --fix src"
   },
   "keywords": [
     "stratix",

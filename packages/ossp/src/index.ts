@@ -88,7 +88,7 @@ export interface OsspPluginOptions extends FastifyPluginOptions {
  */
 async function ossp(
   fastify: FastifyInstance,
-  options: OsspPluginOptions
+  _options: OsspPluginOptions
 ): Promise<void> {
   fastify.log.info('🚀 @stratix/ossp plugin initializing...');
 }

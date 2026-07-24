@@ -1,5 +1,4 @@
 import fs from 'node:fs';
-import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import assert from 'node:assert/strict';
@@ -108,7 +107,6 @@ function createScriptedPrompter(
 }
 
 const tempRoots: string[] = [];
-const testRequire = createRequire(import.meta.url);
 
 function createTempRoot(): string {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'stratix-cli-'));
@@ -122,17 +120,6 @@ function readJson(filePath: string): any {
 
 function readText(filePath: string): string {
   return fs.readFileSync(filePath, 'utf8');
-}
-
-function seedProjectTypescript(projectDir: string): void {
-  const typescriptRoot = path.dirname(
-    testRequire.resolve('typescript/package.json')
-  );
-  const target = path.join(projectDir, 'node_modules', 'typescript');
-  fs.mkdirSync(path.dirname(target), { recursive: true });
-  if (!fs.existsSync(target)) {
-    fs.symlinkSync(typescriptRoot, target, 'dir');
-  }
 }
 
 function seedWorkspacePackage(
@@ -397,7 +384,7 @@ describe('@stratix/forge', () => {
     );
     assert.match(
       readText(path.join(projectDir, 'pnpm-workspace.yaml')),
-      /allowBuilds:\n  esbuild: true/
+      /allowBuilds:\n  '@swc\/core': true\n  esbuild: true/
     );
     assert.match(
       readText(path.join(projectDir, 'src', 'main.tsx')),
@@ -1565,7 +1552,6 @@ describe('@stratix/forge', () => {
     );
 
     const projectDir = path.join(cwd, 'production-manifest-app');
-    seedProjectTypescript(projectDir);
     const outputFile = path.join(
       projectDir,
       '.stratix',
@@ -1670,7 +1656,6 @@ describe('@stratix/forge', () => {
       JSON.stringify(packageJson, null, 2),
       'utf8'
     );
-    seedProjectTypescript(projectDir);
     const manifestFile = path.join(
       projectDir,
       '.stratix',
@@ -1724,7 +1709,6 @@ describe('@stratix/forge', () => {
       JSON.stringify(packageJson, null, 2),
       'utf8'
     );
-    seedProjectTypescript(projectDir);
     const manifestFile = path.join(
       projectDir,
       '.stratix',
@@ -1798,7 +1782,6 @@ describe('@stratix/forge', () => {
       packageJsonPath,
       `${JSON.stringify(packageJson, null, 2)}\n`
     );
-    seedProjectTypescript(projectDir);
     const manifestFile = path.join(
       projectDir,
       '.stratix',
@@ -1845,7 +1828,6 @@ describe('@stratix/forge', () => {
       JSON.stringify(packageJson, null, 2),
       'utf8'
     );
-    seedProjectTypescript(projectDir);
     const manifestFile = path.join(
       projectDir,
       '.stratix',
@@ -2315,7 +2297,6 @@ describe('@stratix/forge', () => {
     });
 
     const projectDir = path.join(cwd, 'openapi-app');
-    seedProjectTypescript(projectDir);
     const outputFile = path.join(projectDir, 'openapi.json');
 
     await runCli(
@@ -2365,7 +2346,6 @@ describe('@stratix/forge', () => {
     });
 
     const projectDir = path.join(cwd, 'strict-openapi-app');
-    seedProjectTypescript(projectDir);
     fs.writeFileSync(
       path.join(projectDir, 'src', 'controllers', 'LooseController.ts'),
       [
@@ -2416,7 +2396,6 @@ describe('@stratix/forge', () => {
     });
 
     const projectDir = path.join(cwd, 'typed-client-app');
-    seedProjectTypescript(projectDir);
     const openApiFile = path.join(projectDir, 'openapi.json');
     const clientFile = path.join(
       projectDir,

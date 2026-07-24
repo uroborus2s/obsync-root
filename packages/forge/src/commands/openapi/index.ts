@@ -3,8 +3,7 @@ import type { ParsedArgs } from '../../core/args.js';
 import { CliError } from '../../core/errors.js';
 import type { CliOutput } from '../../core/output.js';
 import { loadProjectManifest } from '../../project/load-project-manifest.js';
-import { readJsonFile, writeJsonFile } from '../../utils/fs.js';
-import { writeTextFile } from '../../utils/fs.js';
+import { readJsonFile, writeJsonFile, writeTextFile } from '../../utils/fs.js';
 import {
   analyzeSourceRoutes,
   generateSourceOpenApiDocument,

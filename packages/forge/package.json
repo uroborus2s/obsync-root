@@ -22,10 +22,12 @@
     "prepublishOnly": "pnpm run build",
     "test": "node --experimental-transform-types --loader ./tests/ts-loader.mjs --test tests/run-cli.test.ts",
     "test:watch": "node --experimental-transform-types --loader ./tests/ts-loader.mjs --test --watch tests/run-cli.test.ts",
-    "lint": "eslint --ext .ts src tests",
+    "lint": "oxlint --type-aware src tests",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\""
   },
-  "dependencies": {},
+  "dependencies": {
+    "oxc-parser": "^0.141.0"
+  },
   "engines": {
     "node": ">=24.0.0"
   },

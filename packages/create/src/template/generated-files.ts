@@ -362,6 +362,41 @@ function createTsConfig(): string {
   );
 }
 
+function createOxlintConfig(): string {
+  return (
+    JSON.stringify(
+      {
+        $schema: './node_modules/oxlint/configuration_schema.json',
+        plugins: ['import', 'typescript'],
+        categories: {
+          correctness: 'off'
+        },
+        env: {
+          builtin: true,
+          node: true
+        },
+        ignorePatterns: ['dist/**', 'coverage/**'],
+        rules: {
+          'no-console': 'warn',
+          'no-unused-vars': [
+            'error',
+            {
+              argsIgnorePattern: '^_',
+              caughtErrorsIgnorePattern: '^_',
+              varsIgnorePattern: '^_'
+            }
+          ],
+          'import/no-duplicates': 'error',
+          'typescript/await-thenable': 'error',
+          'typescript/no-for-in-array': 'error'
+        }
+      },
+      null,
+      2
+    ) + '\n'
+  );
+}
+
 function createEnvExample(contribution: Contribution): string {
   const lines = (contribution.env || []).map((item) => {
     const suffix = item.description ? ` # ${item.description}` : '';
@@ -401,6 +436,10 @@ export function createManagedFiles(
     {
       destination: 'tsconfig.json',
       content: createTsConfig()
+    },
+    {
+      destination: '.oxlintrc.json',
+      content: createOxlintConfig()
     },
     {
       destination: 'pnpm-workspace.yaml',

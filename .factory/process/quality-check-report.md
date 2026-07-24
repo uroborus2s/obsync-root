@@ -1,10 +1,13 @@
 # Quality Check Report
 
-- Checked at: 2026-07-04
+- Checked at: 2026-07-24
 - Overall status: `BASELINE_CLOSED_RELEASE_OWNER_EVIDENCE_PENDING`
 
 ## Current Gate Summary
 
+- Local `pnpm run quality:release` passed after `CR-002`: TypeScript 7 build/typecheck, type-aware Oxlint, 12 supported test tasks, Core 34 files / 263 tests and coverage ratchet, packed/generated API smoke, 89-page docs validation, zero known production vulnerabilities, and 10-package release dry-run all completed.
+- Root and preview `CI=true pnpm install --frozen-lockfile` both passed with refreshed lockfiles.
+- Active package manifests, lockfiles, configs, scripts, templates, and preview files contain no ESLint dependency/configuration surface; all direct TypeScript declarations use `7.0.2`.
 - Latest remote `Quality Gate` run `28234054546` passed on commit `457357f6e3285afdd7f5ed6f496cdf8962fd0183`.
 - Previous failed run `28231936087` missed create/forge `admin-mock` `.env.example.tpl` template files because `.gitignore` ignored `.env.*` and did not allow `.env.example.tpl`.
 - Remediation: `.gitignore` allows `.env.example.tpl`; both required template files are included in Git.
@@ -23,7 +26,7 @@ These signals are retained as historical evidence. Latest remote `Quality Gate` 
 - `pnpm run test:supported` passed across 12 turbo tasks
 - `/opt/homebrew/Cellar/uv/0.9.18/bin/uvx --from docs-stratego docs-stratego source validate --repo-path .` passed, 89 pages / 0 contracts
 - Core, forge, and devtools package tarballs can be produced under `/tmp`
-- Preview sample `CI=true pnpm install --ignore-workspace --frozen-lockfile`
+- Preview sample `CI=true pnpm install --frozen-lockfile`
 - `@stratix/create` and `@stratix/forge` build/test/typecheck on the Node 24 baseline
 - `@stratix/forge` source is physically under `packages/forge`; the lockfile importer is no longer `packages/cli`
 - `@stratix/forge` Module governance tests pass after adding `module.yaml`, `doctor modules`, and `graph modules`
@@ -50,7 +53,7 @@ These signals are retained as historical evidence. Latest remote `Quality Gate` 
 
 - Exact release tags are not pushed to origin and must point at the final release commit.
 - npm publish has not been performed.
-- Peer compatibility warnings around TypeScript 6 / ESLint 10 remain non-blocking warnings.
+- Remote CI has not yet run against the local TypeScript 7 and Oxlint migration commit.
 
 ## Release Preconditions
 

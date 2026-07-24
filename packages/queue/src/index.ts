@@ -18,7 +18,7 @@ import type { QueuePluginOptions } from './types/index.js';
  */
 async function queue(
   fastify: FastifyInstance,
-  options: QueuePluginOptions
+  _options: QueuePluginOptions
 ): Promise<void> {
   fastify.log.info('🚀 @stratix/queue plugin initializing...');
 

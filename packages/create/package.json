@@ -20,7 +20,7 @@
     "prepublishOnly": "pnpm run clean && pnpm run build",
     "test": "node --experimental-transform-types --loader ./tests/ts-loader.mjs --test tests/create.test.ts",
     "test:watch": "node --experimental-transform-types --loader ./tests/ts-loader.mjs --test --watch tests/create.test.ts",
-    "lint": "eslint --ext .ts src tests",
+    "lint": "oxlint --type-aware src tests",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\""
   },
   "dependencies": {},
