@@ -18,10 +18,7 @@ export interface TransactionOptions {
   timeout?: number;
   debug?: boolean;
   isolationLevel?:
-    | 'read uncommitted'
-    | 'read committed'
-    | 'repeatable read'
-    | 'serializable';
+    'read uncommitted' | 'read committed' | 'repeatable read' | 'serializable';
 }
 
 export interface BatchTransactionOptions extends TransactionOptions {

@@ -1072,8 +1072,8 @@ export const combinators = {
   /**
    * S - 替换组合子
    */
-  S: curry3(
-    <A, B, C>(f: (a: A) => (b: B) => C, g: (a: A) => B, x: A): C => f(x)(g(x))
+  S: curry3(<A, B, C>(f: (a: A) => (b: B) => C, g: (a: A) => B, x: A): C =>
+    f(x)(g(x))
   ),
 
   /**

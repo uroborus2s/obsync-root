@@ -998,9 +998,7 @@ export type TableColumnKey<DB, TB extends keyof DB> = Extract<
 
 export type StringColumnKey<DB, TB extends keyof DB> = {
   [K in TableColumnKey<DB, TB>]: Selectable<DB[TB]>[K] extends
-    | string
-    | null
-    | undefined
+    string | null | undefined
     ? K
     : never;
 }[TableColumnKey<DB, TB>];

@@ -281,10 +281,7 @@ export interface TransactionOptions {
   transactionManager: any;
   /** 事务隔离级别 */
   isolationLevel?:
-    | 'READ_UNCOMMITTED'
-    | 'READ_COMMITTED'
-    | 'REPEATABLE_READ'
-    | 'SERIALIZABLE';
+    'READ_UNCOMMITTED' | 'READ_COMMITTED' | 'REPEATABLE_READ' | 'SERIALIZABLE';
   /** 是否支持嵌套事务 */
   nested?: boolean;
 }

@@ -6,13 +6,7 @@
 
 // 基础消息类型 - 按照文档定义
 export type MessageType =
-  | 'text'
-  | 'rich_text'
-  | 'image'
-  | 'file'
-  | 'audio'
-  | 'video'
-  | 'card';
+  'text' | 'rich_text' | 'image' | 'file' | 'audio' | 'video' | 'card';
 
 // 接收者类型 - 按照文档定义
 export type ReceiverType = 'company' | 'dept' | 'user' | 'chat' | 'user_group';

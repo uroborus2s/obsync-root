@@ -426,10 +426,7 @@ export class ApplicationBootstrap {
     // 根据环境变量检测
     if (process.env.STRATIX_APP_TYPE) {
       return process.env.STRATIX_APP_TYPE as
-        | 'web'
-        | 'cli'
-        | 'worker'
-        | 'service';
+        'web' | 'cli' | 'worker' | 'service';
     }
 
     // 根据运行环境检测

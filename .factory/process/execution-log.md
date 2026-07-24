@@ -1,5 +1,12 @@
 # Execution Log
 
+## 2026-07-24
+
+- Upgraded all direct third-party dependencies declared by the root workspace and workspace packages.
+- Kept TypeScript at `6.0.3` for the `typescript-eslint@8.65.0` peer ceiling.
+- Confirmed Vite `8.1.5` caused Core decorator test parse failures and targeted only Vitest `4.1.10` to Vite `8.0.16`; the DevTools client remains on Vite `8.1.5`.
+- Verified frozen install and the complete `quality:release` gate.
+
 ## 2026-03-28
 
 - Audited root manifests, workspace packages, package READMEs, git tags, and npm registry visibility.

@@ -79,10 +79,7 @@ export interface CompanyInfo {
 // Token 缓存相关类型
 export interface TokenCacheError extends Error {
   code:
-    | 'REDIS_UNAVAILABLE'
-    | 'FALLBACK_DISABLED'
-    | 'INVALID_TOKEN'
-    | 'CACHE_ERROR';
+    'REDIS_UNAVAILABLE' | 'FALLBACK_DISABLED' | 'INVALID_TOKEN' | 'CACHE_ERROR';
   details?: any;
 }
 

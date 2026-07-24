@@ -35,7 +35,7 @@
     "access": "public"
   },
   "dependencies": {
-    "bullmq": "5.78.1"
+    "bullmq": "5.80.11"
   },
   "peerDependencies": {
     "@stratix/core": "workspace:*",

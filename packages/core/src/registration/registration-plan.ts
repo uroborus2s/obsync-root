@@ -15,9 +15,7 @@ import {
 } from '../diagnostics/di.js';
 
 export type RegistrationPlanSource =
-  | 'application-discovery'
-  | 'plugin-autodi'
-  | 'production-manifest';
+  'application-discovery' | 'plugin-autodi' | 'production-manifest';
 
 export type RegistrationPlanOwnerType = 'application' | 'plugin' | 'manifest';
 

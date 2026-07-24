@@ -322,9 +322,7 @@ function requestBodySchema(
 
 function jsonSchemaFromContent(
   content:
-    | OpenApiResponse['content']
-    | OpenApiRequestBody['content']
-    | undefined
+    OpenApiResponse['content'] | OpenApiRequestBody['content'] | undefined
 ): JsonSchemaObject | undefined {
   if (!content) {
     return undefined;

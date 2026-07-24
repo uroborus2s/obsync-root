@@ -46,8 +46,7 @@ export async function executeEagerInitialization(
       try {
         const startTime = Date.now();
         const instance = container.resolve(serviceName) as
-          | EagerInitializable
-          | undefined;
+          EagerInitializable | undefined;
 
         if (instance && typeof instance.initialize === 'function') {
           await Promise.resolve(instance.initialize());

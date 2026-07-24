@@ -294,6 +294,20 @@
       "built Forge -> env artifact -> built Core round trip"
     ]
   },
+  "dependencyBaseline": {
+    "checkedAt": "2026-07-24",
+    "status": "upgraded_and_locally_verified",
+    "scope": "All direct third-party dependencies declared by the root workspace and workspace packages",
+    "compatibilityConstraints": [
+      "TypeScript remains on 6.0.3 because typescript-eslint 8.65.0 supports TypeScript <6.1",
+      "Vitest 4.1.10 resolves Vite 8.0.16 through a targeted override because Vite 8.1.5 leaves legacy decorators untransformed in Core tests; the DevTools client builds with Vite 8.1.5"
+    ],
+    "verification": [
+      "CI=true pnpm install --frozen-lockfile",
+      "pnpm run quality:release",
+      "supported build/typecheck/lint/test, Core coverage, packed/generated API smokes, docs validation, production security audit, and workspace release dry-run passed"
+    ]
+  },
   "verification": {
     "checkedAt": "2026-06-26",
     "quality": [
