@@ -186,20 +186,20 @@
     },
     "remainingExternalEvidence": [
       "Exact release tags pointing at the final release commit and pushed to origin",
-      "npm publish with maintainer credentials",
+      "npm publish with maintainer credentials for remaining supported packages",
       "Future optional global coverage uplift beyond the current executable ratchet"
     ],
     "releaseDeferral": {
       "status": "deferred_until_release_owner_actions",
       "deferredItems": [
         "exact release tags pointing at the final release commit and pushed to origin",
-        "npm publish and exact-version registry write evidence",
+        "npm publish and exact-version registry write evidence for remaining supported packages",
         "final release notes and GA/RC wording"
       ]
     }
   },
   "releaseSurface": {
-    "checkedAt": "2026-07-05",
+    "checkedAt": "2026-07-24",
     "npmRegistry": {
       "checkedAt": "2026-07-05",
       "registry": "https://registry.npmjs.org",
@@ -218,12 +218,14 @@
       "excludedPackages": []
     },
     "privateRegistry": {
-      "checkedAt": "2026-07-05",
+      "checkedAt": "2026-07-24",
       "registry": "https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/",
       "publishedExactVersions": {
-        "@stratix/forge": "1.1.2"
+        "@stratix/core": "1.1.2",
+        "@stratix/create": "1.1.2",
+        "@stratix/forge": "1.1.4"
       },
-      "verification": "pnpm publish --registry=https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/ published @stratix/forge@1.1.2; pnpm view @stratix/forge@1.1.2 version returned 1.1.2 from the configured Aliyun @stratix registry"
+      "verification": "pnpm publish --no-git-checks used the configured Aliyun @stratix registry and published @stratix/core@1.1.2, @stratix/create@1.1.2, and @stratix/forge@1.1.4; exact pnpm view queries returned 1.1.2, 1.1.2, and 1.1.4, and each latest dist-tag points at that version"
     },
     "gitTags": {
       "@stratix/core": "@stratix/core@1.1.0",
@@ -237,7 +239,7 @@
       "@stratix/testing": "@stratix/testing@1.0.0-beta.1",
       "@stratix/was-v7": "@stratix/was-v7@1.0.0-beta.36"
     },
-    "assessment": "Supported package manifest versions, public package metadata, tarball/API/docs/security gates, workspace release-surface checks, and remote Quality Gate run 28234054546 were aligned for the 2026-06-26 RC-candidate baseline. @stratix/tasks has been physically removed from the workspace, presets, lockfile importer, release gate exclusions, and publish surface. As of 2026-07-05, @stratix/forge has moved to 1.1.2 for the ecosystem CLI P1/P2 remediation and was published to the configured Aliyun @stratix registry; Aliyun and public npmjs version queries both returned 1.1.2 for @stratix/forge. Current exact-version registry observations are evidence of registry state, not an availability claim. The @stratix/forge@1.1.2 exact git tag was not created in this update; local tag verification only found @stratix/forge@1.1.0, so final exact tag and pushed tag evidence must still be regenerated before GA/public release wording."
+    "assessment": "Supported package manifests, tarball/API/docs/security gates, and workspace release-surface checks pass locally. On 2026-07-24 the configured Aliyun @stratix registry accepted @stratix/core@1.1.2, @stratix/create@1.1.2, and @stratix/forge@1.1.4; exact-version and latest dist-tag queries confirmed all three. This is private-registry publication evidence for those versions only. Exact git tags were not created or pushed, and the remaining supported packages were not republished in this update."
   },
   "postReleaseConsumerRemediation": {
     "checkedAt": "2026-07-05",
@@ -275,7 +277,7 @@
   "configEncryptionCompatibility": {
     "checkedAt": "2026-07-24",
     "workitem": "BUG-006",
-    "status": "resolved_locally",
+    "status": "published_to_private_registry",
     "scope": "@stratix/forge config CLI and @stratix/core startup decryption key contract",
     "fixes": [
       "Forge and Core use the same raw, hex, and base64 AES-256 key parsing contract",
@@ -284,6 +286,11 @@
       "No legacy-key retry, dual-key guessing, or fallback decryption was added"
     ],
     "compatibility": "Ciphertext produced by the old Forge environment-key SHA-256 path must be decrypted with the old Forge behavior and re-encrypted. Existing ciphertext produced with an explicit 32-byte raw key remains compatible.",
+    "publishedVersions": {
+      "@stratix/core": "1.1.2",
+      "@stratix/create": "1.1.2",
+      "@stratix/forge": "1.1.4"
+    },
     "verification": [
       "pnpm --filter @stratix/forge test: 70/70 passed",
       "pnpm --filter @stratix/core test: 34 files / 263 tests passed",

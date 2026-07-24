@@ -6,6 +6,8 @@
 - Kept TypeScript at `6.0.3` for the `typescript-eslint@8.65.0` peer ceiling.
 - Confirmed Vite `8.1.5` caused Core decorator test parse failures and targeted only Vitest `4.1.10` to Vite `8.0.16`; the DevTools client remains on Vite `8.1.5`.
 - Verified frozen install and the complete `quality:release` gate.
+- Committed and pushed the dependency baseline as `c401008` on `1.1.0`.
+- Published `@stratix/core@1.1.2`, `@stratix/create@1.1.2`, and `@stratix/forge@1.1.4` with `pnpm publish --no-git-checks` through the configured Aliyun `@stratix` registry; exact-version and `latest` dist-tag queries confirmed all three.
 
 ## 2026-03-28
 

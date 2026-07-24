@@ -1,7 +1,7 @@
 # BUG-006 Stratix 配置加密密钥兼容
 
 - 类型：BUG
-- 状态：RESOLVED_LOCALLY
+- 状态：CLOSED
 - 优先级：P0
 - 阶段：POST_RELEASE_CONSUMER_REMEDIATION
 - 日期：2026-07-24
@@ -58,11 +58,11 @@ Forge 旧环境变量路径使用 SHA-256 digest。按新契约修复后，由�
 新版本和新契约重新加密。原先使用 `--key` 的脚本也必须改为注入
 `STRATIX_ENCRYPTION_KEY`。修复不会静默尝试旧 key，以免掩盖错误配置。
 
-| 既有密文来源 | 修复后兼容性 |
-| --- | --- |
-| Forge 显式恰好 32-byte key | 兼容 |
-| Core 恰好 32-byte key | 兼容 |
-| Forge 环境变量 key（旧 SHA-256 路径） | 不兼容，需用旧 Forge 解密后重新加密 |
+| 既有密文来源                                | 修复后兼容性                        |
+| ------------------------------------------- | ----------------------------------- |
+| Forge 显式恰好 32-byte key                  | 兼容                                |
+| Core 恰好 32-byte key                       | 兼容                                |
+| Forge 环境变量 key（旧 SHA-256 路径）       | 不兼容，需用旧 Forge 解密后重新加密 |
 | Forge 显式非 32-byte key（旧 SHA-256 路径） | 不兼容，需用旧 Forge 解密后重新加密 |
 
 ## 修复
@@ -86,3 +86,6 @@ Forge 旧环境变量路径使用 SHA-256 digest。按新契约修复后，由�
 - Forge/Core `tsc -p tsconfig.json --noEmit`：通过。
 - Forge/Core `pnpm run build`：通过。
 - built Forge -> `.env` -> built Core 独立往返：通过。
+- `@stratix/core@1.1.2`、`@stratix/create@1.1.2`、`@stratix/forge@1.1.4`
+  已发布到本机配置的 Aliyun `@stratix` registry；精确版本和 `latest` dist-tag
+  反查通过。
