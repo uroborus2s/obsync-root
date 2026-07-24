@@ -77,7 +77,7 @@ export function LiveLogs() {
           } else {
              xtermRef.current.writeln(event.data);
           }
-        } catch (e) {
+        } catch {
           xtermRef.current.writeln(event.data);
         }
       }

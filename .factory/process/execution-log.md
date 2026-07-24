@@ -1,5 +1,14 @@
 # Execution Log
 
+## 2026-07-24
+
+- Upgraded all direct third-party dependencies declared by the root workspace and workspace packages.
+- Kept TypeScript at `6.0.3` for the `typescript-eslint@8.65.0` peer ceiling.
+- Confirmed Vite `8.1.5` caused Core decorator test parse failures and targeted only Vitest `4.1.10` to Vite `8.0.16`; the DevTools client remains on Vite `8.1.5`.
+- Verified frozen install and the complete `quality:release` gate.
+- Committed and pushed the dependency baseline as `c401008` on `1.1.0`.
+- Published `@stratix/core@1.1.2`, `@stratix/create@1.1.2`, and `@stratix/forge@1.1.4` with `pnpm publish --no-git-checks` through the configured Aliyun `@stratix` registry; exact-version and `latest` dist-tag queries confirmed all three.
+
 ## 2026-03-28
 
 - Audited root manifests, workspace packages, package READMEs, git tags, and npm registry visibility.
@@ -12,15 +21,124 @@
 - Migrated transient top-level status out of `README.md`.
 - Created first batch of `BUG / CR / TASK` workitems.
 - Removed `apps/admin-dashboard` from the workspace.
-- Generated `examples/web-admin-preview` via `@stratix/cli` as a non-workspace preview sample.
+- Generated `examples/web-admin-preview` via the then-current local toolchain as a non-workspace preview sample.
 
 ## 2026-03-29
 
 - Upgraded root, workspace, preview-sample, template, and nested package manifests to the latest dependency baseline.
-- Standardized the repository on Node `24.14.1` / pnpm `10.33.0`, including `.nvmrc`, `engines`, and CLI template baselines.
+- Standardized the repository on Node `24.14.1` / pnpm `10.33.0`, including `.nvmrc`, `engines`, and toolchain template baselines.
 - Refreshed root and preview-sample lockfiles and verified frozen installs.
-- Restored `@stratix/cli` build compatibility by adding Node type coverage and TypeScript 6 deprecation handling in shared config.
+- Restored the then-current local toolchain build compatibility by adding Node type coverage and TypeScript 6 deprecation handling in shared config.
 - Verified `examples/web-admin-preview` build, test, and preview on the upgraded frontend stack.
 - Restored `@stratix/core` and the public workspace package graph to a green build state on the upgraded dependency stack.
 - Repaired the root `pnpm build` entry so it now maps to a stable build target.
 - Confirmed that the remaining root verification blocker has shifted from build to test-profile instability (`No test files found` plus unresolved package-suite failures).
+
+## 2026-06-18
+
+- Completed the breaking Core concept-model cleanup through Phase 2 extended workflow: executor removal, contract-first APIs, DI diagnostics, OpenAPI generation/client generation, and runner-neutral contract tests.
+- Split the former CLI surface into `@stratix/create` and `@stratix/forge`:
+  - `@stratix/create` owns app/plugin creation.
+  - `@stratix/forge` owns project-local generate/add/doctor/di/graph/openapi/start/config/list commands.
+  - Both packages keep empty runtime dependencies and do not depend on `@stratix/core`.
+- Renamed the physical project directory from `packages/cli` to `packages/forge` without keeping a compatibility directory.
+- Added `.stratix/project.json` `schemaVersion: 2` as the create/forge handoff contract.
+- Implemented Phase 3 Module governance tooling:
+  - `stratix generate module` writes `module.yaml` and standard module directories.
+  - `stratix doctor modules` validates module manifest, layer paths, boundary ownership, cross-module imports, and module cycles.
+  - `stratix graph modules` outputs JSON/Mermaid module -> token -> route -> dependency graphs.
+- Verified focused forge checks after Module governance work:
+  - `pnpm --filter @stratix/forge test`
+  - `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit`
+- Continued the Core contract-first work by adding the shared error envelope and strict response validation gate:
+  - `@stratix/core` exports `ERROR_ENVELOPE_SCHEMA` and `createErrorEnvelope()`.
+  - Bootstrap maps request validation, not-found, and response schema serialization failures to the same envelope.
+  - `@stratix/testing` `contractTest()` can validate error responses against the shared schema.
+- Verified focused checks:
+  - `pnpm --filter @stratix/core exec tsc -p tsconfig.json --noEmit`
+  - `CI=true pnpm --filter @stratix/core exec vitest run`
+  - `pnpm --filter @stratix/core build`
+  - `pnpm --filter @stratix/testing exec tsc -p tsconfig.json --noEmit`
+  - `pnpm --filter @stratix/testing test`
+  - `pnpm --filter @stratix/testing build`
+- Verified default supported gates:
+  - `pnpm run build:supported`
+  - `pnpm run test:supported`
+  - `uvx --from docs-stratego docs-stratego source validate --repo-path .`
+- Implemented the Phase 4 `@stratix/testing` platform baseline:
+  - `createTestApp()` wraps real `Stratix.run()` in non-listening CLI mode and supports `app.inject`.
+  - `createTestContainer()` and `overrideToken()` provide DI override coverage for explicit providers/controllers.
+  - `mockPlugin()` and `disablePlugin()` provide plugin fixture replacement and exclusion.
+  - `createDiscoveryFixture()` isolates app-level discovery roots/patterns for tests.
+  - `createModuleFixture()` reads `module.yaml` boundaries without changing runtime startup.
+  - `createRepositoryFixture()` supports rollbackable repository transaction fixtures.
+- Verified Phase 4 focused checks:
+  - `pnpm --filter @stratix/testing test`
+  - `pnpm --filter @stratix/testing exec tsc -p tsconfig.json --noEmit`
+  - `pnpm --filter @stratix/testing build`
+- Completed the advanced typed client follow-up for the contract-first workflow:
+  - `stratix openapi client` now generates path/query/header parameters, JSON body types, auth provider support, and before/after request hooks.
+  - The generated client remains dependency-free and uses OpenAPI JSON as its only input.
+- Verified focused forge checks after advanced typed client work:
+  - `pnpm --filter @stratix/forge test` passed at the pre-manifest checkpoint.
+  - `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit` passed.
+  - `pnpm --filter @stratix/forge build` passed.
+- Completed the Plugin manifest and Production manifest artifact baselines:
+  - `@stratix/create` writes `.stratix/plugin.json` for plugin projects with capabilities, provides, requires, and health metadata.
+  - `@stratix/forge` exposes `doctor plugins` and `graph plugins --format json|mermaid`.
+  - `@stratix/forge` exposes `build-manifest` to generate `.stratix/production-manifest.json` with route, DI, module, and plugin-lock evidence.
+- Completed the runtime Production manifest consumption baseline:
+  - `@stratix/core` accepts `discovery.productionManifest`.
+  - Startup reads and validates the production manifest artifact before plugin loading.
+  - `skipRuntimeDiscovery: true` skips application-level runtime glob discovery after the manifest is loaded.
+  - The loaded manifest is exposed on `StratixApplication.productionManifest` for startup evidence and future DevTools reuse.
+- Completed the Phase 5 production baseline:
+  - `registerFromManifest: true` registers DI/routes from v2 production manifest `compiledFile` entries, with v1 source-file compatibility, without runtime glob discovery.
+  - `config.observability` adds request/trace ids, health, metrics, traces, and response headers.
+  - `config.security` adds body limit, CORS, security headers, and rate limit with the shared error envelope.
+  - `@stratix/devtools` exposes production routes, DI, plugins, redacted config, health, and traces views.
+  - `@stratix/forge` exposes `stratix release gate` for build/test/docs/security/pack/api/manifest release checks.
+- Verified focused manifest checks:
+  - `pnpm --filter @stratix/create test` passed, 3 tests.
+  - `pnpm --filter @stratix/forge test` passed, 37 tests.
+  - `pnpm --filter @stratix/create exec tsc -p tsconfig.json --noEmit` passed.
+  - `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit` passed.
+  - `pnpm --filter @stratix/create build` passed.
+  - `pnpm --filter @stratix/forge build` passed.
+- Verified focused runtime manifest checks:
+  - `pnpm --filter @stratix/core exec vitest run src/bootstrap/__tests__/application-discovery-bootstrap.test.ts` passed, 6 tests.
+  - `pnpm --filter @stratix/core exec vitest run src/bootstrap/__tests__/config-validation.test.ts` passed, 4 tests.
+  - `pnpm --filter @stratix/core exec tsc -p tsconfig.json --noEmit` passed.
+  - `pnpm --filter @stratix/core test` passed, 27 files / 191 tests.
+- Verified focused Phase 5 production baseline checks:
+  - `pnpm --filter @stratix/core exec vitest run src/bootstrap/__tests__/application-discovery-bootstrap.test.ts src/bootstrap/__tests__/config-validation.test.ts` passed, 13 tests.
+  - `pnpm --filter @stratix/devtools test` passed, 2 tests.
+  - `pnpm --filter @stratix/forge test` passed, 39 tests.
+  - `pnpm --filter @stratix/core exec tsc -p tsconfig.json --noEmit` passed.
+  - `pnpm --filter @stratix/devtools exec tsc -p tsconfig.json --noEmit` passed.
+  - `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit` passed.
+- Verified final runtime manifest quality gates:
+  - `pnpm exec prettier --check <affected core/docs/factory files>` passed.
+  - `pnpm --filter @stratix/core build` passed.
+  - `pnpm run build:supported` passed, 10/10 supported packages.
+  - `pnpm run test:supported` passed, 12/12 turbo tasks.
+  - `uvx --from docs-stratego docs-stratego source validate --repo-path .` passed, 85 pages / 0 contracts.
+  - `git diff --check` passed.
+- Verified final Phase 5 production release baseline gates:
+  - `pnpm run build:supported` passed, 10/10 supported packages.
+  - `pnpm run test:supported` passed, 12/12 turbo tasks.
+  - `uvx --from docs-stratego docs-stratego source validate --repo-path .` passed, 85 pages / 0 contracts.
+  - `pnpm --filter @stratix/core pack --pack-destination /tmp` passed, `/tmp/stratix-core-1.1.0.tgz`.
+  - `pnpm --filter @stratix/forge pack --pack-destination /tmp` passed, `/tmp/stratix-forge-1.1.0.tgz`.
+  - `pnpm --filter @stratix/devtools pack --pack-destination /tmp` passed, `/tmp/stratix-devtools-1.0.0-beta.1.tgz`.
+- Entered Phase 6 release-readiness development:
+  - `@stratix/forge` release gate now supports `--scope workspace` for monorepo release-readiness planning.
+  - Workspace scope scans `packages/*/package.json`, reports supported package versions, excludes frozen `@stratix/tasks`, and plans build/test/docs/pack/API/release-surface checks.
+  - `--include-offline-install` and `--include-registry` opt into the remaining Phase 6 offline and npm registry governance checks.
+  - Actual workspace release-surface gate checks exact git tags for supported package versions and requires them to point at HEAD.
+- Verified focused Phase 6 forge checks:
+  - `pnpm --filter @stratix/forge test` passed, 41 tests.
+  - `pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit` passed.
+  - `pnpm --filter @stratix/forge build` passed.
+  - `node packages/forge/dist/bin/stratix.js release gate --scope workspace --dry-run` passed and reported 10 supported packages with `@stratix/tasks` excluded.
+  - `node packages/forge/dist/bin/stratix.js release gate --scope workspace --dry-run --include-offline-install --include-registry` passed and reported 8 planned checks.

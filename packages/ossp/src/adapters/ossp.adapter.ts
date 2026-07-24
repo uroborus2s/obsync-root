@@ -5,7 +5,8 @@
  * 遵循 Stratix 框架的适配器模式规范
  */
 
-import type { AwilixContainer, Logger } from '@stratix/core';
+import type { Logger } from '@stratix/core';
+import type { AwilixContainer } from '@stratix/core/plugin';
 import type { Readable } from 'node:stream';
 import type { OsspPluginOptions } from '../index.js';
 import type {
@@ -22,6 +23,10 @@ import type {
   UploadOptions,
   UploadResult
 } from './interfaces/IOSSAdapter.js';
+import {
+  AliyunOSSAdapter,
+  type AliyunOSSConfig
+} from './providers/AliyunOSSAdapter.js';
 import { MinioAdapter, type MinioConfig } from './providers/MinioAdapter.js';
 
 /**
@@ -38,9 +43,10 @@ function createOSSProviderAdapter(
     case 'minio':
       return new MinioAdapter(config as MinioConfig, logger);
 
+    case 'aliyun-oss':
+      return new AliyunOSSAdapter(config as AliyunOSSConfig, logger);
+
     // 未来可以添加其他提供商
-    // case 'aliyun-oss':
-    //   return new AliyunOSSAdapter(config, logger);
     // case 'tencent-cos':
     //   return new TencentCOSAdapter(config, logger);
     // case 'aws-s3':

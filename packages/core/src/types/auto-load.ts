@@ -32,8 +32,7 @@ export interface AutoLoadOptions {
 
   /** 名称格式化函数 - 对应 Awilix formatName */
   formatName?:
-    | string
-    | ((name: string, descriptor: ModuleDescriptor) => string);
+    string | ((name: string, descriptor: ModuleDescriptor) => string);
 
   /** 过滤函数 - 对应 Awilix filter */
   filter?: (descriptor: ModuleDescriptor) => boolean;

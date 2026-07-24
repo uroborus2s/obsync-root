@@ -1,0 +1,17 @@
+{
+  "id": "devtools",
+  "version": "1.0.0",
+  "displayName": "Devtools Preset",
+  "description": "Add @stratix/devtools for local development diagnostics",
+  "appliesTo": [
+    { "kind": "app" },
+    { "kind": "plugin" }
+  ],
+  "contributes": {
+    "dependencies": {
+      "runtime": {
+        "@stratix/devtools": "^1.0.0-beta.1"
+      }
+    }
+  }
+}

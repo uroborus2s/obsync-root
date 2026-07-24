@@ -1,6 +1,6 @@
 # 项目概览
 
-灵枢枢机（Stratix）是一个基于 Node.js / TypeScript 的 `pnpm` + `turbo` monorepo，当前仓库同时维护框架核心、CLI、生态插件、文档体系，以及可独立运行的前端预览样例。
+灵枢枢机（Stratix）是一个基于 Node.js / TypeScript 的 `pnpm` + `turbo` monorepo，当前仓库同时维护框架核心、create/forge 工具链、生态插件、文档体系，以及可独立运行的前端预览样例。
 
 ## 仓库包含什么
 

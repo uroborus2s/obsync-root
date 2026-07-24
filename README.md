@@ -1,6 +1,6 @@
 # 灵枢枢机（Stratix）框架以及生态
 
-这是一个以 Node.js / TypeScript 为主的 `pnpm` + `turbo` monorepo，当前承载灵枢枢机（Stratix）框架核心包、配套生态包、CLI，以及一个非 workspace 的 CLI 预览样例。
+这是一个以 Node.js / TypeScript 为主的 `pnpm` + `turbo` monorepo，当前承载灵枢枢机（Stratix）框架核心包、配套生态包、`create`/`forge` 工具链，以及一个非 workspace 的模板预览样例。
 
 ## 稳定入口
 
@@ -11,17 +11,16 @@
 
 ## 仓库布局
 
-- `packages/core`: 灵枢枢机核心框架
-- `packages/cli`: 灵枢枢机 CLI
+- `packages/core`: 灵枢枢机核心框架，包含共享 `utils` 工具模块
+- `packages/create`: 轻量应用/插件创建入口
+- `packages/forge`: 项目内工程工具链
 - `packages/database`: 数据库插件
 - `packages/redis`: Redis 插件
 - `packages/queue`: 队列插件
-- `packages/tasks`: 任务与工作流插件
 - `packages/was_v7`: WPS API 集成插件
 - `packages/ossp`: OSS 存储插件
 - `packages/devtools`: 开发工具包
 - `packages/testing`: 测试辅助包
-- `legacy/packages/utils`: `@stratix/utils` 的历史版本基线，不再参与当前 workspace 维护
 - `examples/web-admin-preview`: 由 CLI 生成的“幻廊之镜”(`web-admin`) 预览样例，不参与 workspace 安装、构建和发布
 
 ## 文档边界

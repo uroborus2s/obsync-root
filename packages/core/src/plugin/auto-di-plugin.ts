@@ -2,25 +2,26 @@
 // 主要的withRegisterAutoDI函数实现
 
 import { deepMerge } from '../utils/data/index.js';
-import { isDevelopment } from '../utils/environment/index.js';
+import { isDevelopment, isProduction } from '../utils/environment/index.js';
 import type {
   FastifyInstance,
   FastifyPluginAsync,
   FastifyPluginCallback,
   FastifyPluginOptions
 } from 'fastify';
+import { ConfigurationError } from '../errors/index.js';
 import { getLogger } from '../logger/index.js';
+import { recordRegistrationPlan } from '../registration/index.js';
 
 // 跨插件工作流相关导入
 
-// 导入各个功能模块
-import { fileURLToPath } from 'url';
 import { registerServiceAdapters } from './adapter-registration.js';
 import { ConventionBasedLifecycleManager } from './lifecycle-manager.js';
 import {
   discoverAndProcessModules,
   type ModuleProcessingResult
 } from './module-discovery.js';
+import { createPluginAutoDIRegistrationPlan } from './registration-plan.js';
 import {
   ensureAwilixPlugin,
   performAutoRegistration,
@@ -44,7 +45,7 @@ const DEFAULT_AUTO_DI_CONFIG: AutoDIConfig = {
       'controllers/*.{ts,js}',
       'services/*.{ts,js}',
       'repositories/*.{ts,js}',
-      'executors/*.{ts,js}'
+      'components/*.{ts,js}'
     ]
   },
   routing: {
@@ -61,6 +62,7 @@ const DEFAULT_AUTO_DI_CONFIG: AutoDIConfig = {
     errorHandling: 'throw',
     debug: false
   },
+  strict: false,
   debug: false
 };
 
@@ -93,6 +95,7 @@ export function withRegisterAutoDI<
     try {
       // 1. 获取插件名称（从插件函数名称中获取）
       const pluginName = getPluginName(plugin);
+      assertNamedPlugin(pluginName, mergedConfig);
 
       // 2. 🎯 处理插件参数
       let processedOptions: T;
@@ -148,8 +151,9 @@ export function withRegisterAutoDI<
         lifecycleManager,
         patterns: mergedConfig.discovery.patterns,
         // 🎯 使用捕获的调用者路径来解析基础路径
-        basePath: fileURLToPath(
-          resolveBasePath(mergedConfig.discovery?.baseDir, callerFilePath)
+        basePath: resolveBasePath(
+          mergedConfig.discovery?.baseDir,
+          callerFilePath
         ),
         autoDIConfig: mergedConfig,
         debugEnabled,
@@ -164,6 +168,20 @@ export function withRegisterAutoDI<
         pluginContext,
         fastify
       );
+      handleModuleProcessingErrors(
+        moduleProcessingResult,
+        mergedConfig,
+        pluginName
+      );
+      const pluginRegistrationPlan = createPluginAutoDIRegistrationPlan(
+        pluginContext,
+        moduleProcessingResult
+      );
+      pluginContext.registrationPlan = pluginRegistrationPlan;
+      recordRegistrationPlan(
+        pluginContext.internalContainer,
+        pluginRegistrationPlan
+      );
 
       if (debugEnabled) {
         const logger = getLogger();
@@ -172,7 +190,6 @@ export function withRegisterAutoDI<
           {
             ...moduleProcessingResult.statistics,
             routeConfigs: moduleProcessingResult.routeConfigs.length,
-            executorConfigs: moduleProcessingResult.executorConfigs.length,
             lifecycleConfigs: moduleProcessingResult.lifecycleConfigs.length,
             errors: moduleProcessingResult.errors.length
           }
@@ -201,13 +218,6 @@ export function withRegisterAutoDI<
             controllers: processingResult.routing.controllersProcessed,
             routes: processingResult.routing.routesRegistered,
             note: 'Routes registered immediately during discovery'
-          },
-          executors: {
-            registered: processingResult.executor.registered,
-            skipped: processingResult.executor.skipped,
-            failed: processingResult.executor.failed,
-            names: processingResult.executor.executors,
-            note: 'Executors registered immediately during discovery'
           },
           performance:
             'Optimized with immediate registration - no batch processing delays'
@@ -304,6 +314,53 @@ export function withRegisterAutoDI<
   };
 }
 
+function assertNamedPlugin(pluginName: string, config: AutoDIConfig): void {
+  if (pluginName !== 'unknownPlugin') {
+    return;
+  }
+
+  if (config.strict !== true && !isProduction()) {
+    return;
+  }
+
+  throw new ConfigurationError(
+    'AutoDI strict mode requires a named plugin function; anonymous plugins would use the unsafe unknownPlugin token prefix.'
+  );
+}
+
+function handleModuleProcessingErrors(
+  moduleProcessingResult: ModuleProcessingResult,
+  config: AutoDIConfig,
+  pluginName: string
+): void {
+  if (moduleProcessingResult.errors.length === 0) {
+    return;
+  }
+
+  const strategy = config.lifecycle?.errorHandling || 'throw';
+  if (strategy === 'ignore') {
+    return;
+  }
+
+  const message = `AutoDI module processing failed for plugin "${pluginName}"`;
+  if (strategy === 'log') {
+    const logger = getLogger();
+    logger.error(
+      {
+        pluginName,
+        errors: moduleProcessingResult.errors
+      },
+      message
+    );
+    return;
+  }
+
+  throw new ConfigurationError(message, {
+    pluginName,
+    errors: moduleProcessingResult.errors
+  });
+}
+
 /**
  * 直接注册预处理的模块结果
  * 使用 discoverAndProcessModules 的输出，避免重复处理
@@ -317,12 +374,6 @@ async function registerProcessedModules<T>(
 ): Promise<{
   lifecycle: { hooksRegistered: number; servicesProcessed: number };
   routing: { controllersProcessed: number; routesRegistered: number };
-  executor: {
-    registered: number;
-    skipped: number;
-    failed: number;
-    executors: string[];
-  };
   summary: { totalModulesProcessed: number; processingTimeMs: number };
 }> {
   const startTime = Date.now();
@@ -330,12 +381,6 @@ async function registerProcessedModules<T>(
   const result = {
     lifecycle: { hooksRegistered: 0, servicesProcessed: 0 },
     routing: { controllersProcessed: 0, routesRegistered: 0 },
-    executor: {
-      registered: 0,
-      skipped: 0,
-      failed: 0,
-      executors: [] as string[]
-    },
     summary: { totalModulesProcessed: 0, processingTimeMs: 0 }
   };
 
@@ -343,7 +388,6 @@ async function registerProcessedModules<T>(
     const logger = getLogger();
     logger.info('🚀 Starting direct registration of processed modules...', {
       routeConfigs: moduleProcessingResult.routeConfigs.length,
-      executorConfigs: moduleProcessingResult.executorConfigs.length,
       lifecycleConfigs: moduleProcessingResult.lifecycleConfigs.length
     });
   }
@@ -393,26 +437,6 @@ async function registerProcessedModules<T>(
     }
   }
 
-  // 3. 执行器统计（执行器已在发现阶段立即注册）
-  if (moduleProcessingResult.executorConfigs.length > 0) {
-    // 统计执行器注册结果
-    result.executor = {
-      registered: moduleProcessingResult.executorConfigs.length,
-      skipped: 0,
-      failed: 0,
-      executors: moduleProcessingResult.executorConfigs.map(
-        (config) => config.name
-      )
-    };
-
-    if (debugEnabled) {
-      const logger = getLogger();
-      logger.info(
-        `✅ Executors already registered during discovery: ${result.executor.registered} executors`
-      );
-    }
-  }
-
   const processingTime = Date.now() - startTime;
   result.summary.totalModulesProcessed =
     moduleProcessingResult.statistics.totalModules;
@@ -424,11 +448,7 @@ async function registerProcessedModules<T>(
       processingTimeMs: processingTime,
       lifecycle: result.lifecycle,
       routing: result.routing,
-      executor: {
-        registered: result.executor.registered,
-        failed: result.executor.failed
-      },
-      note: 'Routes and executors were registered immediately during discovery phase'
+      note: 'Routes were registered immediately during discovery phase'
     });
   }
 

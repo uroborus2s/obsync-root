@@ -7,7 +7,7 @@
 错误写法：
 
 ```ts
-@Controller('/users')
+@Controller(/* 不要在这里写路径前缀 */)
 ```
 
 推荐写法：
@@ -62,29 +62,41 @@ export default function createConfig(): StratixConfig {
       port: 3000
     },
     plugins: [],
-    applicationAutoDI: {
+    autoLoad: {},
+    discovery: {
       enabled: true
     }
   };
 }
 ```
 
-## 4. 以为 `Stratix.run({ config })` 是主要配置入口
+## 4. 忘记 `discovery` 是唯一应用级发现入口
 
-在当前实现里，最稳妥的主路径仍然是 `src/stratix.config.ts`。如果你把大量项目配置堆到 `Stratix.run({ config })`，很容易和真实启动链路脱节。
+应用级扫描、DI 注册和控制器路由绑定都由 `discovery` 驱动。不要再新增平行配置字段来表达同一件事。
 
-结论：项目配置优先写 `src/stratix.config.ts`。
+最小可用配置：
+
+```ts
+discovery: {
+  enabled: true,
+  patterns: ['**/*.ts'],
+  routing: {
+    enabled: true,
+    prefix: '/api'
+  }
+}
+```
 
 ## 5. 把普通工具类扔进扫描目录
 
-默认扫描目录里任意 class 都可能被框架当作可发现对象处理。
+应用级 discovery 不会注册普通 class。真正容易出问题的是：你以为目录命名就足够，结果忘记加组件装饰器。
 
 容易出问题的目录：
 
 - `src/controllers`
 - `src/services`
 - `src/repositories`
-- `src/executors`
+- `src/components`
 
 如果某个文件只是：
 
@@ -93,7 +105,7 @@ export default function createConfig(): StratixConfig {
 - 临时辅助类
 - schema class
 
-不要随便放进这些目录。
+这些文件可以存在，但不要加 `@Service()`、`@Repository()`、`@Component()` 或 `@Controller()`。
 
 ## 6. 忽视 `stratix doctor`
 
@@ -127,9 +139,11 @@ export default function createConfig(): StratixConfig {
 
 如果你只是做普通管理后台 API，不要一开始就上 `business-repository`。
 
-## 9. 加了 `@stratix/tasks` 却没理解 `executor`
+## 9. 把后台流程当成随手新建的函数目录
 
-`executor` 不是“随便起个后台函数目录”，它通常对应一个可执行任务单元。只有当你确实使用任务、调度或工作流时，再去认真设计 `src/executors/`。
+后台流程不是“随便起个目录放异步函数”。1.1.0 新项目不要为了“以后可能有后台任务”而提前引入 tasks。
+
+当前推荐做法是先把状态收口在 repository，异步消费使用 `@stratix/queue`，真正的任务引擎迁移单独立项。
 
 ## 10. 还没跑通健康检查就开始堆业务
 
@@ -174,20 +188,21 @@ export default function createConfig(): StratixConfig {
 它不会自动帮你完成这些事情：
 
 - 不会自动生成模块级 DI 容器
-- 不会自动隔离跨模块依赖
+- 不会在 runtime 自动隔离跨模块依赖
 - 不会自动把旧文件从根目录迁进去
 
-## 13. 以为 `business-repository` 和 `executor` 生成器会自动识别你现有模块
+如果模块里有 `module.yaml`，可以用 `stratix doctor modules` 检查 manifest、layer、boundary 和循环依赖，用 `stratix graph modules` 输出工程视图。这个检查发生在 forge 工具链，不改变应用启动行为。
 
-当前 CLI 的现实行为是：
+## 13. 以为 `business-repository` 生成器会自动识别你现有模块
 
-- `stratix generate module billing` 会生成 `src/modules/billing/...`
+当前 forge 的现实行为是：
+
+- `stratix generate module billing` 会生成 `src/modules/billing/...` 和 `module.yaml`
 - `stratix generate business-repository order` 默认仍然生成到 `src/repositories/`
-- `stratix generate executor order-sync` 默认仍然生成到 `src/executors/`
 
-如果你的项目已经模块化了，这两个生成结果通常需要你手工移动到对应模块目录，再修正导入。
+如果你的项目已经模块化了，`business-repository` 生成结果通常需要你手工移动到对应模块目录，再修正导入。
 
 所以正确理解应该是：
 
-- CLI 负责给你起始骨架
+- forge 负责给你起始模块、治理清单和诊断命令
 - 模块内的最终归位和演进，由你来维护

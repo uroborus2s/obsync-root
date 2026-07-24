@@ -21,7 +21,8 @@
 
 ## Key Runtime Entrypoints
 
-- CLI: `packages/cli/dist/bin/stratix.js`
+- Create: `packages/create/dist/bin/create-stratix.js`
+- Forge: `packages/forge/dist/bin/stratix.js`
 - Preview sample: `examples/web-admin-preview`
 
 ## Key Risk Workitems
@@ -30,4 +31,6 @@
 - `BUG-002`
 - `BUG-003`
 - `BUG-004`
+- `BUG-005`
+- `BUG-006`
 - `CR-001`

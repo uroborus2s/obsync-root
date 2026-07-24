@@ -1,12 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { isLeft } from '@stratix/core/functional';
 
-vi.mock('../core/database-manager.js', () => ({
-  getConnectionType: vi.fn(),
-  getReadConnection: vi.fn(),
-  getWriteConnection: vi.fn()
-}));
-
 import {
   BaseRepository,
   DatabaseType,
@@ -15,11 +9,6 @@ import {
   TableCreator,
   type TableSchema
 } from '../config/base-repository.js';
-import {
-  getConnectionType,
-  getReadConnection,
-  getWriteConnection
-} from '../core/database-manager.js';
 
 interface RepositoryCreateDatabase {
   users: {
@@ -37,6 +26,13 @@ const mockLogger = {
   error: vi.fn()
 };
 
+const databaseProvider = {
+  getConnection: vi.fn(),
+  getReadConnection: vi.fn(),
+  getWriteConnection: vi.fn(),
+  getConnectionType: vi.fn()
+};
+
 class RepositoryWithSchema extends BaseRepository<
   RepositoryCreateDatabase,
   'users',
@@ -49,7 +45,7 @@ class RepositoryWithSchema extends BaseRepository<
   protected tableSchema: TableSchema;
 
   constructor(schema: TableSchema) {
-    super();
+    super({ database: databaseProvider });
     this.tableSchema = schema;
   }
 
@@ -73,7 +69,7 @@ class RepositoryWithoutSchema extends BaseRepository<
   protected readonly logger = mockLogger as any;
 
   constructor() {
-    super();
+    super({ database: databaseProvider });
   }
 
   public getSchemaSnapshot(): TableSchema | undefined {
@@ -265,11 +261,11 @@ function createDeleteConnection(existingRow: any) {
 describe('BaseRepository create behavior', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(getConnectionType).mockReturnValue(undefined);
+    databaseProvider.getConnectionType.mockReturnValue(undefined);
   });
 
   it('does not auto mutate schema timestamps during onReady when no timestamp columns are declared', async () => {
-    vi.mocked(getWriteConnection).mockResolvedValue({
+    databaseProvider.getWriteConnection.mockResolvedValue({
       introspection: {
         getTables: vi.fn().mockResolvedValue([])
       }
@@ -292,15 +288,14 @@ describe('BaseRepository create behavior', () => {
 
     await repository.onReady();
 
-    expect(repository.getSchemaSnapshot()?.columns.map((column) => column.name)).toEqual([
-      'id',
-      'name'
-    ]);
-    expect(vi.mocked(getWriteConnection)).toHaveBeenCalledTimes(1);
+    expect(
+      repository.getSchemaSnapshot()?.columns.map((column) => column.name)
+    ).toEqual(['id', 'name']);
+    expect(databaseProvider.getWriteConnection).toHaveBeenCalledTimes(1);
   });
 
   it('hydrates this.tableSchema from the live table during onReady even without declared schema', async () => {
-    vi.mocked(getWriteConnection).mockResolvedValue({
+    databaseProvider.getWriteConnection.mockResolvedValue({
       introspection: {
         getTables: vi.fn().mockResolvedValue([
           {
@@ -338,22 +333,21 @@ describe('BaseRepository create behavior', () => {
 
     await repository.onReady();
 
-    expect(repository.getSchemaSnapshot()?.columns.map((column) => column.name)).toEqual([
-      'id',
-      'name',
-      'created_at'
-    ]);
-    expect(repository.getSchemaSnapshot()?.columns.find((column) => column.name === 'created_at')?.type).toBe(
-      DataColumnType.TEXT
-    );
+    expect(
+      repository.getSchemaSnapshot()?.columns.map((column) => column.name)
+    ).toEqual(['id', 'name', 'created_at']);
+    expect(
+      repository
+        .getSchemaSnapshot()
+        ?.columns.find((column) => column.name === 'created_at')?.type
+    ).toBe(DataColumnType.TEXT);
   });
 
   it('auto writes string timestamps on create and preserves explicitly provided values', async () => {
-    const { connection, payloads } = createSingleInsertReturningConnection(
-      'PostgresAdapter'
-    );
+    const { connection, payloads } =
+      createSingleInsertReturningConnection('PostgresAdapter');
 
-    vi.mocked(getWriteConnection).mockResolvedValue(connection as any);
+    databaseProvider.getWriteConnection.mockResolvedValue(connection as any);
 
     const repository = new RepositoryWithSchema({
       tableName: 'users',
@@ -402,11 +396,10 @@ describe('BaseRepository create behavior', () => {
   });
 
   it('does not auto write timestamps when timestamp columns are not string compatible', async () => {
-    const { connection, payloads } = createSingleInsertReturningConnection(
-      'PostgresAdapter'
-    );
+    const { connection, payloads } =
+      createSingleInsertReturningConnection('PostgresAdapter');
 
-    vi.mocked(getWriteConnection).mockResolvedValue(connection as any);
+    databaseProvider.getWriteConnection.mockResolvedValue(connection as any);
 
     const repository = new RepositoryWithSchema({
       tableName: 'users',
@@ -480,7 +473,7 @@ describe('BaseRepository create behavior', () => {
       ]
     );
 
-    vi.mocked(getWriteConnection).mockResolvedValue(connection as any);
+    databaseProvider.getWriteConnection.mockResolvedValue(connection as any);
 
     const repository = new RepositoryWithSchema({
       tableName: 'users',
@@ -509,9 +502,11 @@ describe('BaseRepository create behavior', () => {
 
     expect(isLeft(created)).toBe(false);
     expect(payloads[0]).toEqual({ name: 'Alice' });
-    expect(repository.getSchemaSnapshot()?.columns.find((column) => column.name === 'created_at')?.type).toBe(
-      DataColumnType.TIMESTAMP
-    );
+    expect(
+      repository
+        .getSchemaSnapshot()
+        ?.columns.find((column) => column.name === 'created_at')?.type
+    ).toBe(DataColumnType.TIMESTAMP);
   });
 
   it('hydrates missing timestamp columns from live database schema and uses them as truth', async () => {
@@ -555,7 +550,7 @@ describe('BaseRepository create behavior', () => {
       ]
     );
 
-    vi.mocked(getWriteConnection).mockResolvedValue(connection as any);
+    databaseProvider.getWriteConnection.mockResolvedValue(connection as any);
 
     const repository = new RepositoryWithSchema({
       tableName: 'users',
@@ -580,20 +575,16 @@ describe('BaseRepository create behavior', () => {
       created_at: '2026-03-25T04:00:00.000Z',
       updated_at: '2026-03-25T04:00:00.000Z'
     });
-    expect(repository.getSchemaSnapshot()?.columns.map((column) => column.name)).toEqual([
-      'id',
-      'name',
-      'created_at',
-      'updated_at'
-    ]);
+    expect(
+      repository.getSchemaSnapshot()?.columns.map((column) => column.name)
+    ).toEqual(['id', 'name', 'created_at', 'updated_at']);
   });
 
   it('uses returning-all on PostgreSQL create and avoids fallback re-query', async () => {
-    const { connection, insertChains } = createSingleInsertReturningConnection(
-      'PostgresAdapter'
-    );
+    const { connection, insertChains } =
+      createSingleInsertReturningConnection('PostgresAdapter');
 
-    vi.mocked(getWriteConnection).mockResolvedValue(connection as any);
+    databaseProvider.getWriteConnection.mockResolvedValue(connection as any);
 
     const repository = new RepositoryWithSchema({
       tableName: 'users',
@@ -618,11 +609,10 @@ describe('BaseRepository create behavior', () => {
   });
 
   it('uses OUTPUT INSERTED on MSSQL create', async () => {
-    const { connection, insertChains } = createSingleInsertReturningConnection(
-      'MSSQLAdapter'
-    );
+    const { connection, insertChains } =
+      createSingleInsertReturningConnection('MSSQLAdapter');
 
-    vi.mocked(getWriteConnection).mockResolvedValue(connection as any);
+    databaseProvider.getWriteConnection.mockResolvedValue(connection as any);
 
     const repository = new RepositoryWithSchema({
       tableName: 'users',
@@ -653,7 +643,7 @@ describe('BaseRepository create behavior', () => {
         3: { id: 3, name: 'Carol' }
       });
 
-    vi.mocked(getWriteConnection).mockResolvedValue(connection as any);
+    databaseProvider.getWriteConnection.mockResolvedValue(connection as any);
 
     const repository = new RepositoryWithSchema({
       tableName: 'users',
@@ -695,7 +685,7 @@ describe('BaseRepository create behavior', () => {
     const { connection, payloads, insertChains } =
       createManyReturningConnection('PostgresAdapter');
 
-    vi.mocked(getWriteConnection).mockResolvedValue(connection as any);
+    databaseProvider.getWriteConnection.mockResolvedValue(connection as any);
 
     const repository = new RepositoryWithSchema({
       tableName: 'users',
@@ -730,8 +720,10 @@ describe('BaseRepository create behavior', () => {
   it('updates and reads back using the write connection', async () => {
     const writeConnection = createUpdateConnection({ id: 1, name: 'Alice v2' });
 
-    vi.mocked(getWriteConnection).mockResolvedValue(writeConnection as any);
-    vi.mocked(getReadConnection).mockResolvedValue({
+    databaseProvider.getWriteConnection.mockResolvedValue(
+      writeConnection as any
+    );
+    databaseProvider.getReadConnection.mockResolvedValue({
       selectFrom: vi.fn()
     } as any);
 
@@ -753,7 +745,7 @@ describe('BaseRepository create behavior', () => {
     const updated = await repository.update(1, { name: 'Alice v2' });
 
     expect(isLeft(updated)).toBe(false);
-    expect(vi.mocked(getReadConnection)).not.toHaveBeenCalled();
+    expect(databaseProvider.getReadConnection).not.toHaveBeenCalled();
     expect(writeConnection.selectFrom).toHaveBeenCalledWith('users');
     expect((updated as any).right).toEqual({ id: 1, name: 'Alice v2' });
   });
@@ -761,8 +753,10 @@ describe('BaseRepository create behavior', () => {
   it('deletes using a preloaded record from the write connection', async () => {
     const writeConnection = createDeleteConnection({ id: 1, name: 'Alice' });
 
-    vi.mocked(getWriteConnection).mockResolvedValue(writeConnection as any);
-    vi.mocked(getReadConnection).mockResolvedValue({
+    databaseProvider.getWriteConnection.mockResolvedValue(
+      writeConnection as any
+    );
+    databaseProvider.getReadConnection.mockResolvedValue({
       selectFrom: vi.fn()
     } as any);
 
@@ -784,14 +778,12 @@ describe('BaseRepository create behavior', () => {
     const deleted = await repository.delete(1);
 
     expect(isLeft(deleted)).toBe(false);
-    expect(vi.mocked(getReadConnection)).not.toHaveBeenCalled();
+    expect(databaseProvider.getReadConnection).not.toHaveBeenCalled();
     expect(writeConnection.selectFrom).toHaveBeenCalledWith('users');
     expect((deleted as any).right).toEqual({ id: 1, name: 'Alice' });
   });
 
   it('prefers configured connection metadata over adapter constructor names for database type', () => {
-    vi.mocked(getConnectionType).mockReturnValue('mysql');
-
     const connection = {
       getExecutor: vi.fn(() => ({
         adapter: {
@@ -802,7 +794,7 @@ describe('BaseRepository create behavior', () => {
       }))
     };
 
-    expect(TableCreator.getDatabaseType(connection as any, 'default')).toBe(
+    expect(TableCreator.getDatabaseType(connection as any, 'mysql')).toBe(
       DatabaseType.MYSQL
     );
   });
@@ -851,7 +843,9 @@ describe('BaseRepository create behavior', () => {
     const result = condition(qb as any);
 
     expect(fakeEb.or).toHaveBeenCalledWith([firstExpression, secondExpression]);
-    expect(result).toEqual({ expressions: [firstExpression, secondExpression] });
+    expect(result).toEqual({
+      expressions: [firstExpression, secondExpression]
+    });
   });
 
   it('turns whereIn with an empty array into a false predicate instead of invalid IN () SQL', () => {

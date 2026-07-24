@@ -29,17 +29,9 @@ stratix add preset database
 
 - `package.json` 会增加 `@stratix/database`
 - `.stratix/project.json` 会记录 `database` preset
-- `.env.example` 会补上这几个键
+- `src/config/stratix.generated.ts` 会从 `sensitiveConfig.database` 读取连接配置
 
-```env
-DB_HOST=localhost
-DB_PORT=3306
-DB_NAME=app
-DB_USERNAME=root
-DB_PASSWORD=
-```
-
-另外，`src/config/stratix.generated.ts` 里也会多出数据库插件骨架。核心意思大致如下：
+生成文件里也会多出数据库插件骨架。核心意思大致如下：
 
 ```ts
 {
@@ -80,63 +72,16 @@ const databaseConfig = sensitiveConfig.database || {};
 }
 ```
 
-如果你只是改了 `.env.example`，但没有把这些值映射到 `database` 对象里，项目并不会自动拿到连接配置。
+## 第 2 步：准备本地敏感配置
 
-## 第 2 步：先用最容易跑通的本地开发写法
-
-对新手来说，最容易成功的方式不是一上来就折腾加密配置，而是先把本地 `.env` 映射写明白。
-
-把 `src/stratix.config.ts` 改成下面这种写法：
-
-```ts
-import type { StratixConfig } from '@stratix/core';
-import { createGeneratedConfig } from './config/stratix.generated.js';
-
-export default (sensitiveConfig: Record<string, any> = {}): StratixConfig => {
-  const config = createGeneratedConfig({
-    ...sensitiveConfig,
-    database: {
-      host: sensitiveConfig.database?.host || process.env.DB_HOST || '127.0.0.1',
-      port: sensitiveConfig.database?.port || process.env.DB_PORT || '3306',
-      database: sensitiveConfig.database?.database || process.env.DB_NAME || 'app',
-      username:
-        sensitiveConfig.database?.username || process.env.DB_USERNAME || 'root',
-      password: sensitiveConfig.database?.password || process.env.DB_PASSWORD || ''
-    }
-  });
-
-  return {
-    ...config
-  };
-};
-```
-
-这段代码的意义是：
-
-- 本地开发时，你只写 `.env` 也能跑
-- 以后你接入加密配置时，`sensitiveConfig.database` 仍然会优先覆盖
-- 你不需要重写 `stratix.generated.ts`，只是在项目入口把配置喂进去
-
-然后在项目根目录准备一个真实的 `.env` 文件，例如：
-
-```env
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_NAME=app
-DB_USERNAME=root
-DB_PASSWORD=your-password
-```
-
-注意：当前 Stratix 启动链路默认要求基础 `.env` 文件存在，所以不要只保留 `.env.example`。
-
-## 第 3 步：更稳妥的正式路径是加密敏感配置
-
-上一步是为了让你尽快跑通本地开发。真正要进团队协作或部署环境时，更稳妥的方式还是用 `STRATIX_SENSITIVE_CONFIG`。
-
-一个最小的敏感配置文件可以是：
+本地开发也走同一条配置路径：先写 JSON，再加密成 `STRATIX_SENSITIVE_CONFIG`。一个最小的 `sensitive.local.json` 可以是：
 
 ```json
 {
+  "server": {
+    "host": "0.0.0.0",
+    "port": 3000
+  },
   "database": {
     "host": "127.0.0.1",
     "port": "3306",
@@ -147,12 +92,12 @@ DB_PASSWORD=your-password
 }
 ```
 
-建议按下面顺序处理：
+按下面顺序处理：
 
 ```bash
 stratix config validate sensitive.local.json --required database --strict
-stratix config generate-key --length 32 --format base64
-stratix config encrypt sensitive.local.json --key "<上一步生成的密钥>" --output .env.local
+export STRATIX_ENCRYPTION_KEY="$(stratix config generate-key --length 32 --format base64)"
+stratix config encrypt sensitive.local.json --output .env.local
 ```
 
 这样生成出来的 `.env.local` 会包含：
@@ -161,11 +106,13 @@ stratix config encrypt sensitive.local.json --key "<上一步生成的密钥>" -
 STRATIX_SENSITIVE_CONFIG="..."
 ```
 
-然后你再把同一把密钥通过环境变量 `STRATIX_ENCRYPTION_KEY` 提供给应用运行环境。加密时用的 key 和运行时解密用的 key 必须一致。
+应用运行时继续注入同一个 `STRATIX_ENCRYPTION_KEY`。Forge 和 Core 都接受
+恰好 32-byte 的原始文本，或解码后为 32 bytes 的 64 位 hex / 标准 base64；
+其他长度会直接报错。不要通过命令行参数传密钥。
 
-如果你只是本地临时试跑，也可以先继续用上一节的 `.env` 映射方案，把加密配置放到后面再做。
+不要把 `DB_HOST`、`DB_PASSWORD` 这类业务配置重新接回普通 `.env`；应用配置统一通过加密后的 `STRATIX_SENSITIVE_CONFIG` 注入。
 
-## 第 4 步：理解 `tableSchema` 和真实数据库表不是一回事
+## 第 3 步：理解 `tableSchema` 和真实数据库表不是一回事
 
 这是新手最容易误解的地方。
 
@@ -184,9 +131,9 @@ STRATIX_SENSITIVE_CONFIG="..."
 
 如果数据库里没有表，或者表结构和你写的代码完全对不上，仓储照样会报错。
 
-## 第 5 步：先准备一张最小可用的 `users` 表
+## 第 4 步：先准备一张最小可用的 `users` 表
 
-因为 CLI 默认生成的是 MySQL 数据库配置，这里先给一个 MySQL 版本的最小 SQL：
+因为当前 create 模板默认生成的是 MySQL 数据库配置，这里先给一个 MySQL 版本的最小 SQL：
 
 ```sql
 CREATE TABLE users (
@@ -204,7 +151,7 @@ CREATE TABLE users (
 
 你后面也可以根据团队规范换成别的数据库类型，但入门阶段先别同时改太多变量。
 
-## 第 6 步：做这三个最小验证
+## 第 5 步：做这三个最小验证
 
 到这里先不要急着写 CRUD。先确认接入基础链路是通的：
 
@@ -222,7 +169,7 @@ pnpm dev
 如果这里就失败，先不要继续写 repository。优先排查：
 
 1. `src/stratix.config.ts` 是否真的把数据库配置传给了 `createGeneratedConfig(...)`
-2. `.env` 是否存在并且键名拼写正确
+2. `STRATIX_SENSITIVE_CONFIG` 和 `STRATIX_ENCRYPTION_KEY` 是否由外层进程注入，且加密密钥一致
 3. 数据库服务本身是否可连
 
 ## 下一步该做什么

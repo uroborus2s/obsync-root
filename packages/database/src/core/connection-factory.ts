@@ -1,7 +1,8 @@
 // @stratix/database 连接工厂实现
 // 负责创建和管理数据库连接的工厂类
 
-import { Logger, RESOLVER } from '@stratix/core';
+import type { Logger } from '@stratix/core';
+import { RESOLVER } from '@stratix/core/plugin';
 import {
   eitherFold,
   eitherGetOrElse,
@@ -25,6 +26,7 @@ import { BaseDialect } from './dialects/base-dialect.js';
 import {
   DialectRegistry,
   getDialect,
+  getSupportedDatabaseTypes,
   isSupportedDatabaseType
 } from './dialects/index.js';
 
@@ -87,7 +89,7 @@ export default class ConnectionFactory implements IConnectionFactory {
     injector: (container: any) => {
       // 从插件配置中提取 ConnectionFactory 选项
       const config = container.resolve('config');
-      const options = config.connection || {};
+      const options = config.connectionFactory || {};
       return { options };
     }
   };
@@ -197,14 +199,14 @@ export default class ConnectionFactory implements IConnectionFactory {
    * 获取支持的数据库类型
    */
   getSupportedTypes(): DatabaseType[] {
-    return DialectRegistry.getSupportedTypes();
+    return getSupportedDatabaseTypes();
   }
 
   /**
    * 检查数据库类型是否支持
    */
   isSupported(type: DatabaseType): boolean {
-    return DialectRegistry.isSupported(type);
+    return isSupportedDatabaseType(type);
   }
 
   /**

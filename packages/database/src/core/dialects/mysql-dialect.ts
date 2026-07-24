@@ -8,7 +8,7 @@ import {
   isLeft,
   tryCatch
 } from '@stratix/core/functional';
-import { Kysely, MysqlDialect } from 'kysely';
+import { Kysely, MysqlDialect, sql } from 'kysely';
 import { createPool, PoolOptions } from 'mysql2';
 import type { ConnectionConfig, DatabaseType } from '../../types/index.js';
 import { DatabaseResult } from '../../utils/error-handler.js';
@@ -58,8 +58,7 @@ export class MySQLDialect extends BaseDialect {
 
       // 测试连接
       try {
-        // 测试连接 - 暂时跳过查询
-        // TODO: 实现MySQL特定的健康检查
+        await sql.raw(this.getHealthCheckQuery()).execute(kysely);
       } catch (error) {
         await kysely.destroy();
         throw this.handleConnectionError(error as Error);
@@ -140,13 +139,13 @@ export class MySQLDialect extends BaseDialect {
     [key: string]: any;
   }): string {
     const { host, port, database, username, password } = params;
-    let connectionString = `mysql://${username}`;
+    let connectionString = `mysql://${this.encodeConnectionPart(username)}`;
 
     if (password) {
-      connectionString += `:${password}`;
+      connectionString += `:${this.encodeConnectionPart(password)}`;
     }
 
-    connectionString += `@${host}:${port}/${database}`;
+    connectionString += `@${host}:${port}/${this.encodeConnectionPart(database)}`;
 
     // 添加查询参数
     const queryParams = this.buildQueryParams(params);
@@ -286,27 +285,27 @@ export class MySQLDialect extends BaseDialect {
     // SSL参数
     if (params.ssl) {
       if (params.ssl.mode) {
-        queryParams.push(`ssl-mode=${params.ssl.mode}`);
+        queryParams.push(`ssl-mode=${this.encodeQueryValue(params.ssl.mode)}`);
       }
       if (params.ssl.ca) {
-        queryParams.push(`ssl-ca=${params.ssl.ca}`);
+        queryParams.push(`ssl-ca=${this.encodeQueryValue(params.ssl.ca)}`);
       }
       if (params.ssl.cert) {
-        queryParams.push(`ssl-cert=${params.ssl.cert}`);
+        queryParams.push(`ssl-cert=${this.encodeQueryValue(params.ssl.cert)}`);
       }
       if (params.ssl.key) {
-        queryParams.push(`ssl-key=${params.ssl.key}`);
+        queryParams.push(`ssl-key=${this.encodeQueryValue(params.ssl.key)}`);
       }
     }
 
     // 字符集
     if (params.charset) {
-      queryParams.push(`charset=${params.charset}`);
+      queryParams.push(`charset=${this.encodeQueryValue(params.charset)}`);
     }
 
     // 时区
     if (params.timezone) {
-      queryParams.push(`timezone=${encodeURIComponent(params.timezone)}`);
+      queryParams.push(`timezone=${this.encodeQueryValue(params.timezone)}`);
     }
 
     return queryParams.join('&');

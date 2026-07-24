@@ -144,7 +144,7 @@ export function getObject<T extends Record<string, any>>(
 
   try {
     return JSON.parse(value) as T;
-  } catch (error) {
+  } catch {
     return defaultValue;
   }
 }

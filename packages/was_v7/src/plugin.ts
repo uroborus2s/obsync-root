@@ -2,7 +2,7 @@ import {
   withRegisterAutoDI,
   type FastifyInstance,
   type FastifyPluginAsync
-} from '@stratix/core';
+} from '@stratix/core/plugin';
 import type { WpsConfig } from './types/index.js';
 
 /**
@@ -29,7 +29,7 @@ export class ParameterValidationError extends Error {
  */
 const wasV7Api: FastifyPluginAsync<WasV7PluginOptions> = async (
   fastify: FastifyInstance,
-  options: WasV7PluginOptions
+  _options: WasV7PluginOptions
 ): Promise<void> => {
   fastify.log.info('WPS V7 API plugin loaded successfully');
 };
@@ -101,6 +101,11 @@ const stratixWasV7Plugin: FastifyPluginAsync<any> = withRegisterAutoDI(
           return false;
         }
 
+        if (opts.appId.trim() === 'your-app-id') {
+          console.error('❌ appId must not use the public placeholder value');
+          return false;
+        }
+
         // 验证 appSecret 格式
         if (
           typeof opts.appSecret !== 'string' ||
@@ -110,11 +115,18 @@ const stratixWasV7Plugin: FastifyPluginAsync<any> = withRegisterAutoDI(
           return false;
         }
 
+        if (opts.appSecret.trim() === 'your-app-secret') {
+          console.error(
+            '❌ appSecret must not use the public placeholder value'
+          );
+          return false;
+        }
+
         // 验证 baseUrl 格式
         if (opts.baseUrl) {
           try {
             new URL(opts.baseUrl);
-          } catch (error) {
+          } catch {
             console.error(`❌ baseUrl must be a valid URL: ${opts.baseUrl}`);
             return false;
           }

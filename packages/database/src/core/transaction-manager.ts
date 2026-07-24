@@ -1,7 +1,6 @@
-import { isLeft, type Either } from '@stratix/core/functional';
+import { isLeft } from '@stratix/core/functional';
 import type { CompiledQuery, Kysely, QueryResult, Transaction } from 'kysely';
 import {
-  type TransactionContextInfo,
   getCurrentTransaction,
   getCurrentTransactionId,
   isInTransaction,
@@ -19,10 +18,7 @@ export interface TransactionOptions {
   timeout?: number;
   debug?: boolean;
   isolationLevel?:
-    | 'read uncommitted'
-    | 'read committed'
-    | 'repeatable read'
-    | 'serializable';
+    'read uncommitted' | 'read committed' | 'repeatable read' | 'serializable';
 }
 
 export interface BatchTransactionOptions extends TransactionOptions {

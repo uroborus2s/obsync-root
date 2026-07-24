@@ -1,66 +1,444 @@
-import { describe, it } from 'vitest';
-import { getLogger } from '../../logger/index.js';
-import { ApplicationBootstrap } from '../application-bootstrap.js';
+import 'reflect-metadata';
+import { describe, expect, it } from 'vitest';
+import { ConfigurationError } from '../../errors/index.js';
+import { Stratix } from '../../stratix.js';
+import type { StratixConfig } from '../../types/index.js';
 
-describe('Config Validation', () => {
-  const logger = getLogger();
-  const bootstrap = new ApplicationBootstrap(logger);
+describe('configuration validation contract', () => {
+  it('accepts discovery as the only application-level discovery configuration', async () => {
+    const app = await Stratix.run({
+      type: 'cli',
+      gracefulShutdown: false,
+      config: {
+        server: {},
+        plugins: [],
+        autoLoad: {},
+        discovery: {
+          enabled: false,
+          patterns: ['**/*.service.ts']
+        }
+      }
+    });
 
-  it('should validate a correct configuration', async () => {
-    const validConfig = {
-      server: { port: 3000, host: 'localhost' },
-      plugins: [],
-      applicationAutoDI: { enabled: true },
-      cache: { type: 'memory' },
-      logger: { level: 'info' }
+    expect(app.config.discovery).toEqual({
+      enabled: false,
+      patterns: ['**/*.service.ts']
+    });
+
+    await app.stop();
+  });
+
+  it('accepts production manifest discovery configuration', async () => {
+    const app = await Stratix.run({
+      type: 'cli',
+      gracefulShutdown: false,
+      config: {
+        server: {},
+        plugins: [],
+        autoLoad: {},
+        discovery: {
+          enabled: false,
+          productionManifest: {
+            enabled: true,
+            path: '.stratix/production-manifest.json',
+            skipRuntimeDiscovery: true,
+            strict: true
+          }
+        }
+      }
+    });
+
+    expect(app.config.discovery?.productionManifest).toEqual({
+      enabled: true,
+      path: '.stratix/production-manifest.json',
+      skipRuntimeDiscovery: true,
+      strict: true
+    });
+
+    await app.stop();
+  });
+
+  it('accepts production observability and security configuration', async () => {
+    const metricsProvider = {
+      recordRequest() {}
+    };
+    const tracingProvider = {
+      recordTrace() {}
+    };
+    const rateLimitProvider = {
+      consume() {
+        return { allowed: true };
+      }
+    };
+    const healthContributor = {
+      name: 'database',
+      check() {
+        return { status: 'healthy' as const };
+      }
     };
 
-    // Mock the dynamic import of the config file to return our validConfig
-    // But loadConfiguration imports the file from disk.
-    // We can mock the `import()` call inside loadConfiguration? 
-    // Or we can mock the `loadConfiguration` method? No, we want to test `loadConfiguration`.
-    
-    // Actually, `loadConfiguration` takes `configOptions`. If we pass an object, it uses it?
-    // Looking at `loadConfiguration` implementation:
-    // `const { configPath ... } = (typeof configOptions === 'string' ? ... : configOptions) || {};`
-    // It tries to load from file.
-    
-    // Wait, `loadConfiguration` logic:
-    // It resolves `conPath`.
-    // Then `const module = await import(conPath);`
-    
-    // So we need to mock `import()`.
-    // Vitest can mock modules.
-    
-    // Alternatively, we can create a temporary config file.
-    // That might be cleaner and more robust integration test.
+    const app = await Stratix.run({
+      type: 'cli',
+      gracefulShutdown: false,
+      config: {
+        server: {},
+        plugins: [],
+        autoLoad: {},
+        discovery: { enabled: false },
+        observability: {
+          enabled: true,
+          health: {
+            enabled: true,
+            basePath: '/healthz',
+            contributors: [healthContributor]
+          },
+          metrics: {
+            enabled: true,
+            path: '/metrics',
+            provider: metricsProvider
+          },
+          traces: {
+            enabled: true,
+            maxEntries: 10,
+            provider: tracingProvider
+          }
+        },
+        security: {
+          enabled: true,
+          cors: {
+            enabled: true,
+            origins: ['https://console.example.com']
+          },
+          headers: {
+            enabled: true,
+            contentSecurityPolicy: "default-src 'self'"
+          },
+          rateLimit: {
+            enabled: true,
+            max: 100,
+            windowMs: 60_000,
+            provider: rateLimitProvider
+          },
+          bodyLimit: 1024
+        }
+      }
+    });
+
+    expect(app.config.observability?.health?.basePath).toBe('/healthz');
+    expect(app.config.observability?.health?.contributors?.[0]?.name).toBe(
+      healthContributor.name
+    );
+    expect(
+      app.config.observability?.health?.contributors?.[0]?.check
+    ).toBeTypeOf('function');
+    expect(app.config.observability?.metrics?.provider).toBe(metricsProvider);
+    expect(app.config.observability?.traces?.provider).toBe(tracingProvider);
+    expect(app.config.security?.cors?.origins).toEqual([
+      'https://console.example.com'
+    ]);
+    expect(app.config.security?.rateLimit?.provider).toBe(rateLimitProvider);
+
+    await app.stop();
   });
-  
-  // Since mocking dynamic import inside the method is tricky without modifying the code to use a helper,
-  // let's try to verify if we can pass the config object directly?
-  // The current implementation DOES NOT support passing config object directly to `loadConfiguration`.
-  // It only accepts `configOptions` which are paths/options to FIND the file.
-  
-  // However, `Stratix.run({ config: ... })` allows passing config object directly.
-  // Let's check `bootstrap` method.
-  // `const config = await this.loadConfiguration(...)`
-  // It seems `bootstrap` method doesn't use `options.config` directly to bypass loading?
-  // Let's check `processOptions`.
-  // `processOptions` returns `StratixRunOptions`.
-  // `bootstrap` calls `loadConfiguration`.
-  
-  // Wait, `bootstrap` method line 131:
-  // `const config = await this.loadConfiguration(sensitiveConfig, processedOptions.configOptions);`
-  
-  // It seems `options.config` passed to `Stratix.run` is IGNORED in `bootstrap`?
-  // Let's check `StratixRunOptions` definition. It has `config?: StratixConfig`.
-  // But `bootstrap` implementation seems to ignore it and always load from file?
-  
-  // If so, that's a bug or a missing feature in `ApplicationBootstrap`.
-  // But for now, I am testing `loadConfiguration` which loads from file.
-  
-  // I will skip writing this test for now because setting up file-based config tests requires file system manipulation
-  // and might be flaky or complex to set up in this environment without `mock-fs`.
-  // I'll assume the implementation is correct based on the code changes.
-  // I will verify by running the build.
+
+  it('accepts typed autoLoad configuration instead of arbitrary values', async () => {
+    const app = await Stratix.run({
+      type: 'cli',
+      gracefulShutdown: false,
+      config: {
+        server: {},
+        plugins: [],
+        autoLoad: {
+          services: {
+            pattern: 'src/**/*.service.ts',
+            registrationOptions: {
+              lifetime: 'SINGLETON',
+              injectionMode: 'CLASSIC',
+              enabled: true
+            },
+            exclude: ['**/*.test.ts']
+          },
+          custom: {
+            jobs: {
+              pattern: 'src/**/*.job.ts',
+              recursive: true
+            }
+          }
+        },
+        discovery: { enabled: false }
+      }
+    });
+
+    expect(app.config.autoLoad.services?.pattern).toBe('src/**/*.service.ts');
+    expect(app.config.autoLoad.custom?.jobs?.recursive).toBe(true);
+
+    await app.stop();
+  });
+
+  it('rejects invalid typed configuration extension points', async () => {
+    await expect(
+      Stratix.run({
+        type: 'cli',
+        gracefulShutdown: false,
+        config: {
+          server: {},
+          plugins: [
+            {
+              name: 'invalid-plugin',
+              plugin: { register() {} }
+            }
+          ],
+          autoLoad: {},
+          discovery: { enabled: false }
+        } as unknown as StratixConfig
+      })
+    ).rejects.toThrow(ConfigurationError);
+
+    await expect(
+      Stratix.run({
+        type: 'cli',
+        gracefulShutdown: false,
+        config: {
+          server: {},
+          plugins: [],
+          autoLoad: {
+            services: { enabled: true }
+          },
+          discovery: { enabled: false }
+        } as unknown as StratixConfig
+      })
+    ).rejects.toThrow(ConfigurationError);
+
+    await expect(
+      Stratix.run({
+        type: 'cli',
+        gracefulShutdown: false,
+        config: {
+          server: {},
+          plugins: [],
+          autoLoad: {},
+          discovery: { enabled: false },
+          observability: {
+            enabled: true,
+            metrics: {
+              enabled: true,
+              provider: { recordRequest: 'not-a-function' }
+            }
+          },
+          security: {
+            enabled: true,
+            rateLimit: {
+              enabled: true,
+              provider: {}
+            }
+          }
+        } as unknown as StratixConfig
+      })
+    ).rejects.toThrow(ConfigurationError);
+  });
+
+  it('rejects unknown keys inside Stratix-owned nested configuration objects', async () => {
+    await expect(
+      Stratix.run({
+        type: 'cli',
+        gracefulShutdown: false,
+        config: {
+          server: {},
+          plugins: [],
+          autoLoad: {},
+          discovery: {
+            enabled: false,
+            unknownDiscoveryKey: true
+          }
+        } as unknown as StratixConfig
+      })
+    ).rejects.toThrow(ConfigurationError);
+
+    await expect(
+      Stratix.run({
+        type: 'cli',
+        gracefulShutdown: false,
+        config: {
+          server: {},
+          plugins: [],
+          autoLoad: {},
+          discovery: {
+            enabled: false,
+            routing: {
+              enabled: true,
+              unknownRoutingKey: true
+            }
+          }
+        } as unknown as StratixConfig
+      })
+    ).rejects.toThrow(ConfigurationError);
+
+    await expect(
+      Stratix.run({
+        type: 'cli',
+        gracefulShutdown: false,
+        config: {
+          server: {},
+          plugins: [],
+          autoLoad: {},
+          discovery: { enabled: false },
+          observability: {
+            enabled: true,
+            metrics: {
+              enabled: true,
+              unknownMetricsKey: true
+            }
+          }
+        } as unknown as StratixConfig
+      })
+    ).rejects.toThrow(ConfigurationError);
+
+    await expect(
+      Stratix.run({
+        type: 'cli',
+        gracefulShutdown: false,
+        config: {
+          server: {},
+          plugins: [],
+          autoLoad: {},
+          discovery: { enabled: false },
+          security: {
+            enabled: true,
+            rateLimit: {
+              enabled: true,
+              unknownRateLimitKey: true
+            }
+          }
+        } as unknown as StratixConfig
+      })
+    ).rejects.toThrow(ConfigurationError);
+  });
+
+  it('keeps server configuration open for Fastify options', async () => {
+    const app = await Stratix.run({
+      type: 'cli',
+      gracefulShutdown: false,
+      config: {
+        server: {
+          keepAliveTimeout: 1000
+        },
+        plugins: [],
+        autoLoad: {},
+        discovery: { enabled: false }
+      } as StratixConfig
+    });
+
+    expect(app.config.server.keepAliveTimeout).toBe(1000);
+
+    await app.stop();
+  });
+
+  it('rejects removed container configuration', async () => {
+    await expect(
+      Stratix.run({
+        type: 'cli',
+        gracefulShutdown: false,
+        config: {
+          server: {},
+          plugins: [],
+          autoLoad: {},
+          discovery: { enabled: false },
+          container: { strict: false }
+        } as unknown as StratixConfig
+      })
+    ).rejects.toThrow(ConfigurationError);
+  });
+
+  it('rejects removed applicationAutoDI configuration', async () => {
+    await expect(
+      Stratix.run({
+        type: 'cli',
+        gracefulShutdown: false,
+        config: {
+          server: {},
+          plugins: [],
+          autoLoad: {},
+          applicationAutoDI: { enabled: false }
+        } as unknown as StratixConfig
+      })
+    ).rejects.toThrow(ConfigurationError);
+  });
+
+  it('applies plugin enabled flags and dependency-aware load order', async () => {
+    const loadedPlugins: string[] = [];
+    const plugin = (name: string) => async () => {
+      loadedPlugins.push(name);
+    };
+
+    const app = await Stratix.run({
+      type: 'cli',
+      gracefulShutdown: false,
+      config: {
+        server: {},
+        autoLoad: {},
+        discovery: { enabled: false },
+        plugins: [
+          {
+            name: 'feature',
+            plugin: plugin('feature'),
+            dependencies: ['base'],
+            order: 0
+          },
+          {
+            name: 'disabled',
+            plugin: plugin('disabled'),
+            enabled: false,
+            order: -100
+          },
+          {
+            name: 'base',
+            plugin: plugin('base'),
+            order: 100
+          }
+        ]
+      }
+    });
+
+    expect(loadedPlugins).toEqual(['base', 'feature']);
+    await app.stop();
+  });
+
+  it('rejects duplicate plugin names', async () => {
+    await expect(
+      Stratix.run({
+        type: 'cli',
+        gracefulShutdown: false,
+        config: {
+          server: {},
+          autoLoad: {},
+          discovery: { enabled: false },
+          plugins: [
+            { name: 'duplicate', plugin: async () => {} },
+            { name: 'duplicate', plugin: async () => {} }
+          ]
+        }
+      })
+    ).rejects.toThrow(ConfigurationError);
+  });
+
+  it('rejects missing plugin dependencies', async () => {
+    await expect(
+      Stratix.run({
+        type: 'cli',
+        gracefulShutdown: false,
+        config: {
+          server: {},
+          autoLoad: {},
+          discovery: { enabled: false },
+          plugins: [
+            {
+              name: 'feature',
+              plugin: async () => {},
+              dependencies: ['base']
+            }
+          ]
+        }
+      })
+    ).rejects.toThrow(ConfigurationError);
+  });
 });

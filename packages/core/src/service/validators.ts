@@ -311,7 +311,7 @@ export const validateDateFormat =
       }
 
       return right(date);
-    } catch (error) {
+    } catch {
       return left(
         createValidationError(
           `${fieldName} must be a valid date in ${format} format`,

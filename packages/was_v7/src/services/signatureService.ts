@@ -1,4 +1,4 @@
-import { AwilixContainer, RESOLVER } from '@stratix/core';
+import { RESOLVER, type AwilixContainer } from '@stratix/core/plugin';
 import { createHash, createHmac } from 'crypto';
 import type { SignatureParams, WpsConfig } from '../types/index.js';
 
@@ -76,6 +76,22 @@ export class SignatureService {
     return createHmac('sha256', this.appSecret)
       .update(stringToSign)
       .digest('hex');
+  }
+
+  /**
+   * 生成基础KSO-1签名参数。
+   * @deprecated Prefer generateRequestSignature for request-scoped signing.
+   */
+  generateSignature(): SignatureParams {
+    const timestamp = new Date().toUTCString();
+    const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const signature = this.createSignature(timestamp, nonce);
+
+    return {
+      timestamp,
+      nonce,
+      signature: `KSO-1 ${this.appId}:${signature}`
+    };
   }
 
   /**

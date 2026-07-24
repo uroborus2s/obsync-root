@@ -15,7 +15,6 @@ import type {
   GetCalendarParams,
   GetCalendarPermissionListParams,
   GetCalendarPermissionListResponse,
-  GetCalendarResponse,
   UpdateCalendarParams,
   UpdateCalendarResponse
 } from '../../types/calendar.js';
@@ -42,7 +41,7 @@ describe('WPS V7 日历适配器测试', () => {
   let calendarAdapter: any;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
 
     // 创建模拟容器
     container = {
@@ -121,7 +120,7 @@ describe('WPS V7 日历适配器测试', () => {
       expect(mockHttpClient.get).toHaveBeenCalledWith(
         `/v7/calendars/${mockCalendarId}/permissions`,
         {},
-        { 'X-Kso-Id-Type': 'internal' }
+        { 'X-Kso-Id-Type': 'external' }
       );
       expect(result).toEqual(mockPermissionListResponse);
     });
@@ -141,7 +140,7 @@ describe('WPS V7 日历适配器测试', () => {
           page_size: 10,
           page_token: 'test-token'
         },
-        { 'X-Kso-Id-Type': 'internal' }
+        { 'X-Kso-Id-Type': 'external' }
       );
     });
 
@@ -172,7 +171,7 @@ describe('WPS V7 日历适配器测试', () => {
       expect(mockHttpClient.get).toHaveBeenCalledWith(
         `/v7/calendars/${mockCalendarId}/permissions`,
         {},
-        { 'X-Kso-Id-Type': 'internal' }
+        { 'X-Kso-Id-Type': 'external' }
       );
     });
   });
@@ -259,8 +258,7 @@ describe('WPS V7 日历适配器测试', () => {
 
       expect(mockHttpClient.ensureAccessToken).toHaveBeenCalled();
       expect(mockHttpClient.post).toHaveBeenCalledWith(
-        '/v7/calendars/test-calendar-id/delete',
-        {}
+        '/v7/calendars/test-calendar-id/delete'
       );
     });
   });
@@ -305,7 +303,7 @@ describe('WPS V7 日历适配器测试', () => {
       expect(mockHttpClient.post).toHaveBeenCalledWith(
         '/v7/calendars/test-calendar-id/permissions/batch_create',
         { permissions: params.permissions },
-        { 'X-Kso-Id-Type': 'internal' }
+        { 'X-Kso-Id-Type': 'external' }
       );
       expect(result).toEqual(mockResponse);
     });
@@ -359,7 +357,7 @@ describe('WPS V7 日历适配器测试', () => {
         1,
         '/v7/calendars/test-calendar-id/permissions/batch_create',
         { permissions: permissions.slice(0, 100) },
-        { 'X-Kso-Id-Type': 'internal' }
+        { 'X-Kso-Id-Type': 'external' }
       );
 
       // 验证第二批次调用
@@ -367,7 +365,7 @@ describe('WPS V7 日历适配器测试', () => {
         2,
         '/v7/calendars/test-calendar-id/permissions/batch_create',
         { permissions: permissions.slice(100, 150) },
-        { 'X-Kso-Id-Type': 'internal' }
+        { 'X-Kso-Id-Type': 'external' }
       );
 
       // 验证结果合并
@@ -445,8 +443,12 @@ describe('WPS V7 日历适配器测试', () => {
         msg: 'success'
       };
 
-      (mockHttpClient.post as any).mockResolvedValue({
-        data: mockCreateResponse
+      (mockHttpClient.post as any).mockResolvedValue(mockCreateResponse);
+      (mockHttpClient.get as any).mockResolvedValue({
+        data: {
+          items: [],
+          next_page_token: undefined
+        }
       });
 
       const createParams: CreateCalendarPermissionParams = {
@@ -504,14 +506,8 @@ describe('WPS V7 日历适配器测试', () => {
     });
 
     it('应该能够查询单个日历', async () => {
-      const mockResponse: GetCalendarResponse = {
-        data: mockCalendarInfo,
-        code: 0,
-        msg: 'success'
-      };
-
       (mockHttpClient.get as any).mockResolvedValue({
-        data: mockResponse
+        data: mockCalendarInfo
       });
 
       const params: GetCalendarParams = {
@@ -554,12 +550,12 @@ describe('WPS V7 日历适配器测试', () => {
 
     it('应该能够获取所有日历列表（自动分页）', async () => {
       const mockFirstPage: GetCalendarListResponse = {
-        items: [mockCalendarInfo],
+        Items: [mockCalendarInfo],
         next_page_token: 'page-2'
       };
 
       const mockSecondPage: GetCalendarListResponse = {
-        items: [
+        Items: [
           {
             id: 'calendar-2',
             role: 'writer',

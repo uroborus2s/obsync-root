@@ -7,25 +7,27 @@
 对大多数业务需求，推荐按下面的顺序工作：
 
 1. 先明确这次改动属于哪个业务资源
-2. 能用 CLI 生成的骨架，先生成
+2. 能用 create/forge 生成的骨架，先生成
 3. 先补 repository，再补 service，再补 controller
 4. 本地跑 `stratix doctor`
 5. 本地跑 `pnpm build`
 6. 有测试时跑 `pnpm test`
+7. 发布或进 CI 前生成 production manifest
 
 如果你总是不知道从哪里下手，这就是默认顺序。
 
-## 常用 CLI 命令怎么用
+## 常用工具命令怎么用
 
 ### 初始化项目
 
 ```bash
-stratix init app api my-app
+create-stratix app api my-app
 ```
 
 ### 查看模板和预设
 
 ```bash
+create-stratix list templates
 stratix list templates
 stratix list presets
 ```
@@ -57,7 +59,7 @@ stratix generate business-repository order
 
 适合做复杂耐久化业务单元，不适合拿来替代普通 CRUD。
 
-### 新增模块目录骨架
+### 新增模块目录和治理清单
 
 ```bash
 stratix generate module billing
@@ -65,15 +67,91 @@ stratix generate module billing
 
 适合你想按模块拆目录，而不是所有 controller / service / repository 全堆在根目录时使用。
 
-但要注意一个现实限制：当前 CLI 的 `module` 生成器只会给你一个起始骨架，后续新增的 `business-repository`、`executor` 等文件不会自动落到现有模块目录里。怎么从单表 CRUD 平稳演进到模块化结构，建议直接看 [`from-crud-to-modules.md`](./from-crud-to-modules.md)。
+生成结果会包含 `module.yaml`，可以继续用 `stratix doctor modules` 做模块边界诊断，用 `stratix graph modules --format mermaid` 输出模块图。
+
+但要注意一个现实限制：当前 forge 的 `module` 生成器负责创建新模块，不会把后续新增的 `business-repository` 自动落到现有模块目录里。怎么从单表 CRUD 平稳演进到模块化结构，建议直接看 [`from-crud-to-modules.md`](./from-crud-to-modules.md)。
 
 ### 健康检查
 
 ```bash
 stratix doctor
+stratix doctor modules
 ```
 
 这是每次做完结构调整后都值得跑一遍的命令。
+
+### 生成生产 manifest
+
+```bash
+stratix build-manifest --output .stratix/production-manifest.json
+```
+
+当前 production manifest 是发布前 artifact，用来固化 routes、DI、modules、运行时 plugin-lock 和构建产物证据。生产配置可以通过 `discovery.productionManifest` 启动期读取这个 artifact，在 `skipRuntimeDiscovery: true` 时跳过应用级 runtime glob discovery，并在 `registerFromManifest: true` 时优先按 v2 manifest 的 `compiledFile` 注册 DI 和路由；v1 manifest 继续按 source files 兼容注册。
+
+对应配置示例：
+
+```ts
+discovery: {
+  enabled: true,
+  productionManifest: {
+    enabled: true,
+    path: '.stratix/production-manifest.json',
+    skipRuntimeDiscovery: true,
+    registerFromManifest: true
+  }
+}
+```
+
+### 生产观测和安全基线
+
+生产配置建议显式打开 observability/security preset：
+
+```ts
+observability: {
+  enabled: true,
+  health: {
+    enabled: true,
+    basePath: '/health',
+    contributors: [
+      {
+        name: 'database',
+        async check() {
+          return { status: 'healthy' };
+        }
+      }
+    ]
+  },
+  metrics: {
+    enabled: true,
+    path: '/metrics'
+  },
+  traces: { enabled: true, maxEntries: 100 }
+},
+security: {
+  enabled: true,
+  bodyLimit: 1048576,
+  cors: { enabled: true, origins: ['https://console.example.com'] },
+  headers: { enabled: true, contentSecurityPolicy: "default-src 'self'" },
+  rateLimit: { enabled: true, max: 100, windowMs: 60000 }
+}
+```
+
+如果生产环境已有 Prometheus/OpenTelemetry/Redis 限流等基础设施，可以通过 `metrics.provider`、`traces.provider` 和 `security.rateLimit.provider` 接入外部实现。`/health/ready` 会执行 contributors，`/health/live` 只表示 runtime 存活。
+
+发布前可以跑 release gate：
+
+```bash
+stratix release gate --dry-run --manifest .stratix/production-manifest.json
+```
+
+如果是在 Stratix monorepo 根目录做发布准备复核，使用 workspace scope：
+
+```bash
+stratix release gate --scope workspace --dry-run
+stratix release gate --scope workspace --dry-run --include-offline-install --include-registry
+```
+
+project scope 校验单个应用的 production manifest；workspace scope 校验 supported packages 的 build/test/docs/pack/API/release-surface 发布准备计划。
 
 ## 推荐的实现顺序为什么是 repository -> service -> controller
 
@@ -86,7 +164,7 @@ stratix doctor
 
 ## 什么时候加 preset
 
-很多新手会一开始把 `database`、`redis`、`queue`、`tasks` 全加上，这通常不是好习惯。
+很多新手会一开始把 `database`、`redis`、`queue` 这类基础设施全加上，这通常不是好习惯。`tasks` preset 已移除，新项目不要再把它加入 preset 组合。
 
 更稳妥的顺序是：
 
@@ -100,6 +178,7 @@ stratix doctor
 
 ```bash
 stratix doctor
+stratix build-manifest --output .stratix/production-manifest.json
 pnpm build
 pnpm test
 ```
@@ -116,7 +195,7 @@ pnpm test
 2. 把敏感信息放进加密配置或部署环境
 3. 通过 `src/stratix.config.ts` 映射到插件配置
 
-CLI 自带的配置工具命令：
+forge 自带的配置工具命令：
 
 ```bash
 stratix config generate-key

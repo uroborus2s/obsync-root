@@ -17,10 +17,7 @@ export type DatabaseType = 'postgresql' | 'mysql' | 'sqlite' | 'mssql';
  * 连接状态
  */
 export type ConnectionStatus =
-  | 'connected'
-  | 'disconnected'
-  | 'connecting'
-  | 'error';
+  'connected' | 'disconnected' | 'connecting' | 'error';
 
 /**
  * 健康状态
@@ -169,10 +166,7 @@ export interface TransactionOptions {
   timeout?: number;
   /** 隔离级别 */
   isolationLevel?:
-    | 'READ_UNCOMMITTED'
-    | 'READ_COMMITTED'
-    | 'REPEATABLE_READ'
-    | 'SERIALIZABLE';
+    'READ_UNCOMMITTED' | 'READ_COMMITTED' | 'REPEATABLE_READ' | 'SERIALIZABLE';
 }
 
 export type SelectWhereExpression<DB, TB extends keyof DB> = (
@@ -190,10 +184,12 @@ export type DeleteWhereExpression<DB, TB extends keyof DB> = (
 /**
  * Kysely 查询表达式类型
  */
-export type WhereExpression<DB, TB extends keyof DB> =
-  SelectWhereExpression<DB, TB> &
-    UpdateWhereExpression<DB, TB> &
-    DeleteWhereExpression<DB, TB>;
+export type WhereExpression<DB, TB extends keyof DB> = SelectWhereExpression<
+  DB,
+  TB
+> &
+  UpdateWhereExpression<DB, TB> &
+  DeleteWhereExpression<DB, TB>;
 
 /**
  * 通用工具类型

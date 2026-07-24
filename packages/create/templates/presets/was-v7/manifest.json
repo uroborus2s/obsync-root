@@ -1,0 +1,14 @@
+{
+  "id": "was-v7",
+  "version": "1.0.0",
+  "displayName": "WAS V7 Preset",
+  "description": "Add @stratix/was-v7 integration defaults",
+  "appliesTo": [{ "kind": "app" }, { "kind": "plugin" }],
+  "contributes": {
+    "dependencies": {
+      "runtime": {
+        "@stratix/was-v7": "^1.0.0-beta.36"
+      }
+    }
+  }
+}

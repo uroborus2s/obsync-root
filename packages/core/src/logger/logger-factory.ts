@@ -25,7 +25,10 @@ export class LoggerFactory {
    * 创建或获取统一的 Pino 日志器实例
    * 这是整个应用唯一的日志器创建入口
    */
-  static createUnifiedLogger(options?: StratixRunOptions, extraStream?: any): Logger {
+  static createUnifiedLogger(
+    options?: StratixRunOptions,
+    extraStream?: any
+  ): Logger {
     // 如果已经有实例且没有新的配置，直接返回
     if (LoggerFactory.pinoInstance && !options?.logger && !extraStream) {
       return LoggerFactory.pinoInstance;
@@ -48,13 +51,13 @@ export class LoggerFactory {
     if (extraStream) {
       // 如果提供了额外的流，我们需要使用 multistream
       // 注意：使用 stream 时，transport 选项会被忽略，所以我们需要手动处理默认输出
-      
+
       // 移除 transport 配置，因为它与 stream 参数冲突
       delete finalConfig.transport;
 
       const streams = [
         { stream: process.stdout }, // 默认输出到 stdout
-        { stream: extraStream }     // 额外的流（例如 WebSocket）
+        { stream: extraStream } // 额外的流（例如 WebSocket）
       ];
 
       LoggerFactory.pinoInstance = LoggerFactory.applyCompatibilityLayer(
@@ -221,7 +224,10 @@ export class LoggerFactory {
    * `logger.info('message', { ... })` -> `logger.info({ ... }, 'message')`
    */
   private static applyCompatibilityLayer(logger: Logger): Logger {
-    if ((logger as Logger & { __stratixCompatPatched?: boolean }).__stratixCompatPatched) {
+    if (
+      (logger as Logger & { __stratixCompatPatched?: boolean })
+        .__stratixCompatPatched
+    ) {
       return logger;
     }
 
@@ -278,7 +284,7 @@ export function getLogger(): any {
   try {
     // 动态导入以避免循环依赖
     return LoggerFactory.getCurrentInstance() || console;
-  } catch (error) {
+  } catch {
     // 如果无法获取统一日志器，回退到 console
     return console;
   }

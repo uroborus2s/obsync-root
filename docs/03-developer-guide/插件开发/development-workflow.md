@@ -6,15 +6,16 @@
 
 1. 初始化插件项目
 2. 选模板并确认预设
-3. 生成 adapter / service / controller / executor
+3. 生成 adapter / service / controller / repository
 4. 先打通最小链路
-5. 在真实应用里注册验证
-6. 补测试、补文档、补 README
+5. 校验插件 manifest 与拓扑
+6. 在真实应用里注册验证
+7. 补测试、补文档、补 README
 
 ## 1. 初始化
 
 ```bash
-stratix init plugin integration @acme/your-plugin
+create-stratix plugin integration @acme/your-plugin
 ```
 
 如果你已经知道自己只做 adapter 型插件，就把 `integration` 换成 `adapter`；如果你需要 repository，就优先考虑 `data`。
@@ -27,10 +28,9 @@ stratix init plugin integration @acme/your-plugin
 stratix generate plugin-adapter foo
 stratix generate plugin-service foo
 stratix generate plugin-controller foo
-stratix generate plugin-executor foo
 ```
 
-这一步的意义不是省几分钟，而是让目录、命名和层级天然符合 CLI 约定。
+这一步的意义不是省几分钟，而是让目录、命名和层级天然符合 forge 约定。
 
 ## 3. 先打通最小链路
 
@@ -61,7 +61,16 @@ pnpm test
 
 ### 接入检查
 
-把插件注册到一个真实应用里，至少验证一条路由或一个 executor。
+把插件注册到一个真实应用里，至少验证一条路由或一个公开 service 能力。
+
+### Manifest 检查
+
+```bash
+stratix doctor plugins
+stratix graph plugins --format mermaid
+```
+
+`doctor plugins` 会校验 `.stratix/plugin.json` 的 capabilities、provides、requires 和 health 字段，并在可静态判断时检查 `provides` 是否由 `src/adapters` 中的真实 adapter token 支撑；`graph plugins` 用于检查插件能力、对外 token 和运行时依赖拓扑。
 
 ## 5. 插件接入时要检查什么
 
@@ -69,26 +78,27 @@ pnpm test
 - `name` 是否稳定、可读
 - 依赖的基础设施插件是否先于它注册
 - 插件配置项是否都放在 `options` 里
-- adapter / controller / executor 的目录是否仍在自动扫描范围内
+- adapter / controller / service / repository 的目录是否仍在自动扫描范围内
 
 ## 6. 什么时候该加 repository
 
 只有当插件真的需要自己的持久化逻辑时，再加 repository。  
 如果你的插件只是对接上游服务、包装 SDK、暴露 HTTP 接口，完全可以先只有 adapter + service。
 
-## 7. 什么时候该加 executor
+## 7. 什么时候该加后台流程
 
-满足下面任一条件，再考虑 executor：
+满足下面任一条件，再考虑后台流程：
 
-- 你想把插件能力接进 `@stratix/tasks`
-- 你希望插件暴露一个独立执行单元
 - 你要支持调度、工作流或后台执行
+- 你需要可恢复的长流程
+- 你需要 checkpoint、claim、finalize 这类持久化状态
 
-否则先把 HTTP 或 service 链路做稳。
+否则先把 HTTP 或 service 链路做稳。确实需要后台能力时，优先把状态放进 repository，把消费入口交给 queue 或应用启动流程明确注册。
 
 ## 8. 发布前检查清单
 
 - `package.json` 名称、版本、导出入口正确
+- `.stratix/plugin.json` 的 capabilities、provides、requires 与实际插件能力一致
 - `src/index.ts` 中 discovery / services 配置正确
 - `plugin-config.ts` 已定义清晰的配置合同
 - 至少一条真实可运行能力已经在应用里验证通过
@@ -108,6 +118,6 @@ pnpm test
 1. 安装包
 2. 在 `plugins` 里注册
 3. 传入清晰的 `options`
-4. 调用公开路由、service 或 executor
+4. 调用公开路由或 service
 
 就能跑起来，那这个插件才算真正具备生态可复用性。

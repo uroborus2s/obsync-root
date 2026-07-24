@@ -179,7 +179,7 @@ export class PluginConfigValidator {
       );
     }
 
-    const supportedTypes = ['postgresql', 'mysql', 'sqlite', 'mssql'];
+    const supportedTypes = ['postgresql', 'mysql', 'sqlite'];
     if (!supportedTypes.includes(config.type)) {
       throw new ConfigurationError(
         `Connection '${name}' has unsupported database type '${config.type}'. ` +

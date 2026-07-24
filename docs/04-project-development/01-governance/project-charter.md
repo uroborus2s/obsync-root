@@ -13,9 +13,9 @@
 
 这是一个历史形成的灵枢枢机（Stratix）源码 monorepo，当前同时承载：
 
-- 灵枢枢机核心框架与 CLI
+- 灵枢枢机核心框架与 create/forge 工具链
 - database / redis / queue / tasks / ossp / was-v7 / devtools / testing 等生态插件
-- 非 workspace 的“幻廊之镜”CLI 预览样例 `examples/web-admin-preview`
+- 非 workspace 的“幻廊之镜”模板预览样例 `examples/web-admin-preview`
 
 本轮工作不是重写项目，而是把已有代码、配置、发布面和验证事实接入软件工厂治理。
 

@@ -19,12 +19,7 @@ export interface SSLConfig {
   servername?: string;
   /** SSL 模式 */
   mode?:
-    | 'disable'
-    | 'allow'
-    | 'prefer'
-    | 'require'
-    | 'verify-ca'
-    | 'verify-full';
+    'disable' | 'allow' | 'prefer' | 'require' | 'verify-ca' | 'verify-full';
 }
 
 /**
@@ -96,10 +91,7 @@ export interface ReadWriteSeparationConfig {
   readConnections: string[];
   /** 负载均衡策略 */
   loadBalancing?:
-    | 'round-robin'
-    | 'random'
-    | 'least-connections'
-    | 'weighted-round-robin';
+    'round-robin' | 'random' | 'least-connections' | 'weighted-round-robin';
   /** 权重配置（用于加权轮询） */
   weights?: Record<string, number>;
   /** 故障转移配置 */

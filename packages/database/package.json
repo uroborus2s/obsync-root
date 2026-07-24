@@ -1,6 +1,6 @@
 {
   "name": "@stratix/database",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Stratix Database Plugin with two-layer architecture, Kysely integration and advanced features",
   "main": "dist/index.js",
   "types": "dist/types/index.d.ts",
@@ -15,8 +15,8 @@
     "test:coverage": "vitest --coverage",
     "test:integration": "vitest run tests/integration.test.ts",
     "test:unit": "vitest run tests/*.test.ts --exclude tests/integration.test.ts",
-    "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint src/**/*.ts --fix"
+    "lint": "oxlint --type-aware src",
+    "lint:fix": "oxlint --type-aware --fix src"
   },
   "keywords": [
     "stratix",
@@ -46,25 +46,26 @@
     "LICENSE"
   ],
   "dependencies": {
-    "kysely": "^0.28.14",
+    "kysely": "^0.29.4",
     "reflect-metadata": "^0.2.2"
   },
   "peerDependencies": {
-    "@stratix/core": "workspace:*",
-    "pg": "^8.16.3",
-    "mysql2": "^3.14.2",
-    "better-sqlite3": "^12.2.0",
-    "tarn": "^3.0.2",
-    "tedious": "^18.6.1"
-  },
-  "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
-    "@types/pg": "^8.20.0",
-    "pg": "^8.20.0",
-    "mysql2": "^3.20.0",
-    "better-sqlite3": "^12.8.0",
+    "@stratix/core": "workspace:^1.1.0",
+    "better-sqlite3": "^12.11.1",
+    "mysql2": "^3.22.5",
+    "pg": "^8.21.0",
     "tarn": "^3.0.2",
     "tedious": "^19.2.1"
+  },
+  "devDependencies": {
+    "@stratix/core": "workspace:*",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/pg": "^8.20.0",
+    "better-sqlite3": "^13.0.1",
+    "mysql2": "^3.23.1",
+    "pg": "^8.22.0",
+    "tarn": "^3.1.2",
+    "tedious": "^20.0.0"
   },
   "engines": {
     "node": ">=24.0.0"

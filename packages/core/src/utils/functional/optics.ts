@@ -390,7 +390,7 @@ export const immutable = {
     (obj: T): T => {
       if (path.length === 0) return obj;
       if (path.length === 1) {
-        const { [path[0]]: deleted, ...rest } = obj as any;
+        const { [path[0]]: _deleted, ...rest } = obj as any;
         return rest as T;
       }
 

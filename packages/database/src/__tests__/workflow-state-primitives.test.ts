@@ -1,13 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { isLeft } from '@stratix/core/functional';
 
-vi.mock('../core/database-manager.js', () => ({
-  getReadConnection: vi.fn(),
-  getWriteConnection: vi.fn()
-}));
-
 import { BaseRepository } from '../config/base-repository.js';
-import { getWriteConnection } from '../core/database-manager.js';
 
 interface WorkflowDatabase {
   workflow_runs: {
@@ -26,6 +20,13 @@ const mockLogger = {
   error: vi.fn()
 };
 
+const databaseProvider = {
+  getConnection: vi.fn(),
+  getReadConnection: vi.fn(),
+  getWriteConnection: vi.fn(),
+  getConnectionType: vi.fn()
+};
+
 class WorkflowRunRepository extends BaseRepository<
   WorkflowDatabase,
   'workflow_runs',
@@ -35,6 +36,10 @@ class WorkflowRunRepository extends BaseRepository<
 > {
   protected readonly tableName = 'workflow_runs' as const;
   protected readonly logger = mockLogger as any;
+
+  constructor() {
+    super({ database: databaseProvider });
+  }
 
   public async claimRun(id: number, owner: string) {
     return await this.claimById(
@@ -79,9 +84,7 @@ class WorkflowRunRepository extends BaseRepository<
   public async claimAnyPendingRun(owner: string) {
     return await this.compareAndSetWhere(
       (qb) =>
-        qb
-          .where('status', '=', 'pending')
-          .where('lease_owner', 'is', null),
+        qb.where('status', '=', 'pending').where('lease_owner', 'is', null),
       {},
       {
         status: 'running',
@@ -110,7 +113,7 @@ describe('BaseRepository durable workflow primitives', () => {
       updateTable: vi.fn(() => updateChain)
     };
 
-    vi.mocked(getWriteConnection).mockResolvedValue(writeDb as any);
+    databaseProvider.getWriteConnection.mockResolvedValue(writeDb as any);
 
     const repository = new WorkflowRunRepository();
     const result = await repository.claimRun(42, 'worker-a');
@@ -135,7 +138,7 @@ describe('BaseRepository durable workflow primitives', () => {
       updateTable: vi.fn(() => updateChain)
     };
 
-    vi.mocked(getWriteConnection).mockResolvedValue(writeDb as any);
+    databaseProvider.getWriteConnection.mockResolvedValue(writeDb as any);
 
     const repository = new WorkflowRunRepository();
     const result = await repository.renewHeartbeat(
@@ -163,7 +166,7 @@ describe('BaseRepository durable workflow primitives', () => {
         .mockReturnValueOnce(secondUpdateChain)
     };
 
-    vi.mocked(getWriteConnection).mockResolvedValue(writeDb as any);
+    databaseProvider.getWriteConnection.mockResolvedValue(writeDb as any);
 
     const repository = new WorkflowRunRepository();
     const checkpointResult = await repository.saveCheckpoint(

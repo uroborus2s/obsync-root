@@ -3,6 +3,7 @@
 
 import { asValue, InjectionMode, Lifetime, type AwilixContainer } from 'awilix';
 import { getLogger } from '../logger/index.js';
+import type { RegistrationPlan } from '../registration/index.js';
 import { ConventionBasedLifecycleManager } from './lifecycle-manager.js';
 import { AutoDIConfig } from './utils.js';
 
@@ -24,6 +25,7 @@ export interface PluginContainerContext<T> {
   autoDIConfig: AutoDIConfig;
   debugEnabled: boolean;
   pluginName: string;
+  registrationPlan?: RegistrationPlan;
 }
 
 /**

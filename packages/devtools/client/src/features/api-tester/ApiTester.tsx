@@ -14,7 +14,7 @@ export function ApiTester() {
   const [method, setMethod] = useState('GET');
   const [url, setUrl] = useState('');
   const [body, setBody] = useState('{\n  \n}');
-  const [response, setResponse] = useState<any>(null);
+  const [response, setResponse] = useState<unknown>(null);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<number | null>(null);
   const [duration, setDuration] = useState<number | null>(null);
@@ -28,11 +28,11 @@ export function ApiTester() {
     const startTime = performance.now();
     
     try {
-      let data = undefined;
+      let data: unknown = undefined;
       if (['POST', 'PUT', 'PATCH'].includes(method)) {
         try {
           data = JSON.parse(body);
-        } catch (e) {
+        } catch {
           alert('Invalid JSON body');
           setLoading(false);
           return;
@@ -48,8 +48,10 @@ export function ApiTester() {
 
       setResponse(res.data);
       setStatus(res.status);
-    } catch (error: any) {
-      setResponse({ error: error.message });
+    } catch (error) {
+      setResponse({
+        error: error instanceof Error ? error.message : String(error)
+      });
     } finally {
       setDuration(Math.round(performance.now() - startTime));
       setLoading(false);

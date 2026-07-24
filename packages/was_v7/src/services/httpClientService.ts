@@ -1,4 +1,5 @@
-import { RESOLVER, type Logger } from '@stratix/core';
+import type { Logger } from '@stratix/core';
+import { RESOLVER } from '@stratix/core/plugin';
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { createError, WpsError } from '../core/error.js';
 import type {

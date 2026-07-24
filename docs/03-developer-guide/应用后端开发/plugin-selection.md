@@ -7,7 +7,8 @@
 如果你完全是新手，默认从这套最小组合开始：
 
 - `@stratix/core`
-- `@stratix/cli`
+- `@stratix/create`
+- `@stratix/forge`
 
 只有当业务真的需要时，再继续加其他插件。
 
@@ -33,11 +34,13 @@
 - 适合：削峰填谷、后台消费、延迟执行
 - 典型例子：下单后异步发短信、导出任务排队、延迟重试
 
-### 4. 工作流、调度与执行器
+### 4. 长流程、调度与可恢复执行
 
-- 组合：`@stratix/core` + `@stratix/database` + `@stratix/tasks`
-- 适合：定时任务、长流程编排、可恢复执行
-- 典型例子：审批流、定时同步、状态机、需要断点恢复的长任务
+- 当前 1.1.0 推荐组合：`@stratix/core` + `@stratix/database`，需要异步消费时再加 `@stratix/queue`
+- 适合：状态机、短事务 checkpoint、后台队列消费
+- 典型例子：审批状态推进、定时同步的分段执行、需要断点恢复的长任务
+
+`@stratix/tasks` 已从当前仓库移除，不再作为新项目推荐插件。已有项目如果依赖它，应把迁移计划单独管理，不要在新 scaffold 或新模块里继续扩散。
 
 ### 5. 文件与对象存储
 
@@ -112,6 +115,26 @@ stratix generate business-repository order
 - 优先从最小组合起步，按场景逐步增加基础设施。
 - 当插件之间存在依赖时，注册顺序遵循“基础设施在前，消费方在后”。
 
+## 用 CLI 查找插件
+
+`@stratix/forge@1.1.1` 起，项目内可以用确定性 CLI 先查证据，再决定是否采用插件：
+
+```bash
+stratix ecosystem search redis --source stratix,fastify,npm --format table
+stratix ecosystem inspect @fastify/redis --format json
+stratix ecosystem catalog list --source stratix,fastify --format table
+```
+
+这些命令只输出候选包、来源证据和固定 signals，例如 `stratixNative`、`fastifyCore`、`requiresAdapter`、`archived`。它不会替你做 AI 推荐，也不会输出本机 registry token。
+
+如果要把 Fastify 插件包装成 Stratix plugin，先 dry-run 看生成内容：
+
+```bash
+stratix ecosystem adapt @fastify/cors --name cors --target ./plugins/cors-adapter --dry-run
+```
+
+确认后去掉 `--dry-run`，CLI 会写入 `src/index.ts`、`src/config/plugin-config.ts`、`.stratix/plugin.json` 和 `tests/smoke.test.ts`。
+
 ## 一个简单的决策顺序
 
 如果你还不知道怎么选，可以按下面的顺序判断：
@@ -125,7 +148,7 @@ stratix generate business-repository order
 4. 我要队列消费或延迟任务吗？
    - 是：加 `queue`
 5. 我要定时任务、工作流或断点恢复执行吗？
-   - 是：加 `tasks`
+   - 是：先用 `database` 建 checkpoint / 状态表，需要异步消费再加 `queue`
 6. 我要对象存储吗？
    - 是：加 `ossp`
 7. 我要对接 WPS 开放平台吗？

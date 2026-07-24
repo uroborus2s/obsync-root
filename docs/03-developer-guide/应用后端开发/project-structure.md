@@ -4,12 +4,13 @@
 
 ## 先看一个最小目录
 
-一个刚通过 `stratix init app api my-app` 创建出来的后端项目，核心结构通常长这样：
+一个刚通过 `create-stratix app api my-app` 创建出来的后端项目，核心结构通常长这样：
 
 ```text
 my-app/
   .stratix/
     project.json
+    production-manifest.json
   src/
     config/
       stratix.generated.ts
@@ -19,7 +20,6 @@ my-app/
       HealthService.ts
     repositories/
       interfaces/
-    executors/
     types/
     index.ts
     stratix.config.ts
@@ -76,9 +76,15 @@ src/
 
 ### `.stratix/project.json`
 
-这是 CLI 识别项目类型和 preset 的元数据文件。`stratix generate`、`stratix add preset`、`stratix doctor` 都会依赖它。
+这是 forge 识别项目类型和 preset 的元数据文件。`stratix generate`、`stratix add preset`、`stratix doctor` 都会依赖它。
 
 你通常不需要手工修改这个文件，除非你非常明确知道自己在修什么元数据问题。
+
+### `.stratix/production-manifest.json`
+
+这是 `stratix build-manifest` 生成的发布 artifact，包含路由、DI、模块和运行时 plugin-lock 证据。
+
+它通常应该由 CI 或发布流程生成，不建议手工编辑。生产配置可通过 `discovery.productionManifest` 读取它；当 `skipRuntimeDiscovery: true` 时，启动会跳过应用级 runtime glob discovery；当 `registerFromManifest: true` 时，启动会优先导入 v2 manifest 中记录的 `compiledFile` 来注册 DI 和路由，v1 manifest 继续按 source files 兼容注册。
 
 ## `src/` 下最重要的 3 个入口
 
@@ -159,10 +165,6 @@ await Stratix.run();
 
 - 让你一眼看清 repository 对外承诺了什么方法
 - 让 service 不需要猜 repository 返回什么数据
-
-### `src/executors/`
-
-只有当你引入 `@stratix/tasks` 时，这个目录才会真正重要。它主要承接可执行任务单元，而不是普通 HTTP 请求。
 
 ### `src/types/`
 

@@ -6,8 +6,9 @@
 **主要读者：** 架构 | 开发 | QA | 发布维护者  
 **上游输入：** 现有代码 | `package.json` | 包 README | git tags | npm registry | 命令验证  
 **下游输出：** PRD | 需求分析 | 技术选型 | 实施计划  
-**关联 ID：** `REQ-001`, `REQ-002`, `BUG-001`, `BUG-002`, `BUG-003`, `BUG-004`, `CR-001`  
-**最后更新：** 2026-06-16
+**关联 ID：** `REQ-001`, `REQ-002`, `BUG-001`, `BUG-002`, `BUG-003`, `BUG-004`, `BUG-005`, `BUG-006`, `CR-001`
+
+**最后更新：** 2026-07-24
 
 ## 1. 证据基础
 
@@ -28,30 +29,46 @@
 
 ## 2. 当前真实仓库形态
 
-当前仓库不是根 README 描述的旧四包结构，也不再包含 workspace 应用。当前真实形态是 11 个公共包，以及 1 个非 workspace 的 CLI 预览样例。
+当前仓库不是根 README 描述的旧四包结构，也不再包含 workspace 应用。当前真实形态是 10 个公共包，以及 1 个非 workspace 的 create/forge 预览样例。
 
-| 单元 | 类型 | 当前版本 | 公开性 | 主要职责 | 关键内部依赖 |
-|---|---|---:|---|---|---|
-| `@stratix/cli` | package | 1.1.0 | public | 初始化、生成、doctor、start、config CLI | - |
-| `@stratix/core` | package | 1.1.0 | public | Fastify runtime、DI、discovery、装饰器，并内聚通用 utilities 导出面 | - |
-| `@stratix/database` | package | 1.1.0 | public | repository-first 数据库插件 | `@stratix/core` |
-| `@stratix/devtools` | package | 1.0.0-beta.1 | public | 开发观测与辅助工具 | `@stratix/core` |
-| `@stratix/ossp` | package | 0.0.1-beta.3 | public | 对象存储插件 | `@stratix/core` |
-| `@stratix/queue` | package | 1.0.0-beta.2 | public | 队列插件 | `@stratix/core`, `@stratix/redis` |
-| `@stratix/redis` | package | 1.0.0-beta.2 | public | Redis 插件 | `@stratix/core` |
-| `@stratix/tasks` | package | 1.0.0-beta.5 | public | 执行器与工作流能力 | `@stratix/core`, `@stratix/database` |
-| `@stratix/testing` | package | 1.0.0-beta.1 | public | 测试辅助模块 | `@stratix/core` |
-| `@stratix/utils` | package | 1.0.0-beta.4 | public | async、data、functional、environment、context、auth 等通用工具函数 | - |
-| `@stratix/was-v7` | package | 1.0.0-beta.36 | public | WPS WAS V7 集成插件 | `@stratix/core`, `@stratix/redis` |
-| `examples/web-admin-preview` | sample | generated | private/local | CLI `web-admin` 模板预览样例，不参与 workspace 发布面 | - |
+| 单元                         | 类型    |      当前版本 | 公开性        | 主要职责                                                                                                         | 关键内部依赖                      |
+| ---------------------------- | ------- | ------------: | ------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| `@stratix/create`            | package |         1.1.0 | public        | 轻量应用/插件创建入口；只负责 app/plugin/template 创建，不承载项目生命周期命令                                   | -                                 |
+| `@stratix/core`              | package |         1.1.0 | public        | Fastify runtime、DI、discovery、装饰器，并内聚通用 utilities 导出面                                              | -                                 |
+| `@stratix/database`          | package |         1.1.0 | public        | repository-first 数据库插件                                                                                      | `@stratix/core`                   |
+| `@stratix/devtools`          | package |  1.0.0-beta.1 | public        | 开发观测与辅助工具                                                                                               | `@stratix/core`                   |
+| `@stratix/forge`             | package |         1.1.4 | public        | 项目内工程中枢：generate、doctor、di graph、OpenAPI/typed client、start、config、ecosystem；通过 Oxc parser 分析 TypeScript 源码 | -                                 |
+| `@stratix/ossp`              | package |  1.1.0-beta.0 | public        | 对象存储插件                                                                                                     | `@stratix/core`                   |
+| `@stratix/queue`             | package |  1.0.0-beta.2 | public        | 队列插件                                                                                                         | `@stratix/core`, `@stratix/redis` |
+| `@stratix/redis`             | package |  1.0.0-beta.2 | public        | Redis 插件                                                                                                       | `@stratix/core`                   |
+| `@stratix/testing`           | package |  1.0.0-beta.1 | public        | 官方测试平台入口，已具备 smoke 与 `contractTest()` 基线                                                          | `@stratix/core`                   |
+| `@stratix/was-v7`            | package | 1.0.0-beta.36 | public        | WPS WAS V7 集成插件                                                                                              | `@stratix/core`, `@stratix/redis` |
+| `examples/web-admin-preview` | sample  |     generated | private/local | `web-admin` 模板预览样例，不参与 workspace 发布面                                                                | -                                 |
 
 附加事实：
 
 - `apps/admin-dashboard` 已从 workspace 移除并删除。
-- `@stratix/utils` 已从 `legacy/packages/utils` 迁回 `packages/utils`，重新进入 `packages/*` workspace 包图。
-- 预览样例由 CLI 重新生成到 `examples/web-admin-preview`，用于验证模板输出，不代表正式产品模块。
-- 当前依赖基线已整体刷新到 Node `24.14.1` / pnpm `10.33.0`。
-- 本轮迁移提交前的工作区变更范围收敛在 `@stratix/utils` 路径迁移及其状态记录同步。
+- `@stratix/utils` 已从当前 workspace 删除；async、data、functional、environment、context、auth 等共享工具由 `@stratix/core/utils` 及 core 子路径承接。
+- `@stratix/tasks` 已从当前 workspace、create/forge preset 模板和发布面物理移除。
+- 预览样例由 create/forge 模板链路生成到 `examples/web-admin-preview`，用于验证模板输出，不代表正式产品模块。
+- 当前依赖基线已整体刷新到 Node `24.14.1` / pnpm `11.9.0`；根 `package.json` 声明 `packageManager: pnpm@11.9.0`。
+- `@stratix/ossp` 已通过官方 `ali-oss` SDK 接入阿里云 OSS，继续保留 MinIO 适配器，并记录 SeaweedFS 通过现有 MinIO/S3-compatible 配置接入。
+- `@stratix/core` Phase 1 概念模型重构已落地：executor decorator、metadata、discovery 分支、plugin registration、公有导出全部删除；create/forge 中 executor 与 plugin-executor 生成入口和模板也已删除。
+- `@stratix/core` Phase 2 基础能力已落地：route contract 提取、contract 诊断、OpenAPI 文档生成、DI graph、DI diagnostics、discovery 注册 metadata 记录进入 core 公有 API；`@stratix/forge` 新增 `doctor di` 与 `di graph`。
+- Phase 2 扩展工作流已落地：`@stratix/forge` 提供 `openapi generate` 和 `openapi client`，并在 TypeScript 7 移除 JavaScript Compiler API 后改用同源 Oxc parser；`@stratix/testing` 新增 runner-neutral `contractTest()`，`@stratix/core` 新增插件 adapter token 诊断。
+- Phase 5 生产能力已落地：`@stratix/core` 支持 production manifest 启动消费、manifest-driven registration、observability/security preset；`@stratix/devtools` 支持 production views；`@stratix/forge` 支持 project-scope `release gate`。
+- P2+ 生产硬化已落地：`@stratix/core` 支持 metrics/tracing provider、health contributor、readiness/liveness 分离和 rate-limit provider；`@stratix/forge doctor plugins` 会将 manifest `provides` 与静态发现到的 adapter token 做一致性校验。
+- 2026-06-20 闭门评审修复第一批和第二批已落地：root `quality:release` 纳入 lint，GitHub Actions quality gate 纳入 lint，真实 `release:gate` 纳入 registry reconciliation，create/forge 生成配置对齐平面 `.env.example` 环境变量，OSSP/WAS 不再生成公开占位密钥且运行时拒绝占位凭证，`stratix generate` 默认拒绝覆盖并要求 `--force`，production manifest 默认 `.stratix` 路径按项目根解析，`HttpError` 进入 root 与 `./errors` 公共 API，AutoDI 模块处理错误默认 fail-fast，`close()` 与 `stop()` 使用同一关闭生命周期，strict `compiledOnly` manifest 模式要求 v2 compiled artifact 和 registration entries。
+- 2026-06-20 问题 3 / 问题 4 的本地修复已落地：root `@stratix/core` 收敛为应用开发稳定 API，插件作者、contracts、diagnostics、experimental、service 和 internal 能力通过显式 subpath 暴露；supported 生态包和生成器插件模板不再从 root 导入插件/DI 运行时 API；`ApplicationBootstrap` request identity 逻辑抽到独立模块，observability 响应头和 request-scope 注入的 `requestId` 使用同一来源；AutoDI strict 模式拒绝匿名插件；DI graph node 增加 `confidence`；route contract extraction 支持 runtime prefix 以对齐 OpenAPI path。
+- 2026-06-20 开发阶段继续硬化已落地：`ApplicationBootstrap` 进一步拆出 error handling、request context、plugin loader、eager initialization、lifecycle shutdown、observability/security hook installer，`@stratix/core/internal` 改为显式白名单，config schema 移除 `z.any()` / `catchall(z.any())` 并校验 typed `autoLoad`、plugin function、observability provider 与 rate-limit provider；workspace pack gate 开始验证 `package.json exports` 的 import/types 子路径文件必须进入 tarball；问题 3/4 边界测试覆盖 trace/request id 透传、AutoDI strict 正/负路径、prefix normalization、并发关闭、应用级 restart 生命周期和真实 web ephemeral port listen。
+- `pnpm run test:coverage:core` 已在本轮开发硬化后通过：34 个测试文件、261 个测试，global lines `47.14%` / functions `41.36%` / branches `38.87%` / statements `46.32%`，`application-bootstrap.ts` 达到 lines `75.65%` / functions `96.07%` / branches `55.33%` / statements `75.73%`。
+- `pnpm run smoke:core-api` 已通过：构建并打包 `@stratix/core`，在临时消费者项目安装 tarball，导入 root 与 `./auth`、`./context`、`./contracts`、`./data`、`./diagnostics`、`./environment`、`./internal`、`./logger`、`./plugin`、`./service` 子路径，并启动/停止最小 CLI 应用。本冒烟发现并修复了 `pino-pretty` 运行时依赖缺失问题。
+- 当前仍处开发硬化阶段；2026-06-26 远端 GitHub Actions Quality Gate 曾因 `admin-mock` preset 的 `.env.example.tpl` 模板文件未被 Git 跟踪而失败。本地已通过放行 `.env.example.tpl` 修复该根因，且 run `28234054546` 已在提交 `457357f6e3285afdd7f5ed6f496cdf8962fd0183` 上完整通过。
+- 闭门评审风险评分与本地 release-gate 评分分离：固定 rubric 为 `core-rc-remediation-v1`。2026-06-19 风险基线 composite 为 82/100；2026-06-20 batch 1/2 修复后本地证据分为技术管理 90、测试管理 82、框架架构 88、综合 87/100。未来重评只有在可执行证据或范围变化时才允许变更分数。
+- Phase 6 发布准备门禁已落地并通过本地真实执行：`@stratix/forge` 支持 `stratix release gate --scope workspace`，用于 monorepo supported packages 的 build/test/docs/security/pack/API/release-surface 执行；offline install 与 public npmjs exact-version reconciliation 可通过显式参数纳入门禁；release-surface 会校验公开包 metadata 与指向当前发布提交的 exact release tags。
+- `@stratix/create` 和 `@stratix/forge` 都不依赖 `@stratix/core`。创建项目时 create 把 `@stratix/core` 写入目标项目 dependencies，把 `@stratix/forge` 写入目标项目 devDependencies；`openapi generate` 执行时从目标项目解析 `typescript`，避免一次性创建入口承担 runtime/core/compiler 下载成本。
+- `.stratix/project.json` 已升级为 `schemaVersion: 2`，作为 create/forge 交接契约：create 写入 template contribution 快照，forge 后续 `add/doctor` 只读项目 manifest、presets 和 resource templates，不再读取 app/plugin 创建模板。
+- 本轮重构提交前的工作区变更范围收敛在删除独立 `@stratix/utils` 包、刷新 workspace lockfile、同步 core utilities 边界及其状态记录。
 - 在本轮前，仓库没有 `docs/`、`.factory/`、`AGENTS.md` 或 `GEMINI.md`。
 - 根 README 曾混入过时模块结构、旧命令和历史变更说明，现已迁移为稳定入口。
 
@@ -76,133 +93,238 @@
 
 ## 4. 最新发布结果与版本漂移
 
-发布信号在 2026-03-28 的真实情况如下：
+发布信号在 2026-06-18 的真实情况如下：
 
-| 包 | 本地声明版本 | 最新 git tag | npm registry | 判断 |
-|---|---:|---|---|---|
-| `@stratix/core` | 1.1.0 | `0.0.3-beta.2` | `0.8.2`，修改时间 2026-01-07 | 本地版本显著领先于 tag 与 npm |
-| `@stratix/cli` | 1.1.0 | 无当前包名 tag | 404 | 已有本地公开包，但未见 npm 发布记录 |
-| `@stratix/database` | 1.1.0 | `0.0.3-beta.2` | 404 | 本地版本领先，发布面未对齐 |
-| `@stratix/devtools` | 1.0.0-beta.1 | 无当前包名 tag | 404 | 有包无 tag/registry 对应记录 |
-| `@stratix/ossp` | 0.0.1-beta.3 | 无当前包名 tag | 404 | 有包无 tag/registry 对应记录 |
-| `@stratix/queue` | 1.0.0-beta.2 | `0.0.3-beta.2` | 404 | 本地版本领先，发布面未对齐 |
-| `@stratix/redis` | 1.0.0-beta.2 | 无当前包名 tag | 404 | 有包无 tag/registry 对应记录 |
-| `@stratix/tasks` | 1.0.0-beta.5 | `0.0.3-beta.2` | 404 | 本地版本领先，发布面未对齐 |
-| `@stratix/testing` | 1.0.0-beta.1 | 无当前包名 tag | 404 | 有包无 tag/registry 对应记录 |
-| `@stratix/utils` | 1.0.0-beta.4 | `0.0.2` / `0.0.2-beta.0` | 404 | 已迁回 `packages/utils`，发布面仍未对齐 |
-| `@stratix/was-v7` | 1.0.0-beta.36 | `0.0.3-beta.2` | 404 | 本地版本领先，发布面未对齐 |
+| 包                  |  本地声明版本 | Phase 6 exact tag                             | public npmjs                                 | 判断                                                       |
+| ------------------- | ------------: | --------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------- |
+| `@stratix/core`     |         1.1.0 | `@stratix/core@1.1.0`                         | latest `0.8.2`；`1.1.0` 未发布               | exact tag 后可进入 public publish                          |
+| `@stratix/create`   |         1.1.0 | `@stratix/create@1.1.0`                       | 404                                          | 新增公开包；exact tag 后可首次发布                         |
+| `@stratix/forge`    |         1.1.2 | 未创建（当前本地仅有 `@stratix/forge@1.1.0`） | `1.1.2`                                      | ecosystem CLI P1/P2 修复后已发布阿里云；exact tag 仍需创建 |
+| `@stratix/database` |         1.1.0 | `@stratix/database@1.1.0`                     | 404                                          | exact tag 后可首次发布                                     |
+| `@stratix/devtools` |  1.0.0-beta.1 | `@stratix/devtools@1.0.0-beta.1`              | 404                                          | exact tag 后可首次发布                                     |
+| `@stratix/ossp`     |  1.1.0-beta.0 | `@stratix/ossp@1.1.0-beta.0`                  | latest `0.0.1-beta.3`；`1.1.0-beta.0` 未发布 | exact tag 后可发布                                         |
+| `@stratix/queue`    |  1.0.0-beta.2 | `@stratix/queue@1.0.0-beta.2`                 | 404                                          | exact tag 后可首次发布                                     |
+| `@stratix/redis`    |  1.0.0-beta.2 | `@stratix/redis@1.0.0-beta.2`                 | 404                                          | exact tag 后可首次发布                                     |
+| `@stratix/testing`  |  1.0.0-beta.1 | `@stratix/testing@1.0.0-beta.1`               | 404                                          | exact tag 后可首次发布                                     |
+| `@stratix/was-v7`   | 1.0.0-beta.36 | `@stratix/was-v7@1.0.0-beta.36`               | 404                                          | exact tag 后可首次发布                                     |
 
 结论：
 
-- 公开发布面的真实状态并不是“所有本地包都已按当前版本发布”。
-- 目前至少存在三套版本事实：
-  - 本地 `package.json`
-  - 本地 git tags
-  - npm registry
-- 这三套事实没有统一，必须作为独立整改项处理。
+- public npmjs 上 `@stratix/forge@1.1.2` 查询返回 `1.1.2`；其他 supported package exact-version 状态沿用既有发布准备记录，`@stratix/core` 只有历史公开版本 `0.8.2`。
+- Phase 6 发布口径以本地 package manifest + 指向 final release commit 的 exact git tags + public npmjs exact-version availability 为准。
+- npm publish 仍是需要发布者凭证的外部操作，不由仓库重构自动执行。
+- 2026-07-05 增量事实：`@stratix/forge@1.1.2` 已发布到配置的阿里云 `@stratix` 私有 npm registry，`pnpm view @stratix/forge@1.1.2 version --registry=https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/` 返回 `1.1.2`；本次未创建 `@stratix/forge@1.1.2` exact git tag。
+- 2026-07-05 `BUG-005` 本地修复完成并经 QC 追补：官方模板、forge start/doctor/config/openapi/build-manifest、gateway/preset 普通业务 env 扫描和 pnpm 11 生成项目安装路径已补回归；`pnpm run smoke:generated-api` 已进入本地与 GitHub Quality Gate。这是发布后消费者路径修复，不等同于重新发布 npm 包或创建 exact tag。
+- 2026-07-24 `BUG-006` 本地修复完成：Forge/Core 的环境变量与显式 AES-256 key 契约统一为原始 32-byte、64 位 hex 或标准 base64，解析后严格要求 32 bytes；Forge config CLI 不再接受命令行 key。旧 Forge 环境变量 SHA-256 路径产生的密文需先用旧版本解密再重新加密，本次未加入双 key 猜测或降级解密。
 
 ## 5. 安装、构建、测试、运行验证
 
 ### 5.1 安装验证
 
-| 命令 | 结论 | 关键结果 |
-|---|---|---|
-| `CI=true pnpm install --no-frozen-lockfile` | passed | 根工作区已在最新依赖栈下刷新 lockfile |
-| `CI=true pnpm install --frozen-lockfile` | passed | 根工作区冻结安装在 pnpm `10.33.0` 下可通过 |
-| `CI=true pnpm install --frozen-lockfile --offline` | failed (last known) | 上次已知失败是 `ERR_PNPM_NO_OFFLINE_TARBALL`；本轮升级后未重新验证离线链路 |
-| `CI=true pnpm install --ignore-workspace --no-frozen-lockfile` | passed | `examples/web-admin-preview` 已刷新独立 lockfile |
-| `CI=true pnpm install --ignore-workspace --frozen-lockfile` | passed | 样例冻结安装可通过 |
-| `pnpm install --lockfile-only --ignore-scripts` | passed | `packages/utils` 已作为 workspace importer 写入根 lockfile |
+| 命令                                                           | 结论   | 关键结果                                                                                                                                                                       |
+| -------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `CI=true pnpm install --no-frozen-lockfile`                    | passed | 根工作区已在最新依赖栈下刷新 lockfile                                                                                                                                          |
+| `CI=true pnpm install --frozen-lockfile --ignore-scripts`      | passed | 根工作区冻结安装在系统 `PATH` pnpm `11.9.0` 下可通过                                                                                                                           |
+| `CI=true pnpm install --frozen-lockfile --offline`             | passed | 当前 pnpm store 下 frozen offline install 可重复通过                                                                                                                           |
+| `CI=true pnpm install --no-frozen-lockfile`                    | passed | `examples/web-admin-preview` 通过自身 `pnpm-workspace.yaml` 刷新独立 lockfile，并精确放行 `@swc/core` / esbuild 构建脚本                                                       |
+| `CI=true pnpm install --frozen-lockfile`                       | passed | 样例冻结安装可通过                                                                                                                                                             |
+| `pnpm install --lockfile-only --ignore-scripts`                | passed | lockfile 已接收 `packages/create` 新 importer 与 `packages/forge` 物理目录                                                                                                     |
+| generated API project `pnpm install`                           | passed | built create 生成临时 API 项目后，pnpm 11.9.0 执行 `esbuild postinstall` 并通过，没有 ignored-builds 交互阻断                                                                  |
+| generated API consumer smoke                                   | passed | built create 生成临时 API 项目后完成 `pnpm install`、`pnpm build`、`stratix doctor`、`stratix config encrypt --help`、strict OpenAPI，并检查 gateway/preset 不输出普通业务 env |
 
 ### 5.2 构建验证
 
-| 命令 | 结论 | 关键结果 |
-|---|---|---|
-| `pnpm build` | passed | 根入口已改为委托 `build:all`，用户从仓库根执行时有稳定目标范围 |
-| `pnpm build:all` | passed (last known before utils restore) | `@stratix/utils` 迁回 `packages/utils` 前的 10 个 workspace 公共包在 Node 24 / TypeScript 6 基线上均可完成构建；迁回后仍需重新验证 11 包构建 |
-| `pnpm --filter @stratix/core build` | passed | `@stratix/core` 已完成对 `pino@10` 和更严格 TS 推断的适配 |
-| `pnpm --filter @stratix/cli build` | passed | 共享 tsconfig 补齐 Node 类型与 TS6 deprecation 处理后，CLI 可单独构建 |
-| `pnpm --filter @stratix/utils build` | passed | `@stratix/utils` 迁回 `packages/utils` 后包级构建通过 |
-| `pnpm build`（`examples/web-admin-preview`） | passed | CLI 生成样例可单独完成静态构建 |
+| 命令                                                             | 结论   | 关键结果                                                                                                                                                                                                                                                                                                                                              |
+| ---------------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm build`                                                     | passed | 根入口委托 `build:supported`，覆盖剩余 workspace packages                                                                                                                                                                                                                                                                                             |
+| `pnpm run build:supported`                                       | passed | `10/10` 个 workspace packages 构建通过；包含 `@stratix/create` 与 `@stratix/forge`                                                                                                                                                                                                                                                                    |
+| `pnpm lint`                                                      | passed | 根入口使用 Oxlint 1.75 + `oxlint-tsgolint` 7 对 workspace、DevTools client、生成模板和 preview 做统一检查；TypeScript 7 typecheck 独立兜底模块解析                                                                                                                                                                                                      |
+| `pnpm build:all`                                                 | stale  | 删除 `@stratix/tasks` 后与 `build:supported` 等价，待下一次门禁重跑记录新证据                                                                                                                                                                                                                                                                         |
+| `pnpm exec turbo run build '--filter=./packages/*' --force`      | stale  | 该旧命令未表达 tasks 排除语义，不再作为默认健康信号                                                                                                                                                                                                                                                                                                   |
+| `pnpm --filter @stratix/core build`                              | passed | `@stratix/core` 在新增 route contract/OpenAPI helpers、DI diagnostics、discovery DI metadata recording、adapter token diagnostics、统一错误 envelope、response schema failure 归一化、runtime production manifest consumption、manifest-driven registration、observability/security preset、公共 subpath 导出和 request identity 拆分后可完成单包构建 |
+| `pnpm --filter @stratix/core exec tsc -p tsconfig.json --noEmit` | passed | `@stratix/core` 新 discovery 管道、配置类型和公共导出通过类型检查                                                                                                                                                                                                                                                                                     |
+| `pnpm --filter @stratix/core pack --pack-destination /tmp`       | passed | core 发布包可生成，输出 `/tmp/stratix-core-1.1.0.tgz`；tarball 中无 executor 路径                                                                                                                                                                                                                                                                     |
+| `pnpm --filter @stratix/create build`                            | passed | create 作为轻量应用/插件创建入口可单独构建，且不依赖 runtime/core/compiler；plugin 项目生成 `.stratix/plugin.json`                                                                                                                                                                                                                                    |
+| `pnpm --filter @stratix/forge build`                             | passed | forge 在 `packages/forge` 下保留项目内 `doctor di`、`di graph`、`doctor modules`、`graph modules`、`doctor plugins`、`graph plugins`、`build-manifest`、`release gate`、OpenAPI 生成、高级 typed client、命令级 help routing 和显式 DI/schema 模板后可单独构建                                                                                        |
+| `pnpm --filter @stratix/database build`                          | passed | database-only clean breaking refactor 后，`@stratix/database` 单包 TypeScript 构建通过                                                                                                                                                                                                                                                                |
+| `pnpm build`（`examples/web-admin-preview`）                     | passed | 生成样例可单独完成静态构建                                                                                                                                                                                                                                                                                                                            |
+| generated API project `pnpm build`                               | passed | built create 生成的临时 API 项目使用本仓 built core/forge file 依赖完成 TypeScript build，覆盖 FastifySchema-compatible operationId 模板输出                                                                                                                                                                                                          |
 
 ### 5.3 测试验证
 
-| 命令 | 结论 | 关键结果 |
-|---|---|---|
-| `pnpm test` | failed | 根测试的首个明确阻塞已变成 test profile 不稳定：`@stratix/ossp` 与 `@stratix/queue` 因 “No test files found” 直接退出，其他包套件仍需逐包复核 |
-| `pnpm --filter @stratix/cli test` | passed | `21` 个测试全部通过 |
-| `pnpm --filter @stratix/utils test` | incomplete | 命令进入 `vitest run` 后以 137 退出，未产出可用测试结果 |
-| `pnpm test`（`examples/web-admin-preview`） | passed | `6` 个文件、`18` 个测试全部通过 |
+| 命令                                                  | 结论   | 关键结果                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ----------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm test`                                           | passed | 根入口委托 `test:supported`，覆盖剩余 workspace packages                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `pnpm run test:supported`                             | passed | supported package test profile 通过                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `CI=true pnpm --filter @stratix/core exec vitest run` | passed | 开发阶段硬化后，`34` 个测试文件、`261` 个测试全部通过；覆盖公共 API 分层、正式 subpath exports、route contract/OpenAPI prefix、统一错误 envelope、response schema failure 归一化、plan-first DI diagnostics、DI graph confidence、plugin adapter RegistrationPlan metadata、discovery schema validation、production manifest startup consumption、manifest-driven registration、production manifest v2 artifact integrity / compiled-file registration、observability/security provider、readiness/liveness、request identity/traceId 一致性、runtime stability、ApplicationDiscoveryRegistrar、AutoDI fail-fast/strict 正负路径、typed config schema、public API contract、bootstrap decomposition、并发关闭、应用级 restart 生命周期、真实 web ephemeral port listen 和 close/stop 生命周期一致性 |
+| `pnpm --filter @stratix/create test`                  | passed | 覆盖 app/plugin 创建、plugin governance manifest、create 模板清单、目标项目 `@stratix/forge` devDependency 写入、已删除 tasks preset 阻断、sensitiveConfig-only 生成配置、gateway/preset 普通业务 env 扫描、pnpm 11 `allowBuilds.esbuild` 和模板 `security:audit`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `pnpm --filter @stratix/forge test`                   | passed | 覆盖 `doctor di`、`di graph`、`doctor modules`、`graph modules`、adapter-backed `doctor plugins`、`graph plugins`、production manifest v2 `build-manifest`、artifact hash release gate、project/workspace release gate、release gate docs 入口委托、release pack artifact gate、release metadata gate、registry exact-version gate、`openapi generate`、高级 `openapi client`、`ecosystem search/inspect/catalog/adapt`、scoped registry、搜索排序、registry evidence、catalog 发布产物、命令 help、生成资源 DI/schema 检查、生成器默认防覆盖、ESM-only core start resolution、config subcommand help、forge dependency upgrade doctor compatibility、operationId extraction from route config、generated security scripts、preset env 扫描和 pnpm 11 generated project config coverage             |
+| `pnpm --filter @stratix/forge test`（`BUG-006`）      | passed | 2026-07-24：`70/70`；新增 Forge CLI `generate-key` -> 环境变量 -> `.env` 加密产物 -> Core 解密跨包回归，并覆盖显式/environment key 一致性、命令行 key 拒绝与非法长度拒绝                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `pnpm --filter @stratix/core test`（`BUG-006`）       | passed | 2026-07-24：`34` 个文件、`263/263`；新增环境变量与显式 AES-256 key 严格长度校验                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `pnpm --filter @stratix/core run test:coverage`       | passed | core coverage ratchet 通过：`34` 个测试文件、`261` 个测试；global lines `47.14%`、functions `41.36%`、branches `38.87%`、statements `46.32%`；`application-bootstrap.ts` 达到 lines `75.65%`、functions `96.07%`、branches `55.33%`、statements `75.73%`；bootstrap/discovery 关键路径使用更高目标阈值并高于 global ratchet lines `43`、functions `38`、branches `34`、statements `42`                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `pnpm run smoke:core-api`                             | passed | packed `@stratix/core` tarball 能在临时消费者项目安装，导入 root 与 `./auth`、`./context`、`./contracts`、`./data`、`./diagnostics`、`./environment`、`./internal`、`./logger`、`./plugin`、`./service` 子路径，并启动/停止最小 CLI 应用；该冒烟发现并修复了 `pino-pretty` runtime dependency 缺失                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `pnpm run smoke:generated-api`                        | passed | built create 生成临时 API consumer，pnpm 11 安装后完成 build、doctor、config help、strict OpenAPI；同时扫描生成 API/gateway `.env.example` 与 gateway service，阻断普通业务 env 回归                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `pnpm run quality:release`                            | passed | 2026-07-05 BUG-005 QC 追补后重新通过：supported build/typecheck/lint/test、core coverage、packed core API smoke、generated API consumer smoke、docs 89 pages / 0 contracts、安全审计和 workspace release gate dry-run 均通过；该结果仍不是 npm publish 或远端 CI 证据                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `pnpm run release:gate`                               | passed | 2026-06-20 真实门禁通过：offline install、supported build/test、docs、安全审计、10 个包 pack、10 个包 API surface、release-surface、exact tags 和 npmjs registry exact-version availability 全部通过；当前最终发布前 exact tags 还需重新指向 final release commit                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `pnpm --filter @stratix/devtools test`                | passed | `3` 个测试全部通过；覆盖 smoke export、API auth/local guard 和 production views：routes、DI、plugins、redacted config、health、traces                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `pnpm --filter @stratix/testing test`                 | passed | `3` 个测试文件、`12` 个测试全部通过；覆盖 smoke、`contractTest()`、共享错误 envelope schema、test app、DI override、plugin fixture、discovery fixture、repository fixture 和 module fixture                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `pnpm --filter @stratix/database exec vitest run`     | passed | database quality-gate 回归后，`8` 个测试文件、`49` 个测试全部通过                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `pnpm --filter @stratix/was-v7 test`                  | passed | `11` 个测试文件、`120` 个测试全部通过                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `pnpm test`（`examples/web-admin-preview`）           | passed | `6` 个文件、`18` 个测试全部通过                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
-当前根测试暴露的主要问题：
+当前默认根测试结论：
 
-- `@stratix/ossp` 与 `@stratix/queue` 的无测试包策略尚未统一
-- 多个包套件在 Vitest 4 升级后仍需独立抓取失败明细
-- 因为根测试首先被 profile 问题击穿，当前还不能把 `pnpm test` 当作可信健康信号
+- `@stratix/ossp`、`@stratix/queue`、`@stratix/devtools` 与 `@stratix/testing` 已补最小 smoke tests，supported profile 不再被 no-test package 击穿。
+- `@stratix/was-v7` 的旧测试契约已对齐当前适配器、token cache、HTTP client 和插件验证行为。
+- database-only clean breaking refactor 后，旧 `@stratix/tasks` 迁移不再进入本仓库主线；源码已移除。
 
 ### 5.4 运行入口验证
 
-| 命令 | 结论 | 关键结果 |
-|---|---|---|
-| `node packages/cli/dist/bin/stratix.js --help` | passed | CLI 可输出命令清单 |
-| `pnpm preview --host 127.0.0.1 --port 4273`（`examples/web-admin-preview`） | passed after permission | 本地成功启动，监听 `http://127.0.0.1:4273/` |
+| 命令                                                                                                                                                                                                                                                                                                                                  | 结论                    | 关键结果                                                                                                                                                  |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `node packages/create/dist/bin/create-stratix.js --help`                                                                                                                                                                                                                                                                              | passed                  | create 可输出 app/plugin 创建命令帮助                                                                                                                     |
+| `node packages/create/dist/bin/create-stratix.js list templates`                                                                                                                                                                                                                                                                      | passed                  | create 只列出 app/plugin 创建模板                                                                                                                         |
+| `node packages/forge/dist/bin/stratix.js --help`                                                                                                                                                                                                                                                                                      | passed                  | forge 可输出项目内命令清单，且不再暴露 `init`                                                                                                             |
+| `node packages/forge/dist/bin/stratix.js init`                                                                                                                                                                                                                                                                                        | expected failure        | forge 拒绝旧创建入口，输出 `Unknown command: init`                                                                                                        |
+| `node packages/forge/dist/bin/stratix.js doctor di --help`                                                                                                                                                                                                                                                                            | passed                  | 构建产物暴露 DI doctor 子命令帮助                                                                                                                         |
+| `node packages/forge/dist/bin/stratix.js di graph --help`                                                                                                                                                                                                                                                                             | passed                  | 构建产物暴露 DI graph 子命令帮助                                                                                                                          |
+| `node packages/forge/dist/bin/stratix.js doctor modules --help`                                                                                                                                                                                                                                                                       | passed                  | 构建产物暴露 Module doctor 子命令帮助                                                                                                                     |
+| `node packages/forge/dist/bin/stratix.js graph modules --help`                                                                                                                                                                                                                                                                        | passed                  | 构建产物暴露 Module graph 子命令帮助                                                                                                                      |
+| `node packages/forge/dist/bin/stratix.js openapi generate --help`                                                                                                                                                                                                                                                                     | passed                  | 构建产物暴露 OpenAPI 生成命令帮助                                                                                                                         |
+| `node packages/forge/dist/bin/stratix.js openapi client --help`                                                                                                                                                                                                                                                                       | passed                  | 构建产物暴露 typed client 生成命令帮助                                                                                                                    |
+| generated API project `pnpm exec stratix doctor`                                                                                                                                                                                                                                                                                      | passed                  | built create 生成的临时 API 项目在保留 forge 升级依赖后通过 doctor                                                                                        |
+| generated API project `pnpm exec stratix config encrypt --help`                                                                                                                                                                                                                                                                       | passed                  | config subcommand help 输出完整用法并以 exit 0 返回                                                                                                       |
+| generated API project `pnpm exec stratix openapi generate --output openapi.json --strict`                                                                                                                                                                                                                                             | passed                  | strict OpenAPI 生成通过，`/health` operationId 为 `HealthController_check`                                                                                |
+| `node packages/forge/dist/bin/stratix.js release gate --scope workspace --dry-run`                                                                                                                                                                                                                                                    | passed                  | 构建产物可输出 Phase 6 workspace 发布准备计划，包含 10 个 supported packages                                                                              |
+| `node packages/forge/dist/bin/stratix.js release gate --scope workspace --dry-run --include-offline-install --include-registry`                                                                                                                                                                                                       | passed                  | 构建产物可把 offline install、security、release metadata 与 npm registry reconciliation 纳入 Phase 6 发布准备计划                                         |
+| `node packages/forge/dist/bin/stratix.js release gate --scope workspace --include-offline-install`                                                                                                                                                                                                                                    | passed                  | 真实执行通过 offline install、supported build/test、docs、security audit、pack、API surface、release metadata 与 exact tag 检查                           |
+| `node packages/forge/dist/bin/stratix.js release gate --scope workspace --include-offline-install --include-registry`                                                                                                                                                                                                                 | passed                  | 完整发布门禁通过；public npmjs 返回 10 个 supported exact versions 均未发布、可发布                                                                       |
+| `node packages/forge/dist/bin/stratix.js list templates`                                                                                                                                                                                                                                                                              | passed                  | forge 只列出项目内 resource/module 生成模板，模板清单中不再包含 executor 或 plugin-executor 模板                                                          |
+| `node packages/forge/dist/bin/stratix.js list presets`                                                                                                                                                                                                                                                                                | passed                  | preset 清单不再包含 `tasks`                                                                                                                               |
+| `rg -n "@Executor\|EXECUTOR_METADATA_KEY\|registerTaskExecutor\|registerExecutorDomain\|processExecutorRegistration\|Executor\\b\|executors/\|plugin-executor\|performApplicationAutoDI\|applicationAutoDI\|discoverAndProcessApplicationModules\|generate executor\|createSafeExecutor\|executor" docs/03-developer-guide -g '*.md'` | passed                  | 开发者指南不再暴露已删除 executor/API 教程路径                                                                                                            |
+| `/opt/homebrew/Cellar/uv/0.9.18/bin/uvx --from docs-stratego docs-stratego source validate --repo-path .`                                                                                                                                                                                                                             | passed                  | 2026-07-04 TASK-001 文档收口后校验通过，89 pages / 0 contracts；本次未使用 root pnpm wrapper，因为当前 Codex 沙箱 PATH 未向 lifecycle scripts 暴露 `node` |
+| `git diff --check`                                                                                                                                                                                                                                                                                                                    | passed                  | 本阶段补丁无 whitespace 错误                                                                                                                              |
+| `pnpm preview --host 127.0.0.1 --port 4273`（`examples/web-admin-preview`）                                                                                                                                                                                                                                                           | passed after permission | 本地成功启动，监听 `http://127.0.0.1:4273/`                                                                                                               |
 
 说明：
 
 - 预览服务在默认沙箱下因 `listen EPERM` 被拦截，放行本地端口后可正常启动。
-- 这说明 CLI 模板样例本身可构建、可测试、可预览，但运行验证依赖本地端口权限。
+- 这说明 create/forge 模板样例本身可构建、可测试、可预览，但运行验证依赖本地端口权限。
 
 ## 6. 当前真实状态结论
 
-当前项目的真实状态不是“整体不可用”，而是“workspace 结构已收敛、根 build 入口已修复、CLI、utils 包级构建与样例入口健康，但 `@stratix/utils` 迁回后的根级 11 包构建仍需重验，根 test 仍不稳定”。
+当前项目的真实状态不是“整体不可用”，而是“workspace 结构已收敛、独立 `@stratix/utils` 和 `@stratix/tasks` 已删除且公共工具能力归入 core、`@stratix/create` 与 `@stratix/forge` 边界清晰、`@stratix/core` 破坏性应用发现重构、Phase 1 executor 删除、Phase 2 Contract-first/DI doctor 基础能力和 OpenAPI/typed-client/contract-test/plugin-diagnostics 扩展工作流通过，Phase 3/4/5 的 module governance、testing platform 和 production baseline 已落地，Phase 6 发布准备门禁已把 workspace 级 supported build/test/docs/security/pack/API/release-surface/offline/registry 串成可重复流程且本地真实执行已通过，`@stratix/database` 单包构建与测试通过，根级 supported build/test/lint 质量门通过”。
 
 可以明确成立的结论：
 
 - monorepo 实体存在且结构清晰
 - workspace 现在只包含公共 `@stratix/*` 包，不再混入模板副本型应用
-- 当前依赖基线已整体切到 Node 24 / pnpm 10.33 / TypeScript 6
-- `@stratix/cli` 是真实可构建、可执行的入口
-- `@stratix/utils` 迁回 `packages/utils` 后包级构建可通过
-- `examples/web-admin-preview` 是真实可安装、可构建、可测试、可预览的 CLI 输出样例
-- 根 `pnpm build` 已恢复成可信入口
-- 根 `pnpm build:all` 已在 `@stratix/utils` 迁回前的公共包图范围内通过；11 包范围仍需重验
-- 根 `pnpm test` 目前首先暴露的是 workspace test profile 与包级套件的稳定性问题
-- 离线安装与发布口径仍需治理
+- 当前依赖基线已整体切到 Node 24 / pnpm 11.9 / TypeScript 7.0.2 / Oxlint 1.75
+- `@stratix/create` 是真实可构建、可执行的轻量创建入口
+- `@stratix/forge` 是真实可构建、可执行的项目内工程入口
+- `@stratix/core` 通过 `@stratix/core/utils` 与 `@stratix/core/async`、`@stratix/core/data`、`@stratix/core/functional` 等子路径承接共享工具能力
+- `@stratix/core` 应用级 discovery 已收敛为 `config.discovery` + `ApplicationDiscoveryPipeline`；executor 不再属于 core 生产概念面；单包 build、typecheck、Vitest 全量套件通过
+- `@stratix/core` 已提供 route contract extraction、contract diagnostics、OpenAPI document generation、DI graph 和 DI diagnostics 的基础 API，并通过 `@stratix/core/contracts`、`@stratix/core/diagnostics` 暴露；应用 discovery 和插件 AutoDI 可生成统一 `RegistrationPlan`，应用 DI token 与插件 adapter root token 通过 plan token registrar 注册和记录，DI graph / missing dependency diagnostics 携带 plan metadata，DI graph node 会标记 `explicit` / `inferred` / `unknown` confidence。
+- `@stratix/core` 已提供统一错误 envelope 契约，导出 `ERROR_ENVELOPE_SCHEMA` 与 `createErrorEnvelope()`，bootstrap 对请求校验错误、404 和 response schema 序列化失败使用同一 envelope。
+- `@stratix/core` 已提供 plugin adapter token 诊断，能报告重复 adapter name 与根容器 token 冲突。
+- `@stratix/core` 已提供 Phase 5/P2+ production baseline：`discovery.productionManifest` 可在启动期读取并校验 `.stratix/production-manifest.json`，把 artifact 暴露到应用实例，在 `skipRuntimeDiscovery: true` 时跳过应用级 runtime glob discovery，并在 `registerFromManifest: true` 时优先按 v2 manifest `compiledFile` 注册 DI 和路由，v1 manifest 继续按 source files 兼容注册；`config.observability` 提供 request/trace id、health/readiness/liveness、metrics、traces、metrics/tracing provider 和 health contributor；`config.security` 提供 body limit、CORS、headers、内置 rate limit 和 provider-backed rate limit。
+- `@stratix/devtools` 已提供 production views：routes、DI、plugins、redacted config、health 和 traces。
+- `@stratix/forge` 已提供 `stratix doctor di`、`stratix di graph --format json|mermaid`、`stratix doctor plugins`、`stratix graph plugins --format json|mermaid`、`stratix build-manifest`、project/workspace scope `stratix release gate`、`stratix openapi generate` 和支持 response types、path/query/body/header 参数、auth provider、hooks 的 `stratix openapi client`；`doctor plugins` 会校验 manifest schema、requires、重复 provides，并在可静态判断时校验 `provides` 是否由真实 adapter token 支撑；API/resource 模板开始输出显式 `@Service()`、`@Repository()`、operationId 与 response schema。
+- `@stratix/create` 保持零运行时依赖；`@stratix/forge` 仅增加同源 Oxc parser 作为 TypeScript 源码分析运行时，不再调用 TypeScript Compiler API。create 生成出的目标项目依赖 `@stratix/core` 并把 `@stratix/forge` 作为 devDependency，create/forge 均不依赖任何 Stratix 项目包。
+- `@stratix/testing` 已提供 `contractTest()` 基线，可基于 route contract 验证 app.inject 响应状态和 schema。
+- `examples/web-admin-preview` 是真实可安装、可构建、可测试、可预览的模板输出样例
+- 根 `pnpm build` 是 supported 构建入口，当前通过
+- `@stratix/database` 单包构建与测试通过；根 `pnpm run build:supported` 通过
+- 根 `pnpm test` 是 supported 测试入口，当前通过
+- Phase 6 workspace release gate 已将 supported build/test/docs/security/pack/API/release-surface/offline/registry 串成可重复发布准备门禁；root quality gate 另含 packed core API smoke 与 generated API consumer smoke
+- 离线安装已恢复可重复验证；public npmjs exact-version registry gate 已纳入发布准备流程
 
 ## 7. 对当前阶段的判断
 
-建议把软件工厂当前阶段定为 `ANALYSIS`。
+建议把软件工厂当前阶段定为 `PHASE_6_BASELINE_CLOSED_RELEASE_DEFERRED`。
 
 理由：
 
-- 代码已经大量存在，不需要回到 brainstorm 或从零设计
-- workspace 形态已经收敛，但根验证链、发布面、测试策略和包图健康度仍需从事实中回收
-- 直接进入实现会放大“脚本声明”和“真实可用性”之间的偏差
+- Phase 1-5 的 core/runtime/tooling 能力已完成并通过对应包级验证
+- 问题 3/4 之后的开发阶段硬化已完成当前 workitem 收口；`TASK-001` 已补齐 CLI 接口、发布检查清单和运维手册
+- 当前复评必须优先使用本地可执行证据：core typecheck、core coverage ratchet、packed API smoke、public API contract、config/schema 正负测试与 runtime stability 测试
+- 历史 `95/100` 只能视为旧 supported release-scope 口径，不能直接复用为本轮开发硬化后的最终评分，也不能写成全包覆盖率或 GA 事实
+- `@stratix/tasks` 已物理移除，不再作为本轮发布阻断项或 publish 候选
+- npm publish、exact release tags 指向最终发布提交并推送 origin、最终 release notes/GA 口径属于最后发布阶段；远端 Quality Gate run `28234054546` 已为本次 P0 修复提交提供 RC 候选证据
 
-阶段出口前至少需要完成：
+发布操作前至少需要完成：
 
-- 将现有能力整理为结构化 `REQ/NFR`
-- 关闭首批根级 `BUG`
-- 统一 release surface 的事实口径
-- 给出可靠的根级验证策略
+- 确认 `.github/workflows/quality-gate.yml` 在最终发布 commit 上完整通过
+- 10 个 exact release tags 指向 final release commit 并推送到 origin
+- 由维护者使用 npm 凭证执行 public npm publish
 
 ## 8. 首批建议工作项
 
 - `BUG-001`: 根 `build` 入口已修复，可转 CLOSED
-- `BUG-002`: `@stratix/core` 构建兼容问题已修复，剩余测试回归待继续收敛
-- `BUG-003`: 明确并修复离线安装基线不可重复的问题
-- `BUG-004`: 修复 workspace test profile 与多包测试链不稳定的问题
-- `CR-001`: 对齐 README、git tag、npm registry 与本地版本声明的发布口径
-- `TASK-001`: 完成历史项目 requirements upgrade 与设计基线补齐
-- `TASK-002`: 建立统一的根级验证命令和 CI profile
+- `BUG-002`: `@stratix/core` 构建、类型检查、测试与 coverage ratchet 已恢复，可转 CLOSED
+- `BUG-003`: 离线安装基线已恢复，可转 CLOSED
+- `BUG-004`: supported workspace test profile 本地已恢复；远端 Quality Gate run `28234054546` 已在 `.env.example.tpl` 模板跟踪修复后通过
+- `CR-001`: README、exact tag 规则、public npmjs registry 事实与本地版本声明已对齐，可转 CLOSED
+- `TASK-001`: 历史项目 requirements upgrade 与设计基线已补齐并关闭
+- `TASK-002`: 统一根级验证命令和 CI profile 已建立；最新远端 Quality Gate 绿灯证据为 run `28234054546`
 
 ## 9. 变更记录
 
-| 日期 | 变更内容 | 变更人 |
-|---|---|---|
-| 2026-03-28 | 初版当前状态分析，纳入代码、发布与运行验证事实 | Codex |
-| 2026-03-28 | 按迁移后现实更新：移除 workspace app，新增 CLI 预览样例，并重写验证结论 | Codex |
-| 2026-03-28 | 记录 `@stratix/utils` 硬合并后第二阶段结果：`core/database/redis/ossp/queue/tasks/was-v7` 顺序构建通过 | Codex |
-| 2026-03-29 | 记录最新依赖升级结果：Node 24 / pnpm 10.33 基线完成，CLI 与样例通过，根级阻塞收敛到 `@stratix/core` | Codex |
-| 2026-03-29 | 回写升级后真实状态：根 `build` 与 `build:all` 已恢复，测试阻塞前移到 workspace test profile 与逐包套件复核 | Codex |
-| 2026-06-16 | 记录 `@stratix/utils` 从 legacy 归档目录迁回 `packages/utils`，同步 lockfile importer 与未完成的定向测试结果 | Codex |
+2026-07-24 使用本机配置的 Aliyun `@stratix` registry 执行
+`pnpm publish --no-git-checks`，发布 `@stratix/core@1.1.2`、
+`@stratix/create@1.1.2`、`@stratix/forge@1.1.4`；精确版本与 `latest`
+dist-tag 反查均一致。本次未创建或推送 exact git tags，也未重发其余包。
+
+同日 `BUG-007` 将 `@stratix/database` 的 Core peer 从打包后精确版本改为
+`^1.1.0`，并发布 `@stratix/database@1.1.1` 到同一 Aliyun registry。
+Database 49/49 tests、完整 `quality:release`、真实 publish、精确版本、
+`latest` 与发布后 peer 反查通过。用户级 `@stratix:registry` 会覆盖普通
+`--registry` 的 scoped package 查询；用 `NPM_CONFIG_USERCONFIG=/dev/null`
+中和用户配置后，真实 public npmjs 返回 404，本次未写入 public npmjs。
+
+同日 `BUG-008` 发现 PR #1 的 push run `30072899893` 与 pull_request run
+`30072911232` 在 generated consumer smoke 失败：旧 smoke 隐式使用开发机
+用户级 Aliyun registry，GitHub runner 则从 npmjs 安装不到
+`@stratix/core@^1.1.0`。修复后临时项目通过
+`pnpm-workspace.yaml#overrides` 使用当前 workspace Core，模板依赖仍保持
+`^1.1.0`。禁用用户 npm 配置并显式使用 npmjs 的 smoke 与完整
+`quality:release` 均通过；本次不发布 npmjs 或 Aliyun 包。
+
+| 日期       | 变更内容                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | 变更人 |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 2026-03-28 | 初版当前状态分析，纳入代码、发布与运行验证事实                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Codex  |
+| 2026-03-28 | 按迁移后现实更新：移除 workspace app，新增模板预览样例，并重写验证结论                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Codex  |
+| 2026-03-28 | 记录 `@stratix/utils` 硬合并后第二阶段结果：`core/database/redis/ossp/queue/tasks/was-v7` 顺序构建通过                                                                                                                                                                                                                                                                                                                                                                                                                    | Codex  |
+| 2026-03-29 | 记录最新依赖升级结果：Node 24 / pnpm 10.33 基线完成，工具链与样例通过，根级阻塞收敛到 `@stratix/core`                                                                                                                                                                                                                                                                                                                                                                                                                     | Codex  |
+| 2026-03-29 | 回写升级后真实状态：根 `build` 与 `build:all` 已恢复，测试阻塞前移到 workspace test profile 与逐包套件复核                                                                                                                                                                                                                                                                                                                                                                                                                | Codex  |
+| 2026-06-16 | 记录 `@stratix/utils` 从 legacy 归档目录迁回 `packages/utils`，同步 lockfile importer 与未完成的定向测试结果                                                                                                                                                                                                                                                                                                                                                                                                              | Codex  |
+| 2026-06-16 | 删除独立 `@stratix/utils` 包，将共享工具边界收敛到 `@stratix/core/utils`，并记录 10 包强制构建通过与 core 测试失败现状                                                                                                                                                                                                                                                                                                                                                                                                    | Codex  |
+| 2026-06-17 | 记录 `@stratix/database` database-only clean breaking refactor：移除 `DatabaseAPI`、模块级 manager/global connection helpers，单包 build 与初始 41 项测试通过；`@stratix/tasks` 旧引用未迁移                                                                                                                                                                                                                                                                                                                              | Codex  |
+| 2026-06-17 | 记录 `TASK-003` 95+ 质量门：supported build/test 通过，database 48 项、core 199 项、was-v7 120 项测试通过，docs-stratego 校验 82 页通过；`@stratix/tasks` 保持废弃排除项                                                                                                                                                                                                                                                                                                                                                  | Codex  |
+| 2026-06-17 | 记录 Core 概念模型最终决策：`executor` 从 core 破坏性删除且不保留兼容层，`@stratix/tasks` 保持冻结/待废弃，Module 定义为代码项目治理边界；docs-stratego 校验 84 页通过                                                                                                                                                                                                                                                                                                                                                    | Codex  |
+| 2026-06-17 | 将 Core 概念模型文档扩展为完整演进方案：纳入应用启动流程、服务/接口/注入链路、应用级 discovery 新旧管道、生产级 Node.js 框架演进方向、分项评分和任务计划；docs-stratego 校验 84 页通过                                                                                                                                                                                                                                                                                                                                    | Codex  |
+| 2026-06-18 | 执行 Core 概念模型 Phase 1：删除 core executor decorator、metadata、discovery、plugin registration、公有导出和旧工具链 executor 生成模板；core 24/175 测试、工具链 21 项测试、supported build/test 均通过                                                                                                                                                                                                                                                                                                                 | Codex  |
+| 2026-06-18 | 执行 Phase 2 基础能力：新增 route contract/OpenAPI helpers、DI graph/diagnostics、`doctor di`、`di graph` 和显式 DI 模板；core 26/182 测试、工具链 27 项测试、supported build/test 均通过                                                                                                                                                                                                                                                                                                                                 | Codex  |
+| 2026-06-18 | 执行 Phase 2 扩展工作流：新增零依赖 OpenAPI forge command、typed client、`@stratix/testing` `contractTest()` 和 core plugin adapter token diagnostics；core 26/184 测试、forge 31 项测试、testing 2/5 测试通过                                                                                                                                                                                                                                                                                                            | Codex  |
+| 2026-06-18 | 执行 create/forge 工具边界拆分：新增 `@stratix/create`，将本地项目工具包更名为 `@stratix/forge`，创建入口从 forge 中移除；supported build 10/10、supported test 12 tasks 通过                                                                                                                                                                                                                                                                                                                                             | Codex  |
+| 2026-06-18 | 继续 Phase 2/3 Contract-first 闭环：新增统一错误 envelope schema/factory、bootstrap response schema failure 归一化和 `contractTest()` 错误响应 schema 复用；core 27/188 测试、testing 2/6 测试通过                                                                                                                                                                                                                                                                                                                        | Codex  |
+| 2026-06-18 | 完成 Phase 5 runtime production manifest consumption 最小基线：`@stratix/core` 支持 `discovery.productionManifest` 启动读取、严格校验、暴露 artifact，并可跳过 runtime glob discovery；core 27/191 测试通过                                                                                                                                                                                                                                                                                                               | Codex  |
+| 2026-06-18 | 完成 Phase 5 production baseline：manifest-driven registration、observability/security preset、DevTools production views 与 release gate；core 27/194、devtools 2、forge 39 项测试通过                                                                                                                                                                                                                                                                                                                                    | Codex  |
+| 2026-06-18 | 进入 Phase 6 发布准备门禁：新增 `stratix release gate --scope workspace --dry-run`，forge 41 项测试通过                                                                                                                                                                                                                                                                                                                                                                                                                   | Codex  |
+| 2026-06-18 | 完成 Phase 6 发布准备门禁：offline install 通过，release gate pack artifact 与 public npmjs exact-version registry gate 落地，forge 45 项测试通过，`@stratix/tasks` 固定为 1.1.x 冻结/废弃包                                                                                                                                                                                                                                                                                                                              | Codex  |
+| 2026-06-19 | 完成 98 目标优化闭环：core production manifest strict registration、plugin/config fail-fast、coverage ratchet、release metadata gate 与真实 workspace release gate `--include-offline-install` 通过；forge 48 项、core 203 项测试通过                                                                                                                                                                                                                                                                                     | Codex  |
+| 2026-06-19 | 追加完整发布门禁结果：`stratix release gate --scope workspace --include-offline-install --include-registry` 通过，public npmjs 确认 10 个 supported exact versions 均可发布                                                                                                                                                                                                                                                                                                                                               | Codex  |
+| 2026-06-19 | 完成闭门复评 P2 生产一致性基线：forge `build-manifest` 默认生成 production manifest v2，release gate 校验 source/compiled hash，core strict 模式加载 v1/v2 并按 v2 compiled file 注册，新增 manifest v2 单元/启动集成/并发稳定性测试；core 31/221、forge 49 测试通过，coverage ratchet 上调                                                                                                                                                                                                                               | Codex  |
+| 2026-06-19 | 完成 P2+ 生产硬化并达到本地生产评分 95：core 新增 metrics/tracing provider、health contributor、readiness/liveness 分离和 rate-limit provider；forge `doctor plugins` 校验 manifest `provides` 与 adapter token 一致性；core 31/224、forge 51 测试通过，coverage ratchet 继续通过                                                                                                                                                                                                                                         | Codex  |
+| 2026-06-20 | 完成闭门评审修复 batch 1/2 并通过最终本地门禁：发布门禁纳入 lint 和 registry、废弃 tasks preset 默认禁止、生成配置移除占位密钥并对齐 `.env.example`、生成器默认防覆盖、production manifest `.stratix` 根目录修复、`HttpError` 公共 API 导出、AutoDI fail-fast、`close()` 生命周期对齐、strict `compiledOnly` manifest 校验；固定风险评分 rubric `core-rc-remediation-v1`，batch 1/2 后综合风险证据分 87/100；create 6 项、forge 52 项、core 31/232 项、OSSP 5 项、WAS 21 项、`quality:release` 与真实 `release:gate` 通过 | Codex  |
+| 2026-06-20 | 完成问题 3/4 第一批修复：root API 收敛为应用稳定入口，新增 `@stratix/core/plugin`、`contracts`、`diagnostics`、`internal` 正式 subpath，迁移 supported 生态包与生成模板导入，补 request identity 模块、AutoDI strict anonymous plugin rejection、DI graph confidence 和 prefix-aware route contracts；core 32/237 项测试通过，supported typecheck/lint 与生态定向测试通过                                                                                                                                                 | Codex  |
+| 2026-06-20 | 继续开发阶段硬化：`ApplicationBootstrap` 拆出 observability/security 安装器，`internal` 子路径显式白名单，config schema 移除 `z.any()` / `catchall(z.any())`，workspace pack gate 验证 exports 子路径 tarball 文件，补 AutoDI strict 正向、trace/request id、route prefix normalization 边界测试；core 定向 17 项、config 10 项、forge 54 项测试与 core/forge 类型检查通过；远端 CI/npm publish 延后到最后发布阶段                                                                                                        | Codex  |
+| 2026-06-20 | 继续开发阶段硬化并修复 packed consumer 缺陷：`ApplicationBootstrap` 进一步拆出 error handling、request context、plugin loader、eager initialization 与 lifecycle shutdown；修复 `StratixApplication.restart()` 返回新应用且不复用旧 shutdown handler，修复 web `port: 0` 被默认端口吞掉的问题；core coverage 34/261 通过，`application-bootstrap.ts` lines 75.65 / branches 55.33，`smoke:core-api` 通过并确认 `pino-pretty` 为运行时依赖；root quality 和 GitHub quality gate 已纳入 packed API smoke                    | Codex  |
+| 2026-06-20 | 开发态复验补齐：`pnpm lint`、`pnpm run typecheck:supported`、`pnpm run build:supported`、`pnpm run test:supported`、`pnpm --filter @stratix/core run test:coverage`、`pnpm run smoke:core-api`、`pnpm run docs:validate` 与 `pnpm run quality:release` 均通过；`docs:validate` 改为仓库内包装脚本，forge project/workspace release gate docs 检查也统一委托该入口，避免开发机缺少全局 `uvx` 时产生假失败                                                                                                                  | Codex  |
+| 2026-06-23 | 硬删除 `@stratix/tasks`：移除 `packages/tasks`、create/forge `tasks` preset 模板、根脚本中的 tasks 排除过滤和 release gate 排除分支；刷新 `pnpm-lock.yaml`；`pnpm --filter @stratix/create test` 5 项、`pnpm --filter @stratix/forge test` 54 项、create/forge typecheck、`pnpm run quality:release` 和 `pnpm run release:gate` 均通过，发布面为 10 个公共包且不再包含 tasks                                                                                                                                              | Codex  |
+| 2026-06-26 | 修复远端 Quality Gate P0：`.gitignore` 放行 `.env.example.tpl`，确保 create/forge `admin-mock` preset 需要的 `.env.example.tpl` 模板可进入 Git；run `28234054546` 已通过，发布结论更新为 RC 候选但非 GA                                                                                                                                                                                                                                                                                                                   | Codex  |
+| 2026-07-04 | 关闭 `TASK-001` 文档基线：补齐 create/forge CLI 接口矩阵、发布检查清单、运维手册、部署运行说明和需求追踪矩阵；docs-stratego 校验 89 页 / 0 contracts 通过；当前阶段更新为基线关闭、发布外部证据 deferred                                                                                                                                                                                                                                                                                                                  | Codex  |
+| 2026-07-24 | 升级根工作区和各 workspace 包声明的全部第三方直接依赖并刷新锁文件；TypeScript 因 `typescript-eslint@8.65.0` 的 `<6.1` 上限保留在 `6.0.3`，Vitest `4.1.10` 定向使用 Vite `8.0.16` 以规避 `8.1.5` 未转译 Core legacy decorators 的回归，DevTools client 继续使用 Vite `8.1.5`；frozen install 与完整 `quality:release` 通过                                                                                                                                                                                                 | Codex  |
+| 2026-07-24 | 完成 `CR-002` 工具链迁移：根工作区、所有包、Create 模板与 Web Admin preview 的 TypeScript 声明统一为 `7.0.2`，活跃 ESLint 生态完整移除并改用 Oxlint `1.75.0` + `oxlint-tsgolint` `7.0.2001`；Forge 静态路由分析改用 `oxc-parser@0.141.0` 以适配 TypeScript 7 不再暴露旧 JavaScript Compiler API；根/preview frozen install、preview lint/typecheck/build/test 与完整 `quality:release` 通过                                                                                                                                 | Codex  |
+| 2026-07-24 | 完成 `BUG-007`：`@stratix/database@1.1.1` 将 Core peer 修正为 `^1.1.0` 并发布到配置的 Aliyun registry；Database 49/49 tests、完整 `quality:release`、精确版本、`latest` 和发布后 peer 反查通过；真实 public npmjs 查询返回 404                                                                                                                                                                                                                                          | Codex  |
+| 2026-07-24 | 修复 `BUG-008`：generated consumer smoke 通过临时 `pnpm-workspace.yaml` override 使用 workspace Core，不再隐式依赖用户级 Aliyun registry；无用户 npm 配置且显式使用 npmjs 的 smoke 与完整 `quality:release` 通过，PR #1 远端复验待推送                                                                                                                                                                                                    | Codex  |

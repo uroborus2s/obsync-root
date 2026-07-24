@@ -3,11 +3,14 @@
 
 import { AwilixContainer } from 'awilix';
 import type { FastifyInstance, FastifyServerOptions } from 'fastify';
-import type { ApplicationAutoDIConfig } from '../bootstrap/application-auto-di.js';
 import { BootstrapStatus } from '../bootstrap/index.js';
+import type { ApplicationDiscoveryConfig } from '../discovery/interfaces.js';
+import type { LoadedProductionManifest } from '../discovery/production-manifest.js';
 import type { Logger } from '../logger/index.js';
 import type { AutoLoadConfig } from './auto-load.js';
 import type { PluginConfig } from './plugin.js';
+
+export type { ApplicationDiscoveryConfig };
 
 /**
  * Stratix 运行选项
@@ -120,7 +123,7 @@ export interface LoggerConfig {
     maxFiles?: number;
   };
   /** 自定义传输配置 */
-  transport?: any;
+  transport?: unknown;
   /** 是否启用请求日志 */
   enableRequestLogging?: boolean;
   /** 是否启用性能监控 */
@@ -148,6 +151,101 @@ export interface CacheConfig {
     password?: string;
     db?: number;
     ttl?: number;
+  };
+}
+
+export interface StratixRequestObservation {
+  requestId?: string;
+  traceId?: string;
+  method: string;
+  url: string;
+  statusCode: number;
+  durationMs: number;
+  timestamp: string;
+}
+
+export interface StratixMetricsProvider {
+  recordRequest?(event: StratixRequestObservation): Promise<void> | void;
+  snapshot?(): Promise<unknown> | unknown;
+}
+
+export interface StratixTracingProvider {
+  recordTrace?(event: StratixRequestObservation): Promise<void> | void;
+}
+
+export interface StratixHealthCheckResult {
+  status: 'healthy' | 'unhealthy';
+  details?: unknown;
+}
+
+export interface StratixHealthContributor {
+  name: string;
+  check(): Promise<StratixHealthCheckResult> | StratixHealthCheckResult;
+}
+
+export interface StratixRateLimitInput {
+  key: string;
+  max: number;
+  windowMs: number;
+  now: number;
+  request: unknown;
+}
+
+export interface StratixRateLimitDecision {
+  allowed: boolean;
+  retryAfterSeconds?: number;
+}
+
+export interface StratixRateLimitProvider {
+  consume(
+    input: StratixRateLimitInput
+  ): Promise<StratixRateLimitDecision> | StratixRateLimitDecision;
+}
+
+export interface ObservabilityConfig {
+  enabled?: boolean;
+  requestIdHeader?: string;
+  traceIdHeader?: string;
+  health?: {
+    enabled?: boolean;
+    basePath?: string;
+    contributors?: StratixHealthContributor[];
+  };
+  metrics?: {
+    enabled?: boolean;
+    path?: string;
+    provider?: StratixMetricsProvider;
+  };
+  traces?: {
+    enabled?: boolean;
+    maxEntries?: number;
+    provider?: StratixTracingProvider;
+  };
+}
+
+export interface SecurityConfig {
+  enabled?: boolean;
+  bodyLimit?: number;
+  cors?: {
+    enabled?: boolean;
+    origins?: string | string[];
+    credentials?: boolean;
+    methods?: string[];
+  };
+  headers?:
+    | boolean
+    | {
+        enabled?: boolean;
+        contentSecurityPolicy?: string | boolean;
+        frameOptions?: string;
+        referrerPolicy?: string;
+      };
+  rateLimit?: {
+    enabled?: boolean;
+    max?: number;
+    windowMs?: number;
+    trustProxy?: boolean;
+    provider?: StratixRateLimitProvider;
   };
 }
 
@@ -186,14 +284,20 @@ export interface StratixConfig {
   /** 自动加载配置 */
   autoLoad: AutoLoadConfig;
 
-  /** 应用级自动依赖注入配置 */
-  applicationAutoDI?: Partial<ApplicationAutoDIConfig>;
+  /** 应用级 discovery 配置 */
+  discovery?: ApplicationDiscoveryConfig;
 
   /** 缓存配置 */
   cache?: CacheConfig;
 
   /** 日志配置 */
   logger?: LoggerConfig;
+
+  /** 生产可观测性配置 */
+  observability?: ObservabilityConfig;
+
+  /** 生产安全基线配置 */
+  security?: SecurityConfig;
 
   /** 生命周期钩子 */
   hooks?: LifecycleHooks;
@@ -212,6 +316,9 @@ export interface StratixApplication {
   /** 配置对象 */
   config: StratixConfig;
 
+  /** 已加载的生产 manifest artifact */
+  productionManifest?: LoadedProductionManifest;
+
   /** 日志器 */
   logger: Logger;
 
@@ -228,7 +335,7 @@ export interface StratixApplication {
   stop(): Promise<void>;
 
   /** 重启方法 */
-  restart(options?: any): Promise<void>;
+  restart(options?: any): Promise<StratixApplication>;
 
   /** 添加关闭处理器 */
   addShutdownHandler(handler: () => Promise<void>): void;

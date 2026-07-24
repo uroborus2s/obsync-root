@@ -3,7 +3,6 @@
 
 import type { AwilixContainer } from 'awilix';
 import fastify, {
-  type FastifyError,
   type FastifyInstance,
   type FastifyServerOptions
 } from 'fastify';
@@ -13,7 +12,8 @@ import { get, getNodeEnv, isProduction } from '../utils/environment/index.js';
 import { asValue, createContainer, InjectionMode } from 'awilix';
 import fs from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { HttpError, StratixError } from '../errors/index.js';
+import { ConfigurationError, StratixError } from '../errors/index.js';
+import type { LoadedProductionManifest } from '../discovery/production-manifest.js';
 import type {
   ConfigOptions,
   EnvOptions,
@@ -23,6 +23,20 @@ import type {
 } from '../types/index.js';
 import { decryptConfig } from '../utils/crypto.js';
 import { ErrorUtils } from '../utils/error-utils.js';
+import { registerControllerClassRoutes } from '../plugin/controller-registration.js';
+import { ApplicationDiscoveryRegistrar } from './discovery-registrar.js';
+import { executeEagerInitialization } from './eager-initialization.js';
+import { setupErrorHandling } from './error-handling.js';
+import {
+  cleanupRuntimeResources,
+  executeShutdownHandlers,
+  setupProcessGracefulShutdown
+} from './lifecycle-shutdown.js';
+import { setupObservability } from './observability.js';
+import { loadConfiguredPlugins } from './plugin-loader.js';
+import { getRequestId as getAssignedRequestId } from './request-identity.js';
+import { setupRequestContext } from './request-context.js';
+import { setupSecurity } from './security.js';
 
 /**
  * 启动阶段
@@ -70,17 +84,14 @@ const DEFAULT_CONFIG_FILENAME = 'stratix.config';
  */
 const CONFIG_FILE_EXTENSIONS = ['.ts', '.js', '.mjs', '.cjs'];
 
-type FastifyHandledError = Partial<FastifyError> & {
-  validation?: unknown;
-  code?: string;
-  statusCode?: number;
-  message?: string;
-  details?: unknown;
-};
-
-type EagerInitializable = {
-  initialize?: () => unknown | Promise<unknown>;
-};
+function isDirectConfig(value: unknown): value is StratixConfig {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'server' in value &&
+    'plugins' in value
+  );
+}
 
 /**
  * 应用启动器类
@@ -97,6 +108,7 @@ export class ApplicationBootstrap {
   private shutdownHandlers: Array<() => Promise<void>> = [];
   private isShuttingDown = false;
   private fastifyInstance: FastifyInstance | null = null;
+  private routesFrozen = false;
   private wrapError: (error: unknown, additionalContext?: string) => Error;
   private safeExecute: <T>(
     operation: string,
@@ -111,17 +123,25 @@ export class ApplicationBootstrap {
       'ApplicationBootstrap',
       logger
     );
-    this.safeExecute = ErrorUtils.createSafeExecutor(
+    this.safeExecute = ErrorUtils.createSafeRunner(
       'ApplicationBootstrap',
       logger
     );
   }
 
   /**
-   * 启动应用 (传统版本 - 保持向后兼容)
+   * 启动应用
    */
   async bootstrap(options?: StratixRunOptions): Promise<StratixApplication> {
     const startTime = Date.now();
+    this.status = {
+      phase: BootstrapPhase.INITIALIZING,
+      startTime: new Date()
+    };
+    this.routesFrozen = false;
+    this.shutdownHandlers = [];
+    this.isShuttingDown = false;
+    this.fastifyInstance = null;
 
     try {
       this.updateStatus(BootstrapPhase.INITIALIZING);
@@ -141,32 +161,49 @@ export class ApplicationBootstrap {
       );
 
       // 4. 加载配置（传入敏感配置参数）
-      const config = await this.loadConfiguration(
+      const loadedConfig = await this.loadConfiguration(
         sensitiveConfig,
-        processedOptions.configOptions
+        processedOptions.config ?? processedOptions.configOptions
       );
+      const config = this.applyRuntimeOverrides(loadedConfig, processedOptions);
+      const discoveryRegistrar = this.createApplicationDiscoveryRegistrar();
+      const productionManifest =
+        discoveryRegistrar.loadConfiguredProductionManifest(config);
 
       // 5. 设置容器
       const container = await this.setupContainer(config);
 
       // 6. 初始化 Fastify（所有应用类型都需要，用于插件系统）
-      const fastifyInstance = await this.initializeFastify(config, container);
+      const fastifyInstance = await this.initializeFastify(
+        config,
+        container,
+        productionManifest
+      );
 
       // 8. 加载插件
       await this.loadPlugins(config, fastifyInstance);
 
-      // 8.1 🎯 执行应用级自动依赖注入（包括路由注册）
-      await this.performApplicationLevelAutoDI(
+      // 8.1 执行应用级发现与注册（包括控制器路由注册）
+      await discoveryRegistrar.register(
         config,
         container,
-        fastifyInstance
+        fastifyInstance,
+        productionManifest
       );
 
       // 9. 启动应用（根据应用类型选择启动方式）
-      await this.startApplication(fastifyInstance, config, appType);
+      await this.startApplication(
+        fastifyInstance,
+        config,
+        appType,
+        processedOptions
+      );
+      this.routesFrozen = true;
 
       // 10. 设置优雅关闭
-      this.setupGracefulShutdown(processedOptions.shutdownTimeout || 10000);
+      if (processedOptions.gracefulShutdown !== false) {
+        this.setupGracefulShutdown(processedOptions.shutdownTimeout || 10000);
+      }
 
       const duration = Date.now() - startTime;
       this.updateStatus(BootstrapPhase.READY, { duration, appType });
@@ -182,12 +219,13 @@ export class ApplicationBootstrap {
         });
       }
 
-      // 12. 创建应用实例 - 确保日志器统一性
+      // 12. 创建应用实例 - 使用同源 Pino logger
       const application: StratixApplication = {
         fastify: fastifyInstance as any,
         diContainer: container,
         config,
-        logger: this.logger, // 使用统一的日志器实例（与 Fastify 相同）
+        productionManifest,
+        logger: this.logger,
         status: this.status,
         type: appType,
         instanceId: processedOptions.instanceId || 'default',
@@ -195,14 +233,38 @@ export class ApplicationBootstrap {
           // 正确的停止流程：先执行应用级停止逻辑，再关闭 Fastify
           await this.stop();
         },
-        restart: async (options?: any) => {
-          await this.restart({ ...processedOptions, ...options });
-        },
+        restart: async (options?: any) =>
+          await this.restart({ ...processedOptions, ...options }),
         addShutdownHandler: (handler: () => Promise<void>) =>
           this.addShutdownHandler(handler),
         registerController: async (controllerClass: any) => {
-          // TODO: 实现控制器注册逻辑
-          return controllerClass;
+          if (this.routesFrozen) {
+            throw new ConfigurationError(
+              'Controller registration must happen before Fastify is ready. Use config.discovery or hooks.afterFastifyCreated for startup-time route registration.',
+              {
+                controllerName: controllerClass?.name
+              }
+            );
+          }
+
+          try {
+            return await registerControllerClassRoutes(
+              fastifyInstance,
+              container,
+              controllerClass,
+              config.discovery?.routing
+            );
+          } catch (error) {
+            throw new ConfigurationError(
+              'Controller registration must happen before Fastify is ready. Use config.discovery or hooks.afterFastifyCreated for startup-time route registration.',
+              {
+                controllerName: controllerClass?.name,
+                originalMessage:
+                  error instanceof Error ? error.message : String(error)
+              },
+              error
+            );
+          }
         },
         inject: async (options: any) => {
           return await fastifyInstance.inject(options);
@@ -214,7 +276,7 @@ export class ApplicationBootstrap {
           return fastifyInstance.server?.listening || false;
         },
         close: async () => {
-          await fastifyInstance.close();
+          await this.stop();
         },
         getUptime: () => {
           return Date.now() - application.status.startTime.getTime();
@@ -246,6 +308,10 @@ export class ApplicationBootstrap {
       // 清理已初始化的资源
       await this.safeExecute('cleanup', () => this.cleanup(), undefined);
 
+      if (error instanceof StratixError) {
+        throw error;
+      }
+
       throw this.wrapError(error, 'bootstrap');
     }
   }
@@ -271,9 +337,28 @@ export class ApplicationBootstrap {
     };
   }
 
+  private applyRuntimeOverrides(
+    config: StratixConfig,
+    options: StratixRunOptions
+  ): StratixConfig {
+    if (!options.server) {
+      return config;
+    }
+
+    const { listen: _listen, ...serverOptions } = options.server;
+
+    return {
+      ...config,
+      server: {
+        ...config.server,
+        ...serverOptions
+      }
+    };
+  }
+
   /**
-   * 验证日志器统一性
-   * 确保应用日志器与 Fastify 日志器是同一个实例
+   * 验证日志器兼容性
+   * Fastify 可能暴露同源 child logger，因此只要求两侧满足 Pino logger 契约。
    */
   private validateLoggerUnity(application: StratixApplication): void {
     if (!application.fastify) {
@@ -284,14 +369,20 @@ export class ApplicationBootstrap {
     const appLogger = application.logger;
     const fastifyLogger = application.fastify.log;
 
-    // 验证日志器实例是否相同
     if (appLogger === fastifyLogger) {
       this.logger?.debug(
         '✅ Logger unity verified: app.logger === app.fastify.log'
       );
+    } else if (
+      this.isPinoCompatibleLogger(appLogger) &&
+      this.isPinoCompatibleLogger(fastifyLogger)
+    ) {
+      this.logger?.debug(
+        '✅ Logger source verified: app.logger and app.fastify.log are compatible Pino loggers'
+      );
     } else {
       this.logger?.warn(
-        '⚠️ Logger unity check failed: app.logger !== app.fastify.log'
+        '⚠️ Logger compatibility check failed: app.logger and app.fastify.log are not compatible'
       );
       this.logger?.warn({ appLoggerType: typeof appLogger }, 'App logger');
       this.logger?.warn(
@@ -300,7 +391,6 @@ export class ApplicationBootstrap {
       );
     }
 
-    // 验证日志器是否为同一个 Pino 实例
     if (
       appLogger &&
       'version' in appLogger &&
@@ -309,6 +399,17 @@ export class ApplicationBootstrap {
     ) {
       this.logger?.debug('✅ Both loggers are Pino instances');
     }
+  }
+
+  private isPinoCompatibleLogger(logger: unknown): boolean {
+    if (!logger || typeof logger !== 'object') {
+      return false;
+    }
+
+    const candidate = logger as Record<string, unknown>;
+    return ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'child'].every(
+      (method) => typeof candidate[method] === 'function'
+    );
   }
 
   /**
@@ -324,7 +425,8 @@ export class ApplicationBootstrap {
 
     // 根据环境变量检测
     if (process.env.STRATIX_APP_TYPE) {
-      return process.env.STRATIX_APP_TYPE as 'web' | 'cli' | 'worker' | 'service';
+      return process.env.STRATIX_APP_TYPE as
+        'web' | 'cli' | 'worker' | 'service';
     }
 
     // 根据运行环境检测
@@ -355,11 +457,18 @@ export class ApplicationBootstrap {
         this.logger?.info(
           '🔐 Found sensitive configuration environment variable'
         );
+        const decryptedConfig = decryptConfig(sensitiveConfigRaw);
+
+        this.logger?.debug(
+          `✅ Successfully decrypted ${Object.keys(decryptedConfig).length} sensitive config variables`
+        );
+
+        return decryptedConfig;
       } else {
         const {
           rootDir = process.cwd(),
           override = false,
-          strict = true,
+          strict = false,
           path
         } = envOptions || {};
 
@@ -424,7 +533,10 @@ export class ApplicationBootstrap {
             // 这里实现了真正的优先级覆盖机制
             Object.assign(allEnvVars, parsed);
           } catch (error) {
-            this.logger.warn({ err: error }, `解析环境变量文件失败: ${filePath}`);
+            this.logger.warn(
+              { err: error },
+              `解析环境变量文件失败: ${filePath}`
+            );
             // 继续处理其他文件，不中断整个流程
           }
         }
@@ -445,22 +557,16 @@ export class ApplicationBootstrap {
         const expandResult = dotenvExpand.expand({ parsed: allEnvVars });
 
         if (expandResult.error) {
-          this.logger.warn({ err: expandResult.error }, '变量扩展过程中出现错误');
+          this.logger.warn(
+            { err: expandResult.error },
+            '变量扩展过程中出现错误'
+          );
         } else {
           this.logger.debug('变量扩展完成');
         }
       }
 
-      const decryptedConfig = decryptConfig(
-        get(SENSITIVE_CONFIG_ENV) as string
-      );
-
-      this.logger?.debug(
-        `✅ Successfully decrypted ${Object.keys(decryptedConfig).length} sensitive config variables`
-      );
-
-      // 返回解密后的敏感配置，不直接设置到 process.env
-      return decryptedConfig;
+      return {};
     } catch (error) {
       this.logger?.warn(
         `⚠️ Failed to decrypt sensitive config: ${error instanceof Error ? error.message : String(error)}`
@@ -494,7 +600,7 @@ export class ApplicationBootstrap {
         if (typeof require !== 'undefined' && require.main?.filename) {
           return dirname(require.main.filename);
         }
-      } catch (err) {
+      } catch {
         // 忽略错误，继续尝试其他方法
       }
 
@@ -513,9 +619,14 @@ export class ApplicationBootstrap {
    */
   private async loadConfiguration(
     sensitiveConfig: Record<string, string> = {},
-    configOptions?: string | ConfigOptions
+    configOptions?: string | ConfigOptions | StratixConfig
   ): Promise<StratixConfig> {
     this.updateStatus(BootstrapPhase.CONFIG_LOADING);
+
+    if (isDirectConfig(configOptions)) {
+      this.logger?.debug('🔧 Using direct Stratix configuration object...');
+      return this.validateConfiguration(configOptions);
+    }
 
     // 处理字符串选项（直接传入配置文件路径）
     const {
@@ -612,35 +723,47 @@ export class ApplicationBootstrap {
       this.logger?.debug('✅ Successfully loaded stratix.config.ts');
 
       const configFunction = configExport(sensitiveConfig);
-      
-      // 验证配置
-      this.logger?.debug('🔍 Validating configuration...');
-      const { StratixConfigSchema } = await import('../config/schema.js');
-      const { ConfigurationError } = await import('../errors/configuration-error.js');
-      
-      const parseResult = StratixConfigSchema.safeParse(configFunction);
-      
-      if (!parseResult.success) {
-        const errorMessages = parseResult.error.issues.map((err: any) => 
-          `- ${err.path.join('.')}: ${err.message}`
-        ).join('\n');
-        
-        this.logger?.error(`❌ Configuration validation failed:\n${errorMessages}`);
-        throw new ConfigurationError(`Configuration validation failed:\n${errorMessages}`, parseResult.error.issues);
-      }
 
-      this.logger?.debug('✅ Configuration validated successfully');
-      return parseResult.data as StratixConfig;
+      return this.validateConfiguration(configFunction);
     } catch (error) {
+      if (error instanceof StratixError) {
+        throw error;
+      }
       throw this.wrapError(error, 'loadConfiguration');
     }
+  }
+
+  private async validateConfiguration(
+    config: StratixConfig
+  ): Promise<StratixConfig> {
+    this.logger?.debug('🔍 Validating configuration...');
+    const { StratixConfigSchema } = await import('../config/schema.js');
+
+    const parseResult = StratixConfigSchema.safeParse(config);
+
+    if (!parseResult.success) {
+      const errorMessages = parseResult.error.issues
+        .map((err: any) => `- ${err.path.join('.')}: ${err.message}`)
+        .join('\n');
+
+      this.logger?.error(
+        `❌ Configuration validation failed:\n${errorMessages}`
+      );
+      throw new ConfigurationError(
+        `Configuration validation failed:\n${errorMessages}`,
+        parseResult.error.issues
+      );
+    }
+
+    this.logger?.debug('✅ Configuration validated successfully');
+    return parseResult.data as StratixConfig;
   }
 
   /**
    * 设置容器
    */
   private async setupContainer(
-    config: StratixConfig
+    _config: StratixConfig
   ): Promise<AwilixContainer> {
     this.updateStatus(BootstrapPhase.CONTAINER_SETUP);
 
@@ -657,69 +780,11 @@ export class ApplicationBootstrap {
     return this.rootContainer;
   }
 
-  /**
-   * 执行应用级自动依赖注入
-   */
-  /**
-   * 执行应用级自动依赖注入
-   */
-  private async performApplicationLevelAutoDI(
-    config: StratixConfig,
-    container: AwilixContainer,
-    fastifyInstance: FastifyInstance
-  ): Promise<void> {
-    // 🎯 执行应用级自动依赖注入
-    if (config.applicationAutoDI?.enabled !== false) {
-      try {
-        this.logger?.debug('🚀 Starting new module discovery pipeline...');
-        
-        // 1. Determine directories to scan
-        let scanDirs: string[] = [];
-        if (config.applicationAutoDI?.directories) {
-          scanDirs = config.applicationAutoDI.directories;
-        } else {
-          // Auto-detect: usually src/controllers, src/services, etc.
-          // For now, let's assume we scan the app root or specific subdirs if convention is followed.
-          // To maintain backward compatibility with `performApplicationAutoDI` which likely scanned `src`,
-          // we need to resolve the app root.
-          const appRoot = this.getEntryModulePath() || process.cwd();
-          scanDirs = [resolve(appRoot, 'src')]; // Default to src
-        }
-
-        // 2. Initialize Pipeline Components
-        // Dynamic import to avoid circular dependencies if any, and to use the new module
-        const { ModuleScanner, MetadataAnalyzer, StandardRegistrar } = await import('../discovery/index.js');
-        
-        const scanner = new ModuleScanner();
-        const analyzer = new MetadataAnalyzer();
-        const registrar = new StandardRegistrar();
-
-        // 3. Execute Pipeline
-        // Step 1: Scan
-        const loadedModules = await scanner.scan(scanDirs);
-        this.logger?.debug(`Pipeline: Scanned ${loadedModules.length} modules`);
-
-        let registeredCount = 0;
-
-        // Step 2 & 3: Analyze and Register
-        for (const module of loadedModules) {
-          const metadata = analyzer.analyze(module);
-          if (metadata) {
-            await registrar.register(metadata, container, fastifyInstance);
-            registeredCount++;
-          }
-        }
-
-        this.logger?.info(
-          `✅ Application-level auto DI completed (New Pipeline): ${registeredCount} components registered`
-        );
-
-      } catch (error) {
-        this.logger?.error({ err: error }, '❌ Application-level auto DI failed');
-        // 抛出错误，不允许应用继续启动
-        throw error;
-      }
-    }
+  private createApplicationDiscoveryRegistrar(): ApplicationDiscoveryRegistrar {
+    return new ApplicationDiscoveryRegistrar({
+      logger: this.logger,
+      getAppRoot: () => this.getEntryModulePath() || process.cwd()
+    });
   }
 
   /**
@@ -727,14 +792,16 @@ export class ApplicationBootstrap {
    */
   private async initializeFastify(
     config: StratixConfig,
-    container: AwilixContainer
+    container: AwilixContainer,
+    productionManifest?: LoadedProductionManifest
   ): Promise<FastifyInstance> {
     this.updateStatus(BootstrapPhase.FASTIFY_INIT);
-    // 构建 Fastify 选项 - 确保使用统一的日志器
+    // 构建 Fastify 选项 - 使用同源日志器
     const fastifyOptions: FastifyServerOptions = {
       ...config.server,
+      bodyLimit: config.security?.bodyLimit ?? config.server.bodyLimit,
       loggerInstance: this.logger,
-      pluginTimeout: 0 // 统一的日志器实例，确保 app.logger === app.fastify.log
+      pluginTimeout: 0
     };
 
     // 创建 Fastify 实例
@@ -745,12 +812,30 @@ export class ApplicationBootstrap {
 
     // 🎯 注册应用级 Fastify 钩子
     fastifyInstance.decorate('diContainer', container);
+    fastifyInstance.decorate('stratixConfig', config);
+    (fastifyInstance as any).decorate(
+      'stratixProductionManifest',
+      productionManifest
+    );
 
-    // 设置错误处理
-    this.setupErrorHandling(fastifyInstance);
+    setupErrorHandling(fastifyInstance, {
+      logger: this.logger,
+      getRequestId: (request) => this.getRequestId(request)
+    });
 
-    // 设置请求上下文
-    this.setupRequestContext(fastifyInstance, container);
+    // 设置生产观测和安全基线
+    setupObservability(fastifyInstance, config, {
+      logger: this.logger,
+      getRequestId: (request) => this.getRequestId(request)
+    });
+
+    // 设置请求上下文。必须在 observability 之后安装，让 request scope 中的
+    // requestId 与响应头、metrics/traces 使用同一个来源。
+    setupRequestContext(fastifyInstance, container, this.logger);
+    setupSecurity(fastifyInstance, config, {
+      logger: this.logger,
+      getRequestId: (request) => this.getRequestId(request)
+    });
 
     this.logger?.debug('Fastify initialization completed');
     if (config.hooks?.afterFastifyCreated) {
@@ -759,124 +844,8 @@ export class ApplicationBootstrap {
     return fastifyInstance;
   }
 
-  /**
-   * 设置错误处理
-   */
-  private setupErrorHandling(fastify: FastifyInstance): void {
-    // 全局错误处理器
-    fastify.setErrorHandler(async (error, _request, reply) => {
-      const handledError = error as FastifyHandledError;
-
-      // 如果响应已经发送，则记录错误但不尝试再次发送
-      if (reply.sent) {
-        this.logger?.error(
-          { err: error },
-          'Response already sent, but an error occurred'
-        );
-        return;
-      }
-
-      let statusCode = 500;
-      let errorCode = 'INTERNAL_SERVER_ERROR';
-      let message = 'Internal Server Error';
-      let details: unknown = undefined;
-
-      // 1. 处理 Stratix 定义的 HttpError
-      if (error instanceof HttpError) {
-        statusCode = error.statusCode;
-        errorCode = error.code;
-        message = error.message;
-        details = error.details;
-      } 
-      // 2. 处理其他 StratixError
-      else if (error instanceof StratixError) {
-        statusCode = 500; // 默认 500
-        errorCode = error.code;
-        message = error.message;
-        details = error.details;
-      }
-      // 3. 处理 Fastify 验证错误
-      else if (handledError.validation) {
-        statusCode = 400;
-        errorCode = 'VALIDATION_ERROR';
-        message = 'Validation Error';
-        details = handledError.validation;
-      }
-      // 4. 处理 Fastify 自带的 HTTP 错误 (具有 statusCode 属性)
-      else if (handledError.statusCode) {
-        statusCode = handledError.statusCode;
-        errorCode = handledError.code || 'HTTP_ERROR';
-        message = handledError.message || message;
-      }
-
-      // 记录错误日志 (500及以上错误记录为 error，其他为 warn/info)
-      if (statusCode >= 500) {
-        this.logger?.error({ err: error }, 'Unhandled error');
-      } else {
-        this.logger?.warn(`Handled error (${statusCode}): ${message}`);
-      }
-
-      // 构造标准响应格式
-      const response = {
-        error: {
-          code: errorCode,
-          message: message,
-          statusCode,
-          details,
-          timestamp: new Date().toISOString()
-        }
-      };
-
-      reply.status(statusCode).send(response);
-    });
-
-    // 404 处理器
-    fastify.setNotFoundHandler(async (request, reply) => {
-      reply.status(404).send({
-        error: {
-          code: 'NOT_FOUND',
-          message: 'Route not found',
-          statusCode: 404,
-          path: request.url,
-          timestamp: new Date().toISOString()
-        }
-      });
-    });
-  }
-
-  /**
-   * 设置请求上下文
-   */
-  private setupRequestContext(
-    fastify: FastifyInstance,
-    container: AwilixContainer
-  ): void {
-    if (!container) return;
-
-    // 为每个请求创建作用域
-    fastify.addHook('onRequest', async (request, _reply) => {
-      const requestId = `req_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
-
-      // 创建请求作用域
-      const requestScope = container.createScope();
-
-      // 将请求作用域附加到请求对象
-      (request as any).diScope = requestScope;
-      (request as any).requestId = requestId;
-    });
-
-    // 🔧 修复：在请求结束时清理作用域容器
-    fastify.addHook('onResponse', async (request, _reply) => {
-      try {
-        const requestScope = (request as any).diScope;
-        if (requestScope && typeof requestScope.dispose === 'function') {
-          await requestScope.dispose();
-          (request as any).diScope = null;
-        }
-      } catch (error) {
-        this.logger?.error({ err: error }, 'Failed to dispose request scope container');
-      }
-    });
+  private getRequestId(request: unknown): string | undefined {
+    return getAssignedRequestId(request);
   }
 
   /**
@@ -887,45 +856,11 @@ export class ApplicationBootstrap {
     fastify: FastifyInstance
   ): Promise<void> {
     this.updateStatus(BootstrapPhase.PLUGIN_LOADING);
-
-    if (!config.plugins || config.plugins.length === 0) {
-      this.logger?.debug('No plugins to load');
-      return;
-    }
-
-    this.logger?.info(`Loading ${config.plugins.length} plugins...`);
-
-    for (const pluginConfig of config.plugins) {
-      try {
-        // 注意：插件级生命周期现在由 withRegisterAutoDI 自动管理
-
-        // 注意：插件作用域现在由 withRegisterAutoDI 自动管理
-        // 不需要在这里手动创建作用域
-
-        // 注册插件到 Fastify（所有应用类型都支持插件系统）
-        if (pluginConfig.plugin) {
-          await fastify.register(pluginConfig.plugin, {
-            ...pluginConfig.options,
-            prefix: pluginConfig.prefix
-          });
-        }
-
-        // 注意：插件级生命周期现在由 withRegisterAutoDI 自动管理
-
-        this.logger?.debug(`Plugin "${pluginConfig.name}" loaded successfully`);
-      } catch (error) {
-        this.logger?.error(
-          { err: error, pluginName: pluginConfig.name },
-          `Failed to load plugin "${pluginConfig.name}"`
-        );
-        throw new Error(`Plugin loading failed: ${pluginConfig.name}`);
-      }
-    }
-
-    this.logger?.info('All plugins loaded successfully');
-
-    // 执行立即初始化
-    await this.executeEagerInitialization();
+    await loadConfiguredPlugins(config, fastify, {
+      logger: this.logger,
+      executeEagerInitialization: () =>
+        executeEagerInitialization(this.rootContainer, this.logger)
+    });
   }
 
   /**
@@ -934,7 +869,8 @@ export class ApplicationBootstrap {
   private async startApplication(
     fastify: FastifyInstance,
     config: StratixConfig,
-    appType: 'web' | 'cli' | 'worker' | 'service'
+    appType: 'web' | 'cli' | 'worker' | 'service',
+    options?: StratixRunOptions
   ): Promise<void> {
     // 触发应用启动前的生命周期钩子
     if (config.hooks?.beforeStart) {
@@ -942,7 +878,7 @@ export class ApplicationBootstrap {
     }
     this.updateStatus(BootstrapPhase.STARTING);
 
-    if (appType === 'web') {
+    if (appType === 'web' && options?.server?.listen !== false) {
       // Web 应用：启动 HTTP 服务器
       await this.startWebServer(fastify, config);
     } else {
@@ -972,8 +908,8 @@ export class ApplicationBootstrap {
       const { host, port } = config.server;
 
       await fastify.listen({
-        host: host || '0.0.0.0',
-        port: port || 3000
+        host: host ?? '0.0.0.0',
+        port: port ?? 3000
       });
 
       this.logger?.info(`🌐 Server listening on ${host}:${port}`);
@@ -988,7 +924,7 @@ export class ApplicationBootstrap {
    */
   private async startNonWebApplication(
     fastify: FastifyInstance,
-    config: StratixConfig
+    _config: StratixConfig
   ): Promise<void> {
     try {
       // 对于非 Web 应用，我们只需要准备 Fastify 实例
@@ -1006,28 +942,11 @@ export class ApplicationBootstrap {
    * 设置优雅关闭
    */
   private setupGracefulShutdown(shutdownTimeout?: number): void {
-    const timeout = shutdownTimeout || 10000;
-
-    const gracefulShutdown = async (signal: string) => {
-      this.logger?.info(`Received ${signal}, starting graceful shutdown...`);
-
-      try {
-        await Promise.race([
-          this.stop(),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Shutdown timeout')), timeout)
-          )
-        ]);
-
-        process.exit(0);
-      } catch (error) {
-        this.logger?.error({ err: error }, 'Error during graceful shutdown');
-        process.exit(1);
-      }
-    };
-
-    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+    setupProcessGracefulShutdown({
+      logger: this.logger,
+      stop: () => this.stop(),
+      timeout: shutdownTimeout || 10000
+    });
   }
 
   /**
@@ -1045,8 +964,7 @@ export class ApplicationBootstrap {
     this.logger?.info('🛑 Stopping Stratix application...');
 
     try {
-      // 执行自定义关闭处理器
-      await this.executeShutdownHandlers();
+      await executeShutdownHandlers(this.shutdownHandlers, this.logger);
 
       // 清理资源
       await this.cleanup();
@@ -1076,126 +994,17 @@ export class ApplicationBootstrap {
   }
 
   /**
-   * 执行关闭处理器
-   */
-  private async executeShutdownHandlers(): Promise<void> {
-    if (this.shutdownHandlers.length === 0) {
-      return;
-    }
-
-    this.logger?.debug(
-      `Executing ${this.shutdownHandlers.length} shutdown handlers...`
-    );
-
-    const results = await Promise.allSettled(
-      this.shutdownHandlers.map((handler) => handler())
-    );
-
-    results.forEach((result, index) => {
-      if (result.status === 'rejected') {
-        this.logger?.error(
-          { err: result.reason, handlerIndex: index + 1 },
-          `Shutdown handler ${index + 1} failed`
-        );
-      }
-    });
-  }
-
-  /**
    * 清理资源
    */
   private async cleanup(): Promise<void> {
-    try {
-      // 1. 关闭 Fastify 实例（如果存在）
-      if (this.fastifyInstance) {
-        this.logger?.debug('Closing Fastify instance...');
-        await this.fastifyInstance.close();
-        this.logger?.debug('Fastify instance closed');
-      }
-
-      // 2. 销毁容器
-      if (this.rootContainer) {
-        this.logger?.debug('Disposing root container...');
-        await this.rootContainer.dispose();
+    await cleanupRuntimeResources({
+      clearRootContainer: () => {
         this.rootContainer = undefined;
-        this.logger?.debug('Root container disposed');
-      }
-
-      // 3. 销毁应用级生命周期管理器
-      this.logger?.debug('Disposing application lifecycle manager...');
-
-      this.logger?.debug('Application lifecycle manager disposed');
-
-      this.logger?.debug('✅ Cleanup completed successfully');
-    } catch (error) {
-      this.logger?.error({ err: error }, '❌ Error during cleanup');
-      throw error; // 重新抛出错误，确保调用者知道清理失败
-    }
-  }
-
-  /**
-   * 执行立即初始化
-   */
-  private async executeEagerInitialization(): Promise<void> {
-    try {
-      this.logger?.debug('Starting eager initialization...');
-
-      // 目前简化实现：直接从根容器中查找需要立即初始化的服务
-      // 这是一个临时方案，后续会与插件系统完全集成
-      if (this.rootContainer) {
-        const registrations = this.rootContainer.registrations;
-        const eagerInitServices: string[] = [];
-
-        // 扫描所有注册的服务，查找标记为立即初始化的
-        for (const [name, registration] of Object.entries(registrations)) {
-          try {
-            // 尝试获取服务的RESOLVER选项
-            const resolver = (registration as any).resolver;
-            if (resolver && resolver.eagerInit) {
-              eagerInitServices.push(name);
-            }
-          } catch (error) {
-            // 忽略获取resolver选项时的错误
-          }
-        }
-
-        if (eagerInitServices.length > 0) {
-          this.logger?.info(
-            `Found ${eagerInitServices.length} services marked for eager initialization`
-          );
-
-          // 按优先级排序并立即创建实例
-          for (const serviceName of eagerInitServices) {
-            try {
-              const startTime = Date.now();
-              const instance = this.rootContainer.resolve(
-                serviceName
-              ) as EagerInitializable | undefined;
-
-              // 如果实例有initialize方法，调用它
-              if (instance && typeof instance.initialize === 'function') {
-                await Promise.resolve(instance.initialize());
-              }
-
-              const duration = Date.now() - startTime;
-              this.logger?.debug(
-                `✅ Eager initialized: ${serviceName} in ${duration}ms`
-              );
-            } catch (error) {
-              this.logger?.error(
-                { err: error, serviceName },
-                `❌ Failed to eager initialize: ${serviceName}`
-              );
-            }
-          }
-        } else {
-          this.logger?.debug('No services marked for eager initialization');
-        }
-      }
-    } catch (error) {
-      this.logger?.error({ err: error }, 'Error during eager initialization');
-      // 不抛出错误，避免影响应用启动
-    }
+      },
+      fastifyInstance: this.fastifyInstance,
+      logger: this.logger,
+      rootContainer: this.rootContainer
+    });
   }
 
   /**

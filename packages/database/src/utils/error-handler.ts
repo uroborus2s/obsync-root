@@ -1,11 +1,7 @@
 // @stratix/database 错误处理系统
 // 基于 @stratix/core 函数式错误处理
 
-import {
-  withRetry,
-  withTimeout,
-  type RetryOptions
-} from '@stratix/core/async';
+import { withRetry, withTimeout, type RetryOptions } from '@stratix/core/async';
 import {
   isLeft,
   eitherLeft as left,

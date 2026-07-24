@@ -11,7 +11,7 @@
 1. 什么时候继续用扁平目录就够了
 2. 什么时候应该升级到 `src/modules/*`
 3. 什么时候该引入 `business-repository`
-4. 什么时候才真的需要 `executor` 和 `@stratix/tasks`
+4. 什么时候才真的需要后台队列、checkpoint 或历史任务引擎迁移
 
 ## 先给你一个结论
 
@@ -20,7 +20,7 @@
 1. 先做出单表 CRUD
 2. 再按业务域拆成模块目录
 3. 再在个别复杂模块里引入 `business-repository`
-4. 最后才在确实需要时引入 `executor` 和 `tasks`
+4. 最后才在确实需要时引入队列消费、checkpoint 或单独的任务引擎迁移方案
 
 不要一开始把这四步同时做完。那样对新手来说复杂度太高，也很难定位问题。
 
@@ -116,7 +116,7 @@
 - 不会自动隔离跨模块调用
 - 不会自动把旧文件迁进去
 
-## 第 4 步：CLI 的 `module` 生成器会生成什么
+## 第 4 步：forge 的 `module` 生成器会生成什么
 
 执行：
 
@@ -124,10 +124,11 @@
 stratix generate module billing
 ```
 
-当前 CLI 会生成：
+当前 forge 会生成：
 
 ```text
 src/modules/billing/
+  module.yaml
   index.ts
   controllers/
     BillingController.ts
@@ -137,16 +138,25 @@ src/modules/billing/
     BillingRepository.ts
     interfaces/
       IBillingRepository.ts
+  schemas/
+  tests/
 ```
 
-这套骨架的价值不是“它生成了几个文件”，而是它给你一个可以持续扩展的业务域入口。
+这套骨架的价值不是“它生成了几个文件”，而是它给你一个可以持续扩展的业务域入口。`module.yaml` 是 forge、文档、doctor、testing 可读取的工程治理清单，不是 runtime 注册入口。
+
+生成后可以运行：
+
+```bash
+stratix doctor modules
+stratix graph modules --format mermaid
+```
 
 同时还要记住一个现实限制：
 
-- `module` 生成器只负责生成起始骨架
+- `module` 生成器只负责生成新模块、`module.yaml` 和标准分层目录
 - 它不是“给现有模块持续加资源”的完整模块系统
 
-也就是说，当前 CLI 更像是在帮你“起一个域”，而不是“完整管理一个域”。
+也就是说，当前 forge 更像是在帮你“起一个域并建立可诊断边界”，而不是“完整管理一个域”。
 
 ## 第 5 步：为什么 `src/modules/*` 仍然能被框架发现
 
@@ -267,8 +277,8 @@ src/modules/users/
 
 还有一个很关键的现实：
 
-当前应用 discovery 会扫描 `src` 下的 class。  
-所以你在共享目录里放普通函数、常量、类型通常没问题；但如果你在共享目录里随意放一个 class，它很可能被框架当成 service 处理。
+当前应用 discovery 会扫描 `src` 下带 Stratix 组件装饰器的 class。
+所以你在共享目录里放普通函数、常量、类型通常没问题；但如果你在共享目录里随意给 class 加上 `@Service()`、`@Repository()`、`@Component()` 或 `@Controller()`，它就会被框架接入 DI。
 
 因此跨模块共享代码优先这样放：
 
@@ -298,7 +308,7 @@ stratix add preset database
 stratix generate business-repository order
 ```
 
-但这里必须知道当前 CLI 的真实行为：
+但这里必须知道当前 forge 的真实行为：
 
 - 它默认生成到 `src/repositories/OrderBusinessRepository.ts`
 - 它不会自动识别你现有的 `src/modules/orders`
@@ -329,7 +339,7 @@ src/modules/orders/repositories/OrderBusinessRepository.ts
 
 如果你只是做管理后台 API，大多数场景里普通 `repository` 就够了。
 
-## 第 10 步：什么时候才需要 `executor` 和 `@stratix/tasks`
+## 第 10 步：什么时候才需要后台队列和 checkpoint
 
 很多人一听“模块化”就会顺手把工作流也一起做了，这是典型过度设计。
 
@@ -340,33 +350,17 @@ src/modules/orders/repositories/OrderBusinessRepository.ts
 - 工作流节点执行
 - 需要执行状态持久化的后台任务
 
-这时再考虑：
+这时先考虑：
 
 ```bash
 stratix add preset database
-stratix add preset tasks
-stratix generate executor order-sync
+stratix add preset queue
+stratix generate business-repository order-sync
 ```
 
-同样要知道当前 CLI 的现实行为：
+`@stratix/tasks` 已从当前仓库移除，不再作为 1.1.0 新项目方案。已有项目如果依赖 tasks，应把迁移作为单独工作项，不要在模块化重构时顺手扩散。
 
-- `executor` 默认生成到 `src/executors/OrderSyncExecutor.ts`
-- 它不会自动生成到某个现有模块目录里
-
-如果你希望按域管理，也可以把它归位到：
-
-```text
-src/modules/orders/executors/OrderSyncExecutor.ts
-```
-
-只要它仍然在 `src` 递归扫描范围里，框架就能发现它。
-
-但一定要先满足前提：
-
-- `@stratix/tasks` 已经启用
-- 你真的有任务/调度/工作流需求
-
-不要把 `executor` 当成“另一种 service”。
+如果你希望按域管理长流程，把队列 consumer、checkpoint repository 和编排 service 放在同一个业务模块里。框架负责发现带组件装饰器的 service / repository / controller；队列消费入口仍应由 queue 插件或应用启动流程明确注册。
 
 ## 第 11 步：一个更成熟的模块化项目大概长什么样
 
@@ -389,10 +383,11 @@ src/
       types/
     order-workflow/
       services/
+        OrderSyncService.ts
       repositories/
         OrderWorkflowBusinessRepository.ts
-      executors/
-        OrderSyncExecutor.ts
+      consumers/
+        OrderSyncConsumer.ts
   config/
   constants/
   types/
@@ -417,7 +412,7 @@ src/
 4. 再补 service
 5. 最后补 controller
 6. 如果涉及多表一致性，再考虑 `business-repository`
-7. 如果涉及长流程任务，再考虑 `executor + tasks`
+7. 如果涉及长流程任务，先考虑 `business-repository + queue + checkpoint`
 
 这其实还是你前面已经学过的那套顺序，只是“目录边界”从根目录升级成了业务模块。
 
@@ -428,7 +423,7 @@ src/
 - 模块化首先是代码组织升级，不是新的运行时魔法
 - `module` 生成器适合起域，不等于完整模块管理系统
 - `business-repository` 是复杂一致性边界，不是普通 CRUD 标配
-- `executor` 和 `tasks` 是长流程能力，不是模块化的默认下一步
-- 当前 CLI 对模块化项目的支持是“起骨架 + 你手工归位”，不是全自动管理
+- 队列和 checkpoint 是长流程能力，不是模块化的默认下一步；`tasks` 仅作为历史迁移项处理
+- 当前 forge 对模块化项目的支持是“起骨架 + 你手工归位”，不是全自动管理
 
 下一步建议你再看 [`testing-and-debugging.md`](./testing-and-debugging.md) 和 [`development-workflow.md`](./development-workflow.md)，把模块化之后的验证节奏也固定下来。

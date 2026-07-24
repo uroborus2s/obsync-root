@@ -1,4 +1,4 @@
-import type { AwilixContainer } from '@stratix/core';
+import type { AwilixContainer } from '@stratix/core/plugin';
 import axios from 'axios';
 import type { HttpClientService } from '../services/httpClientService.js';
 import type {

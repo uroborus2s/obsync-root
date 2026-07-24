@@ -5,8 +5,11 @@
  * 遵循 Stratix 框架的 Adapter 层规范
  */
 
-import type { FastifyInstance, FastifyPluginOptions } from '@stratix/core';
-import { withRegisterAutoDI } from '@stratix/core';
+import type {
+  FastifyInstance,
+  FastifyPluginOptions
+} from '@stratix/core/plugin';
+import { withRegisterAutoDI } from '@stratix/core/plugin';
 import { deepMerge } from '@stratix/core/data';
 
 /**
@@ -49,7 +52,7 @@ export interface RedisPluginOptions extends FastifyPluginOptions {
  */
 async function redis(
   fastify: FastifyInstance,
-  options: RedisPluginOptions
+  _options: RedisPluginOptions
 ): Promise<void> {
   fastify.log.info('🚀 @stratix/redis plugin initializing...');
 }

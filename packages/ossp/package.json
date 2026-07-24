@@ -1,7 +1,7 @@
 {
   "name": "@stratix/ossp",
-  "version": "0.0.1-beta.3",
-  "description": "Stratix OSS Plugin with MinIO support, multi-provider architecture and complete object storage operations",
+  "version": "1.1.0-beta.0",
+  "description": "Stratix OSS Plugin with MinIO and Aliyun OSS support, multi-provider architecture and complete object storage operations",
   "main": "dist/index.js",
   "types": "dist/types/index.d.ts",
   "type": "module",
@@ -14,12 +14,13 @@
     "test:coverage": "vitest --coverage",
     "test:integration": "vitest run tests/integration.test.ts",
     "test:unit": "vitest run tests/*.test.ts --exclude tests/integration.test.ts",
-    "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint src/**/*.ts --fix"
+    "lint": "oxlint --type-aware src",
+    "lint:fix": "oxlint --type-aware --fix src"
   },
   "keywords": [
     "stratix",
     "oss",
+    "aliyun-oss",
     "object-storage",
     "minio",
     "s3",
@@ -46,14 +47,18 @@
     "README.md",
     "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
+    "ali-oss": "^6.23.0",
     "minio": "^8.0.7"
   },
   "peerDependencies": {
     "@stratix/core": "workspace:*"
   },
   "devDependencies": {
-    "@types/minio": "^7.1.1"
+    "@stratix/core": "workspace:*"
   },
   "engines": {
     "node": ">=24.0.0"

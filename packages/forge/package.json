@@ -1,0 +1,44 @@
+{
+  "name": "@stratix/forge",
+  "version": "1.1.4",
+  "description": "Official forge toolchain for generating, validating, and maintaining Stratix applications and plugins",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/types/index.d.ts",
+  "bin": {
+    "stratix": "dist/bin/stratix.js"
+  },
+  "files": [
+    "dist",
+    "templates/resources",
+    "templates/presets",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "clean": "rimraf dist",
+    "build": "pnpm run clean && tsc && pnpm run copy:ecosystem-catalog",
+    "copy:ecosystem-catalog": "node ./scripts/copy-ecosystem-catalog.mjs",
+    "prepublishOnly": "pnpm run build",
+    "test": "node --experimental-transform-types --loader ./tests/ts-loader.mjs --test tests/run-cli.test.ts",
+    "test:watch": "node --experimental-transform-types --loader ./tests/ts-loader.mjs --test --watch tests/run-cli.test.ts",
+    "lint": "oxlint --type-aware src tests",
+    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\""
+  },
+  "dependencies": {
+    "oxc-parser": "^0.141.0"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "keywords": [
+    "stratix",
+    "forge",
+    "cli",
+    "toolchain"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT"
+}

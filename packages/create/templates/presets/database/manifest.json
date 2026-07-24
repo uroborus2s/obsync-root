@@ -1,0 +1,17 @@
+{
+  "id": "database",
+  "version": "1.0.0",
+  "displayName": "Database Preset",
+  "description": "Add @stratix/database",
+  "appliesTo": [
+    { "kind": "app" },
+    { "kind": "plugin" }
+  ],
+  "contributes": {
+    "dependencies": {
+      "runtime": {
+        "@stratix/database": "^1.1.0"
+      }
+    }
+  }
+}

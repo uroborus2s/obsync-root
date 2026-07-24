@@ -1,10 +1,13 @@
 # 项目结构
 
-这一页专门解释“CLI 初始化出来的插件项目，每个目录到底负责什么”。如果你先把目录职责看懂，后面照着做插件就不会乱。
+这一页专门解释“create 初始化出来的插件项目，每个目录到底负责什么”。如果你先把目录职责看懂，后面照着做插件就不会乱。
 
 ## 一个标准插件项目长什么样
 
 ```text
+.stratix/
+  project.json
+  plugin.json
 src/
   index.ts
   config/
@@ -13,19 +16,33 @@ src/
   services/
   repositories/
   controllers/
-  executors/
   types/
 ```
 
 ## 最重要的两个入口
 
+### `.stratix/plugin.json`
+
+这是插件的生态治理 manifest。create 会为插件项目生成它，forge 会通过 `stratix doctor plugins` 和 `stratix graph plugins` 读取它。
+
+它至少声明：
+
+- `capabilities`：插件提供的能力分类，例如 `data`、`integration`、`adapter`
+- `provides`：插件向应用根容器暴露的 adapter token
+- `requires`：插件运行时依赖的其他 Stratix 插件包
+- `health`：是否应进入健康检查矩阵
+
+`provides` 需要和插件真实 adapter token 对齐。P2+ 之后，`stratix doctor plugins` 会在可静态判断时读取 `src/index.ts` 中的 `withRegisterAutoDI(pluginFn, ...)` 插件函数名，并扫描 `src/adapters` 推断 adapter token；manifest 中多写、漏写都会被报告。
+
 ### `src/index.ts`
 
-这是插件入口。一个由 CLI 生成的典型入口会长这样：
+这是插件入口。一个由 create 生成的典型入口会长这样：
 
 ```ts
-import type { FastifyInstance } from '@stratix/core';
-import { withRegisterAutoDI } from '@stratix/core';
+import {
+  type FastifyInstance,
+  withRegisterAutoDI
+} from '@stratix/core/plugin';
 import type { IntegrationPluginOptions } from './config/plugin-config.js';
 
 async function pingPlugin(
@@ -40,8 +57,7 @@ export default withRegisterAutoDI<IntegrationPluginOptions>(pingPlugin, {
     patterns: [
       'controllers/*.{ts,js}',
       'services/*.{ts,js}',
-      'repositories/*.{ts,js}',
-      'executors/*.{ts,js}'
+      'repositories/*.{ts,js}'
     ]
   },
   services: {
@@ -117,10 +133,6 @@ controller 只负责 HTTP 入口。它的职责是：
 
 controller 不应该直接调用 adapter，也不应该承载复杂业务逻辑。
 
-### `src/executors/`
-
-如果你的插件要和 `@stratix/tasks` 体系集成，或者要提供任务执行单元，就把执行逻辑写在 executor。
-
 ### `src/types/`
 
 当 adapter、service、controller 之间开始共享类型时，把公共类型集中到这里，避免类型散落在业务类里。
@@ -143,7 +155,7 @@ controller 不应该直接调用 adapter，也不应该承载复杂业务逻辑�
    - 是：放 service
 3. 这是 HTTP 入口吗？
    - 是：放 controller
-4. 这是任务执行单元吗？
-   - 是：放 executor
-5. 这是持久化逻辑吗？
+4. 这是持久化逻辑吗？
    - 是：放 repository
+5. 这是后台消费或定时入口吗？
+   - 是：优先由 queue 或应用启动流程明确注册，状态落在 repository，编排落在 service

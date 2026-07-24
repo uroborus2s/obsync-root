@@ -1,17 +1,16 @@
 // @stratix/core 适配器注册模块
 // 负责服务适配器的发现、验证和注册
 
-import {
-  asFunction,
-  InjectionMode,
-  isClass,
-  isFunction,
-  Lifetime,
-  listModules,
-  type AwilixContainer
-} from 'awilix';
+import { isClass, isFunction, listModules, type AwilixContainer } from 'awilix';
 import { isAbsolute, resolve } from 'node:path';
+import { ConfigurationError } from '../errors/index.js';
 import { getLogger } from '../logger/index.js';
+import {
+  createRegistrationPlan,
+  mergeRegistrationPlans,
+  registerRegistrationPlanToken,
+  type RegistrationPlan
+} from '../registration/index.js';
 import type { PluginContainerContext } from './service-discovery.js';
 
 /**
@@ -47,6 +46,13 @@ export interface ServiceConfig {
   baseDir?: string;
 }
 
+export interface ServiceAdapterDiagnostic {
+  code: 'ADAPTER_DUPLICATE_NAME' | 'ADAPTER_TOKEN_CONFLICT';
+  adapterName: string;
+  token: string;
+  message: string;
+}
+
 /**
  * 从类名提取适配器名称
  * 例如：UserAdapter -> userAdapter, DatabaseAPIAdapter -> databaseAPIAdapter
@@ -72,6 +78,77 @@ function extractAdapterNameFromModuleName(moduleName: string): string {
 
   // 转换 kebab-case 或 snake_case 为 camelCase
   return name.replace(/[-_]([a-z])/g, (_, letter) => letter.toUpperCase());
+}
+
+function capitalizeIdentifier(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function alreadyIncludesPluginPrefix(
+  pluginName: string,
+  adapterName: string
+): boolean {
+  if (adapterName === pluginName) {
+    return true;
+  }
+
+  if (!adapterName.startsWith(pluginName)) {
+    return false;
+  }
+
+  const nextCharacter = adapterName.charAt(pluginName.length);
+  return nextCharacter !== '' && nextCharacter === nextCharacter.toUpperCase();
+}
+
+export function buildServiceAdapterToken(
+  pluginName: string | undefined,
+  adapterName: string
+): string {
+  if (!pluginName) {
+    return adapterName;
+  }
+
+  if (alreadyIncludesPluginPrefix(pluginName, adapterName)) {
+    return adapterName;
+  }
+
+  return `${pluginName}${capitalizeIdentifier(adapterName)}`;
+}
+
+export function diagnoseServiceAdapterTokens(
+  pluginName: string | undefined,
+  adapters: ServiceAdapter[],
+  existingTokens: Iterable<string> = []
+): ServiceAdapterDiagnostic[] {
+  const diagnostics: ServiceAdapterDiagnostic[] = [];
+  const seenAdapterNames = new Set<string>();
+  const rootTokens = new Set(existingTokens);
+
+  for (const adapter of adapters) {
+    const token = buildServiceAdapterToken(pluginName, adapter.adapterName);
+
+    if (seenAdapterNames.has(adapter.adapterName)) {
+      diagnostics.push({
+        code: 'ADAPTER_DUPLICATE_NAME',
+        adapterName: adapter.adapterName,
+        token,
+        message: `Duplicate service adapter name: ${adapter.adapterName}`
+      });
+    } else {
+      seenAdapterNames.add(adapter.adapterName);
+    }
+
+    if (rootTokens.has(token)) {
+      diagnostics.push({
+        code: 'ADAPTER_TOKEN_CONFLICT',
+        adapterName: adapter.adapterName,
+        token,
+        message: `Service adapter token already exists in root container: ${token}`
+      });
+    }
+  }
+
+  return diagnostics;
 }
 
 /**
@@ -360,25 +437,62 @@ async function registerSingleServiceAdapter<T>(
     debugEnabled,
     pluginName
   }: PluginContainerContext<T>
-): Promise<boolean> {
+): Promise<RegistrationPlan | null> {
   try {
     const { adapterName, factory } = adapter;
     // 构建带命名空间的适配器名称：pluginNameAdapterName (camelCase)
-    const namespacedAdapterName = pluginName
-      ? `${pluginName}${adapterName.charAt(0).toUpperCase() + adapterName.slice(1)}`
-      : adapterName;
+    const namespacedAdapterName = buildServiceAdapterToken(
+      pluginName,
+      adapterName
+    );
+
+    if (namespacedAdapterName in rootContainer.registrations) {
+      throw new Error(
+        `Service adapter token already exists in root container: ${namespacedAdapterName}`
+      );
+    }
 
     // 创建适配器工厂函数，传入插件内部容器
     const adapterFactory = () => factory(internalContainer);
-
-    // 创建 resolver（固定为 SINGLETON）
-    const resolver = asFunction(adapterFactory, {
-      lifetime: Lifetime.SINGLETON,
-      injectionMode: InjectionMode.CLASSIC
+    const adapterPlan = createRegistrationPlan({
+      id: `plugin-autodi:${pluginName}:adapters`,
+      source: 'plugin-autodi',
+      owner: {
+        type: 'plugin',
+        name: pluginName
+      },
+      tokens: [
+        {
+          token: namespacedAdapterName,
+          kind: 'adapter',
+          registrationType: 'function',
+          lifetime: 'SINGLETON',
+          injectionMode: 'CLASSIC',
+          scope: 'root',
+          visibility: 'public',
+          target: adapterFactory,
+          source: `${pluginName}.${adapterName}`,
+          metadata: {
+            adapterName,
+            pluginName
+          }
+        }
+      ],
+      adapters: [
+        {
+          adapterName,
+          token: namespacedAdapterName,
+          pluginName,
+          scope: 'root',
+          source: `${pluginName}.${adapterName}`
+        }
+      ]
     });
-
-    // 注册到根容器，使用带命名空间的名称
-    rootContainer.register(namespacedAdapterName, resolver);
+    registerRegistrationPlanToken(
+      rootContainer,
+      adapterPlan,
+      adapterPlan.tokens[0]
+    );
 
     if (debugEnabled) {
       const logger = getLogger();
@@ -387,7 +501,7 @@ async function registerSingleServiceAdapter<T>(
       );
     }
 
-    return true;
+    return adapterPlan;
   } catch (error) {
     if (debugEnabled) {
       const logger = getLogger();
@@ -396,7 +510,7 @@ async function registerSingleServiceAdapter<T>(
         error
       );
     }
-    return false;
+    return null;
   }
 }
 
@@ -445,6 +559,21 @@ export async function registerServiceAdapters<T>(
     }
 
     // 去重处理（基于适配器名称）
+    const diagnostics = diagnoseServiceAdapterTokens(
+      pluginContext.pluginName,
+      discoveredAdapters,
+      Object.keys(pluginContext.rootContainer.registrations)
+    );
+    if (diagnostics.length > 0) {
+      if (debugEnabled) {
+        const logger = getLogger();
+        for (const diagnostic of diagnostics) {
+          logger.error(`❌ ${diagnostic.message}`);
+        }
+      }
+      throw new ConfigurationError(diagnostics[0].message, { diagnostics });
+    }
+
     const uniqueAdapters = new Map<string, ServiceAdapter>();
     for (const adapter of discoveredAdapters) {
       if (uniqueAdapters.has(adapter.adapterName)) {
@@ -469,13 +598,22 @@ export async function registerServiceAdapters<T>(
 
     let totalRegistered = 0;
     for (const adapter of uniqueAdapters.values()) {
-      const success = await registerSingleServiceAdapter(
+      const adapterPlan = await registerSingleServiceAdapter(
         adapter,
         pluginContext
       );
 
-      if (success) {
+      if (adapterPlan) {
         totalRegistered++;
+        pluginContext.registrationPlan = mergeRegistrationPlans(
+          pluginContext.registrationPlan,
+          adapterPlan
+        );
+      } else {
+        throw new ConfigurationError(
+          `Service adapter registration failed: ${adapter.adapterName}`,
+          { adapterName: adapter.adapterName }
+        );
       }
     }
 
@@ -490,5 +628,6 @@ export async function registerServiceAdapters<T>(
       const logger = getLogger();
       logger.error('❌ Service adapter registration failed:', error);
     }
+    throw error;
   }
 }

@@ -85,7 +85,8 @@ import { isLeft, isNone } from '@stratix/core/functional';
 import {
   BaseRepository,
   DataColumnType,
-  SchemaBuilder
+  SchemaBuilder,
+  type DatabaseConnectionProvider
 } from '@stratix/database';
 import type {
   CreateUserInput,
@@ -121,17 +122,32 @@ export default class UserRepository
   protected readonly primaryKey = 'id';
   protected readonly tableSchema = userSchema;
 
-  constructor(protected readonly logger: Logger) {
-    super('default');
+  constructor(
+    databaseManager: DatabaseConnectionProvider,
+    protected readonly logger: Logger
+  ) {
+    super({ database: databaseManager });
   }
 
   async findAll(): Promise<IUserRecord[]> {
-    return await this.findMany((qb) => qb.orderBy('created_at', 'desc'));
+    const result = await this.findMany(undefined, {
+      orderBy: { field: 'created_at' as any, direction: 'desc' }
+    });
+
+    if (isLeft(result)) {
+      throw result.left;
+    }
+
+    return result.right;
   }
 
   async findByIdOrNull(id: string): Promise<IUserRecord | null> {
     const result = await this.findById(id);
-    return isNone(result) ? null : result.value;
+    if (isLeft(result)) {
+      throw result.left;
+    }
+
+    return isNone(result.right) ? null : result.right.value;
   }
 
   async createUser(input: CreateUserInput): Promise<IUserRecord> {
@@ -184,8 +200,8 @@ export default class UserRepository
 这段代码要注意 4 件事：
 
 1. `BaseRepository` 是数据库访问的核心入口
-2. `tableSchema` 是仓储声明，不会自动帮你建表
-3. `findById()` 返回的是 `Maybe`
+2. `BaseRepository` 构造函数必须显式接收 `DatabaseConnectionProvider`
+3. `findById()` 返回的是 `Either<DatabaseError, Maybe<T>>`
 4. `create()`、`update()`、`delete()` 返回的是 `Either`
 
 所以 repository 的职责之一，就是把这些底层返回值收敛成更适合业务层消费的普通结果。
@@ -295,10 +311,7 @@ export default class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Get('/users')
-  async list(
-    _request: FastifyRequest,
-    reply: FastifyReply
-  ): Promise<void> {
+  async list(_request: FastifyRequest, reply: FastifyReply): Promise<void> {
     const data = await this.userService.list();
 
     reply.status(200).send({
@@ -349,10 +362,7 @@ export default class UserController {
     }>,
     reply: FastifyReply
   ): Promise<void> {
-    const data = await this.userService.update(
-      request.params.id,
-      request.body
-    );
+    const data = await this.userService.update(request.params.id, request.body);
 
     if (!data) {
       reply.status(404).send({

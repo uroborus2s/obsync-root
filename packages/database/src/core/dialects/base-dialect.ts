@@ -3,7 +3,7 @@
 
 import type { Logger } from '@stratix/core';
 import { isLeft, tryCatch, tryCatchAsync } from '@stratix/core/functional';
-import type { Kysely } from 'kysely';
+import { sql, type Kysely } from 'kysely';
 import type { ConnectionConfig, DatabaseType } from '../../types/index.js';
 import {
   ConfigurationError,
@@ -86,6 +86,14 @@ export abstract class BaseDialect {
     [key: string]: any;
   }): string;
 
+  protected encodeConnectionPart(value: string | number | undefined): string {
+    return encodeURIComponent(String(value ?? ''));
+  }
+
+  protected encodeQueryValue(value: string | number | boolean): string {
+    return encodeURIComponent(String(value));
+  }
+
   /**
    * 获取连接选项
    */
@@ -105,7 +113,7 @@ export abstract class BaseDialect {
    * 获取方言特定的连接选项
    */
   protected getDialectSpecificOptions(
-    config: ConnectionConfig
+    _config: ConnectionConfig
   ): Record<string, any> {
     return {};
   }
@@ -202,8 +210,7 @@ export abstract class BaseDialect {
       const connection = connectionResult.right;
 
       try {
-        // 执行简单的健康检查 - 先跳过实际查询
-        // TODO: 实现具体的健康检查查询
+        await sql.raw(this.getHealthCheckQuery()).execute(connection);
 
         return true;
       } finally {
@@ -265,7 +272,7 @@ export abstract class BaseDialect {
   /**
    * 获取方言特定的SSL选项
    */
-  protected getDialectSpecificSSLOptions(ssl: any): Record<string, any> {
+  protected getDialectSpecificSSLOptions(_ssl: any): Record<string, any> {
     return {};
   }
 
@@ -328,7 +335,7 @@ export abstract class BaseDialect {
             `[${name.toUpperCase()}] Query error`
           );
         }
-      } catch (error) {
+      } catch {
         // 如果框架日志器出错，回退到console
         console.log(
           `[${name.toUpperCase()}] ${event.level}: ${event.query?.sql}`

@@ -9,12 +9,12 @@
 如果你还没有自己的脚手架项目，先在仓库里生成一个：
 
 ```bash
-pnpm --filter @stratix/cli build
+pnpm --filter @stratix/create build
 mkdir -p examples
 cd examples
-node ../packages/cli/dist/bin/stratix.js init app web-admin my-admin --no-install
+node ../packages/create/dist/bin/create-stratix.js app web-admin my-admin --no-install
 cd my-admin
-pnpm install --ignore-workspace
+pnpm install
 ```
 
 开发时常用命令：
@@ -22,6 +22,7 @@ pnpm install --ignore-workspace
 ```bash
 pnpm dev
 pnpm build
+pnpm lint
 pnpm test
 pnpm preview --host 127.0.0.1 --port 4273
 ```

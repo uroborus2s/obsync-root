@@ -1,0 +1,14 @@
+{
+  "id": "ossp",
+  "version": "1.0.0",
+  "displayName": "OSSP Preset",
+  "description": "Add @stratix/ossp object storage integration",
+  "appliesTo": [{ "kind": "app" }, { "kind": "plugin" }],
+  "contributes": {
+    "dependencies": {
+      "runtime": {
+        "@stratix/ossp": "^0.0.1-beta.3"
+      }
+    }
+  }
+}

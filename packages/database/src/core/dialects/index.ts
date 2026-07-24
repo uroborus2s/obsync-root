@@ -59,7 +59,7 @@ export async function getDialect(type: DatabaseType): Promise<BaseDialect> {
  * 获取所有支持的数据库类型
  */
 export function getSupportedDatabaseTypes(): DatabaseType[] {
-  return ['postgresql', 'mysql', 'sqlite', 'mssql'];
+  return ['postgresql', 'mysql', 'sqlite'];
 }
 
 /**

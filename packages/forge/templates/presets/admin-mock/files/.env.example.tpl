@@ -1,0 +1,2 @@
+VITE_API_MODE=mock
+VITE_ENABLE_MOCK=true

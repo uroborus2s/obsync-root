@@ -7,7 +7,12 @@ import { StratixError } from './stratix-error.js';
 export class HttpError extends StratixError {
   public readonly statusCode: number;
 
-  constructor(message: string, statusCode: number, code: string = 'HTTP_ERROR', details?: unknown) {
+  constructor(
+    message: string,
+    statusCode: number,
+    code: string = 'HTTP_ERROR',
+    details?: unknown
+  ) {
     super(message, code, details);
     this.statusCode = statusCode;
   }

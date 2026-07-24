@@ -181,13 +181,13 @@ export class MSSQLDialect extends BaseDialect {
     const { host, port, database, username, password } = params;
 
     // MSSQL连接字符串格式
-    let connectionString = `mssql://${username}`;
+    let connectionString = `mssql://${this.encodeConnectionPart(username)}`;
 
     if (password) {
-      connectionString += `:${password}`;
+      connectionString += `:${this.encodeConnectionPart(password)}`;
     }
 
-    connectionString += `@${host}:${port}/${database}`;
+    connectionString += `@${host}:${port}/${this.encodeConnectionPart(database)}`;
 
     // 添加查询参数
     const queryParams = this.buildQueryParams(params);
@@ -257,7 +257,7 @@ export class MSSQLDialect extends BaseDialect {
   private createPoolConfig(config: ConnectionConfig): TediousConnectionConfig {
     const baseConfig = this.getConnectionOptions(config);
     // @ts-ignore - 保留用于未来实现
-    const poolSettings = this.mergePoolConfig(config);
+    const _poolSettings = this.mergePoolConfig(config);
 
     const tediousConfig: TediousConnectionConfig = {
       server: baseConfig.host,
@@ -409,17 +409,19 @@ export class MSSQLDialect extends BaseDialect {
     const queryParams: string[] = [];
 
     if (params.encrypt !== undefined) {
-      queryParams.push(`encrypt=${params.encrypt}`);
+      queryParams.push(`encrypt=${this.encodeQueryValue(params.encrypt)}`);
     }
 
     if (params.trustServerCertificate !== undefined) {
       queryParams.push(
-        `trustServerCertificate=${params.trustServerCertificate}`
+        `trustServerCertificate=${this.encodeQueryValue(params.trustServerCertificate)}`
       );
     }
 
     if (params.connectTimeout) {
-      queryParams.push(`connectTimeout=${params.connectTimeout}`);
+      queryParams.push(
+        `connectTimeout=${this.encodeQueryValue(params.connectTimeout)}`
+      );
     }
 
     if (params.requestTimeout) {

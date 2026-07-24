@@ -3,7 +3,8 @@
  * 使用 Redis 存储 WPS API 访问令牌，支持降级到内存存储
  */
 
-import { RESOLVER, type Logger } from '@stratix/core';
+import type { Logger } from '@stratix/core';
+import { RESOLVER } from '@stratix/core/plugin';
 import type { RedisAdapter } from '@stratix/redis';
 import type { AccessToken } from '../types/index.js';
 import type {
@@ -28,13 +29,15 @@ export class TokenCacheService implements ITokenCacheService {
 
   constructor(
     private readonly redisClient: RedisAdapter,
-    private readonly logger: Logger
+    private readonly logger: Logger,
+    config: Partial<TokenCacheConfig> = {}
   ) {
     this.config = {
       keyPrefix: 'wpsV7:token:',
       defaultTtl: 7200, // 2小时
       earlyExpireSeconds: 900, // 15分钟
-      enableFallback: true
+      enableFallback: true,
+      ...config
     };
 
     this.logger.info('TokenCacheService initialized', {

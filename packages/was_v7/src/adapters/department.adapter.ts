@@ -1,4 +1,5 @@
-import type { AwilixContainer, Logger } from '@stratix/core';
+import type { Logger } from '@stratix/core';
+import type { AwilixContainer } from '@stratix/core/plugin';
 import type { HttpClientService } from '../services/httpClientService.js';
 import type {
   BatchGetDeptInfoParams,

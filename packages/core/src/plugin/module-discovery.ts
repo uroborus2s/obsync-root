@@ -1,15 +1,11 @@
 // @stratix/core 模块发现和筛选工具
 // 负责获取插件域内的模块并进行分类筛选
 
-import { AwilixContainer, isClass, isFunction } from 'awilix';
+import { isClass, isFunction } from 'awilix';
 import type { FastifyInstance } from 'fastify';
-import {
-  ExecutorMetadata,
-  MetadataManager,
-  RouteMetadata
-} from '../decorators/metadata.js';
+import { MetadataManager, type RouteMetadata } from '../decorators/metadata.js';
 import { getLogger } from '../logger/index.js';
-import { PluginContainerContext } from './service-discovery.js';
+import type { PluginContainerContext } from './service-discovery.js';
 
 /**
  * 支持的 Fastify 生命周期方法列表
@@ -91,8 +87,6 @@ export interface ModuleInfo {
   isClass: boolean;
   /** 是否为控制器 */
   isController: boolean;
-  /** 是否为执行器 */
-  isExecutor: boolean;
   /** 是否有路由 */
   hasRoutes: boolean;
   /** 是否有生命周期方法 */
@@ -116,18 +110,6 @@ export interface RouteConfig {
 }
 
 /**
- * 执行器配置信息
- */
-export interface ExecutorConfig {
-  /** 执行器名称 */
-  name: string;
-  /** 执行器实例 */
-  instance: any;
-  /** 执行器元数据 */
-  metadata: any;
-}
-
-/**
  * 生命周期配置信息
  */
 export interface LifecycleConfig {
@@ -148,14 +130,11 @@ export interface ModuleProcessingResult {
     totalModules: number;
     classModules: number;
     controllerModules: number;
-    executorModules: number;
     lifecycleModules: number;
     skippedModules: number;
   };
   /** 可直接用于路由注册的配置 */
   routeConfigs: RouteConfig[];
-  /** 可直接用于执行器注册的配置 */
-  executorConfigs: ExecutorConfig[];
   /** 可直接用于生命周期注册的配置 */
   lifecycleConfigs: LifecycleConfig[];
   /** 处理过程中的错误 */
@@ -163,7 +142,7 @@ export interface ModuleProcessingResult {
 }
 
 /**
- * 模块分类结果接口（向后兼容）
+ * 模块分类结果接口
  */
 export interface ModuleClassificationResult {
   /** 所有模块 */
@@ -172,8 +151,6 @@ export interface ModuleClassificationResult {
   classModules: ModuleInfo[];
   /** 控制器模块 */
   controllerModules: ModuleInfo[];
-  /** 执行器模块 */
-  executorModules: ModuleInfo[];
   /** 有路由的模块 */
   routeModules: ModuleInfo[];
   /** 有生命周期方法的模块 */
@@ -197,18 +174,6 @@ export interface RouteConfig {
 }
 
 /**
- * 执行器配置信息
- */
-export interface ExecutorConfig {
-  /** 执行器名称 */
-  name: string;
-  /** 执行器实例 */
-  instance: any;
-  /** 执行器元数据 */
-  metadata: any;
-}
-
-/**
  * 生命周期配置信息
  */
 export interface LifecycleConfig {
@@ -229,14 +194,11 @@ export interface ModuleProcessingResult {
     totalModules: number;
     classModules: number;
     controllerModules: number;
-    executorModules: number;
     lifecycleModules: number;
     skippedModules: number;
   };
   /** 可直接用于路由注册的配置 */
   routeConfigs: RouteConfig[];
-  /** 可直接用于执行器注册的配置 */
-  executorConfigs: ExecutorConfig[];
   /** 可直接用于生命周期注册的配置 */
   lifecycleConfigs: LifecycleConfig[];
   /** 处理过程中的错误 */
@@ -340,78 +302,10 @@ async function registerControllerRoutesImmediate(
 }
 
 /**
- * 即时注册单个执行器
- * 在模块发现阶段立即注册执行器，避免批量处理延迟
- */
-async function registerExecutorImmediate(
-  rootContainer: AwilixContainer,
-  executorName: string,
-  executorInstance: any,
-  executorMetadata: ExecutorMetadata | undefined,
-  debugEnabled: boolean = false
-): Promise<void> {
-  // 检查 Fastify 实例是否已注册 tasks 插件的装饰器方法
-  if (!rootContainer.getRegistration('registerTaskExecutor')) {
-    if (debugEnabled) {
-      const logger = getLogger();
-      logger.warn(
-        '⚠️ Tasks plugin decorators not found, skipping executor registration'
-      );
-    }
-    return;
-  }
-
-  // 获取执行器元数据
-
-  if (!executorMetadata) {
-    if (debugEnabled) {
-      const logger = getLogger();
-      logger.warn(`⚠️ Executor ${executorName} has no metadata, skipping`);
-    }
-    return;
-  }
-
-  // 验证执行器实例是否实现了必要的接口
-  if (
-    !executorInstance ||
-    typeof executorInstance !== 'object' ||
-    typeof executorInstance.name !== 'string' ||
-    typeof executorInstance.execute !== 'function'
-  ) {
-    if (debugEnabled) {
-      const logger = getLogger();
-      logger.warn(
-        `⚠️ Executor ${executorName} does not implement TaskExecutor interface, skipping`
-      );
-    }
-    return;
-  }
-
-  // 确定执行器名称
-  const finalExecutorName = executorMetadata.name || executorName;
-  const registerTaskExecutor = rootContainer.resolve(
-    'registerTaskExecutor'
-  ) as (name: string, executor: unknown) => void;
-  // 注册执行器到 tasks 插件
-  registerTaskExecutor(finalExecutorName, executorInstance);
-
-  if (debugEnabled) {
-    const logger = getLogger();
-    logger.info(`📝 Executor immediately registered: ${finalExecutorName}`, {
-      originalName: executorName,
-      description: executorMetadata.description,
-      version: executorMetadata.version,
-      tags: executorMetadata.tags
-    });
-  }
-}
-
-/**
  * 一次性处理模块：发现、分类并立即处理（重构版本）
  *
  * 重构目标：
  * - 路由模块：发现后立即注册路由到 Fastify
- * - 执行器模块：发现后立即使用 tasks 装饰器方法注册执行器
  * - 生命周期方法：在完成所有模块处理后统一组装和注册
  *
  * @param container - Awilix 容器实例
@@ -438,12 +332,10 @@ export async function discoverAndProcessModules<T>(
       totalModules: 0,
       classModules: 0,
       controllerModules: 0,
-      executorModules: 0,
       lifecycleModules: 0,
       skippedModules: 0
     },
     routeConfigs: [],
-    executorConfigs: [],
     lifecycleConfigs: [],
     errors: []
   };
@@ -451,9 +343,7 @@ export async function discoverAndProcessModules<T>(
   // 初始化即时注册统计
   const immediateRegistrationStats = {
     routesRegistered: 0,
-    executorsRegistered: 0,
-    routeErrors: 0,
-    executorErrors: 0
+    routeErrors: 0
   };
 
   if (debugEnabled) {
@@ -462,9 +352,7 @@ export async function discoverAndProcessModules<T>(
       '🔍 Starting unified module discovery with immediate processing...',
       {
         hasRouteRegistration: !!fastify,
-        hasExecutorRegistration: rootContainer.hasRegistration(
-          'registerTaskExecutor'
-        )
+        hasRootContainer: !!rootContainer
       }
     );
   }
@@ -480,7 +368,10 @@ export async function discoverAndProcessModules<T>(
       }
 
       const instance = internalContainer.resolve(name) as unknown;
-      if (!instance || (typeof instance !== 'object' && typeof instance !== 'function')) {
+      if (
+        !instance ||
+        (typeof instance !== 'object' && typeof instance !== 'function')
+      ) {
         result.statistics.skippedModules++;
         if (debugEnabled) {
           const logger = getLogger();
@@ -492,7 +383,9 @@ export async function discoverAndProcessModules<T>(
       }
 
       // 检查是否为类注册（asClass）
-      const constructor = (instance as { constructor: new (...args: any[]) => any }).constructor;
+      const constructor = (
+        instance as { constructor: new (...args: any[]) => any }
+      ).constructor;
       result.statistics.classModules++;
 
       result.statistics.totalModules++;
@@ -501,7 +394,6 @@ export async function discoverAndProcessModules<T>(
       const isController = MetadataManager.isController(
         constructor || instance
       );
-      const isExecutor = MetadataManager.isExecutor(constructor || instance);
       const hasRoutes = MetadataManager.hasRoutes(constructor || instance);
 
       // 检测生命周期方法
@@ -511,7 +403,6 @@ export async function discoverAndProcessModules<T>(
         const logger = getLogger();
         logger.debug(`📋 Module discovered: ${name}`, {
           isController,
-          isExecutor,
           hasRoutes,
           hasLifecycleMethods: lifecycleInfo.hasLifecycleMethods,
           lifecycleMethods: lifecycleInfo.lifecycleMethods
@@ -538,7 +429,7 @@ export async function discoverAndProcessModules<T>(
               (route) => route.propertyKey
             );
 
-            // 保留配置信息用于统计和向后兼容
+            // 保留配置信息用于统计和后续注册审计
             result.routeConfigs.push({
               controllerName: name,
               controllerInstance: instance,
@@ -580,65 +471,6 @@ export async function discoverAndProcessModules<T>(
             const logger = getLogger();
             logger.debug(`🛣️ Route config prepared for: ${name}`, {
               routeCount: routeMethods.length
-            });
-          }
-        }
-      }
-
-      // 立即处理执行器模块
-      if (isExecutor) {
-        result.statistics.executorModules++;
-        // 🚀 即时执行器注册：发现执行器后立即注册
-        const executorMetadata =
-          MetadataManager.getExecutorMetadata(constructor);
-        if (constructor && fastify) {
-          try {
-            await registerExecutorImmediate(
-              rootContainer,
-              name,
-              instance,
-              executorMetadata,
-              debugEnabled
-            );
-
-            // 保留配置信息用于统计和向后兼容
-            result.executorConfigs.push({
-              name: executorMetadata?.name || name,
-              instance,
-              metadata: executorMetadata
-            });
-
-            immediateRegistrationStats.executorsRegistered++;
-
-            if (debugEnabled) {
-              const logger = getLogger();
-              logger.debug(`✅ Executor immediately registered: ${name}`, {
-                executorName: executorMetadata?.name || name
-              });
-            }
-          } catch (error) {
-            immediateRegistrationStats.executorErrors++;
-            result.errors.push({
-              moduleName: name,
-              error: `Executor registration failed: ${error instanceof Error ? error.message : String(error)}`
-            });
-
-            if (debugEnabled) {
-              const logger = getLogger();
-              logger.error(`❌ Failed to register executor: ${name}`, error);
-            }
-          }
-        } else {
-          result.executorConfigs.push({
-            name: executorMetadata?.name || name,
-            instance,
-            metadata: executorMetadata
-          });
-
-          if (debugEnabled) {
-            const logger = getLogger();
-            logger.debug(`⚙️ Executor config prepared for: ${name}`, {
-              executorName: executorMetadata?.name || name
             });
           }
         }
@@ -689,14 +521,11 @@ export async function discoverAndProcessModules<T>(
         ...result.statistics,
         processingTimeMs: processingTime,
         routeConfigs: result.routeConfigs.length,
-        executorConfigs: result.executorConfigs.length,
         lifecycleConfigs: result.lifecycleConfigs.length,
         errors: result.errors.length,
         immediateRegistration: {
           routesRegistered: immediateRegistrationStats.routesRegistered,
-          executorsRegistered: immediateRegistrationStats.executorsRegistered,
-          routeErrors: immediateRegistrationStats.routeErrors,
-          executorErrors: immediateRegistrationStats.executorErrors
+          routeErrors: immediateRegistrationStats.routeErrors
         }
       }
     );

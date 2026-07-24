@@ -1,4 +1,5 @@
-import { AwilixContainer, Logger } from '@stratix/core';
+import type { Logger } from '@stratix/core';
+import type { AwilixContainer } from '@stratix/core/plugin';
 import { type RedisAdapter } from '@stratix/redis';
 import type { QueueOptions, WorkerOptions } from 'bullmq';
 import { Job, Processor, Queue, Worker } from 'bullmq';
@@ -72,7 +73,7 @@ export default class ClientAdapter implements IQueueAdapter {
       ...opts
     });
 
-    worker.on('completed', (job: Job, result: any) => {
+    worker.on('completed', (job: Job, _result: any) => {
       this.logger.info(`Job ${job.id} in queue ${queueName} completed.`);
     });
 

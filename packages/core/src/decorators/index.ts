@@ -4,14 +4,16 @@
 // 元数据管理（核心）
 export {
   CONTROLLER_METADATA_KEY,
-  EXECUTOR_METADATA_KEY,
   METADATA_KEYS,
   MetadataManager,
   ROUTE_METADATA_KEY,
+  type ComponentInjectionMode,
+  type ComponentLifetime,
+  type ComponentMetadata,
+  type ComponentOptions,
+  type ComponentType,
   type ControllerMetadata,
   type ControllerOptions,
-  type ExecutorMetadata,
-  type ExecutorOptions,
   type ParamValidationMetadata,
   type PropertyValidationMetadata,
 
@@ -23,13 +25,8 @@ export {
 // 控制器装饰器
 export { Controller } from './controller.js';
 
-// 执行器装饰器
-export {
-  Executor,
-  getExecutorMetadata,
-  getExecutorName,
-  isExecutor
-} from './executor.js';
+// 组件装饰器
+export { Component, Repository, Service } from './component.js';
 
 // 路由装饰器
 export { Delete, Get, Head, Options, Patch, Post, Put } from './route.js';

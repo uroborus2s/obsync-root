@@ -156,7 +156,7 @@ export function supportsCSS(property: string): boolean {
     const doc = _global.document;
     const element = doc.createElement('div');
     return property in element.style;
-  } catch (e) {
+  } catch {
     return false;
   }
 }
@@ -208,7 +208,7 @@ export function getEnvironment(): {
       }
 
       return { type: 'browser', browser };
-    } catch (e) {
+    } catch {
       return { type: 'browser', browser: 'unknown' };
     }
   }
