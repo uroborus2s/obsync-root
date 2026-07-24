@@ -1,6 +1,6 @@
 {
   "name": "@stratix/database",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Stratix Database Plugin with two-layer architecture, Kysely integration and advanced features",
   "main": "dist/index.js",
   "types": "dist/types/index.d.ts",
@@ -50,7 +50,7 @@
     "reflect-metadata": "^0.2.2"
   },
   "peerDependencies": {
-    "@stratix/core": "workspace:*",
+    "@stratix/core": "workspace:^1.1.0",
     "better-sqlite3": "^12.11.1",
     "mysql2": "^3.22.5",
     "pg": "^8.21.0",
