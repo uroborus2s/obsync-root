@@ -73,7 +73,7 @@
 |---|---|---|
 | `data` | `string \| Buffer` | 待加密内容 |
 | `options.algorithm` | `EncryptionAlgorithm` | 默认 `AES_256_GCM` |
-| `options.key` | `string \| Buffer` | 自定义密钥 |
+| `options.key` | `string \| Buffer` | 32-byte 原始密钥，或解码后为 32 bytes 的 hex/base64 密钥 |
 | `options.iv` | `Buffer` | 初始化向量 |
 | `options.outputFormat` | `'base64' \| 'hex' \| 'buffer'` | 输出格式 |
 | `options.useDefaultKey` | `boolean` | 是否使用内置默认密钥 |
@@ -110,6 +110,8 @@
 
 - `config` 必须是可序列化 JSON 对象
 - `encryptConfig()` 输出格式是 `iv.authTag.encrypted`
+- 显式 key 与 `STRATIX_ENCRYPTION_KEY` 使用同一解析规则；AES-256 key
+  解析后必须恰好为 32 bytes
 
 ### `validateConfig(config, options?)`
 

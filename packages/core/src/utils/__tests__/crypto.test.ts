@@ -42,6 +42,18 @@ describe('crypto utilities', () => {
     );
   });
 
+  it('rejects environment and explicit keys that are not 32 bytes', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.STRATIX_ENCRYPTION_KEY = 'short';
+
+    expect(() => encrypt('production secret')).toThrow('exactly 32 bytes');
+    expect(() =>
+      encrypt('production secret', {
+        key: 'also-short'
+      })
+    ).toThrow('exactly 32 bytes');
+  });
+
   it('rejects forced default key usage in production', () => {
     process.env.NODE_ENV = 'production';
     process.env.STRATIX_ENCRYPTION_KEY = '12345678901234567890123456789012';

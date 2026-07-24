@@ -23,20 +23,20 @@ function configHelp(subcommand?: string): string {
       return `Usage: stratix config encrypt <file> [options]
 
 Options:
-  --key <key>       Encryption key
   --output <file>   Write encrypted config to a file
   --format <env|json>
                    Output format when --output is used, defaults to env
+  STRATIX_ENCRYPTION_KEY must contain a 32-byte AES key
   --verbose         Print verbose crypto diagnostics
   --help            Show this help message`;
     case 'decrypt':
       return `Usage: stratix config decrypt <encrypted-string> [options]
 
 Options:
-  --key <key>       Encryption key
   --output <file>   Write decrypted config to a file
   --format <json|env>
                    Output format when --output is used, defaults to json
+  STRATIX_ENCRYPTION_KEY must contain a 32-byte AES key
   --verbose         Print verbose crypto diagnostics
   --help            Show this help message`;
     case 'validate':
@@ -50,7 +50,7 @@ Options:
       return `Usage: stratix config generate-key [options]
 
 Options:
-  --length <bytes>  Key length in bytes, defaults to 32
+  --length <bytes>  Key length in bytes; AES-256 requires 32
   --format <format> Key format: hex or base64, defaults to hex
   --help            Show this help message`;
     default:
@@ -100,12 +100,11 @@ async function encryptCommand(
     throw new CliError('Usage: stratix config encrypt <file>');
   }
 
-  const key = getStringArg(args.key);
+  rejectCommandLineKey(args);
   const outputPath = getStringArg(args.output);
   const format = getStringArg(args.format) || 'env';
   const config = loadConfigFromFile(filePath);
   const encrypted = encryptConfig(config, {
-    ...(key ? { key } : {}),
     verbose: Boolean(args.verbose)
   });
 
@@ -137,11 +136,10 @@ async function decryptCommand(
     throw new CliError('Usage: stratix config decrypt <encrypted-string>');
   }
 
-  const key = getStringArg(args.key);
+  rejectCommandLineKey(args);
   const outputPath = getStringArg(args.output);
   const format = getStringArg(args.format) || 'json';
   const config = decryptConfig(encryptedString, {
-    ...(key ? { key } : {}),
     verbose: Boolean(args.verbose)
   });
 
@@ -192,6 +190,17 @@ async function generateKeyCommand(
   const lengthValue = getStringArg(args.length);
   const formatValue = getStringArg(args.format);
   const length = lengthValue ? Number(lengthValue) : 32;
+  if (length !== 32) {
+    throw new CliError('AES-256 encryption keys must be exactly 32 bytes');
+  }
   const format = (formatValue || 'hex') as 'hex' | 'base64';
   output.log(String(generateSecureKey(length, format)));
+}
+
+function rejectCommandLineKey(args: ParsedArgs): void {
+  if (args.key !== undefined) {
+    throw new CliError(
+      'The --key option is not supported; set STRATIX_ENCRYPTION_KEY instead'
+    );
+  }
 }

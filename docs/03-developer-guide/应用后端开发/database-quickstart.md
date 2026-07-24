@@ -96,8 +96,8 @@ const databaseConfig = sensitiveConfig.database || {};
 
 ```bash
 stratix config validate sensitive.local.json --required database --strict
-stratix config generate-key --length 32 --format base64
-stratix config encrypt sensitive.local.json --key "<上一步生成的密钥>" --output .env.local
+export STRATIX_ENCRYPTION_KEY="$(stratix config generate-key --length 32 --format base64)"
+stratix config encrypt sensitive.local.json --output .env.local
 ```
 
 这样生成出来的 `.env.local` 会包含：
@@ -106,7 +106,9 @@ stratix config encrypt sensitive.local.json --key "<上一步生成的密钥>" -
 STRATIX_SENSITIVE_CONFIG="..."
 ```
 
-然后你再把同一把密钥通过环境变量 `STRATIX_ENCRYPTION_KEY` 提供给应用运行环境。加密时用的 key 和运行时解密用的 key 必须一致。
+应用运行时继续注入同一个 `STRATIX_ENCRYPTION_KEY`。Forge 和 Core 都接受
+恰好 32-byte 的原始文本，或解码后为 32 bytes 的 64 位 hex / 标准 base64；
+其他长度会直接报错。不要通过命令行参数传密钥。
 
 不要把 `DB_HOST`、`DB_PASSWORD` 这类业务配置重新接回普通 `.env`；应用配置统一通过加密后的 `STRATIX_SENSITIVE_CONFIG` 注入。
 

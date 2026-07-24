@@ -13,6 +13,7 @@ const DEFAULT_ENCRYPTION_KEY = new Uint8Array([
 ]);
 
 const STRATIX_ENCRYPTION_KEY = 'STRATIX_ENCRYPTION_KEY';
+const AES_256_KEY_LENGTH = 32;
 
 export interface EncryptOptions {
   algorithm?: EncryptionAlgorithm;
@@ -57,19 +58,40 @@ function getEncryptionKey(
     return Buffer.from(DEFAULT_ENCRYPTION_KEY);
   }
 
-  if (key) {
-    const rawKey = typeof key === 'string' ? Buffer.from(key) : key;
-    return rawKey.length === 32
-      ? rawKey
-      : crypto.createHash('sha256').update(rawKey).digest();
+  if (key !== undefined) {
+    return parseEncryptionKey(key);
   }
 
   const envKey = process.env[STRATIX_ENCRYPTION_KEY];
   if (envKey) {
-    return crypto.createHash('sha256').update(Buffer.from(envKey)).digest();
+    return parseEncryptionKey(envKey);
   }
 
   return Buffer.from(DEFAULT_ENCRYPTION_KEY);
+}
+
+function parseEncryptionKey(key: string | Buffer): Buffer {
+  const rawKey = typeof key === 'string' ? Buffer.from(key) : Buffer.from(key);
+
+  if (rawKey.length === AES_256_KEY_LENGTH) {
+    return rawKey;
+  }
+
+  if (typeof key === 'string' && /^[0-9a-f]{64}$/i.test(key)) {
+    return Buffer.from(key, 'hex');
+  }
+
+  if (
+    typeof key === 'string' &&
+    /^[A-Za-z0-9+/]{43}=$/.test(key) &&
+    Buffer.from(key, 'base64').length === AES_256_KEY_LENGTH
+  ) {
+    return Buffer.from(key, 'base64');
+  }
+
+  throw new Error(
+    `AES-256 encryption key must be exactly ${AES_256_KEY_LENGTH} bytes`
+  );
 }
 
 function validateJsonInput(input: any): { isValid: boolean; error?: string } {

@@ -9,7 +9,9 @@ import type { CliOutput } from '../src/core/output.js';
 import type { ProjectManifest } from '../src/schemas/project.js';
 import { parseFastifyPlugins } from '../src/commands/ecosystem/fastify-source.js';
 import { runCli } from '../src/run-cli.js';
+import { encryptConfig as encryptForgeConfig } from '../src/utils/config-crypto.js';
 import { runCreate } from '../../create/src/run-create.ts';
+import { decryptConfig as decryptCoreConfig } from '../../core/src/utils/crypto.ts';
 
 interface MemoryOutput extends CliOutput {
   messages: Array<{ level: string; message: string }>;
@@ -2644,6 +2646,7 @@ describe('@stratix/forge', () => {
     const decryptOutput = createMemoryOutput();
     const validateOutput = createMemoryOutput();
     const keyOutput = createMemoryOutput();
+    const originalKey = process.env.STRATIX_ENCRYPTION_KEY;
 
     fs.writeFileSync(
       configFile,
@@ -2659,29 +2662,31 @@ describe('@stratix/forge', () => {
       'utf8'
     );
 
-    await runCli(['config', 'encrypt', configFile, '--key', 'secret-key'], {
-      cwd,
-      output: encryptOutput
-    });
+    process.env.STRATIX_ENCRYPTION_KEY = '12345678901234567890123456789012';
 
-    const encryptedString = encryptOutput.messages.at(-1)?.message || '';
-    assert.ok(encryptedString.length > 0);
-
-    await runCli(
-      [
-        'config',
-        'decrypt',
-        encryptedString,
-        '--key',
-        'secret-key',
-        '--output',
-        decryptedFile
-      ],
-      {
+    try {
+      await runCli(['config', 'encrypt', configFile], {
         cwd,
-        output: decryptOutput
+        output: encryptOutput
+      });
+
+      const encryptedString = encryptOutput.messages.at(-1)?.message || '';
+      assert.ok(encryptedString.length > 0);
+
+      await runCli(
+        ['config', 'decrypt', encryptedString, '--output', decryptedFile],
+        {
+          cwd,
+          output: decryptOutput
+        }
+      );
+    } finally {
+      if (originalKey === undefined) {
+        delete process.env.STRATIX_ENCRYPTION_KEY;
+      } else {
+        process.env.STRATIX_ENCRYPTION_KEY = originalKey;
       }
-    );
+    }
 
     assert.equal(readJson(decryptedFile).database.host, '127.0.0.1');
     assert.ok(
@@ -2705,7 +2710,7 @@ describe('@stratix/forge', () => {
     );
 
     await runCli(
-      ['config', 'generate-key', '--length', '16', '--format', 'base64'],
+      ['config', 'generate-key', '--length', '32', '--format', 'base64'],
       {
         cwd,
         output: keyOutput
@@ -2716,6 +2721,84 @@ describe('@stratix/forge', () => {
       keyOutput.messages.at(-1)?.message || '',
       /^[A-Za-z0-9+/]+={0,2}$/
     );
+  });
+
+  it('encrypts with the environment key for Core to decrypt', async () => {
+    const cwd = createTempRoot();
+    const configFile = path.join(cwd, 'sensitive.json');
+    const envFile = path.join(cwd, '.env');
+    const originalKey = process.env.STRATIX_ENCRYPTION_KEY;
+    const config = { database: { host: '127.0.0.1' } };
+    const keyOutput = createMemoryOutput();
+
+    fs.writeFileSync(configFile, JSON.stringify(config), 'utf8');
+
+    try {
+      await runCli(['config', 'generate-key', '--format', 'base64'], {
+        cwd,
+        output: keyOutput
+      });
+      process.env.STRATIX_ENCRYPTION_KEY =
+        keyOutput.messages.at(-1)?.message || '';
+
+      await runCli(['config', 'encrypt', configFile, '--output', envFile], {
+        cwd,
+        output: createMemoryOutput()
+      });
+
+      const encrypted = readText(envFile).match(
+        /^STRATIX_SENSITIVE_CONFIG="(.+)"$/m
+      )?.[1];
+      assert.ok(encrypted);
+      assert.deepEqual(decryptCoreConfig(encrypted), config);
+      assert.deepEqual(
+        decryptCoreConfig(
+          encryptForgeConfig(config, {
+            key: process.env.STRATIX_ENCRYPTION_KEY
+          })
+        ),
+        config
+      );
+    } finally {
+      if (originalKey === undefined) {
+        delete process.env.STRATIX_ENCRYPTION_KEY;
+      } else {
+        process.env.STRATIX_ENCRYPTION_KEY = originalKey;
+      }
+    }
+  });
+
+  it('rejects command-line and invalid AES-256 keys', async () => {
+    const cwd = createTempRoot();
+    const configFile = path.join(cwd, 'sensitive.json');
+    const originalKey = process.env.STRATIX_ENCRYPTION_KEY;
+
+    fs.writeFileSync(configFile, JSON.stringify({ secret: true }), 'utf8');
+
+    try {
+      await assert.rejects(
+        runCli(['config', 'encrypt', configFile, '--key', 'ignored'], {
+          cwd,
+          output: createMemoryOutput()
+        }),
+        /--key option is not supported/
+      );
+
+      process.env.STRATIX_ENCRYPTION_KEY = 'short';
+      await assert.rejects(
+        runCli(['config', 'encrypt', configFile], {
+          cwd,
+          output: createMemoryOutput()
+        }),
+        /exactly 32 bytes/
+      );
+    } finally {
+      if (originalKey === undefined) {
+        delete process.env.STRATIX_ENCRYPTION_KEY;
+      } else {
+        process.env.STRATIX_ENCRYPTION_KEY = originalKey;
+      }
+    }
   });
 
   it('prints config subcommand help without treating it as an error', async () => {

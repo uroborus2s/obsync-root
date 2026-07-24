@@ -31,6 +31,7 @@ const DEFAULT_ENCRYPTION_KEY = new Uint8Array([
 ]);
 
 const STRATIX_ENCRYPTION_KEY = 'STRATIX_ENCRYPTION_KEY';
+const AES_256_KEY_LENGTH = 32;
 
 /**
  * 加密选项
@@ -140,7 +141,7 @@ function getEncryptionKey(
       );
     }
 
-    if (!key && !envKey) {
+    if (key === undefined && !envKey) {
       throw new Error(
         'STRATIX_ENCRYPTION_KEY is required in production; default encryption key fallback is disabled.'
       );
@@ -153,17 +154,41 @@ function getEncryptionKey(
   }
 
   // 其次使用传入的密钥
-  if (key) {
-    return typeof key === 'string' ? Buffer.from(key) : key;
+  if (key !== undefined) {
+    return parseEncryptionKey(key);
   }
 
   // 从环境变量获取
   if (envKey) {
-    return Buffer.from(envKey);
+    return parseEncryptionKey(envKey);
   }
 
   // 最后使用默认密钥作为后备选项
   return Buffer.from(DEFAULT_ENCRYPTION_KEY);
+}
+
+function parseEncryptionKey(key: string | Buffer): Buffer {
+  const rawKey = typeof key === 'string' ? Buffer.from(key) : Buffer.from(key);
+
+  if (rawKey.length === AES_256_KEY_LENGTH) {
+    return rawKey;
+  }
+
+  if (typeof key === 'string' && /^[0-9a-f]{64}$/i.test(key)) {
+    return Buffer.from(key, 'hex');
+  }
+
+  if (
+    typeof key === 'string' &&
+    /^[A-Za-z0-9+/]{43}=$/.test(key) &&
+    Buffer.from(key, 'base64').length === AES_256_KEY_LENGTH
+  ) {
+    return Buffer.from(key, 'base64');
+  }
+
+  throw new Error(
+    `AES-256 encryption key must be exactly ${AES_256_KEY_LENGTH} bytes`
+  );
 }
 
 /**

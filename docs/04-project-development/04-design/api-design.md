@@ -7,7 +7,8 @@
 **上游输入：** 当前状态分析 | 技术选型  
 **下游输出：** 实施计划 | 发布计划 | 用户指南  
 **关联 ID：** `API-001` ~ `API-019`
-**最后更新：** 2026-07-05
+
+**最后更新：** 2026-07-24
 
 ## 1. 当前对外接口面
 
@@ -47,7 +48,7 @@
 | `stratix` | `build-manifest` | 生成 `.stratix/production-manifest.json` | 默认 schema v2，记录 route/DI/module/plugin-lock 和 artifact hash |
 | `stratix` | `release gate` | 执行项目级或 workspace 发布门禁 | workspace scope 可加入 `--include-offline-install` 与 `--include-registry` |
 | `stratix` | `start` | 启动 Stratix 应用 | 用于项目本地运行入口，不替代发布门禁 |
-| `stratix` | `config encrypt/decrypt/validate/generate-key` | 管理敏感配置加密与校验 | 密钥和输出文件由调用方显式传入 |
+| `stratix` | `config encrypt/decrypt/validate/generate-key` | 管理敏感配置加密与校验 | 密钥只通过 `STRATIX_ENCRYPTION_KEY` 注入；解析后必须为 32-byte AES-256 key |
 | `stratix` | `list` | 查看 forge 可用模板与 preset | 用于项目维护，不创建 app/plugin |
 | `stratix` | `ecosystem search <query>` | 聚合 Stratix catalog、Fastify 官方生态 Markdown 和 npm registry 结果 | 支持 `--source stratix,fastify,npm`、`--format table|json`、`--limit`；输出证据和 signals，不输出 AI 推荐结论 |
 | `stratix` | `ecosystem inspect <package>` | 查询指定包的 npm、GitHub、Stratix 证据 | registry 从本机 `.npmrc` 读取，token 只记录是否存在，不输出原值 |
@@ -82,3 +83,4 @@
 | 2026-06-18 | 记录 Phase 6 workspace release gate API 面                                                                                 | Codex  |
 | 2026-07-04 | 补齐 create/forge CLI 接口矩阵，更新 API 缺口为发布外部证据和后续质量提升项                                               | Codex  |
 | 2026-07-05 | 新增 `stratix ecosystem` CLI 接口面，记录 search/inspect/catalog/adapt 命令边界                                           | Codex  |
+| 2026-07-24 | 统一 Forge/Core AES-256 key 契约，config CLI 改为只从环境变量读取 key                                                     | Codex  |

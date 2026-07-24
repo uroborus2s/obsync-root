@@ -272,6 +272,28 @@
       "generated API project pnpm install/build/doctor/config-help/strict-openapi smoke"
     ]
   },
+  "configEncryptionCompatibility": {
+    "checkedAt": "2026-07-24",
+    "workitem": "BUG-006",
+    "status": "resolved_locally",
+    "scope": "@stratix/forge config CLI and @stratix/core startup decryption key contract",
+    "fixes": [
+      "Forge and Core use the same raw, hex, and base64 AES-256 key parsing contract",
+      "AES-256 keys must decode to exactly 32 bytes",
+      "Forge config encrypt/decrypt reject command-line keys and read STRATIX_ENCRYPTION_KEY",
+      "No legacy-key retry, dual-key guessing, or fallback decryption was added"
+    ],
+    "compatibility": "Ciphertext produced by the old Forge environment-key SHA-256 path must be decrypted with the old Forge behavior and re-encrypted. Existing ciphertext produced with an explicit 32-byte raw key remains compatible.",
+    "verification": [
+      "pnpm --filter @stratix/forge test: 70/70 passed",
+      "pnpm --filter @stratix/core test: 34 files / 263 tests passed",
+      "pnpm --filter @stratix/forge exec tsc -p tsconfig.json --noEmit",
+      "pnpm --filter @stratix/core exec tsc -p tsconfig.json --noEmit",
+      "pnpm --filter @stratix/forge run build",
+      "pnpm --filter @stratix/core run build",
+      "built Forge -> env artifact -> built Core round trip"
+    ]
+  },
   "verification": {
     "checkedAt": "2026-06-26",
     "quality": [
