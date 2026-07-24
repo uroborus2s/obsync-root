@@ -325,6 +325,18 @@
     "checkedAt": "2026-07-24",
     "quality": [
       {
+        "command": "GitHub Actions Quality Gate runs 30072899893 and 30072911232",
+        "status": "failed_before_bug008_remediation",
+        "summary": "push and pull_request gates failed in generated API consumer smoke",
+        "reason": "The smoke inherited the developer's user-level Aliyun @stratix registry locally but GitHub runners resolved @stratix/core@^1.1.0 from npmjs, where the latest public Core was 0.8.2."
+      },
+      {
+        "command": "env NPM_CONFIG_USERCONFIG=/dev/null NPM_CONFIG_CACHE=/tmp/stratix-quality-npm-cache UV_CACHE_DIR=/tmp/stratix-quality-uv-cache UV_TOOL_DIR=/tmp/stratix-quality-uv-tools pnpm run quality:release",
+        "status": "passed",
+        "summary": "BUG-008 clean-registry local release-quality gate passed",
+        "reason": "The generated consumer uses a temporary pnpm-workspace.yaml Core file override while preserving the template ^1.1.0 dependency contract; 10-package build, typecheck, Oxlint, supported tests, Core 34 files / 263 tests and coverage ratchet, both smokes, 89-page docs validation, security audit, and workspace release dry-run passed without user npm configuration."
+      },
+      {
         "command": "pnpm run quality:release",
         "status": "passed",
         "summary": "TypeScript 7 and Oxlint migration release-quality gate passed",

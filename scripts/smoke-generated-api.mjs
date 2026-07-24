@@ -1,6 +1,12 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import {
+  appendFile,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -91,6 +97,10 @@ try {
   apiPackage.devDependencies['@stratix/forge'] =
     `file:${join(repoRoot, 'packages/forge')}`;
   await writeJson(join(apiDir, 'package.json'), apiPackage);
+  await appendFile(
+    join(apiDir, 'pnpm-workspace.yaml'),
+    `overrides:\n  '@stratix/core': file:${join(repoRoot, 'packages/core')}\n`
+  );
 
   const apiEnv = await readFile(join(apiDir, '.env.example'), 'utf8');
   const presetApiEnv = await readFile(
