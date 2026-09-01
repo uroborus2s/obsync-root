@@ -160,7 +160,7 @@ export class HttpClientService {
         try {
           // 准备请求参数
           const method = config.method?.toUpperCase() || 'GET';
-          const url = config.url || '/';
+          const url = config.url ? this.axiosInstance.getUri(config) : '/';
           const contentType = String(
             config.headers?.['Content-Type'] || 'application/json'
           );
@@ -169,7 +169,7 @@ export class HttpClientService {
           if (this.isPathInSignatureWhitelist(url)) {
             this.logger.debug(
               'Path in signature whitelist, skipping signature:',
-              url
+              config.url
             );
 
             // 白名单路径只设置Content-Type，不添加签名
@@ -200,7 +200,7 @@ export class HttpClientService {
               config.headers['X-Kso-Authorization'] = signatureParams.signature;
             }
 
-            this.logger.debug('Added KSO-1 signature for path:', url);
+            this.logger.debug('Added KSO-1 signature for path:', config.url);
           }
         } catch (error) {
           this.logger.error('Failed to generate KSO-1 signature:', error);

@@ -11,23 +11,28 @@ import { SignatureService } from '../services/signatureService.js';
 import type { AccessToken, WpsConfig } from '../types/index.js';
 
 // Mock axios
-vi.mock('axios', () => ({
-  default: {
-    create: vi.fn(() => ({
-      defaults: { headers: { common: {} } },
-      interceptors: {
-        request: { use: vi.fn() },
-        response: { use: vi.fn() }
-      },
-      request: vi.fn(),
-      post: vi.fn(),
-      get: vi.fn(),
-      put: vi.fn(),
-      delete: vi.fn(),
-      patch: vi.fn()
-    }))
-  }
-}));
+vi.mock('axios', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('axios')>();
+
+  return {
+    default: {
+      create: vi.fn(() => ({
+        defaults: { headers: { common: {} } },
+        getUri: vi.fn((config) => actual.default.getUri(config)),
+        interceptors: {
+          request: { use: vi.fn() },
+          response: { use: vi.fn() }
+        },
+        request: vi.fn(),
+        post: vi.fn(),
+        get: vi.fn(),
+        put: vi.fn(),
+        delete: vi.fn(),
+        patch: vi.fn()
+      }))
+    }
+  };
+});
 
 // Mock TokenCacheService
 const createMockTokenCacheService = (): ITokenCacheService => ({
@@ -93,6 +98,38 @@ describe('HttpClientService', () => {
       mockTokenCacheService,
       testConfig
     );
+  });
+
+  describe('KSO-1 请求签名', () => {
+    it('应该使用包含查询参数的最终请求 URI', () => {
+      const mockAxiosInstance = (httpClientService as any).axiosInstance;
+      const requestInterceptor =
+        mockAxiosInstance.interceptors.request.use.mock.calls[0][0];
+
+      requestInterceptor({
+        method: 'get',
+        baseURL: testConfig.baseUrl,
+        url: '/v7/calendars/148219054/permissions',
+        params: { page_size: 20, page_token: 'next page' },
+        paramsSerializer: {
+          serialize: () => 'page_size=20&page_token=next%20page'
+        },
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      expect(
+        mockSignatureService.generateRequestSignature
+      ).toHaveBeenCalledWith(
+        'GET',
+        'https://openapi.wps.cn/v7/calendars/148219054/permissions?page_size=20&page_token=next%20page',
+        'application/json',
+        ''
+      );
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        'Added KSO-1 signature for path:',
+        '/v7/calendars/148219054/permissions'
+      );
+    });
   });
 
   describe('getAppAccessToken', () => {
