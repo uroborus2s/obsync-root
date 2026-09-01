@@ -20,7 +20,8 @@
 
 - 使用 Axios 的最终 URI 作为 KSO-1 签名输入。
 - 增加查询参数签名回归测试。
-- 发布 `@stratix/was-v7@1.0.0-beta.37` 到仓库配置的 npm registry。
+- `1.0.0-beta.37` 已发布，但消费端发现它误带入仅适配 Core 1.1.2 的子路径导入。
+- 发布 `@stratix/was-v7@1.0.0-beta.38`，且仅兼容 `@stratix/core@1.0.0-beta.9`。
 
 ## 人工确认
 

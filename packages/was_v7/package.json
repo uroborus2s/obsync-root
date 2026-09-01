@@ -1,6 +1,6 @@
 {
   "name": "@stratix/was-v7",
-  "version": "1.0.0-beta.37",
+  "version": "1.0.0-beta.38",
   "description": "Stratix WPS V7 integration plugin with calendar, schedule and organization adapters",
   "main": "dist/index.js",
   "types": "dist/types/index.d.ts",
@@ -19,15 +19,16 @@
     "dev": "tsc --watch"
   },
   "dependencies": {
+    "@stratix/utils": "1.0.0-beta.4",
     "axios": "^1.18.1",
     "zod": "^4.4.3"
   },
   "peerDependencies": {
-    "@stratix/core": "workspace:*",
+    "@stratix/core": "1.0.0-beta.9",
     "@stratix/redis": "workspace:*"
   },
   "devDependencies": {
-    "@stratix/core": "workspace:*",
+    "@stratix/core": "1.0.0-beta.9",
     "@stratix/redis": "workspace:*",
     "awilix": "^13.0.5"
   },

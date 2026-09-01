@@ -2,8 +2,8 @@ import { createContainer } from 'awilix';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WasV7PluginOptions } from '../plugin.js';
 
-vi.mock('@stratix/core/plugin', async (importActual) => {
-  const actual = await importActual<typeof import('@stratix/core/plugin')>();
+vi.mock('@stratix/core', async (importActual) => {
+  const actual = await importActual<typeof import('@stratix/core')>();
   return {
     ...actual,
     withRegisterAutoDI:

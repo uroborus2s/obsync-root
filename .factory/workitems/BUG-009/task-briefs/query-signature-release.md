@@ -3,13 +3,15 @@
 ## 目标
 
 确保 KSO-1 签名使用与 Axios 实际发送一致、包含查询参数的 URI，并发布
-`@stratix/was-v7@1.0.0-beta.37`。
+`@stratix/was-v7@1.0.0-beta.38`。该版本只兼容
+`@stratix/core@1.0.0-beta.9`，不跟随新版 Core 的子路径 API。
 
 ## 验收标准
 
 - `params` 序列化结果进入签名 URI。
 - was-v7 测试、类型检查、lint、构建和 tarball 检查通过。
-- 配置的 npm registry 可反查精确版本 `1.0.0-beta.37`。
+- 包级测试实际解析 `@stratix/core@1.0.0-beta.9`，打包产物可在隔离 consumer 中加载。
+- 配置的 npm registry 可反查精确版本 `1.0.0-beta.38`。
 
 ## 允许范围
 

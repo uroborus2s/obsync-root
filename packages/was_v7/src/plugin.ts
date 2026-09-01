@@ -2,7 +2,7 @@ import {
   withRegisterAutoDI,
   type FastifyInstance,
   type FastifyPluginAsync
-} from '@stratix/core/plugin';
+} from '@stratix/core';
 import type { WpsConfig } from './types/index.js';
 
 /**

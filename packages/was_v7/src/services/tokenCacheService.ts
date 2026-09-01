@@ -4,7 +4,7 @@
  */
 
 import type { Logger } from '@stratix/core';
-import { RESOLVER } from '@stratix/core/plugin';
+import { RESOLVER } from '@stratix/core';
 import type { RedisAdapter } from '@stratix/redis';
 import type { AccessToken } from '../types/index.js';
 import type {

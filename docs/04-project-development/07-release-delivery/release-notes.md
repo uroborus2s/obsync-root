@@ -68,10 +68,11 @@ dist-tag 和发布后的 `@stratix/core@^1.1.0` peer 反查一致。用户级
 `NPM_CONFIG_USERCONFIG=/dev/null` 中和该配置后，真实 public npmjs 返回
 404，因此本次只形成 Aliyun 私库发布证据。
 
-2026-09-01，`BUG-009` 准备发布 `@stratix/was-v7@1.0.0-beta.37`：
-KSO-1 请求拦截器改用 Axios 序列化后的最终 URI，修复 `params` 已发送但未进入
-签名导致 WPS 返回 `403 Forbidden` 的问题。该候选仅修改 was-v7 的 HTTP
-客户端、回归测试和版本，不改变各业务 Adapter 的参数契约。
+2026-09-01，`BUG-009` 修复 `@stratix/was-v7` KSO-1 查询参数签名。
+`1.0.0-beta.37` 已发布到 Aliyun，但消费端发现它误带入仅适配 Core 1.1.2 的
+`@stratix/core/plugin` 子路径导入，因此不得用于仍固定 Core beta.9 的应用。
+修正候选 `1.0.0-beta.38` 保留 Axios 最终 URI 签名修复，只兼容
+`@stratix/core@1.0.0-beta.9`，并已通过 Core beta.9 隔离 tarball consumer 加载。
 
 ## 4. 发布门禁
 
@@ -131,4 +132,4 @@ node packages/forge/dist/bin/stratix.js release gate --scope workspace --include
 | 2026-07-05 | `@stratix/forge` 新增 `stratix ecosystem` search/inspect/catalog/adapt，发布目标版本调整为 `1.1.1`            | Codex  |
 | 2026-07-05 | 记录 `@stratix/forge@1.1.1` 阿里云私有 npm registry 发布和反查证据                                            | Codex  |
 | 2026-07-24 | 记录 `@stratix/database@1.1.1` Core peer 修复、Aliyun 私库发布与 public npmjs 404 反查证据                    | Codex  |
-| 2026-09-01 | 记录 `@stratix/was-v7@1.0.0-beta.37` 查询参数签名修复发布候选                                                 | Codex  |
+| 2026-09-01 | 记录 was-v7 beta.37 消费兼容回归及仅兼容 Core beta.9 的 beta.38 修正候选                                      | Codex  |

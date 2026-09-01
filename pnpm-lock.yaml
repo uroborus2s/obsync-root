@@ -382,6 +382,9 @@ importers:
 
   packages/was_v7:
     dependencies:
+      '@stratix/utils':
+        specifier: 1.0.0-beta.4
+        version: 1.0.0-beta.4
       axios:
         specifier: ^1.18.1
         version: 1.18.1
@@ -390,8 +393,8 @@ importers:
         version: 4.4.3
     devDependencies:
       '@stratix/core':
-        specifier: workspace:*
-        version: link:../core
+        specifier: 1.0.0-beta.9
+        version: 1.0.0-beta.9
       '@stratix/redis':
         specifier: workspace:*
         version: link:../redis
@@ -1750,6 +1753,14 @@ packages:
   '@standard-schema/utils@0.3.0':
     resolution: {integrity: sha512-e7Mew686owMaPJVNNLs55PUvgz371nKgwsc4vxE49zsODpJEnxgxRo2y/OKrqueavXgZNMDVj3DdHFlaSAeU8g==}
 
+  '@stratix/core@1.0.0-beta.9':
+    resolution: {integrity: sha512-bSHJ1ecUyUXVE49xZ0sHVMJHhU7jkzMHJEtDYznmG6iGnuzsvvMimE6mN9Tca7vRmOCVnGV7AQtQWsknSmkN1g==, tarball: https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/@stratix/core/-/@stratix/core-1.0.0-beta.9.tgz}
+    engines: {node: '>=22.0.0'}
+    hasBin: true
+
+  '@stratix/utils@1.0.0-beta.4':
+    resolution: {integrity: sha512-AXKYevtKfHwxNgCSdO19ezVIIVwuFYnLy5tE2WnRtl3stVsmb9zAX57tAXkmv/GblHcUjhfp9My4Mpt2xDcTWg==, tarball: https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/@stratix/utils/-/@stratix/utils-1.0.0-beta.4.tgz}
+
   '@tailwindcss/node@4.3.3':
     resolution: {integrity: sha512-/T8IKEsf9VTU6tLjgC7+sv2mOPtQxzE2jMw7u4Tt40Tx+QSZxpzh95/H6cMKoja9XuW7iMdLJYBB0o9G1CaAgg==}
 
@@ -2298,11 +2309,21 @@ packages:
   avvio@9.3.0:
     resolution: {integrity: sha512-g2tQ7LE7oOSqDfwEm3M+ZCMTJc7KiZCdJ4UwyZJb5ckTKyYu50OYmvv0mCFXPuYXoM4zkSt8zM9XQ9KCvxA74A==}
 
+  awilix-manager@6.4.0:
+    resolution: {integrity: sha512-8YBhrtxlhMyFwvZRT+BeLlrBNF6KSzdUTeXZBdX5B7IcjqB6xDQ8cdkfSixJEsjMBS4P3NvbodUTDAikG7rQqQ==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      awilix: '>=9.0.0'
+
   awilix-manager@7.0.0:
     resolution: {integrity: sha512-dl9ubYXn+rDFV+h3cFujcA5zLDrSrgo5XFU4Vaz3JYawZoUPq8F4gb+p8EgxmuJ5nGRktpMLKAtN34x4srHPyA==}
     engines: {node: '>=22.13'}
     peerDependencies:
       awilix: '>=9.0.0'
+
+  awilix@12.1.1:
+    resolution: {integrity: sha512-A93ak7Ypot8YlkfulCBL4GCkZozuwdfwOJs+4l8+svJYCfXKuokLxWe/usTiatN1dlPOdT5HO0MBpNNTzZSWug==}
+    engines: {node: '>=16.3.0'}
 
   awilix@13.0.5:
     resolution: {integrity: sha512-ORtca6suBdYA1FyTzqHEZDvEuUwo3lPDDBRm7GrzHgi6STESzJKdBtpqfTzObdMj1NGQUWX6k26E3EbQaGJX5Q==}
@@ -2453,6 +2474,7 @@ packages:
   cron-parser@4.9.0:
     resolution: {integrity: sha512-p0SaNjrHOnQeR8/VnfGbmg9te2kfyYSQ7Sc/j/6DtPL3JQvKxmjO9TSjNFpujqV3vEYYBvNNvXSxzyksBWAx1Q==}
     engines: {node: '>=12.0.0'}
+    deprecated: v4 is no longer maintained, upgrade to v5
 
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
@@ -2611,8 +2633,16 @@ packages:
     resolution: {integrity: sha512-WkrWp9GR4KXfKGYzOLmTuGVi1UWFfws377n9cc55/tb6DuqyF6pcQ5AbiHEshaDpY9v6oaSr2XCDidGmMwdzIA==}
     engines: {node: '>=8'}
 
+  dotenv-expand@12.0.3:
+    resolution: {integrity: sha512-uc47g4b+4k/M/SeaW1y4OApx+mtLWl92l5LMPP0GNXctZqELk+YGgOPIIC5elYmUH4OuoK3JLhuRUYegeySiFA==}
+    engines: {node: '>=12'}
+
   dotenv-expand@13.0.0:
     resolution: {integrity: sha512-aBfBS8eYIeXmpHI9ThIlA7/WLq+SLt18iXUZhb52rW89QLKQFoIpPG1bPeewoPZsTyjSSO3T7234FBVUM1V2rA==}
+    engines: {node: '>=12'}
+
+  dotenv@16.6.1:
+    resolution: {integrity: sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==}
     engines: {node: '>=12'}
 
   dotenv@17.4.2:
@@ -2726,6 +2756,10 @@ packages:
   fast-querystring@1.1.2:
     resolution: {integrity: sha512-g6KuKWmFXc0fID8WWH0jit4g0AGBoJhCkJMb1RmbsSEUNvQ+ZC8D6CUZ+GtF8nMzSPXnhiePyyqqipzNNEnHjg==}
 
+  fast-redact@3.5.0:
+    resolution: {integrity: sha512-dwsoQlS7h9hMeYUq1W++23NDcBLV4KqONnITDV9DjfS3q1SgDGVrBdvvTLUotWtPSD7asWDV9/CmsZPy8Hf70A==}
+    engines: {node: '>=6'}
+
   fast-safe-stringify@2.1.1:
     resolution: {integrity: sha512-W+KJc2dmILlPplD/H4K9l9LcAHAfPtP6BY84uVLXQ6Evcz9Lcg33Y2z1IVblT6xdY54PXYVHEv+0Wpq8Io6zkA==}
 
@@ -2741,6 +2775,9 @@ packages:
   fast-xml-parser@5.10.1:
     resolution: {integrity: sha512-IEMIf7298kXuZSRFoGfMYrl7is8LpavODgbNz1cwIudv7KwVFnuU+UsMporfq6PD6aXSlawZlARiA3UywCTfMw==}
     hasBin: true
+
+  fastify-plugin@5.1.0:
+    resolution: {integrity: sha512-FAIDA8eovSt5qcDgcBvDuX/v0Cjz0ohGhENZ/wpc3y+oZCY2afZ9Baqql3g/lC+OHRnciQol4ww7tuthOb9idw==}
 
   fastify-plugin@6.0.0:
     resolution: {integrity: sha512-fZOty7z3O7vOliF6d8bHE3wiEh1KcNnKEQensSgTk9C1DvN6nRLS++XVd86v33Hw/8u9Un8A1zDrQ8ujcQDHEg==}
@@ -3590,12 +3627,18 @@ packages:
     resolution: {integrity: sha512-uB80kBFb/tfd68bVleG9T5GGsGPjJrLAUpR5PZIrhBnIaRTQRjqdJSsIKkOP6OAIFbj7GOrcudc5pNjZ+geV2g==}
     engines: {node: '>=6'}
 
+  pino-abstract-transport@2.0.0:
+    resolution: {integrity: sha512-F63x5tizV6WCh4R6RHyi2Ml+M70DNRXt/+HANowMflpgGFMAym/VKm6G7ZOQRjqN7XbGxK1Lg9t6ZrtzOaivMw==}
+
   pino-abstract-transport@3.0.0:
     resolution: {integrity: sha512-wlfUczU+n7Hy/Ha5j9a/gZNy7We5+cXp8YL+X+PG8S0KXxw7n/JXA3c46Y0zQznIJ83URJiwy7Lh56WLokNuxg==}
 
   pino-pretty@13.1.3:
     resolution: {integrity: sha512-ttXRkkOz6WWC95KeY9+xxWL6AtImwbyMHrL1mSwqwW9u+vLp/WIElvHvCSDg0xO/Dzrggz1zv3rN5ovTRVowKg==}
     hasBin: true
+
+  pino-roll@1.3.0:
+    resolution: {integrity: sha512-bEjnbuSNjHY44LJH9MNqnrLnLWwWlDrK5AE9WMDR1bhQYiikzPgIla1TQ75+J0cx6Im2CYe5kMKRJzbRGVQjVQ==}
 
   pino-roll@4.0.0:
     resolution: {integrity: sha512-axI1aQaIxXdw1F4OFFli1EDxIrdYNGLowkw/ZoZogX8oCSLHUghzwVVXUS8U+xD/Savwa5IXpiXmsSGKFX/7Sg==}
@@ -3605,6 +3648,10 @@ packages:
 
   pino@10.3.1:
     resolution: {integrity: sha512-r34yH/GlQpKZbU1BvFFqOjhISRo1MNx1tWYsYvmj6KIRHSPMT2+yHOEb1SG6NMvRoHRF0a07kCOox/9yakl1vg==}
+    hasBin: true
+
+  pino@9.7.0:
+    resolution: {integrity: sha512-vnMCM6xZTb1WDmLvtG2lE/2p+t9hDEIvTWJsu6FejkE62vB7gDhvzrpFR4Cw2to+9JNQxVnkAKVPA1KPB98vWg==}
     hasBin: true
 
   platform@1.3.6:
@@ -3990,6 +4037,9 @@ packages:
     resolution: {integrity: sha512-g9Q1haeby36OSStwb4ntCGGGaKsaVSjQ68fBxoQcutl5fS1vuY18H3wSt3jFyFtrkx+Kz0V1G85A4MyAdDMi2Q==}
     engines: {node: '>=8'}
 
+  sonic-boom@3.8.1:
+    resolution: {integrity: sha512-y4Z8LCDBuum+PBP3lSV7RHrXscqksve/bi0as7mhwVnBW+/wUqKT/2Kb7um8yqcFy0duYbbPxzt89Zy2nOCaxg==}
+
   sonic-boom@4.2.1:
     resolution: {integrity: sha512-w6AxtubXa2wTXAUsZMMWERrsIRAdrK0Sc+FUytWvYAhBJLyuI4llrMIC1DtlNSdI99EI86KZum2MMq3EAZlF9Q==}
 
@@ -4141,6 +4191,9 @@ packages:
 
   thenify@3.3.1:
     resolution: {integrity: sha512-RVZSIV5IG10Hk3enotrhvz0T9em6cyHBLkH/YAZuKqd8hRkKhSfCGIcP2KUY0EPxndzANBmNllzWPwak+bheSw==}
+
+  thread-stream@3.2.0:
+    resolution: {integrity: sha512-zLBvqpwr4Esa0kRjcrzGU6zL25lePWaCLMx0RQFrmteozIfeNdaMLpG5U7PeHzvlFkAWaRKA9/KVW4F60iB+qw==}
 
   thread-stream@4.2.0:
     resolution: {integrity: sha512-e2zZ96wSChazBsbENf/Pcm/4swHt2cEKQ92rhUjkL9GCKiTDJIaTBenjE/m9DXi0QBmTMDkFDdOomUy20A1tDQ==}
@@ -5761,6 +5814,25 @@ snapshots:
 
   '@standard-schema/utils@0.3.0': {}
 
+  '@stratix/core@1.0.0-beta.9':
+    dependencies:
+      '@stratix/utils': 1.0.0-beta.4
+      ajv: 8.20.0
+      ajv-formats: 3.0.1(ajv@8.20.0)
+      awilix: 12.1.1
+      awilix-manager: 6.4.0(awilix@12.1.1)
+      dotenv: 16.6.1
+      dotenv-expand: 12.0.3
+      fastify: 5.10.0
+      fastify-plugin: 5.1.0
+      js-yaml: 4.3.0
+      minimist: 1.2.8
+      pino: 9.7.0
+      pino-roll: 1.3.0
+      reflect-metadata: 0.2.2
+
+  '@stratix/utils@1.0.0-beta.4': {}
+
   '@tailwindcss/node@4.3.3':
     dependencies:
       '@jridgewell/remapping': 2.3.5
@@ -6254,9 +6326,17 @@ snapshots:
       '@fastify/error': 4.2.0
       fastq: 1.20.1
 
+  awilix-manager@6.4.0(awilix@12.1.1):
+    dependencies:
+      awilix: 12.1.1
+
   awilix-manager@7.0.0(awilix@13.0.5):
     dependencies:
       awilix: 13.0.5
+
+  awilix@12.1.1:
+    dependencies:
+      fast-glob: 3.3.3
 
   awilix@13.0.5:
     dependencies:
@@ -6523,9 +6603,15 @@ snapshots:
     dependencies:
       path-type: 4.0.0
 
+  dotenv-expand@12.0.3:
+    dependencies:
+      dotenv: 16.6.1
+
   dotenv-expand@13.0.0:
     dependencies:
       dotenv: 17.4.2
+
+  dotenv@16.6.1: {}
 
   dotenv@17.4.2: {}
 
@@ -6661,6 +6747,8 @@ snapshots:
     dependencies:
       fast-decode-uri-component: 1.0.1
 
+  fast-redact@3.5.0: {}
+
   fast-safe-stringify@2.1.1: {}
 
   fast-uri@3.1.4: {}
@@ -6680,6 +6768,8 @@ snapshots:
       path-expression-matcher: 1.6.2
       strnum: 2.4.1
       xml-naming: 0.3.0
+
+  fastify-plugin@5.1.0: {}
 
   fastify-plugin@6.0.0: {}
 
@@ -7512,6 +7602,10 @@ snapshots:
 
   pify@4.0.1: {}
 
+  pino-abstract-transport@2.0.0:
+    dependencies:
+      split2: 4.2.0
+
   pino-abstract-transport@3.0.0:
     dependencies:
       split2: 4.2.0
@@ -7531,6 +7625,10 @@ snapshots:
       secure-json-parse: 4.1.0
       sonic-boom: 4.2.1
       strip-json-comments: 5.0.3
+
+  pino-roll@1.3.0:
+    dependencies:
+      sonic-boom: 3.8.1
 
   pino-roll@4.0.0:
     dependencies:
@@ -7552,6 +7650,20 @@ snapshots:
       safe-stable-stringify: 2.5.0
       sonic-boom: 4.2.1
       thread-stream: 4.2.0
+
+  pino@9.7.0:
+    dependencies:
+      atomic-sleep: 1.0.0
+      fast-redact: 3.5.0
+      on-exit-leak-free: 2.1.2
+      pino-abstract-transport: 2.0.0
+      pino-std-serializers: 7.1.0
+      process-warning: 5.0.0
+      quick-format-unescaped: 4.0.4
+      real-require: 0.2.0
+      safe-stable-stringify: 2.5.0
+      sonic-boom: 4.2.1
+      thread-stream: 3.2.0
 
   platform@1.3.6: {}
 
@@ -7886,6 +7998,10 @@ snapshots:
 
   slash@3.0.0: {}
 
+  sonic-boom@3.8.1:
+    dependencies:
+      atomic-sleep: 1.0.0
+
   sonic-boom@4.2.1:
     dependencies:
       atomic-sleep: 1.0.0
@@ -8029,6 +8145,10 @@ snapshots:
   thenify@3.3.1:
     dependencies:
       any-promise: 1.3.0
+
+  thread-stream@3.2.0:
+    dependencies:
+      real-require: 0.2.0
 
   thread-stream@4.2.0:
     dependencies:

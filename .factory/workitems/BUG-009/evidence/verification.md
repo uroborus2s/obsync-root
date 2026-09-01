@@ -2,7 +2,7 @@
 
 - 日期：2026-09-01
 - Actor：Codex
-- 候选版本：`@stratix/was-v7@1.0.0-beta.37`
+- 候选版本：`@stratix/was-v7@1.0.0-beta.38`
 - 当前结论：review_approved_ready_for_release
 
 ## RED / GREEN
@@ -37,6 +37,15 @@ packed Core smoke、generated consumer smoke 和 89 页 docs validation 均通�
 修正后复审通过：日志只记录 `config.url`，测试通过真实 Axios `getUri` 覆盖
 `baseURL + params + paramsSerializer`；无剩余阻塞问题。
 
+## beta.38 Core beta.9 消费兼容
+
+- `1.0.0-beta.37` 已发布到 Aliyun，但消费端加载时报
+  `Cannot find module '@stratix/core/plugin'`；它误带入了新版 Core 子路径迁移。
+- 用户确认 beta.38 只兼容 `@stratix/core@1.0.0-beta.9`，不适配新版 Core。
+- was-v7 的 Core peer/dev 依赖均固定为 `1.0.0-beta.9`，所有运行时 Core 导入恢复为根入口；`sleep` 恢复使用 `@stratix/utils@1.0.0-beta.4`。
+- Core beta.9 下 was-v7 全量测试 123/123、lint、build 通过。
+- beta.38 tarball 与 Core beta.9、Redis beta.2 安装到隔离 consumer 后，默认插件与 `WpsError` 成功加载。
+
 ## 待完成
 
-- 真实发布和精确版本反查。
+- beta.38 真实发布和精确版本反查。

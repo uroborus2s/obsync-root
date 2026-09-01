@@ -18,5 +18,16 @@
 - 定向测试 14/14、全包测试 123/123、TypeScript、lint 和
   `git diff --check` 通过。
 
-复审确认两项 P2 均关闭，无新增阻塞问题，
-`@stratix/was-v7@1.0.0-beta.37` 可发布。
+复审确认两项 P2 均关闭，无新增阻塞问题。
+
+## beta.38 Core beta.9 兼容复审
+
+- 源码、声明和 tarball 仅从 `@stratix/core` 根入口导入，不再引用
+  `@stratix/core/plugin` 或 `@stratix/core/async`。
+- Core peer/dev 依赖均固定为 `1.0.0-beta.9`；`sleep` 使用发布依赖
+  `@stratix/utils@1.0.0-beta.4/async`。
+- beta.37 的 Axios 最终 URI 签名修复和只记录路径的日志处理均保留。
+- Core beta.9 下测试、TypeScript、lint、tarball 与隔离 consumer 验证通过。
+
+无 Critical、Important 或阻塞发布问题，
+`@stratix/was-v7@1.0.0-beta.38` 可发布。

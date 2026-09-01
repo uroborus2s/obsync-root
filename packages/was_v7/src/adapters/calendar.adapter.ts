@@ -1,5 +1,5 @@
-import type { AwilixContainer } from '@stratix/core/plugin';
-import { sleep } from '@stratix/core/async';
+import type { AwilixContainer } from '@stratix/core';
+import { sleep } from '@stratix/utils/async';
 import type { HttpClientService } from '../services/httpClientService.js';
 import type {
   BatchCreateCalendarPermissionsParams,
