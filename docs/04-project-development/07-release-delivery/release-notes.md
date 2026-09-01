@@ -71,8 +71,10 @@ dist-tag 和发布后的 `@stratix/core@^1.1.0` peer 反查一致。用户级
 2026-09-01，`BUG-009` 修复 `@stratix/was-v7` KSO-1 查询参数签名。
 `1.0.0-beta.37` 已发布到 Aliyun，但消费端发现它误带入仅适配 Core 1.1.2 的
 `@stratix/core/plugin` 子路径导入，因此不得用于仍固定 Core beta.9 的应用。
-修正候选 `1.0.0-beta.38` 保留 Axios 最终 URI 签名修复，只兼容
+`1.0.0-beta.38` 保留 Axios 最终 URI 签名修复，只兼容
 `@stratix/core@1.0.0-beta.9`，并已通过 Core beta.9 隔离 tarball consumer 加载。
+2026-09-02，该版本已发布到 Aliyun；精确版本和 `latest` 均反查为 beta.38，
+发布元数据中的 Core peer 为精确版本 beta.9。
 
 ## 4. 发布门禁
 

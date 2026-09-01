@@ -1,9 +1,9 @@
 # BUG-009 WAS V7 查询参数签名缺失
 
 - 类型：BUG
-- 状态：READY_FOR_RELEASE
+- 状态：CLOSED
 - 优先级：P0
-- 阶段：POST_RELEASE_CONSUMER_REMEDIATION
+- 阶段：RELEASED
 - 日期：2026-09-01
 
 ## 现象
@@ -21,7 +21,8 @@
 - 使用 Axios 的最终 URI 作为 KSO-1 签名输入。
 - 增加查询参数签名回归测试。
 - `1.0.0-beta.37` 已发布，但消费端发现它误带入仅适配 Core 1.1.2 的子路径导入。
-- 发布 `@stratix/was-v7@1.0.0-beta.38`，且仅兼容 `@stratix/core@1.0.0-beta.9`。
+- `@stratix/was-v7@1.0.0-beta.38` 已发布并反查，且仅兼容
+  `@stratix/core@1.0.0-beta.9`。
 
 ## 人工确认
 

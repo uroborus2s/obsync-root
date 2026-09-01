@@ -214,22 +214,21 @@
         "@stratix/testing": "1.0.0-beta.1",
         "@stratix/was-v7": "1.0.0-beta.36"
       },
-      "notPublishedObserved": [
-        "@stratix/database"
-      ],
+      "notPublishedObserved": ["@stratix/database"],
       "verificationNote": "The @stratix/database public npmjs query was run with NPM_CONFIG_USERCONFIG=/dev/null because the user-level @stratix:registry overrides ordinary --registry for scoped packages; public npmjs returned 404.",
       "excludedPackages": []
     },
     "privateRegistry": {
-      "checkedAt": "2026-07-24",
+      "checkedAt": "2026-09-02",
       "registry": "https://packages.aliyun.com/68f7b140876b90de1aabc1c7/npm/npm-registry/",
       "publishedExactVersions": {
         "@stratix/core": "1.1.2",
         "@stratix/create": "1.1.2",
         "@stratix/forge": "1.1.4",
-        "@stratix/database": "1.1.1"
+        "@stratix/database": "1.1.1",
+        "@stratix/was-v7": "1.0.0-beta.38"
       },
-      "verification": "pnpm publish --no-git-checks used the configured Aliyun @stratix registry and published @stratix/core@1.1.2, @stratix/create@1.1.2, @stratix/forge@1.1.4, and @stratix/database@1.1.1; exact version and latest dist-tag queries returned those versions, and database 1.1.1 exposes @stratix/core peer ^1.1.0"
+      "verification": "pnpm publish --no-git-checks used the configured Aliyun @stratix registry and published @stratix/core@1.1.2, @stratix/create@1.1.2, @stratix/forge@1.1.4, @stratix/database@1.1.1, and @stratix/was-v7@1.0.0-beta.38; exact version and latest dist-tag queries returned those versions; database 1.1.1 exposes @stratix/core peer ^1.1.0 and was-v7 beta.38 exposes exact @stratix/core peer 1.0.0-beta.9"
     },
     "gitTags": {
       "@stratix/core": "@stratix/core@1.1.0",

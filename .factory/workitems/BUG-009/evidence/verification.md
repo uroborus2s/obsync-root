@@ -3,7 +3,7 @@
 - 日期：2026-09-01
 - Actor：Codex
 - 候选版本：`@stratix/was-v7@1.0.0-beta.38`
-- 当前结论：review_approved_ready_for_release
+- 当前结论：published_and_verified
 
 ## RED / GREEN
 
@@ -46,6 +46,10 @@ packed Core smoke、generated consumer smoke 和 89 页 docs validation 均通�
 - Core beta.9 下 was-v7 全量测试 123/123、lint、build 通过。
 - beta.38 tarball 与 Core beta.9、Redis beta.2 安装到隔离 consumer 后，默认插件与 `WpsError` 成功加载。
 
-## 待完成
+## beta.38 发布后反查
 
-- beta.38 真实发布和精确版本反查。
+- Aliyun publish：exit 0，发布 `@stratix/was-v7@1.0.0-beta.38`。
+- 精确版本和 `latest` dist-tag 均返回 `1.0.0-beta.38`。
+- 发布元数据中的 Core peer 为精确版本 `1.0.0-beta.9`，Redis peer 为
+  `1.0.0-beta.2`。
+- `dist.integrity`：`sha512-g7MkgK+hYmCuiSVp23OztniyzmnfK2t7UJRo/FSNgPbg8OY/7ytBWG4MAUYntS0MU4Ie+yxPTOwQS/P4VFrYeA==`。
