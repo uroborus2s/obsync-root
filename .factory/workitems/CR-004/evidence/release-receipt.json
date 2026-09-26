@@ -1,0 +1,37 @@
+{
+  "status": "released",
+  "candidate_ref": "f7509a01193e041cf3555d96f42020d27d6baedc",
+  "environment": "configured_aliyun",
+  "authorization_ref": "user requested 1.2.0 release and selected Aliyun private registry",
+  "packages": {
+    "create": {
+      "version": "1.2.0",
+      "dist.integrity": "sha512-ucS3JuDZ+L73hLWA7t5L/ZCTPFhM8FcQ2+SflxLaVsvYiRTpLW3TXw/eSweuYerqRE9fj4/pdQ9boeIvWsaO/w==",
+      "dist-tags": {
+        "latest": "1.2.0"
+      }
+    },
+    "forge": {
+      "version": "1.2.0",
+      "dist.integrity": "sha512-GKW3fEULyfgsTnVwW4xK983O4apYobSpFyD3+mx/GCTzlw6c33ewpwILcC3vQU+1fuuhiXV5As1r5OyHZ3byAg==",
+      "dist-tags": {
+        "latest": "1.2.0"
+      }
+    }
+  },
+  "integrity": "both remote sha512 match reviewed tarballs",
+  "tags": "both annotated 1.2.0 tags pushed and peeled to candidate_ref",
+  "ci": {
+    "run": 36225067859,
+    "status": "failed",
+    "reason": "workspace installation cannot fetch existing @stratix/utils from public registry; unrelated to these CLI package dependencies"
+  },
+  "residual_risks": [
+    "old admin projects require documented component migration",
+    "whole-workspace audit remains failed: 13 high / 6 moderate in other dependency paths"
+  ],
+  "health": "exact version/latest/integrity verified",
+  "smoke": "registry install -> create -> generate CRUD/page -> install -> 38 tests -> build/tsc passed",
+  "observation": "post-publish one independent clean consumer; no long-term monitoring",
+  "rollback_receipt": null
+}

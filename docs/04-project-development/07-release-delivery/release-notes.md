@@ -76,6 +76,14 @@ dist-tag 和发布后的 `@stratix/core@^1.1.0` peer 反查一致。用户级
 2026-09-02，该版本已发布到 Aliyun；精确版本和 `latest` 均反查为 beta.38，
 发布元数据中的 Core peer 为精确版本 beta.9。
 
+### 3.2 管理后台模板 1.2.0
+
+2026-09-26，`@stratix/create@1.2.0` 与 `@stratix/forge@1.2.0` 已发布到用户确认的 Aliyun 私库。代码提交 `f7509a0` 已推送 `1.1.0`，两个对应版本标签均指向该提交。精确版本、latest 和远端产物完整性核验通过。
+
+新增公共表单、按钮、分页与虚拟大表格，统一 TanStack 基础；旧项目应按[升级说明](../../03-developer-guide/脚手架开发/admin-components.md)迁移组件和依赖。发布后从 registry 全新安装，再创建项目、生成 CRUD/page，38 项测试与 build/tsc 通过。
+
+仅发布以上两个包。全仓 audit 的 19 项其他依赖漏洞未修复；远端 CI run `36225067859` 在安装既有私有 `@stratix/utils` 时因 public registry 404 失败，不代表全仓门禁通过。本次未将 `1.1.0` 的其他历史差异合入 main。
+
 ## 4. 发布门禁
 
 Phase 6 workspace release gate 覆盖：

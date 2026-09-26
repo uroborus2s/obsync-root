@@ -318,3 +318,7 @@
 ### CR-004 1.2.0 发布准备
 
 用户已授权 Create/Forge 1.2.0 发布到 Aliyun 私库；版本与 CHANGELOG 已更新，Database changeset 保留。新增旧模板生成前保护；Create 7/7、Forge 71/71、tarball 生成消费者 38/38，build/typecheck/lint 通过。CLI 包及消费者生产依赖审计通过；全工作区存在其他包 19 个已知漏洞，不能宣称全仓发布门禁通过。发布回执见 CR-004 reports/release-120.md。
+
+### 2026-09-26 Create/Forge 1.2.0 私库发布完成
+
+Create/Forge 1.2.0 已发布 Aliyun；exact/latest、产物完整性与发布后全新安装验证通过（生成后台 38/38 tests、build/tsc）。代码提交 f7509a0、两个包版本标签均已推送；不修改 main。远端 run 36225067859 因既有私有 @stratix/utils 的 public registry 404 失败，全仓依赖审计另有 19 项漏洞；本轮只形成两个 CLI 包的私库发布证据。回执：.factory/workitems/CR-004/evidence/release-receipt.json。

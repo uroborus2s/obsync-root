@@ -750,10 +750,12 @@
   "adminScaffoldEnhancement": {
     "workItem": "CR-004",
     "checkedAt": "2026-09-26",
-    "status": "release_candidate_verified",
+    "status": "released_aliyun_verified",
     "scope": "web-admin create/forge templates and preview: TanStack Form, dialog create, common actions/header, pagination, virtual rows, Router/Query/API integrations",
     "evidence": ".factory/workitems/CR-004/evidence/verification.md",
-    "release": "1.2.0_aliyun_authorized_pending_publish",
-    "review": ".factory/workitems/CR-004/reviews/review-2.md"
+    "release": "create_and_forge_1.2.0_aliyun_verified",
+    "releaseCommit": "f7509a01193e041cf3555d96f42020d27d6baedc",
+    "releaseReceipt": ".factory/workitems/CR-004/evidence/release-receipt.json",
+    "review": ".factory/workitems/CR-004/reviews/release-120.md"
   }
 }
