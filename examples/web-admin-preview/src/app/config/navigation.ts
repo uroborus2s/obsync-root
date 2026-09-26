@@ -51,6 +51,10 @@ export interface CommandItem extends NavigationLeaf {
 
 export const navigationSections: NavigationSection[] = [
   {
+    title: '组件示例',
+    items: [{ kind: 'item', title: '表格与分页', to: '/table-demo', description: '分页、固定列与大数据虚拟表格示例', icon: 'reports', keywords: ['表格', '分页', 'table', 'virtual'] }]
+  },
+  {
     title: '概览',
     items: [
       {

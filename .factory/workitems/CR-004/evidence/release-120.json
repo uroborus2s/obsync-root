@@ -1,0 +1,56 @@
+{
+  "versions": {
+    "@stratix/create": "1.2.0",
+    "@stratix/forge": "1.2.0"
+  },
+  "registry": "configured_aliyun",
+  "artifact_root": "/private/tmp/cr004-release-120/artifacts",
+  "artifacts": {
+    "stratix-create-1.2.0.tgz": "8c54c98e0fd635f4ec991f02e0c9c23cacbccfc1ab0585ed2b93e0dafd5a546c",
+    "stratix-forge-1.2.0.tgz": "019f2778dfcf01f24f9ea6f5740230e9b388b9c965f7fb34aa0e461a1c5b3dc3"
+  },
+  "checks": {
+    "create_test": {
+      "exit_code": 0,
+      "passed": 7
+    },
+    "forge_test": {
+      "exit_code": 0,
+      "passed": 71
+    },
+    "consumer_test": {
+      "exit_code": 0,
+      "passed": 38
+    },
+    "consumer_build": {
+      "exit_code": 0
+    },
+    "consumer_lint": {
+      "exit_code": 0,
+      "warnings": 9
+    },
+    "cli_audit": {
+      "exit_code": 0
+    },
+    "consumer_prod_audit": {
+      "exit_code": 0
+    },
+    "docs": {
+      "exit_code": 0,
+      "pages": 89
+    },
+    "release_dry_run": {
+      "exit_code": 0
+    },
+    "publish_dry_run": {
+      "exit_code": 0
+    },
+    "workspace_audit": {
+      "exit_code": 1,
+      "high": 13,
+      "moderate": 6,
+      "scope": "other packages; not a full-workspace release"
+    }
+  },
+  "source": "parent exec_command/write_stdin receipts; /tmp/cr004-release-*.log"
+}

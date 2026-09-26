@@ -1,0 +1,264 @@
+{
+  "fingerprint": "454158975a726cfd9ffafee97c1bf54c1e42fa6579d16bfcb674b1a1a6c27216",
+  "head": "977b4e7b517e4fbe48de127300ce68831c20f4d6",
+  "deletions": [
+    ".changeset/modern-oxlint-toolchain.md",
+    "examples/web-admin-preview/src/components/admin/forms/form-sheet.tsx",
+    "examples/web-admin-preview/src/components/ui/form.tsx",
+    "examples/web-admin-preview/src/features/users/components/user-form-sheet.tsx",
+    "packages/create/templates/apps/web-admin/files/src/components/admin/forms/form-sheet.tsx",
+    "packages/create/templates/apps/web-admin/files/src/components/ui/form.tsx",
+    "packages/create/templates/apps/web-admin/files/src/features/users/components/user-form-sheet.tsx",
+    "packages/forge/templates/resources/admin-crud/files/src/features/module/components/resource-form-sheet.tsx.tpl"
+  ],
+  "entries": [
+    {
+      "path": "docs/03-developer-guide/脚手架开发/admin-components.md",
+      "sha256": "8442eb7a48fbddaf1f99afdb5755c8d58e59df73249f0e0f25d1bf72069f3751"
+    },
+    {
+      "path": "docs/03-developer-guide/脚手架开发/index.md",
+      "sha256": "37ec7635bfe2cb46a51d67907ae3d44d9f13b09a913a005ba50af3740ae34e8b"
+    },
+    {
+      "path": "docs/04-project-development/02-discovery/current-state-analysis.md",
+      "sha256": "a06ea4246e580d2b2f787d261125551ab16e15a6f97899de87b450d393571a44"
+    },
+    {
+      "path": "examples/web-admin-preview/package.json",
+      "sha256": "0245cf500a2c6a320cb11f6401fba17b678f4dff9cf42435d707dc7ed3c41ed9"
+    },
+    {
+      "path": "examples/web-admin-preview/pnpm-lock.yaml",
+      "sha256": "11a34eae8c804d765ab98dbfa8bd25e3d4f32c13a59293a62b067772549754e2"
+    },
+    {
+      "path": "examples/web-admin-preview/src/app/config/__tests__/navigation.test.ts",
+      "sha256": "0cf0f05c7a2e8efa326447b3abb7d6c0c08b293242a9786a5d79dcbef0bd03c8"
+    },
+    {
+      "path": "examples/web-admin-preview/src/app/config/navigation.ts",
+      "sha256": "4ce8c7812b10c31e5bec132763a853a623930d26b48ed44ab5b9d399cec0adc9"
+    },
+    {
+      "path": "examples/web-admin-preview/src/components/admin/actions/create-button.tsx",
+      "sha256": "59bdb808e21f03ad1b52df2a6d6d7cf7aa46f74760953b0260d6453746df3b36"
+    },
+    {
+      "path": "examples/web-admin-preview/src/components/admin/data-table/data-table-pagination.tsx",
+      "sha256": "ebafd11daaea4b2176c99795c567bd4291a9343eed5c82c29a703a2b2b9469d9"
+    },
+    {
+      "path": "examples/web-admin-preview/src/components/admin/data-table/data-table.test.tsx",
+      "sha256": "d9686b706818805dcf784df6e065cba61fd0abfce4dbb63c2d66dc340bf964c9"
+    },
+    {
+      "path": "examples/web-admin-preview/src/components/admin/data-table/data-table.tsx",
+      "sha256": "4d27c9cf317ba85a0cf84f757fa5daa81462be4a32110819e17b77e038103b83"
+    },
+    {
+      "path": "examples/web-admin-preview/src/components/admin/forms/__tests__/form-dialog.test.tsx",
+      "sha256": "03cffca49e4fba9d54e0ecc39e0974610bee5d6c198a6024aaaac50512a894e9"
+    },
+    {
+      "path": "examples/web-admin-preview/src/components/admin/forms/form-dialog.tsx",
+      "sha256": "dd597c39a18bd66dc1cb4616a79a226ce008fa81aee8497fb604c598a7a397b1"
+    },
+    {
+      "path": "examples/web-admin-preview/src/components/admin/layout/page-header.tsx",
+      "sha256": "8803c392ebabd047c6f72aa527b0b6e38a2866f8237ca5fc542dd164e1c980b9"
+    },
+    {
+      "path": "examples/web-admin-preview/src/components/shared/form/form-field.tsx",
+      "sha256": "c99495d76d4f77398a47bd1e966ddc1aa202381621f3ce2981fa301c4693e4ce"
+    },
+    {
+      "path": "examples/web-admin-preview/src/components/shared/form/index.ts",
+      "sha256": "5e08474df12c225050bb306c8ad28ae32dad75f0a3c9a86b28ec4168563baa63"
+    },
+    {
+      "path": "examples/web-admin-preview/src/components/ui/field.tsx",
+      "sha256": "64d8513b06234fdb45763c103b3dfbe3ec119f021f4c467a60d4c7378bf302fc"
+    },
+    {
+      "path": "examples/web-admin-preview/src/features/auth/pages/__tests__/login-page.test.tsx",
+      "sha256": "2e853a23fd730ae98cd3c85f8fda6b8e7072b27d4ac5169a40ec9de1addcafe2"
+    },
+    {
+      "path": "examples/web-admin-preview/src/features/auth/pages/login-page.tsx",
+      "sha256": "fd08d07cbb59f5536943b35c7c07f5cb484e2453bd23f1cf979564bd171b5a07"
+    },
+    {
+      "path": "examples/web-admin-preview/src/features/errors/pages/general-error.tsx",
+      "sha256": "530f0fce8a1c1eb7c6ed68d9d7f042fab4078fe2b8426f86868d61225d90404d"
+    },
+    {
+      "path": "examples/web-admin-preview/src/features/table-demo/pages/table-demo-page.tsx",
+      "sha256": "da8bd0cf7514177184f20b9f6308ddf92c4e42be46944472945203f64b48b5ea"
+    },
+    {
+      "path": "examples/web-admin-preview/src/features/users/components/user-form-dialog.tsx",
+      "sha256": "d5ef1ee031ec1530d15d7bb703c176a3adfad75e399dfc7f3dc7ef7edc848751"
+    },
+    {
+      "path": "examples/web-admin-preview/src/features/users/pages/users-page.tsx",
+      "sha256": "150bf33994fcc45c2faa119162664bab92a1c8db538b7409b7a6299de0586fdd"
+    },
+    {
+      "path": "examples/web-admin-preview/src/routeTree.gen.ts",
+      "sha256": "01c784ea4e30674535a325a6a29456ae329354068af0002bada182f9408fcb3e"
+    },
+    {
+      "path": "examples/web-admin-preview/src/routes/_authenticated/table-demo.tsx",
+      "sha256": "403e7e73ffb27f2d3d6b20b96e1991a09e16bdbe27db238f61249ecd8fbced57"
+    },
+    {
+      "path": "packages/create/CHANGELOG.md",
+      "sha256": "064b334df30bc1ba2f4cdb34eca0ef58590285a8f5d37122c576087960239774"
+    },
+    {
+      "path": "packages/create/package.json",
+      "sha256": "508bb96b630cb55588f4234c1321e5fff6fcd4ba7d02c59197651f064647423c"
+    },
+    {
+      "path": "packages/create/templates/apps/web-admin/files/package.json.tpl",
+      "sha256": "4fec7a4b5af908d0f0cf395e41eacca071d3e52e15aeb08eb0d51e48c83707c3"
+    },
+    {
+      "path": "packages/create/templates/apps/web-admin/files/src/app/config/__tests__/navigation.test.ts",
+      "sha256": "0cf0f05c7a2e8efa326447b3abb7d6c0c08b293242a9786a5d79dcbef0bd03c8"
+    },
+    {
+      "path": "packages/create/templates/apps/web-admin/files/src/app/config/navigation.ts",
+      "sha256": "4ce8c7812b10c31e5bec132763a853a623930d26b48ed44ab5b9d399cec0adc9"
+    },
+    {
+      "path": "packages/create/templates/apps/web-admin/files/src/components/admin/actions/create-button.tsx",
+      "sha256": "59bdb808e21f03ad1b52df2a6d6d7cf7aa46f74760953b0260d6453746df3b36"
+    },
+    {
+      "path": "packages/create/templates/apps/web-admin/files/src/components/admin/data-table/data-table-pagination.tsx",
+      "sha256": "ebafd11daaea4b2176c99795c567bd4291a9343eed5c82c29a703a2b2b9469d9"
+    },
+    {
+      "path": "packages/create/templates/apps/web-admin/files/src/components/admin/data-table/data-table.test.tsx",
+      "sha256": "d9686b706818805dcf784df6e065cba61fd0abfce4dbb63c2d66dc340bf964c9"
+    },
+    {
+      "path": "packages/create/templates/apps/web-admin/files/src/components/admin/data-table/data-table.tsx",
+      "sha256": "4d27c9cf317ba85a0cf84f757fa5daa81462be4a32110819e17b77e038103b83"
+    },
+    {
+      "path": "packages/create/templates/apps/web-admin/files/src/components/admin/forms/__tests__/form-dialog.test.tsx",
+      "sha256": "03cffca49e4fba9d54e0ecc39e0974610bee5d6c198a6024aaaac50512a894e9"
+    },
+    {
+      "path": "packages/create/templates/apps/web-admin/files/src/components/admin/forms/form-dialog.tsx",
+      "sha256": "dd597c39a18bd66dc1cb4616a79a226ce008fa81aee8497fb604c598a7a397b1"
+    },
+    {
+      "path": "packages/create/templates/apps/web-admin/files/src/components/admin/layout/page-header.tsx",
+      "sha256": "8803c392ebabd047c6f72aa527b0b6e38a2866f8237ca5fc542dd164e1c980b9"
+    },
+    {
+      "path": "packages/create/templates/apps/web-admin/files/src/components/shared/form/form-field.tsx",
+      "sha256": "c99495d76d4f77398a47bd1e966ddc1aa202381621f3ce2981fa301c4693e4ce"
+    },
+    {
+      "path": "packages/create/templates/apps/web-admin/files/src/components/shared/form/index.ts",
+      "sha256": "5e08474df12c225050bb306c8ad28ae32dad75f0a3c9a86b28ec4168563baa63"
+    },
+    {
+      "path": "packages/create/templates/apps/web-admin/files/src/components/ui/field.tsx",
+      "sha256": "64d8513b06234fdb45763c103b3dfbe3ec119f021f4c467a60d4c7378bf302fc"
+    },
+    {
+      "path": "packages/create/templates/apps/web-admin/files/src/features/auth/pages/__tests__/login-page.test.tsx",
+      "sha256": "2e853a23fd730ae98cd3c85f8fda6b8e7072b27d4ac5169a40ec9de1addcafe2"
+    },
+    {
+      "path": "packages/create/templates/apps/web-admin/files/src/features/auth/pages/login-page.tsx",
+      "sha256": "fd08d07cbb59f5536943b35c7c07f5cb484e2453bd23f1cf979564bd171b5a07"
+    },
+    {
+      "path": "packages/create/templates/apps/web-admin/files/src/features/errors/pages/general-error.tsx",
+      "sha256": "530f0fce8a1c1eb7c6ed68d9d7f042fab4078fe2b8426f86868d61225d90404d"
+    },
+    {
+      "path": "packages/create/templates/apps/web-admin/files/src/features/table-demo/pages/table-demo-page.tsx",
+      "sha256": "da8bd0cf7514177184f20b9f6308ddf92c4e42be46944472945203f64b48b5ea"
+    },
+    {
+      "path": "packages/create/templates/apps/web-admin/files/src/features/users/components/user-form-dialog.tsx",
+      "sha256": "d5ef1ee031ec1530d15d7bb703c176a3adfad75e399dfc7f3dc7ef7edc848751"
+    },
+    {
+      "path": "packages/create/templates/apps/web-admin/files/src/features/users/pages/users-page.tsx",
+      "sha256": "150bf33994fcc45c2faa119162664bab92a1c8db538b7409b7a6299de0586fdd"
+    },
+    {
+      "path": "packages/create/templates/apps/web-admin/files/src/routes/_authenticated/table-demo.tsx",
+      "sha256": "403e7e73ffb27f2d3d6b20b96e1991a09e16bdbe27db238f61249ecd8fbced57"
+    },
+    {
+      "path": "packages/create/tests/create.test.ts",
+      "sha256": "13a3ad1eb447318e8dc9184b1c9693c4782f47d6d18f32a1594953971412214b"
+    },
+    {
+      "path": "packages/forge/CHANGELOG.md",
+      "sha256": "081aa55432f74ac4e213dd4ae439366d4330d78b0d2ba9b521a49a51016763a2"
+    },
+    {
+      "path": "packages/forge/package.json",
+      "sha256": "12933f32ca161a6ae404c997b5d4e59426e6519a2a3775a331b74aa3c7f90628"
+    },
+    {
+      "path": "packages/forge/src/commands/generate/index.ts",
+      "sha256": "98200b542513fbab1b38f9648248b7bb044f9b750fbcc2903528e12770fb7865"
+    },
+    {
+      "path": "packages/forge/templates/resources/admin-crud/files/src/features/module/api/resource.ts.tpl",
+      "sha256": "15bf828f40e14853d812fb2afe033e3ef04ce79cdf88c442b1b01b4a8f7ed2ad"
+    },
+    {
+      "path": "packages/forge/templates/resources/admin-crud/files/src/features/module/components/resource-form-dialog.tsx.tpl",
+      "sha256": "966010dc60913f92e270b15ad1a0f9d720bc31c1f08772cd0462b9bd2dc620f9"
+    },
+    {
+      "path": "packages/forge/templates/resources/admin-crud/files/src/features/module/hooks/use-resource.ts.tpl",
+      "sha256": "92ea8b1b27a36580521a5913843072f175ee617c558abc7c9fe2b300733b6a06"
+    },
+    {
+      "path": "packages/forge/templates/resources/admin-crud/files/src/features/module/lib/__tests__/resource.test.ts.tpl",
+      "sha256": "ca9531ab75dc93a9982cf6a6927564de496a3a7c5a66551dc27d99c5cfbadccf"
+    },
+    {
+      "path": "packages/forge/templates/resources/admin-crud/files/src/features/module/lib/search.ts.tpl",
+      "sha256": "e5dcee0d3730e75455e2dde4530f19942b21f8dd3aadcf78e77da71809907443"
+    },
+    {
+      "path": "packages/forge/templates/resources/admin-crud/files/src/features/module/pages/__tests__/resource-page.test.tsx.tpl",
+      "sha256": "55b56a39a5f5875ea1c10d12359ebe395c4d6577fb5869d6822a498b92e19122"
+    },
+    {
+      "path": "packages/forge/templates/resources/admin-crud/files/src/features/module/pages/resource-page.tsx.tpl",
+      "sha256": "61b2158a129c976d0a531436a6f3e4abda3db722fc561423d7e4de59c37b3f77"
+    },
+    {
+      "path": "packages/forge/templates/resources/admin-crud/files/src/routes/_authenticated/resource.tsx.tpl",
+      "sha256": "fa942b3172321156a68d16cac5a1b3da81d57fae878c1e64318d904eebce3ff3"
+    },
+    {
+      "path": "packages/forge/templates/resources/admin-crud/manifest.json",
+      "sha256": "ef138853810297aaf83a905b30d413170fce674de2804cc804ca3d7b400a5fc0"
+    },
+    {
+      "path": "packages/forge/templates/resources/admin-page/files/src/features/module/pages/page-page.tsx.tpl",
+      "sha256": "87195a4bc3a4bd89af12f771669ecf6a3eab81c75bbb03593215d078bad64982"
+    },
+    {
+      "path": "packages/forge/tests/run-cli.test.ts",
+      "sha256": "10e3a4d76ef64619d5c9a4ebb4373cfc25bc67c6ca0c25b64fb2399c0057b468"
+    }
+  ]
+}

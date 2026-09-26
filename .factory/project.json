@@ -746,5 +746,14 @@
       "npm publish, final release notes, and GA/RC wording are deferred to the final release phase"
     ]
   },
-  "currentWorkitems": []
+  "currentWorkitems": [],
+  "adminScaffoldEnhancement": {
+    "workItem": "CR-004",
+    "checkedAt": "2026-09-26",
+    "status": "release_candidate_verified",
+    "scope": "web-admin create/forge templates and preview: TanStack Form, dialog create, common actions/header, pagination, virtual rows, Router/Query/API integrations",
+    "evidence": ".factory/workitems/CR-004/evidence/verification.md",
+    "release": "1.2.0_aliyun_authorized_pending_publish",
+    "review": ".factory/workitems/CR-004/reviews/review-2.md"
+  }
 }

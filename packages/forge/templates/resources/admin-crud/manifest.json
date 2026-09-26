@@ -28,8 +28,8 @@
         "destination": "src/features/{{pluralKebabName}}/components/{{pluralKebabName}}-filter-bar.tsx"
       },
       {
-        "source": "src/features/module/components/resource-form-sheet.tsx.tpl",
-        "destination": "src/features/{{pluralKebabName}}/components/{{pluralKebabName}}-form-sheet.tsx"
+        "source": "src/features/module/components/resource-form-dialog.tsx.tpl",
+        "destination": "src/features/{{pluralKebabName}}/components/{{pluralKebabName}}-form-dialog.tsx"
       },
       {
         "source": "src/features/module/components/resource-detail-sheet.tsx.tpl",
@@ -50,6 +50,18 @@
       {
         "source": "src/features/module/api/resource.ts.tpl",
         "destination": "src/features/{{pluralKebabName}}/api/{{pluralKebabName}}.ts"
+      },
+      {
+        "source": "src/features/module/lib/search.ts.tpl",
+        "destination": "src/features/{{pluralKebabName}}/lib/search.ts"
+      },
+      {
+        "source": "src/features/module/lib/__tests__/resource.test.ts.tpl",
+        "destination": "src/features/{{pluralKebabName}}/lib/__tests__/resource.test.ts"
+      },
+      {
+        "source": "src/features/module/pages/__tests__/resource-page.test.tsx.tpl",
+        "destination": "src/features/{{pluralKebabName}}/pages/__tests__/resource-page.test.tsx"
       }
     ]
   }

@@ -18,13 +18,35 @@ import { cn } from '@/lib/utils'
 
 interface DataTablePaginationProps<TData> {
   table: Table<TData>
+  hasNextPage?: boolean
+  pageSizeOptions?: number[]
+  disabled?: boolean
   variant?: 'default' | 'workspace'
 }
 
 export function DataTablePagination<TData>({
   table,
+  hasNextPage,
+  pageSizeOptions = [10, 20, 30, 40, 50],
+  disabled = false,
   variant = 'default',
 }: DataTablePaginationProps<TData>) {
+  const { pageIndex, pageSize } = table.getState().pagination
+  const pageCount = table.getPageCount()
+  const knownPageCount = pageCount >= 0
+  const totalRows = table.options.manualPagination
+    ? table.options.rowCount
+    : table.getFilteredRowModel().rows.length
+  const canPrevious = !disabled && pageCount !== 0 && table.getCanPreviousPage()
+  const canNext =
+    !disabled &&
+    (knownPageCount
+      ? table.getCanNextPage()
+      : (hasNextPage ?? table.getCanNextPage()))
+  const sizes = [...new Set([...pageSizeOptions, pageSize])]
+    .filter((size) => Number.isInteger(size) && size > 0)
+    .sort((a, b) => a - b)
+
   return (
     <div
       className={cn(
@@ -34,22 +56,29 @@ export function DataTablePagination<TData>({
       )}
     >
       <div className='text-sm text-muted-foreground'>
-        已选 {table.getFilteredSelectedRowModel().rows.length} /{' '}
-        {table.getFilteredRowModel().rows.length} 条
+        {totalRows === undefined
+          ? `本页 ${table.getRowModel().rows.length} 条`
+          : `共 ${totalRows} 条`}
+        {table.getFilteredSelectedRowModel().rows.length > 0
+          ? `，已选 ${table.getFilteredSelectedRowModel().rows.length} 条`
+          : null}
       </div>
 
       <div className='flex flex-col gap-3 sm:flex-row sm:items-center'>
         <div className='flex items-center gap-2'>
           <p className='text-sm font-medium'>每页</p>
           <Select
-            onValueChange={(value) => table.setPageSize(Number(value))}
+            disabled={disabled}
+            onValueChange={(value) =>
+              table.setPagination({ pageIndex: 0, pageSize: Number(value) })
+            }
             value={`${table.getState().pagination.pageSize}`}
           >
-            <SelectTrigger className='w-20' size='sm'>
+            <SelectTrigger aria-label='每页条数' className='w-20' size='sm'>
               <SelectValue />
             </SelectTrigger>
             <SelectContent align='end'>
-              {[10, 20, 30, 40, 50].map((pageSize) => (
+              {sizes.map((pageSize) => (
                 <SelectItem key={pageSize} value={`${pageSize}`}>
                   {pageSize}
                 </SelectItem>
@@ -60,11 +89,14 @@ export function DataTablePagination<TData>({
 
         <div className='flex items-center justify-between gap-2 sm:justify-end'>
           <p className='min-w-28 text-sm font-medium'>
-            第 {table.getState().pagination.pageIndex + 1} / {table.getPageCount()} 页
+            {knownPageCount
+              ? `第 ${pageCount === 0 ? 0 : pageIndex + 1} / ${pageCount} 页`
+              : `第 ${pageIndex + 1} 页`}
           </p>
           <div className='flex items-center gap-2'>
             <Button
-              disabled={!table.getCanPreviousPage()}
+              aria-label='首页'
+              disabled={!canPrevious}
               onClick={() => table.setPageIndex(0)}
               size='icon-sm'
               variant='outline'
@@ -72,7 +104,8 @@ export function DataTablePagination<TData>({
               <ChevronsLeftIcon className='size-4' />
             </Button>
             <Button
-              disabled={!table.getCanPreviousPage()}
+              aria-label='上一页'
+              disabled={!canPrevious}
               onClick={() => table.previousPage()}
               size='icon-sm'
               variant='outline'
@@ -80,21 +113,25 @@ export function DataTablePagination<TData>({
               <ChevronLeftIcon className='size-4' />
             </Button>
             <Button
-              disabled={!table.getCanNextPage()}
+              aria-label='下一页'
+              disabled={!canNext}
               onClick={() => table.nextPage()}
               size='icon-sm'
               variant='outline'
             >
               <ChevronRightIcon className='size-4' />
             </Button>
-            <Button
-              disabled={!table.getCanNextPage()}
-              onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-              size='icon-sm'
-              variant='outline'
-            >
-              <ChevronsRightIcon className='size-4' />
-            </Button>
+            {knownPageCount ? (
+              <Button
+                aria-label='末页'
+                disabled={!canNext}
+                onClick={() => table.setPageIndex(pageCount - 1)}
+                size='icon-sm'
+                variant='outline'
+              >
+                <ChevronsRightIcon className='size-4' />
+              </Button>
+            ) : null}
           </div>
         </div>
       </div>

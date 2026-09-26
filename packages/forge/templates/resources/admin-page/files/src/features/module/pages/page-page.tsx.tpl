@@ -1,6 +1,5 @@
-import { Plus } from 'lucide-react'
-
-import { Button } from '@/components/ui/button'
+import { PageHeader } from '@/components/admin/layout/page-header'
+import { CreateButton } from '@/components/admin/actions/create-button'
 import {
   Card,
   CardContent,
@@ -18,21 +17,8 @@ const nextSteps = [
 export function {{pascalName}}Page() {
   return (
     <div className='space-y-6'>
-      <section className='flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between'>
-        <div>
-          <h2 className='text-2xl font-semibold tracking-tight text-foreground'>
-            {{pascalName}}
-          </h2>
-          <p className='mt-2 text-sm leading-6 text-muted-foreground'>
-            这是通过 <code>stratix generate admin-page {{kebabName}}</code>{' '}
-            生成的工作区页面骨架。
-          </p>
-        </div>
-        <Button className='rounded-xl px-4'>
-          <Plus className='size-4' />
-          新建{{pascalName}}
-        </Button>
-      </section>
+      <PageHeader title='{{pascalName}}' description='工作区页面骨架，请接入业务数据。'
+        actions={<CreateButton disabled title='接入新建操作后启用'>新建{{pascalName}}</CreateButton>} />
 
       <section className='grid gap-4 xl:grid-cols-[1.2fr_0.9fr]'>
         <Card className='rounded-[24px] border-border/70 shadow-[0_16px_38px_-32px_hsl(var(--foreground)/0.2)]'>

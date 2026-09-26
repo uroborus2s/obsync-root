@@ -712,7 +712,7 @@ describe('@stratix/forge', () => {
           'use-project-members.ts'
         )
       ),
-      /export function useProjectMemberCrud\(\)/
+      /export function useProjectMemberList\(/
     );
     assert.match(
       readText(
@@ -722,11 +722,24 @@ describe('@stratix/forge', () => {
           'features',
           'project-members',
           'components',
-          'project-members-form-sheet.tsx'
+          'project-members-form-dialog.tsx'
         )
       ),
-      /export function ProjectMemberFormSheet\(/
+      /export function ProjectMemberFormDialog\(/
     );
+  });
+
+  it('rejects legacy admin foundations before writing generated files', async () => {
+    const cwd = createTempRoot();
+    const output = createMemoryOutput();
+    await runCreate(['app', 'web-admin', 'legacy-admin', '--no-install'], { cwd, output });
+    const projectDir = path.join(cwd, 'legacy-admin');
+    fs.unlinkSync(path.join(projectDir, 'src/components/admin/layout/page-header.tsx'));
+    for (const resource of ['admin-page', 'admin-crud']) {
+      await assert.rejects(runCli(['generate', resource, 'example', '--force'], { cwd: projectDir, output }), /requires the web-admin 1.2 foundations/);
+      assert.equal(fs.existsSync(path.join(projectDir, 'src/features/examples')), false);
+      assert.equal(fs.existsSync(path.join(projectDir, 'src/features/example')), false);
+    }
   });
 
   it('rejects admin-crud generation outside web-admin projects', async () => {

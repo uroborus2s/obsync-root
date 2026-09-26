@@ -1,0 +1,58 @@
+{
+  "source": "parent exec_command/write_stdin completion receipts",
+  "candidate": "a75eee1e06564e7520b98abfa070dc4e1cdba717050833b095e9226a729cb630",
+  "results": {
+    "create-test": {
+      "exit_code": 0,
+      "log": "create-test.log"
+    },
+    "forge-test": {
+      "exit_code": 0,
+      "log": "forge-test.log"
+    },
+    "preview-test": {
+      "exit_code": 0,
+      "log": "preview-test.log"
+    },
+    "preview-build": {
+      "exit_code": 0,
+      "log": "preview-build.log"
+    },
+    "preview-lint": {
+      "exit_code": 0,
+      "log": "preview-lint.log"
+    },
+    "consumer-test": {
+      "exit_code": 0,
+      "log": "consumer-test.log"
+    },
+    "consumer-build": {
+      "exit_code": 0,
+      "log": "consumer-build.log"
+    },
+    "consumer-lint": {
+      "exit_code": 0,
+      "log": "consumer-lint.log"
+    },
+    "docs-final": {
+      "exit_code": 0,
+      "log": "docs-final.log"
+    },
+    "r1-red": {
+      "exit_code": 1,
+      "log": "r1-red.log"
+    },
+    "r1-green": {
+      "exit_code": 0,
+      "log": "r1-green.log"
+    }
+  },
+  "tests": {
+    "create": 7,
+    "forge": 70,
+    "preview": 34,
+    "consumer": 38
+  },
+  "skipped": 0,
+  "failed_final": 0
+}

@@ -4,18 +4,27 @@ import type {
   PaginationState,
   SortingState
 } from '@tanstack/react-table';
-import { UserPlus, Users2 } from 'lucide-react';
+import { Users2 } from 'lucide-react';
 import { getRouteApi } from '@tanstack/react-router';
 
 import { DataTable } from '@/components/admin/data-table/data-table';
 import { ConfirmDialog } from '@/components/admin/feedback/confirm-dialog';
 import { EmptyState } from '@/components/admin/feedback/empty-state';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog';
+import { CreateButton } from '@/components/admin/actions/create-button';
+import { PageHeader } from '@/components/admin/layout/page-header';
 import { getErrorMessage } from '@/lib/api/api-error';
 import { createUserColumns } from '@/features/users/components/user-columns';
 import { UserDetailSheet } from '@/features/users/components/user-detail-sheet';
 import { UserFilterBar } from '@/features/users/components/user-filter-bar';
-import { UserFormSheet } from '@/features/users/components/user-form-sheet';
+import { UserFormDialog } from '@/features/users/components/user-form-dialog';
 import {
   useChangeUsersStatusMutation,
   useCreateUserMutation,
@@ -178,16 +187,16 @@ export function UsersPage() {
   );
 
   const handleUserFormSubmit = React.useCallback(
-    (values: UserFormValues) => {
+    async (values: UserFormValues) => {
       if (search.form === 'edit' && search.userId) {
-        updateMutation.mutate({
+        await updateMutation.mutateAsync({
           input: values,
           userId: search.userId
         });
         return;
       }
 
-      createMutation.mutate(values);
+      await createMutation.mutateAsync(values);
     },
     [createMutation, search.form, search.userId, updateMutation]
   );
@@ -209,32 +218,26 @@ export function UsersPage() {
   return (
     <>
       <div className='flex min-h-[calc(100svh-11.5rem)] flex-col gap-4'>
-        <section className='flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between'>
-          <div>
-            <h2 className='text-2xl font-semibold tracking-tight text-foreground'>
-              用户管理
-            </h2>
-            <p className='text-muted-foreground mt-2 text-sm leading-6'>
-              工作区模式下，列表页只保留标题、工具栏和表格本体，减少无效包装对展示空间的挤压。
-            </p>
-          </div>
-          <Button className='rounded-xl px-4' onClick={openCreateUser}>
-            <UserPlus className='size-4' />
-            新建用户
-          </Button>
-        </section>
+        <PageHeader
+          title='用户管理'
+          description='管理用户资料、角色与访问状态。'
+          actions={
+            <CreateButton onClick={openCreateUser}>新建用户</CreateButton>
+          }
+        />
 
         <DataTable
           columns={columns}
+          getRowId={(row) => row.id}
+          rowCount={listQuery.data?.total ?? 0}
           data={listQuery.data?.items ?? []}
           defaultCellMaxChars={18}
           emptyState={
             <EmptyState
               action={
-                <Button onClick={openCreateUser}>
-                  <UserPlus className='size-4' />
+                <CreateButton onClick={openCreateUser}>
                   新建第一个用户
-                </Button>
+                </CreateButton>
               }
               description='调整当前筛选条件，或创建新成员来填充列表。'
               icon={<Users2 className='text-muted-foreground size-5' />}
@@ -308,7 +311,40 @@ export function UsersPage() {
         user={detailQuery.data}
       />
 
-      <UserFormSheet
+      <Dialog
+        open={search.form === 'edit' && !detailQuery.data}
+        onOpenChange={(open) => {
+          if (!open) closePanels();
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit user</DialogTitle>
+            <DialogDescription>
+              Load the selected operator before editing.
+            </DialogDescription>
+          </DialogHeader>
+          {detailError ? (
+            <div className='space-y-3'>
+              <p role='alert' className='text-destructive text-sm'>
+                {detailError}
+              </p>
+              <Button
+                onClick={() => void detailQuery.refetch()}
+                disabled={detailQuery.isFetching}
+              >
+                Retry
+              </Button>
+            </div>
+          ) : (
+            <p role='status' className='text-muted-foreground text-sm'>
+              Loading user...
+            </p>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <UserFormDialog
         initialUser={search.form === 'edit' ? detailQuery.data : undefined}
         mode={search.form === 'edit' ? 'edit' : 'create'}
         onOpenChange={(open) => {
@@ -320,7 +356,10 @@ export function UsersPage() {
           }
         }}
         onSubmit={handleUserFormSubmit}
-        open={search.form === 'create' || search.form === 'edit'}
+        open={
+          search.form === 'create' ||
+          (search.form === 'edit' && Boolean(detailQuery.data))
+        }
         submitting={createMutation.isPending || updateMutation.isPending}
       />
 

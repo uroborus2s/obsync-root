@@ -306,3 +306,15 @@
 - `docs/04-project-development/02-discovery/core-closed-door-review-20260619-subagent-current.md`
 - `docs/04-project-development/02-discovery/database-plugin-review-report.md`
 - `.factory/workitems/changes/CR-CORE-20260620-review-remediation-batches.md`
+
+## CR-004 管理后台公共基础（2026-09-26）
+
+- 本地实现：Create/preview 统一 TanStack Form 字段布局与 FormDialog，公共 PageHeader/CreateButton，真实分页与可选虚拟大表格；CRUD 生成器接入 Router search、Query 与 mock/HTTP API client。
+- 参照 ita-club 的共享字段布局与同源表格；未修改 ita-club。
+- 当前候选 preview 34 项、生成消费者 38 项测试通过；两者 build（含 tsc）通过。Create 7 项通过，Forge 70 项通过；独立评审已批准，见 CR-004 evidence/reviews。
+- 文档校验：89 pages / 0 contracts，通过。浏览器已验证演示登录、新建校验/关闭确认/提交刷新、390px 表单、万行虚拟渲染与分页；表头边框绘制修正后已完成滚动复验。
+- 仅本地脚手架验证，未提交、发布或部署；真实业务 API/生产验收不在本轮范围。
+
+### CR-004 1.2.0 发布准备
+
+用户已授权 Create/Forge 1.2.0 发布到 Aliyun 私库；版本与 CHANGELOG 已更新，Database changeset 保留。新增旧模板生成前保护；Create 7/7、Forge 71/71、tarball 生成消费者 38/38，build/typecheck/lint 通过。CLI 包及消费者生产依赖审计通过；全工作区存在其他包 19 个已知漏洞，不能宣称全仓发布门禁通过。发布回执见 CR-004 reports/release-120.md。

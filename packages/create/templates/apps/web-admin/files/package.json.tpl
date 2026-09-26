@@ -16,7 +16,6 @@
   "dependencies": {
     "@assistant-ui/react": "^0.14.21",
     "@assistant-ui/react-markdown": "^0.14.3",
-    "@hookform/resolvers": "^5.4.0",
     "@radix-ui/react-avatar": "^1.1.12",
     "@radix-ui/react-dialog": "^1.1.16",
     "@radix-ui/react-dropdown-menu": "^2.1.17",
@@ -37,15 +36,16 @@
     "radix-ui": "^1.5.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "react-hook-form": "^7.79.0",
     "remark-gfm": "^4.0.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^4.4.3",
-    "zustand": "^5.0.14"
+    "zustand": "^5.0.14",
+    "@tanstack/react-form": "1.33.2"
   },
   "devDependencies": {
+    "@stratix/forge": "^1.2.0",
     "@tailwindcss/vite": "^4.3.1",
     "@tanstack/router-plugin": "^1.168.18",
     "@types/node": "^25.9.3",
@@ -61,7 +61,8 @@
     "tailwindcss": "^4.3.1",
     "typescript": "^7.0.2",
     "vite": "^8.0.16",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.8",
+    "jsdom": "^29.1.1"
   },
   "engines": {
     "node": ">=24.0.0"

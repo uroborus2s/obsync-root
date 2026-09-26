@@ -33,7 +33,9 @@ describe('navigation helpers', () => {
   });
 
   it('marks grouped nodes active when one of their children matches', () => {
-    const operatorGroup = navigationSections[1]?.items[0];
+    const operatorGroup = navigationSections.flatMap((section) => section.items).find((node) =>
+      node.kind === 'group' && node.children.some((item) => item.to === '/users')
+    );
 
     expect(operatorGroup).toBeDefined();
     expect(isNavigationNodeActive(operatorGroup!, '/users')).toBe(true);

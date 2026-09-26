@@ -131,6 +131,24 @@ export async function generateCommand(
     );
   }
 
+  if (resourceType === 'admin-page' || resourceType === 'admin-crud') {
+    const required = [
+      'src/components/admin/layout/page-header.tsx',
+      'src/components/admin/actions/create-button.tsx',
+      ...(resourceType === 'admin-crud' ? [
+        'src/components/admin/forms/form-dialog.tsx',
+        'src/components/shared/form/index.ts',
+        'src/components/ui/field.tsx'
+      ] : [])
+    ];
+    const missing = required.filter((file) => !fileExists(path.join(rootDir, file)));
+    if (missing.length) {
+      throw new CliError(
+        `${resourceType} requires the web-admin 1.2 foundations. Missing: ${missing.join(', ')}. Compare a fresh @stratix/create@1.2.0 web-admin project and migrate its shared components and dependencies first; existing files were not changed.`
+      );
+    }
+  }
+
   const variables = generationVariables(resourceName);
   const force = argv.force === true;
 

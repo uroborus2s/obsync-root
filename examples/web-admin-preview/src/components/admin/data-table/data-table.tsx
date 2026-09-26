@@ -15,8 +15,10 @@ import {
   type PaginationState,
   type SortingState,
   type Table as TanStackTable,
+  type TableOptions,
   type VisibilityState,
 } from '@tanstack/react-table'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react'
 
 import { DataTablePagination } from '@/components/admin/data-table/data-table-pagination'
@@ -47,6 +49,13 @@ interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
   defaultCellMaxChars?: number
+  enablePagination?: boolean
+  getRowId?: TableOptions<TData>['getRowId']
+  hasNextPage?: boolean
+  rowCount?: number
+  pageSizeOptions?: number[]
+  virtualizeRows?: boolean
+  virtualHeight?: number
   emptyState?: React.ReactNode
   error?: string | null
   fillHeight?: boolean
@@ -65,7 +74,10 @@ interface DataTableProps<TData, TValue> {
   toolbarVariant?: 'default' | 'workspace'
 }
 
-function getColumnId<TData, TValue>(column: ColumnDef<TData, TValue>, index: number) {
+function getColumnId<TData, TValue>(
+  column: ColumnDef<TData, TValue>,
+  index: number
+) {
   if ('id' in column && typeof column.id === 'string') {
     return column.id
   }
@@ -79,7 +91,9 @@ function getColumnId<TData, TValue>(column: ColumnDef<TData, TValue>, index: num
 
 function hasChildColumns<TData, TValue>(
   column: ColumnDef<TData, TValue>
-): column is ColumnDef<TData, TValue> & { columns: ColumnDef<TData, TValue>[] } {
+): column is ColumnDef<TData, TValue> & {
+  columns: ColumnDef<TData, TValue>[]
+} {
   return 'columns' in column && Array.isArray(column.columns)
 }
 
@@ -163,6 +177,13 @@ export function DataTable<TData, TValue>({
   data,
   defaultCellMaxChars,
   emptyState,
+  enablePagination = true,
+  getRowId,
+  hasNextPage,
+  rowCount,
+  pageSizeOptions,
+  virtualizeRows = false,
+  virtualHeight = 480,
   error,
   fillHeight = false,
   isLoading = false,
@@ -179,24 +200,34 @@ export function DataTable<TData, TValue>({
   sorting,
   toolbarVariant = 'default',
 }: DataTableProps<TData, TValue>) {
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
-  const initialPinnedColumns = React.useMemo(() => collectPinnedColumns(columns), [columns])
-  const [columnPinning, setColumnPinning] = React.useState<ColumnPinningState>(
-    initialPinnedColumns
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
+    []
   )
+  const [columnVisibility, setColumnVisibility] =
+    React.useState<VisibilityState>({})
+  const initialPinnedColumns = React.useMemo(
+    () => collectPinnedColumns(columns),
+    [columns]
+  )
+  const [columnPinning, setColumnPinning] =
+    React.useState<ColumnPinningState>(initialPinnedColumns)
   const [rowSelection, setRowSelection] = React.useState({})
   const [internalSorting, setInternalSorting] = React.useState<SortingState>([])
-  const [internalPagination, setInternalPagination] = React.useState<PaginationState>({
-    pageIndex: 0,
-    pageSize: 10,
-  })
-  const expandableGroups = React.useMemo(() => collectExpandableGroups(columns), [columns])
-  const [expandedGroups, setExpandedGroups] = React.useState<Record<string, boolean>>(
-    () =>
-      Object.fromEntries(
-        expandableGroups.map((group) => [group.id, group.defaultExpanded])
-      )
+  const [internalPagination, setInternalPagination] =
+    React.useState<PaginationState>({
+      pageIndex: 0,
+      pageSize: 10,
+    })
+  const expandableGroups = React.useMemo(
+    () => collectExpandableGroups(columns),
+    [columns]
+  )
+  const [expandedGroups, setExpandedGroups] = React.useState<
+    Record<string, boolean>
+  >(() =>
+    Object.fromEntries(
+      expandableGroups.map((group) => [group.id, group.defaultExpanded])
+    )
   )
   const viewportRef = React.useRef<HTMLDivElement | null>(null)
   const [viewportWidth, setViewportWidth] = React.useState(0)
@@ -240,10 +271,16 @@ export function DataTable<TData, TValue>({
   React.useEffect(() => {
     setColumnPinning((previous) => ({
       left: Array.from(
-        new Set([...(initialPinnedColumns.left ?? []), ...(previous.left ?? [])])
+        new Set([
+          ...(initialPinnedColumns.left ?? []),
+          ...(previous.left ?? []),
+        ])
       ),
       right: Array.from(
-        new Set([...(initialPinnedColumns.right ?? []), ...(previous.right ?? [])])
+        new Set([
+          ...(initialPinnedColumns.right ?? []),
+          ...(previous.right ?? []),
+        ])
       ),
     }))
   }, [initialPinnedColumns])
@@ -267,6 +304,10 @@ export function DataTable<TData, TValue>({
     }
   }, [])
 
+  const manualPagination =
+    pageCount !== undefined ||
+    rowCount !== undefined ||
+    hasNextPage !== undefined
   const table = useReactTable({
     data,
     columns,
@@ -275,13 +316,18 @@ export function DataTable<TData, TValue>({
       size: 160,
     },
     getCoreRowModel: getCoreRowModel(),
+    getRowId,
     getFacetedRowModel: getFacetedRowModel(),
-    getFilteredRowModel: onSearchValueChange ? undefined : getFilteredRowModel(),
+    getFilteredRowModel: onSearchValueChange
+      ? undefined
+      : getFilteredRowModel(),
     getPaginationRowModel:
-      typeof pageCount === 'number' ? undefined : getPaginationRowModel(),
+      manualPagination || !enablePagination
+        ? undefined
+        : getPaginationRowModel(),
     getSortedRowModel: onSortingChange ? undefined : getSortedRowModel(),
     manualFiltering: Boolean(onSearchValueChange),
-    manualPagination: typeof pageCount === 'number',
+    manualPagination: manualPagination || !enablePagination,
     manualSorting: Boolean(onSortingChange),
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
@@ -289,7 +335,10 @@ export function DataTable<TData, TValue>({
     onPaginationChange: resolvedOnPaginationChange,
     onRowSelectionChange: setRowSelection,
     onSortingChange: resolvedOnSortingChange,
-    pageCount,
+    pageCount:
+      pageCount ??
+      (hasNextPage !== undefined && rowCount === undefined ? -1 : undefined),
+    rowCount,
     state: {
       columnFilters,
       columnPinning,
@@ -300,7 +349,47 @@ export function DataTable<TData, TValue>({
     },
   })
 
-  const searchableColumn = searchColumn ? table.getColumn(searchColumn) : undefined
+  const rows = table.getRowModel().rows
+  const headerRef = React.useRef<HTMLTableSectionElement>(null)
+  const [headerHeight, setHeaderHeight] = React.useState(0)
+  React.useEffect(() => {
+    const header = headerRef.current
+    if (!virtualizeRows || !header) return
+    const measure = () => setHeaderHeight(header.getBoundingClientRect().height)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(header)
+    return () => observer.disconnect()
+  }, [virtualizeRows])
+  const getItemKey = React.useCallback(
+    (index: number) => rows[index].id,
+    [rows]
+  )
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    enabled: virtualizeRows && !isLoading && !error,
+    getScrollElement: () => viewportRef.current,
+    getItemKey,
+    estimateSize: () => 48,
+    overscan: 6,
+    scrollMargin: headerHeight,
+  })
+  const virtualItems = virtualizer.getVirtualItems()
+  const renderedRows = virtualizeRows
+    ? virtualItems.map((item) => ({ row: rows[item.index], index: item.index }))
+    : rows.map((row, index) => ({ row, index }))
+  const paddingTop = virtualItems.length
+    ? virtualItems[0].start - headerHeight
+    : 0
+  const paddingBottom = virtualItems.length
+    ? virtualizer.getTotalSize() -
+      virtualItems[virtualItems.length - 1].end +
+      headerHeight
+    : 0
+
+  const searchableColumn = searchColumn
+    ? table.getColumn(searchColumn)
+    : undefined
 
   React.useEffect(() => {
     if (!searchableColumn || onSearchValueChange) {
@@ -310,7 +399,23 @@ export function DataTable<TData, TValue>({
     searchableColumn.setFilterValue(searchValue ?? '')
   }, [onSearchValueChange, searchValue, searchableColumn])
 
-  const visibleLeafColumns = table.getVisibleLeafColumns()
+  React.useEffect(() => {
+    if (virtualizeRows) virtualizer.scrollToOffset(0)
+  }, [
+    virtualizeRows,
+    virtualizer,
+    columnFilters,
+    resolvedSorting,
+    resolvedPagination.pageIndex,
+    resolvedPagination.pageSize,
+    searchValue,
+  ])
+
+  const visibleLeafColumns = [
+    ...table.getLeftVisibleLeafColumns(),
+    ...table.getCenterVisibleLeafColumns(),
+    ...table.getRightVisibleLeafColumns(),
+  ]
   const totalLeafWidth = visibleLeafColumns.reduce(
     (sum, column) => sum + column.getSize(),
     0
@@ -320,7 +425,8 @@ export function DataTable<TData, TValue>({
       ? (viewportWidth - totalLeafWidth) / visibleLeafColumns.length
       : 0
   const getDisplayWidth = React.useCallback(
-    (_columnId: string, fallbackWidth: number) => fallbackWidth + extraWidthPerColumn,
+    (_columnId: string, fallbackWidth: number) =>
+      fallbackWidth + extraWidthPerColumn,
     [extraWidthPerColumn]
   )
   const tableDisplayWidth =
@@ -370,7 +476,9 @@ export function DataTable<TData, TValue>({
             ? '-2px 0 0 hsl(var(--border) / 0.7)'
             : undefined,
         left:
-          pinned === 'left' ? `${leftPinnedOffsets.get(column.id) ?? 0}px` : undefined,
+          pinned === 'left'
+            ? `${leftPinnedOffsets.get(column.id) ?? 0}px`
+            : undefined,
         position: 'sticky' as const,
         right:
           pinned === 'right'
@@ -379,7 +487,12 @@ export function DataTable<TData, TValue>({
         zIndex: 2,
       }
     },
-    [leftPinnedColumns, leftPinnedOffsets, rightPinnedColumns, rightPinnedOffsets]
+    [
+      leftPinnedColumns,
+      leftPinnedOffsets,
+      rightPinnedColumns,
+      rightPinnedOffsets,
+    ]
   )
 
   const getHeaderDisplayWidth = React.useCallback(
@@ -391,7 +504,10 @@ export function DataTable<TData, TValue>({
           .reduce(
             (sum, leafHeader) =>
               sum +
-              getDisplayWidth(leafHeader.column.id, leafHeader.column.getSize()),
+              getDisplayWidth(
+                leafHeader.column.id,
+                leafHeader.column.getSize()
+              ),
             0
           )
       }
@@ -439,7 +555,9 @@ export function DataTable<TData, TValue>({
               searchableColumn.setFilterValue(nextValue)
             }}
             placeholder={searchPlaceholder}
-            value={(searchValue ?? searchableColumn.getFilterValue() ?? '') as string}
+            value={
+              (searchValue ?? searchableColumn.getFilterValue() ?? '') as string
+            }
           />
         ) : null}
         {renderToolbar ? renderToolbar(table) : null}
@@ -453,59 +571,92 @@ export function DataTable<TData, TValue>({
         )}
       >
         <div
-          className={cn(fillHeight && 'min-h-0 flex-1')}
+          className={cn(
+            fillHeight && !virtualizeRows && 'min-h-0 flex-1',
+            virtualizeRows && 'overflow-auto'
+          )}
+          data-virtualized={virtualizeRows || undefined}
           ref={viewportRef}
+          style={virtualizeRows ? { height: virtualHeight } : undefined}
         >
           <Table
-            className='text-sm'
+            className={cn('text-sm', virtualizeRows && 'border-separate border-spacing-0')}
             containerClassName={cn(
               'w-full',
-              fillHeight ? 'min-h-0 h-full overflow-auto' : 'overflow-auto'
+              virtualizeRows
+                ? 'overflow-visible'
+                : fillHeight
+                  ? 'min-h-0 h-full overflow-auto'
+                  : 'overflow-auto'
             )}
-            style={{ width: tableDisplayWidth || '100%' }}
+            aria-rowcount={
+              virtualizeRows
+                ? rows.length + table.getHeaderGroups().length
+                : undefined
+            }
+            style={{
+              width: tableDisplayWidth || '100%',
+              tableLayout: virtualizeRows ? 'fixed' : undefined,
+            }}
           >
-            <TableHeader>
+            <colgroup>
+              {visibleLeafColumns.map((column) => (
+                <col
+                  key={column.id}
+                  style={{
+                    width: getDisplayWidth(column.id, column.getSize()),
+                  }}
+                />
+              ))}
+            </colgroup>
+            <TableHeader
+              className={virtualizeRows ? 'sticky top-0 z-10 bg-background' : undefined}
+              ref={headerRef}
+            >
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
                     <TableHead
                       className={cn(
-                        'h-11 border-b border-border/70 bg-background/96 px-3 text-sm font-semibold',
+                        'h-11 border-b border-border/70 bg-background px-3 text-sm font-semibold',
                         header.column.columnDef.meta?.headerClassName
                       )}
+                      colSpan={header.colSpan}
                       key={header.id}
                       style={{
                         ...getPinnedCellStyles(header.column),
                         width: getHeaderDisplayWidth(header),
                       }}
                     >
-                      {header.isPlaceholder
-                        ? null
-                        : header.column.columnDef.meta?.expandableGroup &&
-                            header.subHeaders.length > 0 ? (
-                              <button
-                                className='inline-flex items-center gap-1.5 font-semibold'
-                                onClick={() => toggleColumnGroup(header.column.id)}
-                                type='button'
-                              >
-                                <span>
-                                  {flexRender(
-                                    header.column.columnDef.header,
-                                    header.getContext()
-                                  )}
-                                </span>
-                                {expandedGroups[header.column.id] ? (
-                                  <ChevronDownIcon className='size-4' />
-                                ) : (
-                                  <ChevronRightIcon className='size-4' />
-                                )}
-                              </button>
-                            ) : (
-                              flexRender(
-                                header.column.columnDef.header,
-                                header.getContext()
-                              )
+                      {header.isPlaceholder ? null : header.column.columnDef
+                          .meta?.expandableGroup &&
+                        header.subHeaders.length > 0 ? (
+                        <button
+                          className='inline-flex items-center gap-1.5 font-semibold'
+                          aria-expanded={Boolean(
+                            expandedGroups[header.column.id]
+                          )}
+                          onClick={() => toggleColumnGroup(header.column.id)}
+                          type='button'
+                        >
+                          <span>
+                            {flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
                             )}
+                          </span>
+                          {expandedGroups[header.column.id] ? (
+                            <ChevronDownIcon className='size-4' />
+                          ) : (
+                            <ChevronRightIcon className='size-4' />
+                          )}
+                        </button>
+                      ) : (
+                        flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )
+                      )}
                     </TableHead>
                   ))}
                 </TableRow>
@@ -513,10 +664,16 @@ export function DataTable<TData, TValue>({
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                Array.from({ length: resolvedPagination.pageSize }).map((_, rowIndex) => (
+                Array.from({
+                  length: virtualizeRows
+                    ? Math.ceil(virtualHeight / 48)
+                    : resolvedPagination.pageSize,
+                }).map((_, rowIndex) => (
                   <TableRow key={`loading-${rowIndex}`}>
-                    {columns.map((column, columnIndex) => (
-                      <TableCell key={`${rowIndex}-${column.id ?? columnIndex}`}>
+                    {visibleLeafColumns.map((column, columnIndex) => (
+                      <TableCell
+                        key={`${rowIndex}-${column.id ?? columnIndex}`}
+                      >
                         <Skeleton className='h-5 w-full max-w-[140px]' />
                       </TableCell>
                     ))}
@@ -524,7 +681,7 @@ export function DataTable<TData, TValue>({
                 ))
               ) : error ? (
                 <TableRow>
-                  <TableCell colSpan={columns.length}>
+                  <TableCell colSpan={Math.max(visibleLeafColumns.length, 1)}>
                     <ErrorState
                       description={error}
                       onRetry={onRetry}
@@ -532,58 +689,94 @@ export function DataTable<TData, TValue>({
                     />
                   </TableCell>
                 </TableRow>
-              ) : table.getRowModel().rows.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    data-state={row.getIsSelected() && 'selected'}
-                    key={row.id}
-                  >
-                    {row.getVisibleCells().map((cell) => (
+              ) : rows.length ? (
+                <>
+                  {virtualizeRows && paddingTop > 0 ? (
+                    <TableRow aria-hidden='true'>
                       <TableCell
-                        className={cn(
-                          'px-3 py-3',
-                          cell.column.columnDef.meta?.cellClassName
-                        )}
-                        key={cell.id}
-                        style={{
-                          ...getPinnedCellStyles(cell.column),
-                          width: getDisplayWidth(cell.column.id, cell.column.getSize()),
-                        }}
-                      >
-                        {(() => {
-                          const renderedValue = flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
-                          )
-
-                          if (React.isValidElement(renderedValue)) {
-                            return renderedValue
-                          }
-
-                          if (
-                            typeof renderedValue === 'string' ||
-                            typeof renderedValue === 'number'
-                          ) {
-                            return (
-                              <DataTableText
-                                maxChars={
-                                  cell.column.columnDef.meta?.maxChars ?? defaultCellMaxChars
-                                }
-                                tooltip={cell.column.columnDef.meta?.tooltip}
-                                value={`${renderedValue}`}
-                              />
+                        colSpan={visibleLeafColumns.length}
+                        style={{ height: paddingTop, padding: 0, border: 0 }}
+                      />
+                    </TableRow>
+                  ) : null}
+                  {renderedRows.map(({ row, index }) => (
+                    <TableRow
+                      aria-rowindex={
+                        virtualizeRows
+                          ? index + table.getHeaderGroups().length + 1
+                          : undefined
+                      }
+                      data-index={index}
+                      data-row-id={row.id}
+                      ref={
+                        virtualizeRows ? virtualizer.measureElement : undefined
+                      }
+                      data-state={row.getIsSelected() && 'selected'}
+                      key={row.id}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell
+                          className={cn(
+                            'px-3 py-3',
+                            virtualizeRows && 'border-b border-border/70',
+                            cell.column.columnDef.meta?.cellClassName
+                          )}
+                          key={cell.id}
+                          style={{
+                            ...getPinnedCellStyles(cell.column),
+                            width: getDisplayWidth(
+                              cell.column.id,
+                              cell.column.getSize()
+                            ),
+                          }}
+                        >
+                          {(() => {
+                            const renderedValue = flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
                             )
-                          }
 
-                          return renderedValue
-                        })()}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
+                            if (React.isValidElement(renderedValue)) {
+                              return renderedValue
+                            }
+
+                            if (
+                              typeof renderedValue === 'string' ||
+                              typeof renderedValue === 'number'
+                            ) {
+                              return (
+                                <DataTableText
+                                  maxChars={
+                                    cell.column.columnDef.meta?.maxChars ??
+                                    defaultCellMaxChars
+                                  }
+                                  tooltip={cell.column.columnDef.meta?.tooltip}
+                                  value={`${renderedValue}`}
+                                />
+                              )
+                            }
+
+                            return renderedValue
+                          })()}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                  {virtualizeRows && paddingBottom > 0 ? (
+                    <TableRow aria-hidden='true'>
+                      <TableCell
+                        colSpan={visibleLeafColumns.length}
+                        style={{ height: paddingBottom, padding: 0, border: 0 }}
+                      />
+                    </TableRow>
+                  ) : null}
+                </>
               ) : (
                 <TableRow>
-                  <TableCell className='p-6' colSpan={columns.length}>
+                  <TableCell
+                    className='p-6'
+                    colSpan={Math.max(visibleLeafColumns.length, 1)}
+                  >
                     {emptyState ?? (
                       <div className='text-center text-sm text-muted-foreground'>
                         No results.
@@ -596,7 +789,15 @@ export function DataTable<TData, TValue>({
           </Table>
         </div>
 
-        <DataTablePagination table={table} variant={toolbarVariant} />
+        {enablePagination ? (
+          <DataTablePagination
+            disabled={isLoading}
+            hasNextPage={hasNextPage}
+            pageSizeOptions={pageSizeOptions}
+            table={table}
+            variant={toolbarVariant}
+          />
+        ) : null}
       </div>
     </div>
   )

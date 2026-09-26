@@ -1,89 +1,25 @@
-import * as React from 'react'
-import { toast } from 'sonner'
-
-import {
-  mock{{pascalName}}Records,
-  type {{pascalName}}Record,
-  type {{pascalName}}Status,
-} from '@/features/{{pluralKebabName}}/data/mock-{{pluralKebabName}}'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { list{{pascalName}}Records, get{{pascalName}}Record, create{{pascalName}}Record, update{{pascalName}}Record, change{{pascalName}}RecordsStatus, type {{pascalName}}ListParams } from '@/features/{{pluralKebabName}}/api/{{pluralKebabName}}'
 import type { {{pascalName}}FormValues } from '@/features/{{pluralKebabName}}/lib/schema'
+import type { {{pascalName}}Status } from '@/features/{{pluralKebabName}}/data/mock-{{pluralKebabName}}'
 
-function createRecordId() {
-  return '{{kebabName}}-' + Math.random().toString(36).slice(2, 8)
+export const {{camelName}}QueryKeys = {
+  all: ['{{pluralKebabName}}'] as const,
+  list: (params: {{pascalName}}ListParams) => ['{{pluralKebabName}}', 'list', params] as const,
+  detail: (id: string) => ['{{pluralKebabName}}', 'detail', id] as const,
 }
 
-function createUpdatedAtValue() {
-  return new Date().toISOString().slice(0, 16).replace('T', ' ')
+export function use{{pascalName}}List(params: {{pascalName}}ListParams) {
+  return useQuery({ queryKey: {{camelName}}QueryKeys.list(params), queryFn: () => list{{pascalName}}Records(params) })
 }
-
-export function use{{pascalName}}Crud() {
-  const [items, setItems] = React.useState<{{pascalName}}Record[]>(() => mock{{pascalName}}Records)
-
-  const getById = React.useCallback(
-    (recordId?: string | null) =>
-      items.find((item) => item.id === recordId) ?? null,
-    [items]
-  )
-
-  const createItem = React.useCallback((values: {{pascalName}}FormValues) => {
-    const nextRecord: {{pascalName}}Record = {
-      id: createRecordId(),
-      updatedAt: createUpdatedAtValue(),
-      ...values,
-    }
-
-    setItems((previous) => [nextRecord, ...previous])
-    toast.success('{{pascalName}} created successfully.')
-
-    return nextRecord
-  }, [])
-
-  const updateItem = React.useCallback(
-    (recordId: string, values: {{pascalName}}FormValues) => {
-      setItems((previous) =>
-        previous.map((item) =>
-          item.id === recordId
-            ? {
-                ...item,
-                ...values,
-                updatedAt: createUpdatedAtValue(),
-              }
-            : item
-        )
-      )
-      toast.success('{{pascalName}} updated successfully.')
-    },
-    []
-  )
-
-  const changeItemsStatus = React.useCallback(
-    (recordIds: string[], status: {{pascalName}}Status) => {
-      setItems((previous) =>
-        previous.map((item) =>
-          recordIds.includes(item.id)
-            ? {
-                ...item,
-                status,
-                updatedAt: createUpdatedAtValue(),
-              }
-            : item
-        )
-      )
-
-      toast.success(
-        status === 'Archived'
-          ? 'Selected records were archived.'
-          : 'Selected records were activated.'
-      )
-    },
-    []
-  )
-
-  return {
-    items,
-    getById,
-    createItem,
-    updateItem,
-    changeItemsStatus,
-  }
+export function use{{pascalName}}Detail(id?: string) {
+  return useQuery({ queryKey: {{camelName}}QueryKeys.detail(id ?? ''), queryFn: () => get{{pascalName}}Record(id!), enabled: Boolean(id) })
+}
+export function use{{pascalName}}Mutations() {
+  const client = useQueryClient()
+  const refresh = () => client.invalidateQueries({ queryKey: {{camelName}}QueryKeys.all })
+  const create = useMutation({ mutationFn: create{{pascalName}}Record, onSuccess: refresh })
+  const update = useMutation({ mutationFn: ({ id, values }: { id: string; values: {{pascalName}}FormValues }) => update{{pascalName}}Record(id, values), onSuccess: refresh })
+  const changeStatus = useMutation({ mutationFn: ({ ids, status }: { ids: string[]; status: {{pascalName}}Status }) => change{{pascalName}}RecordsStatus(ids, status), onSuccess: refresh })
+  return { create, update, changeStatus }
 }

@@ -138,6 +138,13 @@ describe('@stratix/create', () => {
       devDependencies: Record<string, string>;
     }>(path.join(projectDir, 'package.json'));
 
+    const dependencies = readJson<{ dependencies: Record<string, string> }>(path.join(projectDir, 'package.json')).dependencies;
+    assert.equal(dependencies['@tanstack/react-form'], '1.33.2');
+    assert.equal(packageJson.devDependencies['@stratix/forge'], '^1.2.0');
+    for (const name of ['router', 'table', 'query', 'virtual']) assert.ok(dependencies['@tanstack/react-' + name]);
+    assert.equal(dependencies['react-hook-form'], undefined);
+    assert.ok(fs.existsSync(path.join(projectDir, 'src/components/admin/forms/form-dialog.tsx')));
+    assert.equal(fs.existsSync(path.join(projectDir, 'src/components/admin/forms/form-sheet.tsx')), false);
     assert.equal(packageJson.scripts.lint, 'oxlint --type-aware .');
     assert.equal(packageJson.devDependencies.typescript, '^7.0.2');
     assert.equal(packageJson.devDependencies.oxlint, '^1.75.0');

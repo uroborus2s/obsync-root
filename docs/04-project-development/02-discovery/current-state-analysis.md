@@ -334,3 +334,9 @@ tarball 元数据、无驱动 strict consumer 和完整 `quality:release` 均通
 | 2026-07-24 | 完成 `BUG-007`：`@stratix/database@1.1.1` 将 Core peer 修正为 `^1.1.0` 并发布到配置的 Aliyun registry；Database 49/49 tests、完整 `quality:release`、精确版本、`latest` 和发布后 peer 反查通过；真实 public npmjs 查询返回 404                                                                                                                                                                                                                                          | Codex  |
 | 2026-07-24 | 修复 `BUG-008`：generated consumer smoke 通过临时 `pnpm-workspace.yaml` override 使用 workspace Core，不再隐式依赖用户级 Aliyun registry；无用户 npm 配置且显式使用 npmjs 的 smoke 与完整 `quality:release` 通过，PR #1 远端复验待推送                                                                                                                                                                                                    | Codex  |
 | 2026-07-24 | 完成 `CR-003`：`@stratix/database` 保持 Core 为必需 peer，将五个方言专属驱动标为 optional peers；Database 50/50 tests、tarball、无驱动 strict consumer 和完整 `quality:release` 通过；增加 patch changeset，版本仍为 `1.1.1`，未发布 registry                                                                                                                                        | Codex  |
+
+## 2026-09-26：CR-004 管理后台公共基础
+
+Create 模板、Forge CRUD/page 生成器与 web-admin-preview 同步丰富公共组件。保留 TanStack Router/Table/Query，新增 TanStack Form 并移除 RHF；简单新建改居中 FormDialog。新增公共 PageHeader/CreateButton，分页支持真实总数或未知总量，大表格使用可选 TanStack Virtual。CRUD 生成器输出 Query hooks、URL 状态、可运行 mock/HTTP API 边界与契约测试。
+
+本地 preview 34 项、生成消费者 38 项测试和各自 build（含 tsc）通过；Create 7 项通过，Forge 70 项通过。浏览器覆盖登录、新建、校验、关闭保值、小屏、虚拟行与分页。文档校验 89 pages / 0 contracts。完整证据、集中评审及最终状态以 `.factory/workitems/CR-004/` 为准；本轮未进行 npm 发布、部署或真实业务验收。
